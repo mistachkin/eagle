@@ -16,12 +16,30 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class holds the metadata describing a managed delegate that has
+    /// been exposed to an interpreter, including the delegate itself, the flags
+    /// that control its behavior, and the token used to identify it.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("bda671f4-34f0-4ba7-b90e-cd04e780a4c0")]
     public class DelegateData : IDelegateData
     {
+        /// <summary>
+        /// Constructs a delegate data instance wrapping the specified delegate,
+        /// flags, and token.
+        /// </summary>
+        /// <param name="delegate">
+        /// The managed delegate to be wrapped.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The flags controlling the behavior of the wrapped delegate.
+        /// </param>
+        /// <param name="token">
+        /// The token used to identify this delegate within the interpreter.
+        /// </param>
         public DelegateData(
             Delegate @delegate,
             DelegateFlags delegateFlags,
@@ -38,7 +56,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of this delegate data.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of this delegate data.
+        /// </summary>
         public virtual string Name
         {
             get { return name; }
@@ -49,7 +73,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// Stores the identifier kind of this delegate data.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the identifier kind of this delegate data.
+        /// </summary>
         public virtual IdentifierKind Kind
         {
             get { return kind; }
@@ -58,7 +88,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the globally unique identifier of this delegate data.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the globally unique identifier of this delegate data.
+        /// </summary>
         public virtual Guid Id
         {
             get { return id; }
@@ -69,7 +105,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the client data associated with this delegate data.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with this delegate data.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -80,7 +122,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// Stores the group of this delegate data.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group of this delegate data.
+        /// </summary>
         public virtual string Group
         {
             get { return group; }
@@ -89,7 +137,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the description of this delegate data.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the description of this delegate data.
+        /// </summary>
         public virtual string Description
         {
             get { return description; }
@@ -100,7 +154,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDynamicExecuteDelegate Members
+        /// <summary>
+        /// Stores the managed delegate wrapped by this delegate data.
+        /// </summary>
         private Delegate @delegate;
+        /// <summary>
+        /// Gets or sets the managed delegate wrapped by this delegate data.
+        /// </summary>
         public virtual Delegate Delegate
         {
             get { return @delegate; }
@@ -111,7 +171,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDelegateData Members
+        /// <summary>
+        /// Stores the flags controlling the behavior of the wrapped delegate.
+        /// </summary>
         private DelegateFlags delegateFlags;
+        /// <summary>
+        /// Gets or sets the flags controlling the behavior of the wrapped
+        /// delegate.
+        /// </summary>
         public virtual DelegateFlags DelegateFlags
         {
             get { return delegateFlags; }
@@ -122,7 +189,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IWrapperData Members
+        /// <summary>
+        /// Stores the token used to identify this delegate data within the
+        /// interpreter.
+        /// </summary>
         private long token;
+        /// <summary>
+        /// Gets or sets the token used to identify this delegate data within
+        /// the interpreter.
+        /// </summary>
         public virtual long Token
         {
             get { return token; }
@@ -133,6 +208,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string representation of this delegate data
+        /// using its name only.
+        /// </summary>
+        /// <returns>
+        /// The name of this delegate data, or an empty string when it has no
+        /// name.
+        /// </returns>
         public override string ToString()
         {
             return (name != null) ? name : String.Empty;

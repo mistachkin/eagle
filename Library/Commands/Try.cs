@@ -20,13 +20,30 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>try</c> command, which evaluates a
+    /// body script and, optionally, a <c>finally</c> block that is always
+    /// evaluated afterward regardless of how the body completes.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("3bc552ff-e29e-4855-a208-30517268c60d")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("control")]
     internal sealed class Try : Core
     {
+        /// <summary>
+        /// The literal keyword that must precede the optional finally block
+        /// script in the argument list.
+        /// </summary>
         private const string Finally = "finally";
 
+        /// <summary>
+        /// Constructs an instance of the <c>try</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Try(
             ICommandData commandData
             )
@@ -36,11 +53,48 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>try</c> command.  It evaluates the body
+        /// script within a tracking call frame and, when a <c>finally</c>
+        /// block is supplied, always evaluates that block afterward, honoring
+        /// the interpreter flags that govern cancel, exit, and timeout
+        /// handling during the finally block.  The overall result and return
+        /// code are normally those of the body, unless the finally block
+        /// fails, in which case they are those of the finally block.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the body script; an optional element
+        /// two must be the literal <c>finally</c> keyword followed by element
+        /// three, the finally block script.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the body script (or the
+        /// finally block, when applicable).  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The return code of the body script when the finally block (if any)
+        /// succeeds; otherwise, the return code of the finally block.
+        /// <see cref="ReturnCode.Error" /> is returned when the wrong number
+        /// of arguments is supplied, the third argument is not the literal
+        /// <c>finally</c> keyword, the interpreter is null, or the argument
+        /// list is null, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

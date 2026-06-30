@@ -26,6 +26,14 @@ using _PublicKey = Eagle._Components.Shared.PublicKey;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the support methods used by the software update
+    /// subsystem.  It holds the set of public keys that are trusted for
+    /// signing core library updates and manages the X.509 certificate
+    /// validation policy (both the modern callback-based mechanism and the
+    /// legacy <c>ICertificatePolicy</c> mechanism) used when
+    /// downloading updates over a secure connection.
+    /// </summary>
     [ObjectId("711b1e60-8516-4f41-ba61-89c48f904d0a")]
     internal static class UpdateOps
     {
@@ -36,6 +44,10 @@ namespace Eagle._Components.Private
         //       "PublicKey1", "PublicKey2", "PublicKey3", "PublicKey4", and
         //       "PublicKey5".
         //
+        /// <summary>
+        /// The object used to synchronize access to the trusted public key
+        /// fields.
+        /// </summary>
         private static readonly object publicKeySyncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -49,6 +61,11 @@ namespace Eagle._Components.Private
         //       In the future, newer builds of Eagle may start refusing to
         //       trust this key.
         //
+        /// <summary>
+        /// The first public key trusted for signing core library updates; this
+        /// is the legacy (2048-bit) key trusted by the majority of published
+        /// Eagle builds.  Setting it to null disables its use.
+        /// </summary>
         private static byte[] PublicKey1 = _PublicKey.SoftwareUpdate1;
 
         ///////////////////////////////////////////////////////////////////////
@@ -60,6 +77,11 @@ namespace Eagle._Components.Private
         //       key is only recognized by builds of Eagle that are Beta 32 or
         //       later.
         //
+        /// <summary>
+        /// A second public key trusted for signing core library updates; this
+        /// key is only recognized by builds of Eagle that are Beta 32 or later.
+        /// Setting it to null disables its use.
+        /// </summary>
         private static byte[] PublicKey2 = _PublicKey.SoftwareUpdate2;
 
         ///////////////////////////////////////////////////////////////////////
@@ -71,6 +93,11 @@ namespace Eagle._Components.Private
         //       key is only recognized by builds of Eagle that are Beta 32 or
         //       later.
         //
+        /// <summary>
+        /// A third public key trusted for signing core library updates; this
+        /// key is only recognized by builds of Eagle that are Beta 32 or later.
+        /// Setting it to null disables its use.
+        /// </summary>
         private static byte[] PublicKey3 = _PublicKey.SoftwareUpdate3;
 
         ///////////////////////////////////////////////////////////////////////
@@ -82,6 +109,11 @@ namespace Eagle._Components.Private
         //       key is only recognized by builds of Eagle that are Beta 32 or
         //       later.
         //
+        /// <summary>
+        /// A fourth public key trusted for signing core library updates; this
+        /// key is only recognized by builds of Eagle that are Beta 32 or later.
+        /// Setting it to null disables its use.
+        /// </summary>
         private static byte[] PublicKey4 = _PublicKey.SoftwareUpdate4;
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,6 +123,10 @@ namespace Eagle._Components.Private
         //       and applications; however, it is not public because it is
         //       not intended to be used lightly.
         //
+        /// <summary>
+        /// An auxiliary public key reserved for use by third-party plugins and
+        /// applications; it is null (and therefore unused) by default.
+        /// </summary>
         private static byte[] PublicKey5 = null;
         #endregion
 
@@ -100,6 +136,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the trusted state
+        /// lock, or zero if it is not held.
+        /// </summary>
         private static long trustedLockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -108,6 +148,10 @@ namespace Eagle._Components.Private
         // NOTE: This lock is used to synchronize access to the trusted
         //       state, e.g. callbacks, etc.
         //
+        /// <summary>
+        /// The object used to synchronize access to the trusted state (e.g. the
+        /// certificate validation callbacks).
+        /// </summary>
         private static readonly object trustedSyncRoot = new object();
         #endregion
 
@@ -117,6 +161,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the exclusive
+        /// mode lock, or zero if it is not held.
+        /// </summary>
         private static long exclusiveLockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -125,6 +173,9 @@ namespace Eagle._Components.Private
         // NOTE: This lock is used to synchronize access to the static field
         //       "exclusive".
         //
+        /// <summary>
+        /// The object used to synchronize access to the exclusive mode flag.
+        /// </summary>
         private static readonly object exclusiveSyncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -133,6 +184,11 @@ namespace Eagle._Components.Private
         // NOTE: This is the "exclusive" mode flag used with the "trusted"
         //       certificate status flag.
         //
+        /// <summary>
+        /// When non-zero, exclusive mode is enabled, which causes even
+        /// platform-valid certificates to be subjected to the trusted public
+        /// key check rather than being accepted automatically.
+        /// </summary>
         private static bool exclusive = false;
         #endregion
 
@@ -144,6 +200,11 @@ namespace Eagle._Components.Private
         // HACK: This is purposely not read-only; however, it is logically a
         //       constant.
         //
+        /// <summary>
+        /// When non-zero, the legacy <c>ICertificatePolicy</c>
+        /// mechanism is used instead of the modern certificate validation
+        /// callback; it is logically a constant.
+        /// </summary>
         private static bool useLegacyCertificatePolicy = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -151,6 +212,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the certificate
+        /// policy lock, or zero if it is not held.
+        /// </summary>
         private static long certificatePolicyLockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -160,15 +225,31 @@ namespace Eagle._Components.Private
         //       "savedCertificatePolicy", "haveSavedCertificatePolicy", and
         //       "certificatePolicy".
         //
+        /// <summary>
+        /// The object used to synchronize access to the saved and active
+        /// certificate policy fields.
+        /// </summary>
         private static readonly object certificatePolicySyncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The certificate policy that was in effect before the legacy policy
+        /// was enabled, saved so that it can be restored later.
+        /// </summary>
         private static ICertificatePolicy savedCertificatePolicy;
+        /// <summary>
+        /// When non-zero, a previous certificate policy has been saved in
+        /// <see cref="savedCertificatePolicy" /> and can be restored.
+        /// </summary>
         private static bool haveSavedCertificatePolicy;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The shared <c>ICertificatePolicy</c> instance used to
+        /// validate certificates when the legacy policy mechanism is active.
+        /// </summary>
         private static readonly ICertificatePolicy certificatePolicy =
             new CertificatePolicy();
 #endif
@@ -180,6 +261,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the certificate
+        /// validation callback lock, or zero if it is not held.
+        /// </summary>
         private static long callbackLockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -188,6 +273,11 @@ namespace Eagle._Components.Private
         // NOTE: This lock is used to synchronize access to the property
         //       "ServicePointManager.ServerCertificateValidationCallback".
         //
+        /// <summary>
+        /// The object used to synchronize access to the
+        /// <c>ServicePointManager.ServerCertificateValidationCallback</c>
+        /// property.
+        /// </summary>
         private static readonly object callbackSyncRoot = new object();
         #endregion
         #endregion
@@ -195,6 +285,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Methods
+        /// <summary>
+        /// This method returns the identifier of the thread that currently
+        /// holds the trusted state lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread holding the lock, or zero if it is not
+        /// held.
+        /// </returns>
         private static long MaybeWhoHasTrustedLock()
         {
             return Interlocked.CompareExchange(
@@ -203,6 +301,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the current thread holds the trusted state
+        /// lock, but only when the lock was actually acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the trusted state lock was acquired by the current
+        /// thread.
+        /// </param>
         private static void MaybeSomebodyHasTrustedLock(
             bool locked /* in */
             )
@@ -217,6 +323,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that no thread holds the trusted state lock, but
+        /// only when the current thread is about to release it.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the trusted state lock is currently held by the current
+        /// thread.
+        /// </param>
         private static void MaybeNobodyHasTrustedLock(
             bool locked /* in */
             )
@@ -231,6 +345,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the trusted state lock without
+        /// blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is non-zero if the trusted state lock was acquired
+        /// by the current thread.
+        /// </param>
         public static void TryTrustedLock(
             ref bool locked /* out */
             )
@@ -244,6 +366,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the trusted state lock when it is currently
+        /// held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the trusted state lock is held by the
+        /// current thread; upon return, this is zero.
+        /// </param>
         public static void ExitTrustedLock(
             ref bool locked /* in, out */
             )
@@ -261,6 +391,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the identifier of the thread that currently
+        /// holds the exclusive mode lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread holding the lock, or zero if it is not
+        /// held.
+        /// </returns>
         private static long MaybeWhoHasExclusiveLock()
         {
             return Interlocked.CompareExchange(
@@ -269,6 +407,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the current thread holds the exclusive mode
+        /// lock, but only when the lock was actually acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the exclusive mode lock was acquired by the current
+        /// thread.
+        /// </param>
         private static void MaybeSomebodyHasExclusiveLock(
             bool locked /* in */
             )
@@ -283,6 +429,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that no thread holds the exclusive mode lock,
+        /// but only when the current thread is about to release it.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the exclusive mode lock is currently held by the current
+        /// thread.
+        /// </param>
         private static void MaybeNobodyHasExclusiveLock(
             bool locked /* in */
             )
@@ -297,6 +451,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the exclusive mode lock without
+        /// blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is non-zero if the exclusive mode lock was
+        /// acquired by the current thread.
+        /// </param>
         private static void TryExclusiveLock(
             ref bool locked /* out */
             )
@@ -310,6 +472,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the exclusive mode lock when it is currently
+        /// held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the exclusive mode lock is held by the
+        /// current thread; upon return, this is zero.
+        /// </param>
         private static void ExitExclusiveLock(
             ref bool locked /* in, out */
             )
@@ -328,6 +498,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method returns the identifier of the thread that currently
+        /// holds the certificate policy lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread holding the lock, or zero if it is not
+        /// held.
+        /// </returns>
         private static long MaybeWhoHasCertificatePolicyLock()
         {
             return Interlocked.CompareExchange(
@@ -336,6 +514,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the current thread holds the certificate
+        /// policy lock, but only when the lock was actually acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the certificate policy lock was acquired by the current
+        /// thread.
+        /// </param>
         private static void MaybeSomebodyHasCertificatePolicyLock(
             bool locked /* in */
             )
@@ -351,6 +537,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that no thread holds the certificate policy
+        /// lock, but only when the current thread is about to release it.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the certificate policy lock is currently held by the
+        /// current thread.
+        /// </param>
         private static void MaybeNobodyHasCertificatePolicyLock(
             bool locked /* in */
             )
@@ -366,6 +560,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the certificate policy lock without
+        /// blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is non-zero if the certificate policy lock was
+        /// acquired by the current thread.
+        /// </param>
         private static void TryCertificatePolicyLock(
             ref bool locked /* out */
             )
@@ -379,6 +581,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the certificate policy lock when it is
+        /// currently held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the certificate policy lock is held by the
+        /// current thread; upon return, this is zero.
+        /// </param>
         private static void ExitCertificatePolicyLock(
             ref bool locked /* in, out */
             )
@@ -397,6 +607,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the identifier of the thread that currently
+        /// holds the certificate validation callback lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread holding the lock, or zero if it is not
+        /// held.
+        /// </returns>
         private static long MaybeWhoHasCallbackLock()
         {
             return Interlocked.CompareExchange(
@@ -405,6 +623,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the current thread holds the certificate
+        /// validation callback lock, but only when the lock was actually
+        /// acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the certificate validation callback lock was acquired by
+        /// the current thread.
+        /// </param>
         private static void MaybeSomebodyHasCallbackLock(
             bool locked /* in */
             )
@@ -419,6 +646,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that no thread holds the certificate validation
+        /// callback lock, but only when the current thread is about to release
+        /// it.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the certificate validation callback lock is currently
+        /// held by the current thread.
+        /// </param>
         private static void MaybeNobodyHasCallbackLock(
             bool locked /* in */
             )
@@ -433,6 +669,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the certificate validation callback
+        /// lock without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is non-zero if the certificate validation callback
+        /// lock was acquired by the current thread.
+        /// </param>
         private static void TryCallbackLock(
             ref bool locked /* out */
             )
@@ -446,6 +690,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the certificate validation callback lock when
+        /// it is currently held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the certificate validation callback lock is
+        /// held by the current thread; upon return, this is zero.
+        /// </param>
         private static void ExitCallbackLock(
             ref bool locked /* in, out */
             )
@@ -465,6 +717,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Introspection Methods
+        /// <summary>
+        /// This method appends a human-readable summary of the current state
+        /// of the software update subsystem (e.g. trusted status, exclusive
+        /// mode, trusted public keys, and the active certificate policy) to the
+        /// specified list, for introspection purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the status information is appended; it is created
+        /// first if it is null.
+        /// </param>
         public static void GetStatus(
             ref StringList list /* in, out */
             )
@@ -498,6 +760,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Exclusive Mode Support Methods
+        /// <summary>
+        /// This method determines whether exclusive mode is currently enabled.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if exclusive mode is enabled, zero if it is disabled, or
+        /// null if the exclusive mode lock could not be acquired.
+        /// </returns>
         public static bool? IsExclusive()
         {
             bool locked = false;
@@ -527,6 +796,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables exclusive mode.
+        /// </summary>
+        /// <param name="exclusive">
+        /// Non-zero to enable exclusive mode; zero to disable it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetExclusive(
             bool exclusive,  /* in */
             ref Result error /* out */
@@ -596,6 +878,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Trusted Status Support Methods
+        /// <summary>
+        /// This method determines whether the software update trusted status is
+        /// currently enabled, dispatching to either the legacy or modern
+        /// implementation as appropriate.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the trusted status is enabled, zero if it is disabled,
+        /// or null if the status could not be determined.
+        /// </returns>
         public static bool? IsTrusted()
         {
             bool? useLegacy = ShouldUseLegacyCertificatePolicy();
@@ -617,6 +908,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the software update trusted status,
+        /// dispatching to either the legacy or modern implementation as
+        /// appropriate.
+        /// </summary>
+        /// <param name="trusted">
+        /// Non-zero to enable the trusted status; zero to disable it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetTrusted(
             bool trusted,    /* in */
             ref Result error /* out */
@@ -645,6 +951,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Modern Support Methods
+        /// <summary>
+        /// This method is the modern certificate validation callback used when
+        /// downloading software updates.  It accepts platform-valid
+        /// certificates (unless exclusive mode is enabled), exempts loopback
+        /// connections, and otherwise accepts only certificates whose public
+        /// key is one of the trusted update keys.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that initiated the request being validated.
+        /// </param>
+        /// <param name="certificate">
+        /// The certificate presented by the remote party.
+        /// </param>
+        /// <param name="chain">
+        /// The chain of certificate authorities associated with the remote
+        /// certificate.
+        /// </param>
+        /// <param name="sslPolicyErrors">
+        /// The policy errors detected by the platform for the remote
+        /// certificate.
+        /// </param>
+        /// <returns>
+        /// True if the certificate should be accepted; otherwise, false.
+        /// </returns>
         private static bool RemoteCertificateValidationCallback(
             object sender,                  /* in */
             X509Certificate certificate,    /* in */
@@ -712,6 +1042,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the modern certificate validation
+        /// callback is currently installed as the
+        /// <c>ServicePointManager.ServerCertificateValidationCallback</c>.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the callback is active, zero if it is not, or null if
+        /// the certificate validation callback lock could not be acquired.
+        /// </returns>
         private static bool? IsServerCertificateValidationCallbackActive()
         {
             bool locked = false;
@@ -744,6 +1083,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs the modern certificate validation callback as
+        /// the <c>ServicePointManager.ServerCertificateValidationCallback</c>.
+        /// </summary>
+        /// <returns>
+        /// True if the callback was installed; otherwise, false.
+        /// </returns>
         private static bool AddServerCertificateValidationCallback()
         {
             bool locked = false;
@@ -776,6 +1122,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the modern certificate validation callback from
+        /// the <c>ServicePointManager.ServerCertificateValidationCallback</c>.
+        /// </summary>
+        /// <returns>
+        /// True if the callback was removed; otherwise, false.
+        /// </returns>
         private static bool RemoveServerCertificateValidationCallback()
         {
             bool locked = false;
@@ -809,6 +1162,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Trusted Status Support Methods
+        /// <summary>
+        /// This method determines whether the trusted status is enabled using
+        /// the modern certificate validation callback mechanism.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the trusted status is enabled, zero if it is disabled,
+        /// or null if the status could not be determined.
+        /// </returns>
         private static bool? IsTrustedModern()
         {
             bool locked = false;
@@ -849,6 +1210,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the trusted status using the modern
+        /// certificate validation callback mechanism.
+        /// </summary>
+        /// <param name="trusted">
+        /// Non-zero to enable the trusted status; zero to disable it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SetTrustedModern(
             bool trusted,    /* in */
             ref Result error /* out */
@@ -955,10 +1330,39 @@ namespace Eagle._Components.Private
         #region Private Legacy Support Class & Methods
 #if !NET_STANDARD_20
         #region Private ICertificatePolicy Support Class
+        /// <summary>
+        /// This class implements the legacy <c>ICertificatePolicy</c>
+        /// used to validate certificates when downloading software updates on
+        /// platforms (such as Mono) where the modern certificate validation
+        /// callback is unavailable or undesirable.
+        /// </summary>
         [ObjectId("4062e197-ed96-4db3-87e8-f463e5fb818b")]
         private sealed class CertificatePolicy : ICertificatePolicy
         {
             #region ICertificatePolicy Members
+            /// <summary>
+            /// This method validates the certificate presented by a remote
+            /// party.  It accepts platform-valid certificates (unless exclusive
+            /// mode is enabled), exempts loopback connections, and otherwise
+            /// accepts only certificates whose public key is one of the trusted
+            /// update keys.
+            /// </summary>
+            /// <param name="srvPoint">
+            /// The service point associated with the remote party.
+            /// </param>
+            /// <param name="certificate">
+            /// The certificate presented by the remote party.
+            /// </param>
+            /// <param name="request">
+            /// The web request being validated.
+            /// </param>
+            /// <param name="certificateProblem">
+            /// The platform-defined problem code for the certificate; zero
+            /// indicates no problem.
+            /// </param>
+            /// <returns>
+            /// True if the certificate should be accepted; otherwise, false.
+            /// </returns>
             public bool CheckValidationResult(
                 ServicePoint srvPoint,       /* in */
                 X509Certificate certificate, /* in */
@@ -1025,6 +1429,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private ICertificatePolicy Support Methods
+        /// <summary>
+        /// This method determines whether the legacy certificate policy is
+        /// currently installed as the
+        /// <c>ServicePointManager.CertificatePolicy</c>.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the legacy policy is active, zero if it is not, or null
+        /// if the certificate policy lock could not be acquired.
+        /// </returns>
         private static bool? IsLegacyCertificatePolicyActive()
         {
             bool locked = false;
@@ -1056,6 +1469,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs the legacy certificate policy as the
+        /// <c>ServicePointManager.CertificatePolicy</c>, first saving the
+        /// previous policy so that it can be restored later.
+        /// </summary>
+        /// <returns>
+        /// True if the legacy policy was installed; otherwise, false.
+        /// </returns>
         private static bool EnableLegacyCertificatePolicy()
         {
             bool locked = false;
@@ -1098,6 +1519,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the previously saved certificate policy,
+        /// undoing the effect of <see cref="EnableLegacyCertificatePolicy" />.
+        /// </summary>
+        /// <returns>
+        /// True if a previously saved policy was restored; otherwise, false.
+        /// </returns>
         private static bool DisableLegacyCertificatePolicy()
         {
             bool locked = false;
@@ -1147,6 +1575,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Trusted Status Support Methods
+        /// <summary>
+        /// This method determines whether the trusted status is enabled using
+        /// the legacy certificate policy mechanism.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the trusted status is enabled, zero if it is disabled,
+        /// or null if the status could not be determined.
+        /// </returns>
         private static bool? IsTrustedLegacy()
         {
             bool locked = false;
@@ -1187,6 +1623,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the trusted status using the legacy
+        /// certificate policy mechanism.
+        /// </summary>
+        /// <param name="trusted">
+        /// Non-zero to enable the trusted status; zero to disable it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SetTrustedLegacy(
             bool trusted,    /* in */
             ref Result error /* out */
@@ -1290,6 +1740,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Legacy Support Shared Methods
+        /// <summary>
+        /// This method determines whether the legacy certificate policy
+        /// mechanism should be used instead of the modern certificate
+        /// validation callback.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the legacy mechanism should be used, zero if the modern
+        /// mechanism should be used, or null if the decision could not be
+        /// made.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -1302,6 +1762,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the legacy certificate policy
+        /// mechanism should be used instead of the modern certificate
+        /// validation callback.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the legacy mechanism should be used, zero if the modern
+        /// mechanism should be used, or null if the decision could not be
+        /// made.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -1353,6 +1826,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Trusted Certificate Support Methods
+        /// <summary>
+        /// This method appends the trusted update public keys (those that are
+        /// not null), in Base64 form, to the specified list, for introspection
+        /// purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the trusted public keys are appended; it is
+        /// created first if it is null.
+        /// </param>
         private static void GetPublicKeys(
             ref StringList list /* in, out */
             )
@@ -1423,6 +1905,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the public key of the specified
+        /// certificate matches one of the public keys trusted for signing
+        /// software updates.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate whose public key is to be checked.
+        /// </param>
+        /// <returns>
+        /// True if the certificate's public key is trusted; otherwise, false.
+        /// </returns>
         private static bool IsTrustedCertificate(
             X509Certificate certificate /* in */
             )

@@ -20,69 +20,231 @@ using DurationDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private date and time helper routines used
+    /// throughout the Eagle core, including epoch and calendar constants,
+    /// elapsed-time and duration calculations, human-readable duration
+    /// formatting, conversions between dates and tick/second/millisecond/
+    /// microsecond counts, and support for overriding the current time during
+    /// testing.
+    /// </summary>
     [ObjectId("1e868a77-dae1-45ea-bfc3-279841624af5")]
     internal static class TimeOps
     {
         #region Private Constants
+        /// <summary>
+        /// The Unix epoch (midnight, January 1st, 1970, UTC), used for
+        /// compatibility with Unix and Tcl.
+        /// </summary>
         internal static readonly DateTime UnixEpoch =
             new DateTime(1970, 1, 1, 0, 0, 0, DateTimeKind.Utc); // COMPAT: Unix, Tcl.
 
+        /// <summary>
+        /// The epoch used for timestamps within PE (portable executable) files;
+        /// this is the same as the Unix epoch.
+        /// </summary>
         internal static readonly DateTime PeEpoch = UnixEpoch; // COMPAT: PE files.
 
+        /// <summary>
+        /// The epoch used by MSBuild-style automatic build numbering (midnight,
+        /// January 1st, 2000, local time).
+        /// </summary>
         internal static readonly DateTime BuildEpoch =
             new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Local); // COMPAT: MSBuild.
 
+        /// <summary>
+        /// The divisor applied when deriving a revision number from a count of
+        /// seconds, for compatibility with MSBuild.
+        /// </summary>
         internal static int RevisionDivisor = 2; // COMPAT: MSBuild.
 
+        /// <summary>
+        /// The prefix prepended to a formatted, approximate human-readable
+        /// duration.
+        /// </summary>
         private static readonly string DurationPrefix = "approximately ";
+
+        /// <summary>
+        /// The suffix appended to a formatted human-readable duration that
+        /// refers to a time in the past.
+        /// </summary>
         private static readonly string DurationSuffix = " ago";
 
+        /// <summary>
+        /// The separator placed between the individual components of a
+        /// formatted human-readable duration.
+        /// </summary>
         private static readonly string DurationSeparator = ", ";
+
+        /// <summary>
+        /// The composite format string used to combine a duration component
+        /// value with its unit name.
+        /// </summary>
         private static readonly string DurationFormat = "{0} {1}";
 
+        /// <summary>
+        /// The ordinal number of the month of January.
+        /// </summary>
         private static readonly long MonthOfJanuary = 1;
+
+        /// <summary>
+        /// The ordinal number of the month of February.
+        /// </summary>
         private static readonly long MonthOfFebruary = 2;
+
+        /// <summary>
+        /// The ordinal number of the month of December.
+        /// </summary>
         private static readonly long MonthOfDecember = 12;
 
+        /// <summary>
+        /// The number of days in February during a non-leap year.
+        /// </summary>
         private static readonly long DaysInNormalFebruary = 28;
+
+        /// <summary>
+        /// The number of days in February during a leap year.
+        /// </summary>
         private static readonly long DaysInLeapFebruary = 29;
 
+        /// <summary>
+        /// The maximum number of seconds of elapsed time that is still
+        /// considered to be "just now".
+        /// </summary>
         private static readonly long SecondsCloseToNow = 3; // TODO: Good default?
+
+        /// <summary>
+        /// The number of seconds in a normal day.
+        /// </summary>
         private static readonly long SecondsInNormalDay = 86400;
 
+        /// <summary>
+        /// The number of months in a year.
+        /// </summary>
         private static readonly long MonthsPerYear = 12;
 
+        /// <summary>
+        /// The number of days in a normal day (i.e. one).
+        /// </summary>
         private static readonly long DaysInNormalDay = 1;
+
+        /// <summary>
+        /// The number of days in a normal week.
+        /// </summary>
         private static readonly long DaysInNormalWeek = 7 * DaysInNormalDay;
+
+        /// <summary>
+        /// The number of days in a normal (approximate) month.
+        /// </summary>
         private static readonly long DaysInNormalMonth = 30 * DaysInNormalDay;
+
+        /// <summary>
+        /// The number of days in a normal (non-leap) year.
+        /// </summary>
         private static readonly long DaysInNormalYear = 365 * DaysInNormalDay; // NOTE: Non-leap years only.
 
+        /// <summary>
+        /// The number of days in a normal decade.
+        /// </summary>
         private static readonly long DaysInNormalDecade = 10 * DaysInNormalYear;
+
+        /// <summary>
+        /// The number of days in a normal century.
+        /// </summary>
         private static readonly long DaysInNormalCentury = 10 * DaysInNormalDecade;
+
+        /// <summary>
+        /// The number of days in a normal millennium.
+        /// </summary>
         private static readonly long DaysInNormalMillennium = 10 * DaysInNormalCentury;
 
+        /// <summary>
+        /// The number of milliseconds in a second.
+        /// </summary>
         private static readonly long MillisecondsPerSecond = 1000;
+
+        /// <summary>
+        /// The number of milliseconds in a minute.
+        /// </summary>
         private static readonly long MillisecondsPerMinute = 60 * MillisecondsPerSecond;
+
+        /// <summary>
+        /// The number of milliseconds in an hour.
+        /// </summary>
         private static readonly long MillisecondsPerHour = 60 * MillisecondsPerMinute;
+
+        /// <summary>
+        /// The number of milliseconds in a day.
+        /// </summary>
         private static readonly long MillisecondsPerDay = 24 * MillisecondsPerHour;
+
+        /// <summary>
+        /// The number of milliseconds in a week.
+        /// </summary>
         private static readonly long MillisecondsPerWeek = DaysInNormalWeek * MillisecondsPerDay;
+
+        /// <summary>
+        /// The number of milliseconds in a normal (approximate) month.
+        /// </summary>
         private static readonly long MillisecondsPerMonth = DaysInNormalMonth * MillisecondsPerDay;
+
+        /// <summary>
+        /// The number of milliseconds in a normal (non-leap) year.
+        /// </summary>
         private static readonly long MillisecondsPerYear = DaysInNormalYear * MillisecondsPerDay;
+
+        /// <summary>
+        /// The number of milliseconds in a normal decade.
+        /// </summary>
         private static readonly long MillisecondsPerDecade = 10 * MillisecondsPerYear;
+
+        /// <summary>
+        /// The number of milliseconds in a normal century.
+        /// </summary>
         private static readonly long MillisecondsPerCentury = 10 * MillisecondsPerDecade;
+
+        /// <summary>
+        /// The number of milliseconds in a normal millennium.
+        /// </summary>
         private static readonly long MillisecondsPerMillennium = 10 * MillisecondsPerCentury;
 
+        /// <summary>
+        /// The number of years in a decade.
+        /// </summary>
         private static readonly long YearsInDecade = 10;
+
+        /// <summary>
+        /// The number of years in a century.
+        /// </summary>
         private static readonly long YearsInCentury = 100;
+
+        /// <summary>
+        /// The number of years in a millennium.
+        /// </summary>
         private static readonly long YearsInMillennium = 1000;
 
+        /// <summary>
+        /// The number of decades in a century.
+        /// </summary>
         private static readonly long DecadesInCentury = 10;
+
+        /// <summary>
+        /// The number of centuries in a millennium.
+        /// </summary>
         private static readonly long CenturiesInMillennium = 10;
 
+        /// <summary>
+        /// An arbitrarily large number of years used to represent an effectively
+        /// unbounded span of time.
+        /// </summary>
 #pragma warning disable 414
         private static readonly long YearsInForever = 10000;
 #pragma warning restore 414
 
+        /// <summary>
+        /// The number of days in each month of a non-leap year, indexed from
+        /// January through December.
+        /// </summary>
         private static readonly long[] DaysInMonth = {
             31, /* January */
             28, /* February */
@@ -98,19 +260,33 @@ namespace Eagle._Components.Private
             31  /* December */
         };
 
+        /// <summary>
+        /// The number of ticks in a single microsecond.
+        /// </summary>
         private static readonly int TicksPerMicrosecond =
             (int)TimeSpan.TicksPerMillisecond / 1000;
 
+        /// <summary>
+        /// The base year used by the stardate calculation.
+        /// </summary>
         private const int Roddenberry = 1946; // Another epoch (Hi, Jeff!)
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The mapping from a duration unit (expressed in milliseconds) to the
+        /// singular and plural names of that unit.
+        /// </summary>
         private static readonly DurationDictionary DurationNames = new DurationDictionary();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -118,12 +294,238 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-null, this value is returned in place of the actual local
+        /// current date and time, primarily to support deterministic testing.
+        /// </summary>
         private static DateTime? fakeNow = null;
+
+        /// <summary>
+        /// When non-null, this value is returned in place of the actual UTC
+        /// current date and time, primarily to support deterministic testing.
+        /// </summary>
         private static DateTime? fakeUtcNow = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method examines a "clock scan" format string and determines
+        /// which date components (year, month, and day) it explicitly
+        /// specifies, so that any unspecified components can later be taken from
+        /// a base clock value.  Only the date specifiers are considered; the
+        /// time-of-day specifiers are ignored.
+        /// </summary>
+        /// <param name="format">
+        /// The "clock scan" format string to examine.
+        /// </param>
+        /// <param name="hasYear">
+        /// Upon return, this is set to true if the format string specifies a
+        /// year component; otherwise, it is left unchanged.
+        /// </param>
+        /// <param name="hasMonth">
+        /// Upon return, this is set to true if the format string specifies a
+        /// month component; otherwise, it is left unchanged.
+        /// </param>
+        /// <param name="hasDay">
+        /// Upon return, this is set to true if the format string specifies a
+        /// day component; otherwise, it is left unchanged.
+        /// </param>
+        private static void GetFormatDateComponents(
+            string format,     /* in */
+            ref bool hasYear,  /* in, out */
+            ref bool hasMonth, /* in, out */
+            ref bool hasDay    /* in, out */
+            )
+        {
+            //
+            // NOTE: Determine which date components "clock scan" format string
+            //       actually specifies, so the others can be taken from a base
+            //       clock value.  Only the date specifiers are considered (the
+            //       time-of-day is never taken from the base).
+            //
+            int length = format.Length;
+            int index = 0;
+
+            while (index < length)
+            {
+                if (format[index] != Characters.PercentSign)
+                {
+                    index++;
+                    continue;
+                }
+
+                index++; /* consume the percent sign. */
+
+                if (index >= length)
+                    break;
+
+                char specifier = format[index];
+                index++;
+
+                switch (specifier)
+                {
+                    case Characters.Y: /* year (with century). */
+                    case Characters.y: /* year (without century). */
+                    case Characters.C: /* century. */
+                    case Characters.G: /* ISO 8601 year. */
+                    case Characters.g: /* ISO 8601 year (without century). */
+                        {
+                            hasYear = true;
+                            break;
+                        }
+                    case Characters.m: /* month number. */
+                    case Characters.B: /* full month name. */
+                    case Characters.b: /* abbreviated month name. */
+                    case Characters.h: /* abbreviated month name. */
+                    case Characters.N: /* month number (no padding). */
+                        {
+                            hasMonth = true;
+                            break;
+                        }
+                    case Characters.d: /* day of month. */
+                    case Characters.e: /* day of month (no padding). */
+                        {
+                            hasDay = true;
+                            break;
+                        }
+                    case Characters.j: /* day of year (implies month + day). */
+                        {
+                            hasMonth = true;
+                            hasDay = true;
+                            break;
+                        }
+                    case Characters.D: /* %m/%d/%y. */
+                    case Characters.F: /* %Y-%m-%d. */
+                    case Characters.x: /* locale date. */
+                    case Characters.c: /* locale date and time. */
+                    case Characters.s: /* seconds since the epoch. */
+                        {
+                            hasYear = true;
+                            hasMonth = true;
+                            hasDay = true;
+                            break;
+                        }
+                }
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method overlays a base date onto a parsed date and time,
+        /// supplying any date components that were absent from the parsed value
+        /// from the base clock value.  The time-of-day is always taken from the
+        /// parsed value, never from the base.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The parsed date and time value.
+        /// </param>
+        /// <param name="baseDateTime">
+        /// The base clock value from which any absent date components are
+        /// supplied.
+        /// </param>
+        /// <param name="kind">
+        /// The date and time kind for the resulting value.
+        /// </param>
+        /// <param name="format">
+        /// The "clock scan" format string used to parse the value, or null if
+        /// the free-form parser was used.
+        /// </param>
+        /// <returns>
+        /// The resulting date and time value, with absent date components
+        /// supplied from the base clock value.
+        /// </returns>
+        public static DateTime ApplyBaseDate(
+            DateTime dateTime,     /* in */
+            DateTime baseDateTime, /* in */
+            DateTimeKind kind,     /* in */
+            string format          /* in */
+            )
+        {
+            //
+            // NOTE: Decide which date components came from the input and which
+            //       must be supplied by the base clock value.  The time-of-day
+            //       is always taken from the parsed value (an absent time
+            //       defaults to midnight, matching Tcl), never from the base.
+            //
+            bool hasYear;
+            bool hasMonth;
+            bool hasDay;
+
+            if (format != null)
+            {
+                //
+                // NOTE: With an explicit format, the specified date components
+                //       are known exactly from the conversion specifiers.
+                //
+                hasYear = false;
+                hasMonth = false;
+                hasDay = false;
+
+                GetFormatDateComponents(
+                    format, ref hasYear, ref hasMonth, ref hasDay);
+            }
+            else
+            {
+                //
+                // NOTE: For the free-form parser only the wholly-absent-date
+                //       (i.e. time-only) case is reliably detectable; it was
+                //       parsed with "NoCurrentDateDefault", so an absent date
+                //       is at the minimum value.
+                //
+                bool dateAbsent =
+                    (dateTime.Year == DateTime.MinValue.Year) &&
+                    (dateTime.Month == DateTime.MinValue.Month) &&
+                    (dateTime.Day == DateTime.MinValue.Day);
+
+                hasYear = !dateAbsent;
+                hasMonth = !dateAbsent;
+                hasDay = !dateAbsent;
+            }
+
+            //
+            // NOTE: A date component is taken from the input only when it and
+            //       every lower-order date component are present (Tcl overlays
+            //       the date contiguously from the day upward): the day needs
+            //       the day; the month needs the month and day; the year needs
+            //       the year, month, and day.  Otherwise that component comes
+            //       from the base.  (So a lone year, lone month, or year+month
+            //       with no day is ignored in favor of the base date.)
+            //
+            bool useDay = hasDay;
+            bool useMonth = useDay && hasMonth;
+            bool useYear = useMonth && hasYear;
+
+            int year = useYear ? dateTime.Year : baseDateTime.Year;
+            int month = useMonth ? dateTime.Month : baseDateTime.Month;
+            int day = useDay ? dateTime.Day : baseDateTime.Day;
+
+            return new DateTime(
+                year, month, day, dateTime.Hour, dateTime.Minute,
+                dateTime.Second, dateTime.Millisecond, kind);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method optionally truncates a date and time value to a
+        /// granularity expressed in seconds.  When the granularity evenly
+        /// divides a day, the value is truncated to the start of the day;
+        /// otherwise, it is truncated down to the nearest multiple of the
+        /// granularity within the day.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value to truncate.  If this value is null, the
+        /// current UTC date and time is used instead.
+        /// </param>
+        /// <param name="seconds">
+        /// The granularity, in seconds, to truncate to.  If this value is zero
+        /// or negative, no truncation is performed.
+        /// </param>
+        /// <returns>
+        /// The truncated date and time value.
+        /// </returns>
         public static DateTime MaybeTruncate(
             DateTime? value, /* in: OPTIONAL */
             long seconds     /* in */
@@ -154,6 +556,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of leap years that have elapsed up to
+        /// the specified date, adjusting for whether the date falls before or
+        /// after the end of February.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value up to which leap years are counted.
+        /// </param>
+        /// <returns>
+        /// The number of leap years that have elapsed up to the specified date.
+        /// </returns>
         private static long CountLeapYears(
             DateTime value /* in */
             )
@@ -173,6 +586,26 @@ namespace Eagle._Components.Private
         //       from Kevin B. Kenny's [clock] command
         //       implementation in Tcl 8.5.
         //
+        /// <summary>
+        /// This method calculates the three components of a stardate from the
+        /// specified date and time value.  The algorithm was adapted from the
+        /// [clock] command implementation in Tcl 8.5.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value to convert to a stardate.
+        /// </param>
+        /// <param name="part1">
+        /// Upon return, this receives the year component of the stardate,
+        /// relative to the base year.
+        /// </param>
+        /// <param name="part2">
+        /// Upon return, this receives the fractional day-of-year component of
+        /// the stardate.
+        /// </param>
+        /// <param name="part3">
+        /// Upon return, this receives the fractional time-of-day component of
+        /// the stardate.
+        /// </param>
         public static void CalculateStardate(
             DateTime value, /* in */
             out long part1, /* out */
@@ -192,6 +625,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the mapping from duration units to their
+        /// singular and plural names, if it has not already been populated.
+        /// This method is thread-safe.
+        /// </summary>
         private static void InitializeDurationNames()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -245,6 +683,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the name of a duration unit, returning either
+        /// the singular or plural form depending on the associated value.  This
+        /// method is thread-safe.
+        /// </summary>
+        /// <param name="key">
+        /// The duration unit to look up, expressed in milliseconds (or a
+        /// special sentinel value).
+        /// </param>
+        /// <param name="value">
+        /// The quantity of the duration unit, used to decide between the
+        /// singular and plural forms of the name.
+        /// </param>
+        /// <param name="pluralOnly">
+        /// When true, the plural form of the name is always returned,
+        /// regardless of the value.
+        /// </param>
+        /// <returns>
+        /// The singular or plural name of the duration unit, or null if the
+        /// unit has no associated name.
+        /// </returns>
         private static string GetDurationName(
             long key,       /* in */
             long value,     /* in */
@@ -270,6 +729,80 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a set of pre-computed duration components into a
+        /// human-readable list of strings, honoring the various formatting
+        /// options.
+        /// </summary>
+        /// <param name="iterations">
+        /// The number of iterations performed while computing the duration.
+        /// </param>
+        /// <param name="millennia">
+        /// The whole-millennia component of the duration.
+        /// </param>
+        /// <param name="centuries">
+        /// The whole-centuries component of the duration.
+        /// </param>
+        /// <param name="decades">
+        /// The whole-decades component of the duration.
+        /// </param>
+        /// <param name="years">
+        /// The whole-years component of the duration.
+        /// </param>
+        /// <param name="months">
+        /// The whole-months component of the duration.
+        /// </param>
+        /// <param name="weeks">
+        /// The whole-weeks component of the duration.
+        /// </param>
+        /// <param name="days">
+        /// The whole-days component of the duration.
+        /// </param>
+        /// <param name="hours">
+        /// The whole-hours component of the duration.
+        /// </param>
+        /// <param name="minutes">
+        /// The whole-minutes component of the duration.
+        /// </param>
+        /// <param name="seconds">
+        /// The whole-seconds component of the duration.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The whole-milliseconds component of the duration.
+        /// </param>
+        /// <param name="ago">
+        /// When true, the duration refers to a time in the past, and a suffix
+        /// indicating this may be appended.
+        /// </param>
+        /// <param name="nonZero">
+        /// When true, only the non-zero duration components are included.
+        /// </param>
+        /// <param name="asList">
+        /// When true, the result is formatted as a structured list of values
+        /// (and optionally names); otherwise, it is formatted as a sequence of
+        /// formatted component strings.
+        /// </param>
+        /// <param name="includeIterations">
+        /// When true, the iteration count is included in the result.
+        /// </param>
+        /// <param name="includeMilliseconds">
+        /// When true, the milliseconds component is included in the result.
+        /// </param>
+        /// <param name="withNames">
+        /// When true, the name of each duration unit is included in the result.
+        /// </param>
+        /// <param name="pluralOnly">
+        /// When true, the plural form of each unit name is always used.
+        /// </param>
+        /// <param name="noPrefix">
+        /// When true, the leading approximate-duration prefix is omitted.
+        /// </param>
+        /// <param name="noSuffix">
+        /// When true, the trailing time-in-the-past suffix is omitted.
+        /// </param>
+        /// <returns>
+        /// The list of strings comprising the human-readable duration.
+        /// </returns>
         private static StringList GetHumanDuration(
             long iterations,          /* in */
             long millennia,           /* in */
@@ -643,6 +1176,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of days in the specified month of the
+        /// specified year, accounting for leap years when the month is February.
+        /// </summary>
+        /// <param name="month">
+        /// The ordinal number of the month, from one (January) through twelve
+        /// (December).
+        /// </param>
+        /// <param name="year">
+        /// The year, used to determine whether February has an extra day.
+        /// </param>
+        /// <returns>
+        /// The number of days in the specified month, zero if the month is out
+        /// of range, or negative one if the resulting index is out of bounds.
+        /// </returns>
         public static long GetDaysInMonth(
             long month, /* in */
             long year   /* in */
@@ -674,6 +1222,66 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method precisely calculates the duration between two date and
+        /// time values, decomposing it into whole millennia, centuries,
+        /// decades, years, months, weeks, days, hours, minutes, seconds, and
+        /// milliseconds by iterating day-by-day over the interval.
+        /// </summary>
+        /// <param name="start">
+        /// The starting date and time value of the interval.
+        /// </param>
+        /// <param name="end">
+        /// The ending date and time value of the interval.
+        /// </param>
+        /// <param name="millennia">
+        /// Upon return, this receives the whole-millennia component of the
+        /// duration.
+        /// </param>
+        /// <param name="centuries">
+        /// Upon return, this receives the whole-centuries component of the
+        /// duration.
+        /// </param>
+        /// <param name="decades">
+        /// Upon return, this receives the whole-decades component of the
+        /// duration.
+        /// </param>
+        /// <param name="years">
+        /// Upon return, this receives the whole-years component of the duration.
+        /// </param>
+        /// <param name="months">
+        /// Upon return, this receives the whole-months component of the
+        /// duration.
+        /// </param>
+        /// <param name="weeks">
+        /// Upon return, this receives the whole-weeks component of the duration.
+        /// </param>
+        /// <param name="days">
+        /// Upon return, this receives the whole-days component of the duration.
+        /// </param>
+        /// <param name="hours">
+        /// Upon return, this receives the whole-hours component of the duration.
+        /// </param>
+        /// <param name="minutes">
+        /// Upon return, this receives the whole-minutes component of the
+        /// duration.
+        /// </param>
+        /// <param name="seconds">
+        /// Upon return, this receives the whole-seconds component of the
+        /// duration.
+        /// </param>
+        /// <param name="milliseconds">
+        /// Upon return, this receives the whole-milliseconds component of the
+        /// duration.
+        /// </param>
+        /// <param name="ago">
+        /// Upon return, this is set to true if the ending value precedes the
+        /// starting value (i.e. the duration refers to a time in the past).
+        /// </param>
+        /// <param name="iterations">
+        /// Upon return, this receives the number of iterations performed while
+        /// computing the duration.
+        /// </param>
         private static void CalculateDuration(
             DateTime start,        /* in */
             DateTime end,          /* in */
@@ -861,6 +1469,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes and formats a human-readable representation of
+        /// the duration between two date and time values, honoring the supplied
+        /// duration flags.  Depending on the flags, the calculation may be
+        /// precise or approximate, and the result may be returned as a single
+        /// formatted string or as a structured list.
+        /// </summary>
+        /// <param name="start">
+        /// The starting date and time value of the interval.
+        /// </param>
+        /// <param name="end">
+        /// The ending date and time value of the interval.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the duration is calculated and formatted.
+        /// </param>
+        /// <returns>
+        /// The list of strings comprising the human-readable duration, or null
+        /// if an exception is encountered.
+        /// </returns>
         public static StringList GetHumanDuration( /* v2.0 */
             DateTime start,     /* in */
             DateTime end,       /* in */
@@ -1175,6 +1803,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current local date and time, or the fake
+        /// local date and time if one has been set.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The current local date and time.
+        /// </returns>
         public static DateTime GetNow()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1188,6 +1823,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current UTC date and time, or the fake UTC
+        /// date and time if one has been set.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The current UTC date and time.
+        /// </returns>
         public static DateTime GetUtcNow()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1201,6 +1843,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the fake local date and time that is
+        /// returned in place of the actual local date and time.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="now">
+        /// The fake local date and time to return, or null to clear it and
+        /// resume returning the actual local date and time.
+        /// </param>
         public static void SetFakeNow(
             DateTime? now /* in: OPTIONAL */
             )
@@ -1213,6 +1864,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the fake UTC date and time that is
+        /// returned in place of the actual UTC date and time.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="now">
+        /// The fake UTC date and time to return, or null to clear it and resume
+        /// returning the actual UTC date and time.
+        /// </param>
         public static void SetFakeUtcNow(
             DateTime? now /* in: OPTIONAL */
             )
@@ -1225,6 +1885,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of ticks corresponding to the current
+        /// UTC date and time (or the fake UTC date and time, if one has been
+        /// set).
+        /// </summary>
+        /// <returns>
+        /// The number of ticks corresponding to the current UTC date and time.
+        /// </returns>
         public static long GetUtcNowTicks()
         {
             DateTime now = GetUtcNow();
@@ -1234,6 +1902,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the Thursday of the same ISO 8601 week as the
+        /// specified date.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time value whose week is used.
+        /// </param>
+        /// <returns>
+        /// The Thursday of the same ISO 8601 week as the specified date.
+        /// </returns>
         public static DateTime ThisThursday(
             DateTime dateTime
             )
@@ -1243,6 +1921,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns midnight on the first day of the year of the
+        /// specified date, preserving its date and time kind.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time value whose year is used.
+        /// </param>
+        /// <returns>
+        /// Midnight on the first day of the year of the specified date.
+        /// </returns>
         public static DateTime StartOfYear(
             DateTime dateTime
             )
@@ -1254,6 +1942,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method returns the date and time representing the start of the
+        /// day (midnight) containing the specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time whose containing day is used.
+        /// </param>
+        /// <returns>
+        /// The date and time at the start of the specified day.
+        /// </returns>
         private static DateTime StartOfDay(
             DateTime dateTime
             )
@@ -1265,6 +1963,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the date and time representing the end of the
+        /// day (the last whole second) containing the specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time whose containing day is used.
+        /// </param>
+        /// <returns>
+        /// The date and time at the end of the specified day.
+        /// </returns>
         private static DateTime EndOfDay(
             DateTime dateTime
             )
@@ -1276,6 +1984,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the date and time representing the start of the
+        /// month (midnight on the first day) containing the specified date and
+        /// time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time whose containing month is used.
+        /// </param>
+        /// <returns>
+        /// The date and time at the start of the specified month.
+        /// </returns>
         private static DateTime StartOfMonth(
             DateTime dateTime
             )
@@ -1287,6 +2006,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the date and time representing the end of the
+        /// month (the last whole second of the last day) containing the
+        /// specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time whose containing month is used.
+        /// </param>
+        /// <returns>
+        /// The date and time at the end of the specified month.
+        /// </returns>
         private static DateTime EndOfMonth(
             DateTime dateTime
             )
@@ -1299,6 +2029,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the date and time representing the end of the
+        /// year (the last whole second of December 31st) containing the
+        /// specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time whose containing year is used.
+        /// </param>
+        /// <returns>
+        /// The date and time at the end of the specified year.
+        /// </returns>
         private static DateTime EndOfYear(
             DateTime dateTime
             )
@@ -1310,6 +2051,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of seconds that have elapsed
+        /// between the specified epoch and the current UTC date and time.
+        /// </summary>
+        /// <param name="seconds">
+        /// Upon success, this receives the number of seconds that have elapsed
+        /// between the epoch and the current UTC date and time.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which elapsed time is measured.
+        /// </param>
+        /// <returns>
+        /// True if the elapsed time was calculated successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool ElapsedSeconds(
             ref double seconds,
             DateTime epoch
@@ -1320,6 +2076,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of whole seconds that have elapsed
+        /// between the specified epoch and the specified date and time.
+        /// </summary>
+        /// <param name="seconds">
+        /// Upon success, this receives the number of seconds that have elapsed
+        /// between the epoch and the specified date and time.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value up to which elapsed time is measured.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which elapsed time is measured.
+        /// </param>
+        /// <returns>
+        /// True if the elapsed time was calculated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool ElapsedSeconds(
             ref double seconds,
             DateTime dateTime,
@@ -1346,6 +2120,21 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method calculates the number of whole days that have elapsed
+        /// between the specified epoch and the current date and time.
+        /// </summary>
+        /// <param name="days">
+        /// Upon success, this receives the number of days that have elapsed
+        /// between the epoch and the current date and time.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which elapsed time is measured.
+        /// </param>
+        /// <returns>
+        /// True if the elapsed time was calculated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool ElapsedDays(
             ref double days,
             DateTime epoch
@@ -1358,6 +2147,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of whole days that have elapsed
+        /// between the specified epoch and the specified date and time.
+        /// </summary>
+        /// <param name="days">
+        /// Upon success, this receives the number of days that have elapsed
+        /// between the epoch and the specified date and time.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value up to which elapsed time is measured.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which elapsed time is measured.
+        /// </param>
+        /// <returns>
+        /// True if the elapsed time was calculated successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool ElapsedDays(
             ref double days,
             DateTime dateTime,
@@ -1382,6 +2189,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of seconds that have elapsed
+        /// between midnight on the specified date and the specified date and
+        /// time itself.
+        /// </summary>
+        /// <param name="seconds">
+        /// Upon success, this receives the number of seconds since midnight on
+        /// the specified date.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value whose seconds-since-midnight are calculated.
+        /// </param>
+        /// <returns>
+        /// True if the elapsed time was calculated successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool SecondsSinceStartOfDay(
             ref double seconds,
             DateTime dateTime
@@ -1406,6 +2229,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of whole seconds represented by the
+        /// ticks of the specified date and time value.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time value whose whole seconds are returned.
+        /// </param>
+        /// <returns>
+        /// The number of whole seconds represented by the ticks of the
+        /// specified date and time value.
+        /// </returns>
         private static long WholeSeconds(
             DateTime dateTime
             )
@@ -1415,6 +2249,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of days in the specified year,
+        /// accounting for leap years.
+        /// </summary>
+        /// <param name="year">
+        /// The year whose number of days is returned.
+        /// </param>
+        /// <returns>
+        /// The number of days in the specified year.
+        /// </returns>
         private static long GetDaysInYear(
             int year
             )
@@ -1425,6 +2269,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of microseconds between the
+        /// specified epoch and the specified date and time.
+        /// </summary>
+        /// <param name="microseconds">
+        /// Upon success, this receives the number of microseconds between the
+        /// epoch and the specified date and time.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value up to which the microseconds are measured.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which the microseconds are measured.
+        /// </param>
+        /// <returns>
+        /// True if the calculation succeeded; otherwise, false.
+        /// </returns>
         public static bool DateTimeToMicroseconds(
             ref long microseconds,
             DateTime dateTime,
@@ -1446,6 +2307,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of milliseconds between the
+        /// specified epoch and the specified date and time.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// Upon success, this receives the number of milliseconds between the
+        /// epoch and the specified date and time.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value up to which the milliseconds are measured.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which the milliseconds are measured.
+        /// </param>
+        /// <returns>
+        /// True if the calculation succeeded; otherwise, false.
+        /// </returns>
         public static bool DateTimeToMilliseconds(
             ref long milliseconds,
             DateTime dateTime,
@@ -1467,6 +2345,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of seconds between the specified
+        /// epoch and the specified date and time.
+        /// </summary>
+        /// <param name="seconds">
+        /// Upon success, this receives the number of seconds between the epoch
+        /// and the specified date and time.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value up to which the seconds are measured.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which the seconds are measured.
+        /// </param>
+        /// <returns>
+        /// True if the calculation succeeded; otherwise, false.
+        /// </returns>
         public static bool DateTimeToSeconds(
             ref long seconds,
             DateTime dateTime,
@@ -1489,6 +2384,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        /// <summary>
+        /// This method converts a value expressed in either milliseconds or
+        /// seconds (relative to the Unix epoch) into a date and time value,
+        /// automatically detecting which unit is in use.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The value to convert, expressed in milliseconds or, if it is an
+        /// exact multiple of one thousand, interpreted as seconds.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon return, this receives the resulting date and time value.
+        /// </param>
+        /// <param name="value">
+        /// Upon return, this receives the numeric value in the detected units.
+        /// </param>
+        /// <param name="units">
+        /// Upon return, this receives the name of the detected units (either
+        /// "seconds" or "milliseconds").
+        /// </param>
         public static void UnixMillisecondsOrSecondsToDateTime(
             double milliseconds,
             ref DateTime dateTime,
@@ -1503,6 +2417,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a value expressed in either milliseconds or
+        /// seconds (relative to the specified epoch) into a date and time value,
+        /// automatically detecting which unit is in use.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The value to convert, expressed in milliseconds or, if it is an
+        /// exact multiple of one thousand, interpreted as seconds.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon return, this receives the resulting date and time value.
+        /// </param>
+        /// <param name="value">
+        /// Upon return, this receives the numeric value in the detected units.
+        /// </param>
+        /// <param name="units">
+        /// Upon return, this receives the name of the detected units (either
+        /// "seconds" or "milliseconds").
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch relative to which the value is interpreted.
+        /// </param>
         private static void MillisecondsOrSecondsToDateTime(
             double milliseconds,
             ref DateTime dateTime,
@@ -1531,6 +2467,23 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts a number of milliseconds elapsed since the
+        /// specified epoch into the corresponding date and time.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds elapsed since the epoch.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, this receives the date and time corresponding to the
+        /// specified number of milliseconds elapsed since the epoch.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch from which the elapsed milliseconds are measured.
+        /// </param>
+        /// <returns>
+        /// True if the conversion succeeded; otherwise, false.
+        /// </returns>
         private static bool MillisecondsToDateTime(
             long milliseconds,
             ref DateTime dateTime,
@@ -1553,6 +2506,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a number of ticks into a date and time value of
+        /// the specified kind.
+        /// </summary>
+        /// <param name="ticks">
+        /// The number of ticks to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date and time kind for the resulting value.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, this receives the resulting date and time value.
+        /// </param>
+        /// <returns>
+        /// True if the conversion succeeded; otherwise, false.
+        /// </returns>
         public static bool TicksToDateTime(
             long ticks,
             DateTimeKind kind,
@@ -1573,6 +2542,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a number of seconds relative to the specified
+        /// epoch into a date and time value.
+        /// </summary>
+        /// <param name="seconds">
+        /// The number of seconds, relative to the epoch, to convert.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, this receives the resulting date and time value.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch relative to which the seconds are interpreted.
+        /// </param>
+        /// <returns>
+        /// True if the conversion succeeded; otherwise, false.
+        /// </returns>
         public static bool SecondsToDateTime(
             long seconds,
             ref DateTime dateTime,
@@ -1593,6 +2578,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a number of seconds relative to the Unix epoch
+        /// into a date and time value.
+        /// </summary>
+        /// <param name="seconds">
+        /// The number of seconds, relative to the Unix epoch, to convert.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, this receives the resulting date and time value.
+        /// </param>
+        /// <returns>
+        /// True if the conversion succeeded; otherwise, false.
+        /// </returns>
         public static bool UnixSecondsToDateTime(
             long seconds,
             ref DateTime dateTime

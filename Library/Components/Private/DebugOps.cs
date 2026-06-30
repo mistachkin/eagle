@@ -46,10 +46,24 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private debugging, diagnostic, and complaint
+    /// reporting support used throughout the Eagle core.  It centralizes the
+    /// logic for capturing stack traces and method names, recording and
+    /// emitting complaints (internal error reports) to a variety of output
+    /// sinks (trace listeners, the interpreter host, a text writer, and the
+    /// test "puts" channel), managing trace listeners and the trace log file,
+    /// and breaking into an attached debugger.  All members are static and the
+    /// class is not intended to be instantiated.
+    /// </summary>
     [ObjectId("1d388444-db3b-41b5-a23e-b25084d1c94b")]
     internal static class DebugOps
     {
         #region Public Constants
+        /// <summary>
+        /// The default trace and debug category name, as provided by the
+        /// underlying System.Diagnostics.Debugger.DefaultCategory value.
+        /// </summary>
         public static readonly string DefaultCategory = SDD.DefaultCategory;
         #endregion
 
@@ -65,56 +79,110 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The name of the private file-name field within the
+        /// TextWriterTraceListener class on the .NET Framework.
+        /// </summary>
         private static string TextWriterFileNameFieldName1 =
             "fileName"; /* .NET Framework */
 
+        /// <summary>
+        /// The name of the private file-name field within the
+        /// TextWriterTraceListener class on .NET Core.
+        /// </summary>
         private static string TextWriterFileNameFieldName2 =
             "_fileName"; /* .NET Core */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name used for the trace listener associated with the
+        /// interpreter log file.
+        /// </summary>
         private static readonly string ListenerName =
             typeof(Interpreter).FullName + ".LogFile";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the AppDomain data slot that stores the trace log file
+        /// name.
+        /// </summary>
         private const string TraceLogFileDataName = "TraceLogFileName";
+        /// <summary>
+        /// The name of the AppDomain data slot that stores the trace log name.
+        /// </summary>
         private const string TraceLogDataName = "TraceLogName";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the AppDomain data slot that stores the interpreter
+        /// associated with the trace log.
+        /// </summary>
         private const string TraceLogInterpreterDataName = "TraceLogInterpreter";
+        /// <summary>
+        /// The name of the AppDomain data slot that stores the encoding used
+        /// for the trace log.
+        /// </summary>
         private const string TraceLogEncodingDataName = "TraceLogEncoding";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to report a failed write of text, including
+        /// the complaint identifier, the exception, and a trailing line
+        /// terminator.
+        /// </summary>
         private static readonly string TextWriteExceptionFormat =
             "write of text failed ({0}): {1}{2}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to report a failed write to the interpreter
+        /// host, including the complaint identifier, the exception, and a
+        /// trailing line terminator.
+        /// </summary>
         private static readonly string HostWriteExceptionFormat =
             "write to host failed ({0}): {1}{2}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to report a failed write via the test "puts"
+        /// channel, including the complaint identifier, the exception, and a
+        /// trailing line terminator.
+        /// </summary>
         private static readonly string TestWriteExceptionFormat =
             "write via test failed ({0}): {1}{2}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to report that a text writer for an
+        /// interpreter was disposed and has therefore been disabled.
+        /// </summary>
         private static readonly string TextWriterDisposedFormat =
             "{0} text writer for interpreter {1} was disposed and is now " +
             "disabled{2}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to report that breaking into the debugger
+        /// was disabled via an environment variable.
+        /// </summary>
         private static readonly string BreakIsDisabled =
             "breaking into debugger was disabled via environment variable " +
             "\"{0}\": {1}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The characters trimmed from the start and end of a captured stack
+        /// trace string.
+        /// </summary>
         private static readonly char[] StackTrimChars = {
             Characters.CarriageReturn, Characters.LineFeed
         };
@@ -124,7 +192,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of times the complaint subsystem will retry
+        /// acquiring its lock before giving up.
+        /// </summary>
         private static int ComplainRetryLimit = 3;
+        /// <summary>
+        /// The number of milliseconds to wait between successive complaint lock
+        /// retry attempts.
+        /// </summary>
         private static int ComplainRetryMilliseconds = 750;
 
         ///////////////////////////////////////////////////////////////////////
@@ -132,6 +208,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, trace listener operations consider only listeners of
+        /// the same type by default.
+        /// </summary>
         private static bool DefaultSameTraceListenerTypeOnly = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -141,7 +221,15 @@ namespace Eagle._Components.Private
         // NOTE: These are the format strings used when building the test
         //       trace log file name.
         //
+        /// <summary>
+        /// The format string used to build the test trace log file name when no
+        /// log name is present.
+        /// </summary>
         private const string TraceBareLogFileFormat = "trace-{1}-";
+        /// <summary>
+        /// The format string used to build the test trace log file name when a
+        /// log name is present.
+        /// </summary>
         private const string TraceNameLogFileFormat = "trace-{0}-{1}-";
 #endif
         #endregion
@@ -155,6 +243,10 @@ namespace Eagle._Components.Private
         //       prevent trace messages from being improperly interleaved
         //       in the resulting output.
         //
+        /// <summary>
+        /// The synchronization object used to serialize writes to the
+        /// collections of trace listeners and to the recorded complaints.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -166,6 +258,10 @@ namespace Eagle._Components.Private
         // BUGFIX: Previously, this was a global value, not per thread, and
         //         that was wrong.
         //
+        /// <summary>
+        /// The current number of active calls to Complain() on this thread.
+        /// This value should always be zero or one.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static int complainLevels = 0;
 
@@ -175,6 +271,10 @@ namespace Eagle._Components.Private
         // NOTE: The number of times that Complain() has been called.  It is
         //       per-thread and never reset.
         //
+        /// <summary>
+        /// The number of times Complain() has been called on this thread.  It
+        /// is per-thread and is never reset.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static long complainCount = 0;
 
@@ -184,6 +284,10 @@ namespace Eagle._Components.Private
         // NOTE: The number of times that Complain() has been called.  It is
         //       global (AppDomain) and never reset.
         //
+        /// <summary>
+        /// The number of times Complain() has been called.  It is global (per
+        /// AppDomain) and is never reset.
+        /// </summary>
         private static long globalComplainCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -192,6 +296,10 @@ namespace Eagle._Components.Private
         // NOTE: The number of times that Complain() has been called while
         //       quiet mode is enabled.  It is per-thread and never reset.
         //
+        /// <summary>
+        /// The number of times Complain() has been called while quiet mode was
+        /// enabled.  It is per-thread and is never reset.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static long complainQuietCount = 0;
 
@@ -202,6 +310,10 @@ namespace Eagle._Components.Private
         //       quiet mode is enabled.  It is global (AppDomain) and never
         //       reset.
         //
+        /// <summary>
+        /// The number of times Complain() has been called while quiet mode was
+        /// enabled.  It is global (per AppDomain) and is never reset.
+        /// </summary>
         private static long globalComplainQuietCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -209,6 +321,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: The most recent complaint message seen by this subsystem.
         //
+        /// <summary>
+        /// The most recent complaint message seen by this subsystem.
+        /// </summary>
         private static string globalComplaint = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -219,6 +334,10 @@ namespace Eagle._Components.Private
         // NOTE: If this value is non-zero, failsafe write calls will also
         //       output to the trace listeners, if any.
         //
+        /// <summary>
+        /// When non-zero, failsafe write calls will also output to the trace
+        /// listeners, if any.
+        /// </summary>
         private static bool UseTraceForWithoutFail = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -229,6 +348,10 @@ namespace Eagle._Components.Private
         // NOTE: If this value is non-zero, failsafe write calls will also
         //       output to the specified IDebugHost, if any.
         //
+        /// <summary>
+        /// When non-zero, failsafe write calls will also output to the
+        /// specified IDebugHost, if any.
+        /// </summary>
         private static bool UseHostForWithoutFail = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -239,6 +362,10 @@ namespace Eagle._Components.Private
         // NOTE: If this value is non-zero, the interpreter host will be
         //       used to emit a complaint; otherwise, it will be skipped.
         //
+        /// <summary>
+        /// When non-zero, the interpreter host will be used to emit a
+        /// complaint; otherwise, it will be skipped.
+        /// </summary>
         private static bool UseHostForComplain = true; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////
@@ -249,6 +376,10 @@ namespace Eagle._Components.Private
         // NOTE: If this value is non-zero, the text write will be used
         //       to emit a complaint; otherwise, it will be skipped.
         //
+        /// <summary>
+        /// When non-zero, the text writer will be used to emit a complaint;
+        /// otherwise, it will be skipped.
+        /// </summary>
         private static bool UseTextWriterForComplain = true; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////
@@ -263,6 +394,12 @@ namespace Eagle._Components.Private
         //       be called (if set), and the infinite recursion prevention
         //       will still be used.
         //
+        /// <summary>
+        /// When non-zero, all complaints are treated as trace messages instead
+        /// of using the complaint handling subsystem.  The complaint counts are
+        /// still updated, the complaint callback is still called (if set), and
+        /// the infinite recursion prevention is still used.
+        /// </summary>
         private static bool UseOnlyTraceForComplain = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -275,6 +412,11 @@ namespace Eagle._Components.Private
         //       mechanism will be used after an exception is caught from the
         //       callback.
         //
+        /// <summary>
+        /// When non-zero, exceptions thrown by the complaint callback are
+        /// simply ignored; otherwise, the default complaint mechanism is used
+        /// after an exception is caught from the callback.
+        /// </summary>
         private static bool IgnoreOnCallbackThrow = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -282,6 +424,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TESTING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// When non-zero, complaints are permitted to be emitted via the trace
+        /// subsystem.
+        /// </summary>
         private static bool AllowComplainViaTrace = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -289,6 +435,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TESTING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// When non-zero, complaints are permitted to be emitted via the test
+        /// "puts" channel.
+        /// </summary>
         private static bool AllowComplainViaTest = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -296,6 +446,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TESTING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// When non-zero, the current interpreter is skipped when selecting an
+        /// interpreter to use for complaint output via the test "puts" channel.
+        /// </summary>
         private static bool SkipCurrentForComplainViaTest = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -303,6 +457,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// When non-zero, the quiet setting is ignored when emitting complaint
+        /// output via the test "puts" channel.
+        /// </summary>
         private static bool IgnoreQuietForComplainViaTest = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -314,6 +472,10 @@ namespace Eagle._Components.Private
         //       be performed at appropriate times.  Generally, this will be
         //       used with instances of the TextWriter class.
         //
+        /// <summary>
+        /// When non-zero, the Flush() method is called after a write operation.
+        /// This is generally used with instances of the TextWriter class.
+        /// </summary>
         private static bool AutoFlushOnWrite = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -325,6 +487,10 @@ namespace Eagle._Components.Private
         //       be performed at appropriate times.  Generally, this will be
         //       used with instances of the TextWriter class.
         //
+        /// <summary>
+        /// When non-zero, the Flush() method is called after a clear operation.
+        /// This is generally used with instances of the TextWriter class.
+        /// </summary>
         private static bool AutoFlushOnClear = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -336,6 +502,11 @@ namespace Eagle._Components.Private
         //       be performed at appropriate times.  Generally, this will be
         //       used with instances of the TextWriter class.
         //
+        /// <summary>
+        /// When non-zero, the Flush() method is called before a close
+        /// operation.  This is generally used with instances of the TextWriter
+        /// class.
+        /// </summary>
         private static bool AutoFlushOnClose = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -344,6 +515,10 @@ namespace Eagle._Components.Private
         // NOTE: If this value is non-zero, ALWAYS emit trace messages to
         //       all active trace listeners.
         //
+        /// <summary>
+        /// When non-zero, trace messages are always emitted to all active trace
+        /// listeners.
+        /// </summary>
         private static bool ForceToListeners = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -351,6 +526,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the static lock,
+        /// or zero if no thread holds it.
+        /// </summary>
         private static long lockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -359,12 +538,24 @@ namespace Eagle._Components.Private
         // HACK: Keep track of all complaints that have been seen by this
         //       class.
         //
+        /// <summary>
+        /// The list that keeps track of all complaints that have been seen by
+        /// this class.
+        /// </summary>
         private static readonly ComplaintList complaints = new ComplaintList();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Diagnostic Methods
+        /// <summary>
+        /// This method returns the identifier of the thread that is currently
+        /// believed to hold the static lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread that holds the static lock, or zero if
+        /// no thread holds it.
+        /// </returns>
         private static long MaybeWhoHasLock()
         {
             return Interlocked.CompareExchange(
@@ -373,6 +564,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the current thread holds the static lock,
+        /// but only when the lock was actually acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock was acquired by the current thread.
+        /// </param>
         private static void MaybeSomebodyHasLock(
             bool locked /* in */
             )
@@ -387,6 +585,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that no thread holds the static lock, but only
+        /// when the lock was actually held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock was held by the current thread.
+        /// </param>
         private static void MaybeNobodyHasLock(
             bool locked /* in */
             )
@@ -408,6 +613,15 @@ namespace Eagle._Components.Private
         //       This is used by callers that must never block
         //       (e.g. trace output, complaint recording).
         //
+        /// <summary>
+        /// This method attempts to acquire the static lock without waiting.  It
+        /// is used by callers that must never block (e.g. trace output or
+        /// complaint recording).
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter is set to non-zero if the lock was
+        /// acquired by the current thread.
+        /// </param>
         private static void TryLock(
             ref bool locked
             )
@@ -427,6 +641,15 @@ namespace Eagle._Components.Private
         //       tolerate a brief wait (e.g. textWriter output
         //       in Complain).
         //
+        /// <summary>
+        /// This method attempts to acquire the static lock using the standard
+        /// wait timeout.  It is used by callers that can tolerate a brief wait
+        /// (e.g. text writer output in Complain).
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter is set to non-zero if the lock was
+        /// acquired by the current thread.
+        /// </param>
         private static void TryLockWithWait(
             ref bool locked
             )
@@ -443,6 +666,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the static lock if it is currently held by the
+        /// current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock is held by the current thread.  Upon
+        /// return, this parameter is set to false once the lock is released.
+        /// </param>
         private static void ExitLock(
             ref bool locked
             )
@@ -462,6 +693,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Stack Trace Methods
+        /// <summary>
+        /// This method determines whether the specified method name matches any
+        /// of the supplied names to skip.
+        /// </summary>
+        /// <param name="methodName">
+        /// The method name to test.  This parameter may be null.
+        /// </param>
+        /// <param name="skipNames">
+        /// The list of names to match against.  This parameter may be null.
+        /// </param>
+        /// <param name="anywhere">
+        /// Non-zero to match a name that appears anywhere within the method
+        /// name; otherwise, only a match at the start or end of the method name
+        /// is considered.
+        /// </param>
+        /// <returns>
+        /// True if the method name matches one of the supplied names;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchAnyMethodName(
             string methodName,
             StringList skipNames,
@@ -500,6 +750,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method captures a stack trace for the current thread, always
+        /// skipping this method itself.
+        /// </summary>
+        /// <param name="skipFrames">
+        /// The number of additional stack frames to skip, beyond this method,
+        /// when capturing the stack trace.
+        /// </param>
+        /// <returns>
+        /// The captured stack trace.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static StackTrace GetStackTrace(
             int skipFrames
@@ -513,6 +774,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method captures the current stack trace and returns it as a
+        /// string, skipping this method itself.
+        /// </summary>
+        /// <returns>
+        /// The string form of the captured stack trace, or null if it could
+        /// not be obtained.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string GetStackTraceString()
         {
@@ -521,6 +790,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method captures the current stack trace and returns it as a
+        /// string, trimming any surrounding line terminators.
+        /// </summary>
+        /// <param name="skipFrames">
+        /// The number of additional stack frames to skip, beyond this method,
+        /// when capturing the stack trace.
+        /// </param>
+        /// <param name="default">
+        /// The value to return if the stack trace cannot be captured.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string form of the captured stack trace, or the supplied
+        /// default value if it could not be obtained.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string GetStackTraceString(
             int skipFrames,
@@ -551,6 +836,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified method should be
+        /// skipped based on its declaring type (e.g. compiler-generated
+        /// methods, framework methods, or this library's own diagnostic
+        /// helpers).
+        /// </summary>
+        /// <param name="methodBase">
+        /// The method to test.  This parameter may be null.
+        /// </param>
+        /// <param name="skipDebug">
+        /// Non-zero to also skip methods declared by this library's own
+        /// diagnostic helper classes.
+        /// </param>
+        /// <param name="methodType">
+        /// Upon success, this parameter receives the declaring type of the
+        /// method when it should not be skipped.
+        /// </param>
+        /// <param name="methodBaseName">
+        /// Upon success, this parameter receives the name of the method when it
+        /// should not be skipped.
+        /// </param>
+        /// <returns>
+        /// True if the method should be skipped; otherwise, false.
+        /// </returns>
         private static bool ShouldSkipMethodType(
             MethodBase methodBase,    /* in */
             bool skipDebug,           /* in */
@@ -602,6 +911,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified method should be
+        /// skipped based on its name (and the names supplied by the caller),
+        /// computing the fully qualified method name in the process.
+        /// </summary>
+        /// <param name="skipNames">
+        /// The list of method names to skip.  This parameter may be null.
+        /// </param>
+        /// <param name="methodType">
+        /// The declaring type of the method.
+        /// </param>
+        /// <param name="methodBaseName">
+        /// The bare name of the method.
+        /// </param>
+        /// <param name="anywhere">
+        /// Non-zero to match a name that appears anywhere within the method
+        /// name; otherwise, only a match at the start or end of the method name
+        /// is considered.
+        /// </param>
+        /// <param name="methodFullName">
+        /// Upon success, this parameter receives the fully qualified method
+        /// name when it should not be skipped.
+        /// </param>
+        /// <returns>
+        /// True if the method should be skipped; otherwise, false.
+        /// </returns>
         private static bool ShouldSkipMethodName(
             StringList skipNames,     /* in */
             Type methodType,          /* in */
@@ -666,6 +1001,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the output values describing a method name,
+        /// either using a default (empty) result or the supplied method type
+        /// and names.
+        /// </summary>
+        /// <param name="methodType">
+        /// The declaring type of the method.  This parameter may be null.
+        /// </param>
+        /// <param name="defaultName">
+        /// The default method name to use when the empty result is requested.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="methodBaseName">
+        /// The bare name of the method.  This parameter may be null.
+        /// </param>
+        /// <param name="methodFullName">
+        /// The fully qualified name of the method.  This parameter may be null.
+        /// </param>
+        /// <param name="emptyOnly">
+        /// Non-zero to produce the default (empty) result instead of using the
+        /// supplied method type and names.
+        /// </param>
+        /// <param name="nameOnly">
+        /// Non-zero to use only the bare method name; otherwise, the fully
+        /// qualified method name is used.
+        /// </param>
+        /// <param name="isThisAssembly">
+        /// Upon return, this parameter is set to non-zero if the method belongs
+        /// to this assembly.
+        /// </param>
+        /// <param name="typeName">
+        /// Upon return, this parameter receives the full name of the declaring
+        /// type, or null if none.
+        /// </param>
+        /// <param name="methodName">
+        /// Upon return, this parameter receives the resulting method name.
+        /// </param>
         private static void PopulateMethodName(
             Type methodType,         /* in */
             string defaultName,      /* in */
@@ -713,6 +1085,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the current execution stack and determines the
+        /// name of the first relevant method, skipping framework methods, this
+        /// library's diagnostic helpers, and any names requested by the caller.
+        /// </summary>
+        /// <param name="skipFrames">
+        /// The number of additional stack frames to skip, beyond this method,
+        /// when walking the stack.
+        /// </param>
+        /// <param name="skipNames">
+        /// The list of method names to skip.  This parameter may be null.
+        /// </param>
+        /// <param name="skipDebug">
+        /// Non-zero to also skip methods declared by this library's own
+        /// diagnostic helper classes.
+        /// </param>
+        /// <param name="nameOnly">
+        /// Non-zero to use only the bare method name; otherwise, the fully
+        /// qualified method name is used.
+        /// </param>
+        /// <param name="defaultName">
+        /// The default method name to use when no suitable method is found.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="anywhere">
+        /// Non-zero to match a skip name that appears anywhere within a method
+        /// name; otherwise, only a match at the start or end is considered.
+        /// </param>
+        /// <param name="isThisAssembly">
+        /// Upon return, this parameter is set to non-zero if the resulting
+        /// method belongs to this assembly.
+        /// </param>
+        /// <param name="typeName">
+        /// Upon return, this parameter receives the full name of the declaring
+        /// type, or null if none.
+        /// </param>
+        /// <param name="methodName">
+        /// Upon return, this parameter receives the resulting method name.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void GetMethodName(
             int skipFrames,          /* in */
@@ -791,6 +1202,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the method that called the direct
+        /// caller, optionally skipping a particular method.
+        /// </summary>
+        /// <param name="skipMethodBase">
+        /// The method to skip when walking the stack, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="defaultName">
+        /// The default method name to use when no suitable method is found.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The resulting method name, or the supplied default name if none was
+        /// found.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string GetMethodName(
             MethodBase skipMethodBase,
@@ -827,6 +1254,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Stack Trace Methods
+        /// <summary>
+        /// This method returns the method associated with a particular frame of
+        /// the current execution stack, always skipping this method itself.
+        /// </summary>
+        /// <param name="skipFrames">
+        /// The number of additional stack frames to skip, beyond this method,
+        /// when locating the desired frame.
+        /// </param>
+        /// <returns>
+        /// The method associated with the selected stack frame, or null if it
+        /// could not be obtained.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static MethodBase GetMethod(
             int skipFrames /* in */
@@ -866,6 +1305,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Interpreter Helper Methods
+        /// <summary>
+        /// This method returns the next unique complaint identifier.
+        /// </summary>
+        /// <returns>
+        /// The next unique complaint identifier.
+        /// </returns>
         private static long GetComplaintId()
         {
             return GlobalState.NextComplaintId();
@@ -873,6 +1318,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the configured complaint callback,
+        /// acquiring the interpreter static lock without throwing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The configured complaint callback, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static ComplainCallback SafeGetComplainCallback(
             Interpreter interpreter /* NOT USED */
             )
@@ -900,6 +1356,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the default trace stack setting,
+        /// acquiring the interpreter static lock without throwing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The default trace stack setting, or false if it could not be
+        /// obtained.
+        /// </returns>
         private static bool SafeGetDefaultTraceStack(
             Interpreter interpreter /* NOT USED */
             )
@@ -927,6 +1394,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the default quiet setting, acquiring
+        /// the interpreter static lock without throwing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The default quiet setting, or false if it could not be obtained.
+        /// </returns>
         private static bool SafeGetDefaultQuiet(
             Interpreter interpreter /* NOT USED */
             )
@@ -954,6 +1431,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the quiet setting for the specified
+        /// interpreter without throwing, falling back to an environment
+        /// variable and then a supplied default value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose quiet setting is queried.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the setting cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The quiet setting for the interpreter, or the supplied default
+        /// value.
+        /// </returns>
         private static bool SafeGetQuiet(
             Interpreter interpreter,
             bool @default
@@ -1011,6 +1505,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the "trace to host" setting for the
+        /// specified interpreter without throwing, falling back to an
+        /// environment variable and then a supplied default value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setting is queried.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the setting cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The "trace to host" setting for the interpreter, or the supplied
+        /// default value.
+        /// </returns>
         public static bool SafeGetTraceToHost(
             Interpreter interpreter,
             bool @default
@@ -1052,6 +1563,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the "complain via trace" setting for
+        /// the specified interpreter without throwing, falling back to an
+        /// environment variable and then a supplied default value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setting is queried.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the setting cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The "complain via trace" setting for the interpreter, or the
+        /// supplied default value.
+        /// </returns>
         private static bool SafeGetComplainViaTrace(
             Interpreter interpreter,
             bool @default
@@ -1096,6 +1624,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the "complain via test" setting for the
+        /// specified interpreter without throwing, falling back to an
+        /// environment variable and then a supplied default value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setting is queried.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the setting cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The "complain via test" setting for the interpreter, or the supplied
+        /// default value.
+        /// </returns>
         private static bool SafeGetComplainViaTest(
             Interpreter interpreter,
             bool @default
@@ -1140,6 +1685,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the "trace stack" setting for the
+        /// specified interpreter without throwing, falling back to an
+        /// environment variable and then a supplied default value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setting is queried.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the setting cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The "trace stack" setting for the interpreter, or the supplied
+        /// default value.
+        /// </returns>
         private static bool SafeGetTraceStack(
             Interpreter interpreter,
             bool @default
@@ -1181,6 +1743,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the debug text writer for the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer is queried.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The debug text writer for the interpreter, or null if it could not
+        /// be obtained.
+        /// </returns>
         private static TextWriter SafeGetDebugTextWriter(
             Interpreter interpreter
             )
@@ -1218,6 +1793,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely sets the debug text writer for the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer is set.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="textWriter">
+        /// The text writer to associate with the interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the debug text writer was set; otherwise, false.
+        /// </returns>
         private static bool SafeSetDebugTextWriter(
             Interpreter interpreter,
             TextWriter textWriter
@@ -1259,6 +1850,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the trace text writer for the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trace text writer is queried.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The trace text writer for the interpreter, or null if it could not
+        /// be obtained.
+        /// </returns>
         private static TextWriter SafeGetTraceTextWriter(
             Interpreter interpreter
             )
@@ -1296,6 +1900,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely sets the trace text writer for the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trace text writer is set.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="textWriter">
+        /// The text writer to associate with the interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the trace text writer was set; otherwise, false.
+        /// </returns>
         private static bool SafeSetTraceTextWriter(
             Interpreter interpreter,
             TextWriter textWriter
@@ -1337,6 +1957,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the interpreter host for the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host is queried.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The interpreter host, or null if it could not be obtained.
+        /// </returns>
         private static IDebugHost SafeGetHost(
             Interpreter interpreter
             )
@@ -1374,6 +2005,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the most recent complaint recorded on
+        /// the specified interpreter without throwing, even if the interpreter
+        /// has been disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose complaint is queried.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The most recent complaint recorded on the interpreter, or null if it
+        /// could not be obtained.
+        /// </returns>
         public static string SafeGetComplaint(
             Interpreter interpreter
             )
@@ -1411,6 +2055,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely records the specified complaint on the specified
+        /// interpreter without throwing, even if the interpreter has been
+        /// disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter on which the complaint is recorded.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="complaint">
+        /// The complaint message to record.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the complaint was recorded; otherwise, false.
+        /// </returns>
         public static bool SafeSetComplaint(
             Interpreter interpreter,
             string complaint
@@ -1452,6 +2111,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely clears the most recent complaint recorded on the
+        /// specified interpreter without throwing.  It is intended for test use
+        /// only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose complaint is cleared.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the complaint was cleared; otherwise, false.
+        /// </returns>
         public static bool SafeUnsetComplaint( /* FOR TEST USE ONLY */
             Interpreter interpreter
             )
@@ -1492,6 +2163,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely retrieves the most recent global complaint
+        /// message seen by this subsystem.
+        /// </summary>
+        /// <returns>
+        /// The most recent global complaint message, or null if none.
+        /// </returns>
         public static string SafeGetGlobalComplaint()
         {
             return Interlocked.CompareExchange(
@@ -1500,6 +2178,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely records the specified message as the most recent
+        /// global complaint seen by this subsystem.
+        /// </summary>
+        /// <param name="complaint">
+        /// The complaint message to record.  This parameter may be null.
+        /// </param>
         public static void SafeSetGlobalComplaint(
             string complaint
             )
@@ -1510,6 +2195,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method safely clears the most recent global complaint message
+        /// seen by this subsystem.  It is intended for test use only.
+        /// </summary>
         public static void SafeUnsetGlobalComplaint() /* FOR TEST USE ONLY */
         {
             /* IGNORED */
@@ -1521,6 +2210,16 @@ namespace Eagle._Components.Private
 
         #region Private Output Support Methods
 #if NATIVE
+        /// <summary>
+        /// This method emits the specified message to the native debug output,
+        /// appending a line terminator.
+        /// </summary>
+        /// <param name="message">
+        /// The message to emit.
+        /// </param>
+        /// <param name="priority">
+        /// The optional debug priority associated with the message.
+        /// </param>
         public static void Output(
             string message,         /* in */
             DebugPriority? priority /* in: OPTIONAL */
@@ -1533,6 +2232,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits the specified exception to the native debug
+        /// output, appending a line terminator.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to emit.  This parameter may be null.
+        /// </param>
+        /// <param name="priority">
+        /// The optional debug priority associated with the message.
+        /// </param>
         public static void Output(
             Exception exception,    /* in */
             DebugPriority? priority /* in: OPTIONAL */
@@ -1549,6 +2258,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter can be used
+        /// to emit complaint output via the test "puts" channel, checking that
+        /// it is usable, runs on the current primary thread, has the needed
+        /// command or channel, and is not busy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to test.  This parameter may be null.
+        /// </param>
+        /// <param name="ignoreLevels">
+        /// Non-zero to ignore whether the interpreter is currently in use by
+        /// the script engine, expression engine, or parser.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter can be used for complaint output via the
+        /// test "puts" channel; otherwise, false.
+        /// </returns>
         private static bool IsUsableForComplainViaTest(
             Interpreter interpreter,
             bool ignoreLevels
@@ -1595,6 +2321,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects an interpreter suitable for emitting complaint
+        /// output via the test "puts" channel, considering the supplied
+        /// interpreter, its test and parent interpreters, and the first known
+        /// interpreter, in that order.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The preferred interpreter to use.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A usable interpreter, or null if none is suitable.
+        /// </returns>
         private static Interpreter GetInterpreterForComplainViaTest(
             Interpreter interpreter
             )
@@ -1626,6 +2364,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits the specified complaint value via the test "puts"
+        /// channel, selecting a suitable interpreter and appending a line
+        /// terminator.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The preferred interpreter to use.  This parameter may be null.
+        /// </param>
+        /// <param name="id">
+        /// The complaint identifier, used when reporting a write failure.
+        /// </param>
+        /// <param name="value">
+        /// The complaint value to emit.
+        /// </param>
+        /// <returns>
+        /// True if the value was written; otherwise, false.
+        /// </returns>
         private static bool ComplainViaTest(
             Interpreter interpreter,
             long id,
@@ -1649,6 +2404,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the debug and/or trace
+        /// output, depending on the build configuration, suppressing any
+        /// exceptions thrown in the process.
+        /// </summary>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void WriteViaDebugAndOrTrace(
             string value
             )
@@ -1686,6 +2449,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the supplied debug host,
+        /// if it is usable, suppressing any exceptions thrown in the process.
+        /// </summary>
+        /// <param name="debugHost">
+        /// The debug host to write to.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <returns>
+        /// True if the value was written to the debug host; otherwise, false.
+        /// </returns>
         private static bool MaybeWriteViaDebugHost(
             IDebugHost debugHost,
             string value
@@ -1731,6 +2507,13 @@ namespace Eagle._Components.Private
         //          host may have failed to emit output; therefore, it must
         //          never attempt to use the interpreter host.
         //
+        /// <summary>
+        /// This method writes the specified value using the failsafe output
+        /// mechanism, without using any interpreter host.
+        /// </summary>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void WriteWithoutFail(
             string value
             )
@@ -1740,6 +2523,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value using the failsafe output
+        /// mechanism, optionally using the supplied debug host.
+        /// </summary>
+        /// <param name="debugHost">
+        /// The debug host to write to, if enabled.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         public static void WriteWithoutFail(
             IDebugHost debugHost,
             string value
@@ -1751,6 +2544,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value using the failsafe output
+        /// mechanism, controlling whether the native output and debug host are
+        /// used.
+        /// </summary>
+        /// <param name="debugHost">
+        /// The debug host to write to, if enabled.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="viaOutput">
+        /// Non-zero to also emit the value to the native debug output.
+        /// </param>
+        /// <param name="viaHost">
+        /// Non-zero to also emit the value to the supplied debug host.
+        /// </param>
         public static void WriteWithoutFail(
             IDebugHost debugHost,
             string value,
@@ -1764,6 +2574,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value using the failsafe output
+        /// mechanism, controlling whether the native output, the debug and/or
+        /// trace output, and the debug host are used.
+        /// </summary>
+        /// <param name="debugHost">
+        /// The debug host to write to, if enabled.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="viaOutput">
+        /// Non-zero to also emit the value to the native debug output.
+        /// </param>
+        /// <param name="viaTrace">
+        /// Non-zero to also emit the value to the debug and/or trace output.
+        /// </param>
+        /// <param name="viaHost">
+        /// Non-zero to also emit the value to the supplied debug host.
+        /// </param>
         public static void WriteWithoutFail(
             IDebugHost debugHost,
             string value,
@@ -1794,6 +2624,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failed write of text using the failsafe output
+        /// mechanism.
+        /// </summary>
+        /// <param name="id">
+        /// The complaint identifier associated with the failed write.
+        /// </param>
+        /// <param name="e">
+        /// The exception that caused the failed write.
+        /// </param>
         private static void TextWriteException(
             long id,
             Exception e
@@ -1805,6 +2645,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failed write to the interpreter host using the
+        /// failsafe output mechanism.
+        /// </summary>
+        /// <param name="id">
+        /// The complaint identifier associated with the failed write.
+        /// </param>
+        /// <param name="e">
+        /// The exception that caused the failed write.
+        /// </param>
         private static void HostWriteException(
             long id,
             Exception e
@@ -1816,6 +2666,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failed write via the test "puts" channel using
+        /// the failsafe output mechanism.
+        /// </summary>
+        /// <param name="id">
+        /// The complaint identifier associated with the failed write.
+        /// </param>
+        /// <param name="e">
+        /// The exception that caused the failed write.
+        /// </param>
         private static void TestWriteException(
             long id,
             Exception e
@@ -1827,6 +2687,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the case where the debug text writer for an
+        /// interpreter was disposed, clearing it and reporting that it has been
+        /// disabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer was disposed.  This
+        /// parameter may be null.
+        /// </param>
         private static void DebugTextWriterWasDisposed(
             Interpreter interpreter
             )
@@ -1847,6 +2716,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the case where the trace text writer for an
+        /// interpreter was disposed, clearing it and reporting that it has been
+        /// disabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trace text writer was disposed.  This
+        /// parameter may be null.
+        /// </param>
         private static void TraceTextWriterWasDisposed(
             Interpreter interpreter
             )
@@ -1869,6 +2747,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Complaint Reporting Methods
+        /// <summary>
+        /// This method returns the default quiet setting to use during
+        /// interpreter creation, allowing an environment variable to override
+        /// the supplied default value.
+        /// </summary>
+        /// <param name="default">
+        /// The default value to return when the environment variable is not
+        /// present.
+        /// </param>
+        /// <returns>
+        /// The default quiet setting.
+        /// </returns>
         public static bool GetDefaultQuiet(
             bool @default
             )
@@ -1886,6 +2776,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default trace stack setting to use during
+        /// interpreter creation, allowing an environment variable to override
+        /// the supplied default value.
+        /// </summary>
+        /// <param name="default">
+        /// The default value to return when the environment variable is not
+        /// present.
+        /// </param>
+        /// <returns>
+        /// The default trace stack setting.
+        /// </returns>
         public static bool GetDefaultTraceStack(
             bool @default
             )
@@ -1906,6 +2808,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the various complaint counts maintained by
+        /// this subsystem.
+        /// </summary>
+        /// <param name="thread">
+        /// Non-zero to retrieve the per-thread complaint counts.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero to retrieve the global (per AppDomain) complaint counts.
+        /// </param>
+        /// <param name="threadCount">
+        /// Upon return, this parameter receives the per-thread complaint count,
+        /// when requested.
+        /// </param>
+        /// <param name="globalCount">
+        /// Upon return, this parameter receives the global complaint count,
+        /// when requested.
+        /// </param>
+        /// <param name="threadQuietCount">
+        /// Upon return, this parameter receives the per-thread quiet complaint
+        /// count, when requested.
+        /// </param>
+        /// <param name="globalQuietCount">
+        /// Upon return, this parameter receives the global quiet complaint
+        /// count, when requested.
+        /// </param>
         public static void GetComplainCounts(
             bool thread,               /* in */
             bool global,               /* in */
@@ -1936,6 +2864,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a call to Complain() is currently
+        /// active on this thread.
+        /// </summary>
+        /// <returns>
+        /// True if a complaint is currently being processed on this thread;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsComplainPending()
         {
             return Interlocked.CompareExchange(ref complainLevels, 0, 0) > 0;
@@ -1943,6 +2879,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified bytes to the supplied stream,
+        /// optionally flushing it afterward.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to write to.  This parameter may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The bytes to write.  This parameter may be null.
+        /// </param>
+        /// <param name="flush">
+        /// Non-zero to flush the stream after writing.
+        /// </param>
+        /// <returns>
+        /// True if any bytes were written; otherwise, false.
+        /// </returns>
         private static bool WriteBytes(
             Stream stream, /* in */
             byte[] bytes,  /* in */
@@ -1967,6 +2919,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single complaint, followed by two line
+        /// terminators and a form feed, to the supplied stream, incrementing
+        /// the count of complaints written.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to write to.  This parameter may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The bytes of the complaint to write.  This parameter may be null.
+        /// </param>
+        /// <param name="written">
+        /// Upon success, this parameter is incremented to reflect the complaint
+        /// that was written.
+        /// </param>
+        /// <returns>
+        /// True if the complaint was written; otherwise, false.
+        /// </returns>
         private static bool WriteComplaint(
             Stream stream,  /* in */
             byte[] bytes,   /* in */
@@ -1991,6 +2961,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dumps the recorded complaints, either to a file or via
+        /// the failsafe output mechanism, optionally filtering by interpreter
+        /// and optionally clearing the complaints that are written.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose complaints should be dumped, or null to dump
+        /// the complaints from all interpreters.  This parameter is optional.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when writing complaints to a file.  When null,
+        /// the default encoding is used.  This parameter is optional.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to write the complaints to, or null to use the
+        /// failsafe output mechanism.  This parameter is optional.
+        /// </param>
+        /// <param name="message">
+        /// An optional message to write before the complaints.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to remove each complaint that is successfully written.
+        /// </param>
+        /// <returns>
+        /// The number of complaints written, or an invalid count if the
+        /// operation could not be performed.
+        /// </returns>
         public static int DumpComplaints(
             Interpreter interpreter, /* in: OPTIONAL */
             Encoding encoding,       /* in: OPTIONAL */
@@ -2119,6 +3117,17 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method must *NOT* throw any exceptions.
         //
+        /// <summary>
+        /// This method records a complaint for the currently active
+        /// interpreter.  It must never throw an exception.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the complaint.
+        /// </param>
+        /// <param name="result">
+        /// The result (message) associated with the complaint.  This parameter
+        /// may be null.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Complain(
             ReturnCode code,
@@ -2136,6 +3145,23 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method must *NOT* throw any exceptions.
         //
+        /// <summary>
+        /// This method records a complaint for the specified interpreter,
+        /// capturing a stack trace and method name as appropriate and routing
+        /// the complaint to the configured output sinks.  It must never throw
+        /// an exception.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the complaint.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the complaint.
+        /// </param>
+        /// <param name="result">
+        /// The result (message) associated with the complaint.  This parameter
+        /// may be null.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Complain(
             Interpreter interpreter,
@@ -2207,6 +3233,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Complaint Reporting Methods
+        /// <summary>
+        /// This method determines whether it is currently possible to process a
+        /// complaint (e.g. the AppDomain is not in the process of stopping).
+        /// </summary>
+        /// <returns>
+        /// True if a complaint can be processed; otherwise, false.
+        /// </returns>
         private static bool IsComplainPossible()
         {
             return !AppDomainOps.IsStoppingSoon();
@@ -2214,6 +3247,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified debug host is usable
+        /// for the selected features, checking its flags, exception state, and
+        /// open state.
+        /// </summary>
+        /// <param name="debugHost">
+        /// The debug host to test.  This parameter may be null.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The host flags that the debug host is required to support.
+        /// </param>
+        /// <returns>
+        /// True if the debug host is usable for the selected features;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsHostUsable(
             IDebugHost debugHost,
             HostFlags hasFlags
@@ -2259,6 +3307,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the specified complaint in the internal list of
+        /// complaints seen by this class.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the complaint.  This parameter is
+        /// optional.
+        /// </param>
+        /// <param name="complaintId">
+        /// The unique identifier of the complaint.
+        /// </param>
+        /// <param name="complaint">
+        /// The complaint message to record.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the complaint was recorded; otherwise, false.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static bool RecordComplaint(
             Interpreter interpreter, /* in: OPTIONAL */
@@ -2309,6 +3374,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the core complaint handling: it invokes the
+        /// complaint callback (if any), formats the complaint, records it, and
+        /// emits it to the configured output sinks (trace, test "puts" channel,
+        /// text writer, and debug host) while preventing unwanted recursion.
+        /// </summary>
+        /// <param name="callback">
+        /// The complaint callback to invoke, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the complaint.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="textWriter">
+        /// The text writer to emit the complaint to, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to emit the complaint to, if any.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="id">
+        /// The unique identifier of the complaint.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the complaint.
+        /// </param>
+        /// <param name="result">
+        /// The result (message) associated with the complaint.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="stackTrace">
+        /// The captured stack trace associated with the complaint, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="viaTrace">
+        /// Non-zero to emit the complaint via the trace subsystem.
+        /// </param>
+        /// <param name="viaTest">
+        /// Non-zero to emit the complaint via the test "puts" channel.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to inhibit use of the debug host and the console.
+        /// </param>
+        /// <param name="disposed">
+        /// Upon return, this parameter is set to non-zero if the supplied text
+        /// writer was found to have been disposed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Complain(
             ComplainCallback callback,
@@ -2680,6 +3794,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Host Output Methods
+        /// <summary>
+        /// This method writes the specified value, as a line, to the debug
+        /// text writer and debug host associated with the supplied
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer and debug host should be
+        /// used; this value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to be written.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when not running a
+        /// debug build.
+        /// </param>
         public static void WriteTo(
             Interpreter interpreter,
             string value,
@@ -2701,6 +3831,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Host Output Methods
+        /// <summary>
+        /// This method writes the specified value, as a line, to the specified
+        /// text writer only.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to be written.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when not running a
+        /// debug build.
+        /// </param>
+        /// <param name="disposed">
+        /// Upon return, this value is set to non-zero if the text writer was
+        /// discovered to have been disposed.
+        /// </param>
         private static void WriteTo(
             TextWriter textWriter,
             string value,
@@ -2713,6 +3861,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value, as a line, to the specified
+        /// text writer and/or debug host.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to be written to; this value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to be written.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when not running a
+        /// debug build.
+        /// </param>
+        /// <param name="disposed">
+        /// Upon return, this value is set to non-zero if the text writer was
+        /// discovered to have been disposed.
+        /// </param>
         private static void WriteTo(
             TextWriter textWriter,
             IDebugHost debugHost,
@@ -2805,6 +3974,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Debug "Break" Methods
+        /// <summary>
+        /// This method records a complaint describing a debug break and then,
+        /// optionally, breaks into an attached debugger, using the debug text
+        /// writer and debug host associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer and debug host should be
+        /// used; this value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the break even when not running a debug build.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Break(
             Interpreter interpreter,
@@ -2824,6 +4009,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records a complaint describing a debug break and then,
+        /// optionally, breaks into an attached debugger, using the specified
+        /// text writer and debug host.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to be written to; this value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the break even when not running a debug build.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Break(
             TextWriter textWriter,
@@ -2841,6 +4044,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records a complaint describing a debug break and then,
+        /// optionally, breaks into an attached debugger, using the specified
+        /// text writer and debug host.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to be written to; this value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the break even when not running a debug build.
+        /// </param>
+        /// <param name="disposed">
+        /// Upon return, this value is set to non-zero if the text writer was
+        /// discovered to have been disposed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void Break(
             TextWriter textWriter,
@@ -2875,6 +4100,30 @@ namespace Eagle._Components.Private
         #region Public Debug "Fail" Methods
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method records a complaint describing a debug failure and then,
+        /// optionally, reports it via the framework assertion mechanism, using
+        /// the text writer and debug host associated with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debug text writer and host are used; this
+        /// value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The primary failure message; this value may be null.
+        /// </param>
+        /// <param name="detailMessage">
+        /// The detailed failure message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the failure to be reported even when not running a
+        /// debug build.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Fail(
             Interpreter interpreter,
@@ -2899,6 +4148,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records a complaint describing a debug failure and then,
+        /// optionally, reports it via the framework assertion mechanism, using
+        /// the specified text writer and debug host.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to be written to; this value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The primary failure message; this value may be null.
+        /// </param>
+        /// <param name="detailMessage">
+        /// The detailed failure message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the failure to be reported even when not running a
+        /// debug build.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Fail(
             TextWriter textWriter,
@@ -2919,6 +4193,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records a complaint describing a debug failure and then,
+        /// optionally, reports it via the framework assertion mechanism, using
+        /// the specified text writer and debug host.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to be written to; this value may be null.
+        /// </param>
+        /// <param name="debugHost">
+        /// The debug host to be written to; this value may be null.
+        /// </param>
+        /// <param name="skipMethod">
+        /// The method to skip when determining the calling method name to
+        /// include in the diagnostic message; this value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The primary failure message; this value may be null.
+        /// </param>
+        /// <param name="detailMessage">
+        /// The detailed failure message; this value may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the failure to be reported even when not running a
+        /// debug build.
+        /// </param>
+        /// <param name="disposed">
+        /// Upon return, this value is set to non-zero if the text writer was
+        /// discovered to have been disposed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Fail(
             TextWriter textWriter,
@@ -2951,6 +4254,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Listener Handling Methods
+        /// <summary>
+        /// This method determines the default trace listener type to use,
+        /// based on the current build configuration and platform.
+        /// </summary>
+        /// <returns>
+        /// The trace listener type that should be used by default.
+        /// </returns>
         private static TraceListenerType GetTraceListenerType()
         {
             if (Build.Debug)
@@ -2996,6 +4306,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps a nullable console preference to the corresponding
+        /// trace listener type.
+        /// </summary>
+        /// <param name="console">
+        /// Non-zero to request the console listener type; zero to request the
+        /// default listener type; null to request automatic detection.
+        /// </param>
+        /// <returns>
+        /// The trace listener type that corresponds to the specified
+        /// preference.
+        /// </returns>
         public static TraceListenerType GetTraceListenerType(
             bool? console
             )
@@ -3009,6 +4331,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the managed type that implements the specified
+        /// trace listener type.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The trace listener type to resolve.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Upon success, the resolved type; otherwise, null.
+        /// </returns>
         private static Type GetTraceListenerType(
             TraceListenerType listenerType,
             ref Result error
@@ -3106,6 +4441,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes the specified trace listener, ignoring (or
+        /// reporting) any exception that is raised.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to flush; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the listener was non-null and was flushed successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool FlushTraceListener(
             TraceListener listener
             )
@@ -3137,6 +4483,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified trace listener, ignoring (or
+        /// reporting) any exception that is raised.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to dispose; upon successful disposal it is set to
+        /// null.  This value may be null.
+        /// </param>
         private static void DisposeTraceListener(
             ref TraceListener listener
             )
@@ -3167,6 +4521,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method saves the trace listeners currently present in the
+        /// selected collection and, optionally, replaces them with a single
+        /// listener.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="listener">
+        /// The replacement trace listener to install; this value may be null.
+        /// </param>
+        /// <param name="savedListeners">
+        /// Upon return, this will contain the array of trace listeners that
+        /// were previously present in the collection.
+        /// </param>
         public static void PushTraceListener(
             bool debug,
             TraceListener listener,
@@ -3194,6 +4564,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores a previously saved set of trace listeners into
+        /// the selected collection.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="savedListeners">
+        /// The array of trace listeners to restore; upon return it is set to
+        /// null.  This value may be null.
+        /// </param>
         public static void RestoreTraceListeners(
             bool debug,
             ref TraceListener[] savedListeners
@@ -3220,6 +4602,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the log file name associated with the
+        /// specified text writer trace listener, via reflection.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to query; this value may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, this will contain the log file name.
+        /// </param>
+        /// <returns>
+        /// True if the log file name was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetTraceLogFileName(
             TextWriterTraceListener listener, /* in */
             out string fileName               /* out */
@@ -3273,6 +4669,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method attempts to obtain the log file name associated with the
+        /// specified test trace listener.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to query; this value may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, this will contain the log file name.
+        /// </param>
+        /// <returns>
+        /// True if the log file name was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetTraceLogFileName(
             _Tests.Default.Listener listener, /* in */
             out string fileName               /* out */
@@ -3301,6 +4711,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the log file names associated with the trace
+        /// listeners in the selected collection.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="fileNames">
+        /// Upon success, this will contain the list of extracted log file
+        /// names.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if at least one log file name was extracted; otherwise, false.
+        /// </returns>
         public static bool ExtractTraceLogFileNames(
             bool debug,               /* in */
             ref StringList fileNames, /* in, out */
@@ -3315,6 +4743,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the log file names associated with the trace
+        /// listeners in the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <param name="fileNames">
+        /// Upon success, this will contain the list of extracted log file
+        /// names.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if at least one log file name was extracted; otherwise, false.
+        /// </returns>
         private static bool ExtractTraceLogFileNames(
             TraceListenerCollection listeners, /* in */
             ref StringList fileNames,          /* in, out */
@@ -3372,6 +4818,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates and normalizes the specified trace log file
+        /// name, requiring it to be an absolute path.
+        /// </summary>
+        /// <param name="fileName">
+        /// The trace log file name to validate; upon success it may be modified
+        /// to its expanded form.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file name is valid; otherwise, false.
+        /// </returns>
         private static bool VerifyTraceLogFileName(
             ref string fileName, /* in, out */
             ref Result error     /* out */
@@ -3408,6 +4868,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the interpreter to associate with a trace
+        /// log, based on the specified client data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The optional client data that may specify the interpreter; this
+        /// value may be null.
+        /// </param>
+        /// <returns>
+        /// The associated interpreter, or the active interpreter when none is
+        /// specified.
+        /// </returns>
         private static Interpreter GetTraceLogInterpreter(
             IClientData clientData /* in */
             )
@@ -3434,6 +4906,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the text encoding to use for a trace log,
+        /// based on the specified client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data that may specify the encoding; this value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The associated encoding, or null when none is specified.
+        /// </returns>
         private static Encoding GetTraceLogEncoding(
             Interpreter interpreter, /* in */
             IClientData clientData   /* in */
@@ -3461,6 +4947,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the name to associate with a trace log,
+        /// incorporating the current system thread identifier.
+        /// </summary>
+        /// <param name="clientData">
+        /// The optional client data that may specify the base name; this value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed trace log name.
+        /// </returns>
         private static string GetTraceLogName(
             IClientData clientData /* in */
             )
@@ -3488,6 +4985,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the log flags to use for a trace log, based
+        /// on the specified client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data that may specify the log flags; this value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The associated log flags, or null when none are specified.
+        /// </returns>
         private static LogFlags? GetTraceLogFlags(
             Interpreter interpreter, /* in */
             IClientData clientData   /* in */
@@ -3523,6 +5034,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines and validates the trace log file name to use,
+        /// based on the specified client data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data that may specify the log file name; this value may
+        /// be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Upon success, the validated trace log file name; otherwise, null.
+        /// </returns>
         private static string GetTraceLogFileName(
             IClientData clientData, /* in */
             ref Result error        /* out */
@@ -3602,6 +5127,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new trace listener of the specified type.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The type of trace listener to create.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// Upon success, the new trace listener; otherwise, null.
+        /// </returns>
         public static TraceListener NewTraceListener(
             TraceListenerType listenerType,
             IClientData clientData
@@ -3614,6 +5152,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new trace listener of the specified type.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The type of trace listener to create.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Upon success, the new trace listener; otherwise, null.
+        /// </returns>
         public static TraceListener NewTraceListener(
             TraceListenerType listenerType, /* in */
             IClientData clientData,         /* in: OPTIONAL */
@@ -3749,6 +5303,12 @@ namespace Eagle._Components.Private
 
 #if TEST
 #if NATIVE
+        /// <summary>
+        /// This method creates a new native trace listener.
+        /// </summary>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewNativeTraceListener()
         {
             return new _Tests.Default.NativeTraceListener();
@@ -3756,6 +5316,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, named native trace listener.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new trace listener; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewNativeTraceListener(
             string name
             )
@@ -3766,6 +5336,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new test trace listener.
+        /// </summary>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewTestTraceListener()
         {
             return new _Tests.Default.Listener();
@@ -3773,6 +5349,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, named test trace listener.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new trace listener; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewTestTraceListener(
             string name
             )
@@ -3782,6 +5368,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new test trace listener that writes to the
+        /// specified log file.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new trace listener; this value may be
+        /// null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the log file to write to.
+        /// </param>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         public static TraceListener NewTestTraceListener(
             string name,
             string fileName
@@ -3792,6 +5392,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new test trace listener that writes to the
+        /// specified log file, using the specified encoding and log flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new trace listener; this value may be
+        /// null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the log file to write to.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for the log file; this value may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The log flags to use; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewTestTraceListener(
             string name,
             string fileName,
@@ -3805,6 +5425,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new test trace listener that writes to the
+        /// specified log file, using the specified encoding, buffer size, and
+        /// log flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new trace listener; this value may be
+        /// null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the log file to write to.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for the log file; this value may be null.
+        /// </param>
+        /// <param name="bufferSize">
+        /// The size of the buffer to use for the log file, in bytes.
+        /// </param>
+        /// <param name="flags">
+        /// The log flags to use; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         private static TraceListener NewTestTraceListener(
             string name,
             string fileName,
@@ -3819,6 +5463,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new buffered trace listener.
+        /// </summary>
+        /// <returns>
+        /// Upon success, the new trace listener; otherwise, null.
+        /// </returns>
         private static TraceListener NewBufferedTraceListener()
         {
             Result error = null; /* NOT USED */
@@ -3830,6 +5480,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if WINFORMS
+        /// <summary>
+        /// This method creates a new status form trace listener.
+        /// </summary>
+        /// <returns>
+        /// The new trace listener.
+        /// </returns>
         public static TraceListener NewStatusFormTraceListener()
         {
             return new _Tests.Default.StatusFormTraceListener(
@@ -3840,6 +5496,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two trace listeners are considered to
+        /// be the same, optionally comparing only their types.
+        /// </summary>
+        /// <param name="listener1">
+        /// The first trace listener to compare; this value may be null.
+        /// </param>
+        /// <param name="listener2">
+        /// The second trace listener to compare; this value may be null.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider the listeners equal when their types match;
+        /// otherwise, they must be the same object instance.
+        /// </param>
+        /// <returns>
+        /// True if the listeners are considered to be the same; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSameTraceListener(
             TraceListener listener1,
             TraceListener listener2,
@@ -3881,6 +5555,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a trace listener of the specified
+        /// type is present in the selected collection.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="listenerType">
+        /// The trace listener type to look for; this value may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used when constructing a comparison
+        /// listener; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if a matching trace listener is present; otherwise, false.
+        /// </returns>
         public static bool HasTraceListener(
             bool debug,                      /* in */
             TraceListenerType? listenerType, /* in */
@@ -3894,6 +5586,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a trace listener of the specified
+        /// type is present in the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <param name="listenerType">
+        /// The trace listener type to look for; this value may be null, which
+        /// matches any console or default listener.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used when constructing a comparison
+        /// listener; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if a matching trace listener is present; otherwise, false.
+        /// </returns>
         public static bool HasTraceListener(
             TraceListenerCollection listeners, /* in */
             TraceListenerType? listenerType,   /* in: OPTIONAL, null = ANY */
@@ -3982,6 +5693,17 @@ namespace Eagle._Components.Private
 
 #if TEST
 #if NATIVE
+        /// <summary>
+        /// This method determines whether a native trace listener is present in
+        /// the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if a native trace listener is present; otherwise, false.
+        /// </returns>
         public static bool HasNativeTraceListener(
             TraceListenerCollection listeners /* in */
             )
@@ -4015,6 +5737,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a test trace listener is present in
+        /// the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if a test trace listener is present; otherwise, false.
+        /// </returns>
         public static bool HasTestTraceListener(
             TraceListenerCollection listeners /* in */
             )
@@ -4047,6 +5780,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a buffered trace listener is present
+        /// in the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if a buffered trace listener is present; otherwise, false.
+        /// </returns>
         public static bool HasBufferedTraceListener(
             TraceListenerCollection listeners /* in */
             )
@@ -4080,6 +5824,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified collection for a trace listener
+        /// matching the one provided.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to search; this value may be null.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to search for; this value may be null.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to match based on listener type; otherwise, the same object
+        /// instance is required.
+        /// </param>
+        /// <returns>
+        /// The index of the matching trace listener, or
+        /// <see cref="Index.Invalid" /> if no match was found.
+        /// </returns>
         private static int FindTraceListener(
             TraceListenerCollection listeners,
             TraceListener listener,
@@ -4113,6 +5875,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified trace listener is present in
+        /// the selected collection, adding it if necessary.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to ensure is present; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode EnsureTraceListener(
             TraceListener listener,
             bool debug,
@@ -4128,6 +5912,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified trace listener is present in
+        /// the specified collection, adding it if necessary.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to operate on; this value may be
+        /// null.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to ensure is present; this value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode EnsureTraceListener(
             TraceListenerCollection listeners,
             TraceListener listener,
@@ -4141,6 +5943,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified trace listener is present in
+        /// the specified collection, adding it if necessary.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to operate on; this value may be
+        /// null.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to ensure is present; this value may be null.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode EnsureTraceListener(
             TraceListenerCollection listeners,
             TraceListener listener,
@@ -4190,6 +6014,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces an existing trace listener in the specified
+        /// collection with a new one, optionally disposing the old one.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to operate on; this value may be
+        /// null.
+        /// </param>
+        /// <param name="oldListener">
+        /// The trace listener to remove; this value may be null.
+        /// </param>
+        /// <param name="newListener">
+        /// The trace listener to add; this value may be null.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to match the old listener based on type; otherwise, the
+        /// same object instance is required.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose the old listener after removing it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ReplaceTraceListener(
             TraceListenerCollection listeners,
             TraceListener oldListener,
@@ -4236,6 +6088,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the indicator flags describing the trace
+        /// listeners currently present in the trace listener collection.
+        /// </summary>
+        /// <returns>
+        /// The calculated trace indicator flags.
+        /// </returns>
         public static TraceIndicatorFlags CalculateListeners()
         {
             return CalculateListeners(GetTraceListeners());
@@ -4243,6 +6102,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the indicator flags describing the trace
+        /// listeners present in the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to examine; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The calculated trace indicator flags.
+        /// </returns>
         private static TraceIndicatorFlags CalculateListeners(
             TraceListenerCollection listeners
             )
@@ -4289,6 +6159,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes all of the trace listeners present in the
+        /// specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to flush; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if all listeners were flushed successfully; otherwise, false.
+        /// </returns>
         private static bool FlushTraceListeners(
             TraceListenerCollection listeners
             )
@@ -4312,6 +6192,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the normal and/or debug trace listener
+        /// collections.
+        /// </summary>
+        /// <param name="trace">
+        /// Non-zero to clear the normal trace listener collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to clear the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
         public static void ClearTraceListeners(
             bool trace,
             bool debug,
@@ -4327,6 +6223,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the normal and/or debug trace listener
+        /// collections.
+        /// </summary>
+        /// <param name="trace">
+        /// Non-zero to clear the normal trace listener collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to clear the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ClearTraceListeners(
             bool trace,
             bool debug,
@@ -4395,6 +6314,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the specified trace listener collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to clear; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero if the specified collection is the debug listener
+        /// collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ClearTraceListeners(
             TraceListenerCollection listeners,
             bool debug,
@@ -4433,6 +6375,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new trace listener of the specified type and
+        /// adds it to the specified collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to add to; this value may be null.
+        /// </param>
+        /// <param name="listenerType">
+        /// The type of trace listener to create and add.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to always add the listener; otherwise, it is only added
+        /// when one of its type is not already present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode AddTraceListener(
             TraceListenerCollection listeners,
             TraceListenerType listenerType,
@@ -4492,6 +6459,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified trace listener to the selected
+        /// collection.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to add; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode AddTraceListener(
             TraceListener listener,
             bool debug
@@ -4504,6 +6486,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified trace listener to the selected
+        /// collection.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to add; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode AddTraceListener(
             TraceListener listener,
             bool debug,
@@ -4517,6 +6517,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified trace listener to the specified
+        /// collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to add to; this value may be null.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to add; this value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode AddTraceListener(
             TraceListenerCollection listeners,
             TraceListener listener,
@@ -4551,6 +6568,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method parses the specified value into a script trace listener
+        /// specification, creates the resulting listener, and ensures it is
+        /// present in the selected collection.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value describing the script trace listener to create.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode AddScriptTraceListener(
             Interpreter interpreter,
             string value,
@@ -4591,6 +6634,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified trace listener from the selected
+        /// collection.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to remove; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode RemoveTraceListener(
             TraceListener listener,
             bool debug
@@ -4603,6 +6661,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified trace listener from the selected
+        /// collection.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to remove; this value may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode RemoveTraceListener(
             TraceListener listener,
             bool debug,
@@ -4616,6 +6692,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified trace listener from the specified
+        /// collection.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to remove from; this value may be
+        /// null.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to remove; this value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode RemoveTraceListener(
             TraceListenerCollection listeners,
             TraceListener listener,
@@ -4649,6 +6743,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the first trace listener of the specified type
+        /// from the specified collection, optionally disposing it.
+        /// </summary>
+        /// <param name="listeners">
+        /// The collection of trace listeners to remove from; this value may be
+        /// null.
+        /// </param>
+        /// <param name="listenerType">
+        /// The type of trace listener to remove.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose the removed listener.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode RemoveTraceListener(
             TraceListenerCollection listeners,
             TraceListenerType listenerType,
@@ -4716,6 +6831,13 @@ namespace Eagle._Components.Private
         // WARNING: For use by child classes of the Eagle._Tests.Default
         //          class only.
         //
+        /// <summary>
+        /// This method removes the specified trace listener from both the
+        /// debug and trace listener collections, ignoring any exception.
+        /// </summary>
+        /// <param name="listener">
+        /// The trace listener to remove; this value may be null.
+        /// </param>
         public static void RemoveTraceListener(
             TraceListener listener /* in */
             )
@@ -4772,6 +6894,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified trace listener is present in
+        /// the normal and/or debug trace listener collections, writing prompt
+        /// output as appropriate.
+        /// </summary>
+        /// <param name="context">
+        /// A short description of the listener being set up, used in prompt
+        /// output.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="listener">
+        /// The trace listener to set up; this value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode PrivateSetupTraceListeners(
             string context,             /* in */
             bool trace,                 /* in */
@@ -4896,6 +7054,30 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by ProcessStartupOptions only.
         //
+        /// <summary>
+        /// This method creates a new trace listener of the specified type and
+        /// adds it to the normal and/or debug trace listener collections.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The type of trace listener to create and add.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
         public static void SetupTraceListeners(
             TraceListenerType listenerType, /* in */
             IClientData clientData,         /* in: OPTIONAL */
@@ -4921,6 +7103,37 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by PrivateShellMainCore only.
         //
+        /// <summary>
+        /// This method creates a new trace listener of the specified type and
+        /// adds it to the normal and/or debug trace listener collections.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The type of trace listener to create and add.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetupTraceListeners(
             TraceListenerType listenerType, /* in */
             IClientData clientData,         /* in: OPTIONAL */
@@ -4942,6 +7155,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new trace listener of the specified type and
+        /// adds it to the normal and/or debug trace listener collections,
+        /// returning the created listener to the caller.
+        /// </summary>
+        /// <param name="listenerType">
+        /// The type of trace listener to create and add.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data used during creation; this value may be
+        /// null.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="listener">
+        /// Upon success, this will contain the trace listener that was created
+        /// and added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetupTraceListeners(
             TraceListenerType listenerType, /* in */
             IClientData clientData,         /* in: OPTIONAL */
@@ -5002,6 +7255,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method generates a unique trace log file name, preferring the
+        /// directory used for the primary test log file when an interpreter is
+        /// available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The optional interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="name">
+        /// An optional name to embed in the generated file name; this value may
+        /// be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Upon success, the generated trace log file name; otherwise, null.
+        /// </returns>
         public static string GetTraceLogFileName(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in: OPTIONAL */
@@ -5045,6 +7316,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the specified trace log file, but only when it
+        /// exists and is empty, ignoring any exception that is raised.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the trace log file to delete; this value may be null.
+        /// </param>
         public static void MaybeDeleteTraceLogFile(
             string fileName /* in: OPTIONAL */
             )
@@ -5076,6 +7354,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new log file trace listener and adds it to the
+        /// normal and/or debug trace listener collections.
+        /// </summary>
+        /// <param name="name">
+        /// An optional name to assign to the new trace listener; this value may
+        /// be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the log file to write to.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for the log file; this value may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The log flags to use; this value may be null.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetupTraceLogFile(
             string name,       /* in: OPTIONAL */
             string fileName,   /* in */
@@ -5098,6 +7417,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new log file trace listener and adds it to the
+        /// normal and/or debug trace listener collections, returning the
+        /// created listener to the caller.
+        /// </summary>
+        /// <param name="name">
+        /// An optional name to assign to the new trace listener; this value may
+        /// be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the log file to write to.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for the log file; this value may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The log flags to use; this value may be null.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to add the listener to the normal trace listener
+        /// collection.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to add the listener to the debug trace listener collection.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if running with an interactive console available.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose prompt output.
+        /// </param>
+        /// <param name="typeOnly">
+        /// Non-zero to consider an existing listener of the same type to be a
+        /// match; otherwise, the same object instance is required.
+        /// </param>
+        /// <param name="listener">
+        /// Upon success, this will contain the trace listener that was created
+        /// and added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetupTraceLogFile(
             string name,                /* in: OPTIONAL */
             string fileName,            /* in */
@@ -5157,6 +7522,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes the buffers of all buffered trace listeners in
+        /// the selected collection.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode FlushBufferedTraceListeners(
             bool debug /* in */
             )
@@ -5185,6 +7562,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes the buffers of all buffered trace listeners in
+        /// the selected collection, accumulating a count of the listeners that
+        /// were flushed.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to operate on the debug listener collection; otherwise, the
+        /// trace listener collection is used.
+        /// </param>
+        /// <param name="count">
+        /// Upon return, this is incremented by the number of buffered trace
+        /// listeners that were flushed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode FlushBufferedTraceListeners(
             bool debug,      /* in */
             ref int count,   /* in, out */
@@ -5228,6 +7625,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Framework Wrapper Methods
+        /// <summary>
+        /// This method determines whether a debugger is currently attached to
+        /// the process.
+        /// </summary>
+        /// <returns>
+        /// True if a debugger is attached; otherwise, false.
+        /// </returns>
         public static bool IsAttached()
         {
             return SDD.IsAttached;
@@ -5235,6 +7639,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a debug failure via the framework assertion
+        /// mechanism.
+        /// </summary>
+        /// <param name="message">
+        /// The primary failure message; this value may be null.
+        /// </param>
+        /// <param name="detailMessage">
+        /// The detailed failure message; this value may be null.
+        /// </param>
         public static void Fail(
             string message,
             string detailMessage
@@ -5246,6 +7660,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method gets the collection of active debug trace listeners.
+        /// </summary>
+        /// <returns>
+        /// The collection of active debug trace listeners.
+        /// </returns>
         public static TraceListenerCollection GetDebugListeners()
         {
             return Debug.Listeners;
@@ -5254,6 +7674,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the collection of active trace listeners.
+        /// </summary>
+        /// <returns>
+        /// The collection of active trace listeners.
+        /// </returns>
         public static TraceListenerCollection GetTraceListeners()
         {
             return Trace.Listeners;
@@ -5261,6 +7687,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the selected trace listener collection.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero to return the debug listener collection; otherwise, the
+        /// trace listener collection is returned.
+        /// </param>
+        /// <returns>
+        /// The selected trace listener collection.
+        /// </returns>
         public static TraceListenerCollection GetListeners(
             bool debug
             )
@@ -5276,6 +7712,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method writes a message to the system diagnostics log using the
+        /// default category and the specified level.
+        /// </summary>
+        /// <param name="level">
+        /// The diagnostic level to use.
+        /// </param>
+        /// <param name="message">
+        /// The message to log; this value may be null.
+        /// </param>
         private static void Log(
             int level,
             string message
@@ -5288,6 +7734,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a message to the system diagnostics log using the
+        /// default category and level.
+        /// </summary>
+        /// <param name="message">
+        /// The message to log; this value may be null.
+        /// </param>
         public static void Log(
             string message
             )
@@ -5297,6 +7750,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a message to the system diagnostics log using the
+        /// specified category and level.
+        /// </summary>
+        /// <param name="level">
+        /// The diagnostic level to use.
+        /// </param>
+        /// <param name="category">
+        /// The diagnostic category to use; this value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The message to log; this value may be null.
+        /// </param>
         public static void Log(
             int level,
             string category,
@@ -5308,6 +7774,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the active debug
+        /// listeners.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be written; this value may be null.
+        /// </param>
         public static void DebugWrite(
             object value
             )
@@ -5317,6 +7790,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message to the active debug
+        /// listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
         public static void DebugWrite(
             string message
             )
@@ -5326,6 +7806,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, under the specified
+        /// category, to the active debug listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The category to be written; this value may be null.
+        /// </param>
         public static void DebugWrite(
             string message,
             string category
@@ -5339,6 +7829,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value, as a line, to the active
+        /// debug listeners.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be written; this value may be null.
+        /// </param>
         public static void DebugWriteLine(
             object value
             )
@@ -5348,6 +7845,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, as a line, to the active
+        /// debug listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
         public static void DebugWriteLine(
             string message
             )
@@ -5357,6 +7861,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, as a line, under the
+        /// specified category, to the active debug listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The category to be written; this value may be null.
+        /// </param>
         private static void DebugWriteLine(
             string message,
             string category
@@ -5370,6 +7884,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes the active debug listeners.
+        /// </summary>
         private static void DebugFlush()
         {
             Debug.Flush();
@@ -5377,6 +7894,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether trace messages should always be
+        /// emitted to all active trace listeners.
+        /// </summary>
+        /// <returns>
+        /// True if trace messages should always be emitted to all active trace
+        /// listeners; otherwise, false.
+        /// </returns>
         private static bool ShouldForceToListeners()
         {
             //
@@ -5410,6 +7935,13 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.QueryStatus only.
         //
+        /// <summary>
+        /// This method gets the current value of the flag that forces trace
+        /// messages to all active trace listeners.
+        /// </summary>
+        /// <returns>
+        /// The current flag value, or null if the lock could not be acquired.
+        /// </returns>
         public static bool? GetForceToListeners()
         {
             bool locked = false;
@@ -5434,6 +7966,16 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.ForceEnabledOrDisabled only.
         //
+        /// <summary>
+        /// This method sets the flag that forces trace messages to all active
+        /// trace listeners.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to force trace messages to all active trace listeners.
+        /// </param>
+        /// <returns>
+        /// True if the value was set; otherwise, false.
+        /// </returns>
         public static bool SetForceToListeners(
             bool enabled /* in */
             )
@@ -5465,6 +8007,13 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by TraceOps.ResetStatus only.
         //
+        /// <summary>
+        /// This method resets the flag that forces trace messages to all active
+        /// trace listeners to its default value.
+        /// </summary>
+        /// <returns>
+        /// True if the value was reset; otherwise, false.
+        /// </returns>
         public static bool ResetForceToListeners()
         {
             bool locked = false;
@@ -5491,6 +8040,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method moves a leading new line from the trace message to the
+        /// trace category, when present.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message, possibly modified upon return; this value may be
+        /// null.
+        /// </param>
+        /// <param name="category">
+        /// The trace category, possibly modified upon return; this value may be
+        /// null.
+        /// </param>
         private static void MaybeModifyTraceMessageAndCategory(
             ref string message, /* in, out */
             ref string category /* in, out */
@@ -5510,6 +8071,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to all active trace
+        /// listeners.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be written; this value may be null.
+        /// </param>
         public static void TraceWrite( /* RESTRICTED */
             object value
             )
@@ -5519,6 +8087,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message to all active trace
+        /// listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
         public static void TraceWrite( /* RESTRICTED */
             string message
             )
@@ -5528,6 +8103,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a trace message, honoring any configured trace
+        /// text writer for the specified interpreter and falling back to the
+        /// active trace listeners.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to use; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the active trace listeners were used; otherwise, false.
+        /// </returns>
         public static bool TraceWrite(
             Interpreter interpreter,
             string message,
@@ -5624,6 +8216,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, under the specified
+        /// category, to all active trace listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The category to be written; this value may be null.
+        /// </param>
         public static void TraceWrite( /* RESTRICTED */
             string message,
             string category
@@ -5637,6 +8239,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value, as a line, to all active
+        /// trace listeners.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be written; this value may be null.
+        /// </param>
         public static void TraceWriteLine( /* RESTRICTED */
             object value
             )
@@ -5646,6 +8255,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, as a line, to all active
+        /// trace listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
         public static void TraceWriteLine( /* RESTRICTED */
             string message
             )
@@ -5655,6 +8271,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, as a line, under the
+        /// specified category, to all active trace listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The category to be written; this value may be null.
+        /// </param>
         public static void TraceWriteLine( /* RESTRICTED */
             string message,
             string category
@@ -5668,6 +8294,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified message, as a line, prefixed with
+        /// the current system thread identifier, to all active trace listeners.
+        /// </summary>
+        /// <param name="message">
+        /// The message to be written; this value may be null.
+        /// </param>
+        /// <param name="category">
+        /// The category to be written; this value may be null.
+        /// </param>
         public static void TraceWriteLineFormatted( /* RESTRICTED */
             string message,
             string category
@@ -5682,6 +8318,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes all active trace listeners.
+        /// </summary>
         public static void TraceFlush()
         {
             Trace.Flush();
@@ -5691,6 +8330,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Integration Methods
+        /// <summary>
+        /// This method flushes both the active trace listeners and the active
+        /// debug listeners, ignoring any exception that is raised.
+        /// </summary>
         public static void Flush()
         {
             try
@@ -5726,6 +8369,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Break-Into-Debugger Methods
+        /// <summary>
+        /// This method determines whether breaking into the debugger has been
+        /// disabled via the environment.
+        /// </summary>
+        /// <returns>
+        /// True if breaking into the debugger is disabled; otherwise, false.
+        /// </returns>
         public static bool IsBreakDisabled()
         {
             return CommonOps.Environment.DoesVariableExist(EnvVars.NoBreak);
@@ -5733,6 +8383,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method breaks into an attached debugger, unless breaking into
+        /// the debugger has been disabled.
+        /// </summary>
         public static void Break()
         {
             if (IsBreakDisabled())
@@ -5746,6 +8400,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method breaks into the debugger only when one is attached and
+        /// breaking into the debugger has not been disabled.
+        /// </summary>
         public static void MaybeBreak()
         {
             if (IsBreakDisabled())
@@ -5760,6 +8418,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method logs the specified message and breaks into the debugger,
+        /// but only when one is attached and breaking into the debugger has not
+        /// been disabled.
+        /// </summary>
+        /// <param name="message">
+        /// The message to log prior to breaking; this value may be null.
+        /// </param>
         public static void MaybeBreak(
             string message
             )
@@ -5779,6 +8445,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports that breaking into the debugger has been
+        /// disabled.
+        /// </summary>
+        /// <param name="message">
+        /// An optional message describing the context; this value may be null.
+        /// </param>
         private static void ReportBreakIsDisabled(
             string message
             )
@@ -5797,6 +8470,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Miscellaneous Debugging Methods
+        /// <summary>
+        /// This method writes diagnostic information about the specified
+        /// application domain and its loaded assemblies to the active trace
+        /// listeners.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to dump; this value may be null.
+        /// </param>
         public static void DumpAppDomain(
             AppDomain appDomain
             )

@@ -18,11 +18,24 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>eof</c> command, which reports
+    /// whether an end-of-file condition has been seen on the channel
+    /// identified by its argument.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("045aa0b9-a004-4848-b438-5e7ba3c28de3")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("channel")]
     internal sealed class Eof : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>eof</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Eof(
             ICommandData commandData
             )
@@ -32,11 +45,42 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>eof</c> command.  It looks up the
+        /// channel named by its single argument and reports whether an
+        /// end-of-file condition has been seen on that channel.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the channel identifier to query.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains a boolean value indicating whether an
+        /// end-of-file condition has been seen on the channel.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the end-of-file
+        /// status placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the channel cannot be found, the channel query throws,
+        /// the interpreter is null, or the argument list is null, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

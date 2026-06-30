@@ -43,6 +43,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a collection of named rule sets, mapping each
+    /// name (a string key) to its <see cref="IRuleSet" /> instance.  It
+    /// extends the underlying string-to-<see cref="IRuleSet" /> dictionary
+    /// with helpers to build rule sets from their string forms, to merge and
+    /// flatten rule sets together, and to render the keys and/or values as
+    /// strings.  It is disposable; disposing the collection disposes every
+    /// contained rule set.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -50,6 +59,9 @@ namespace Eagle._Containers.Public
     public sealed class RuleSetDictionary : SomeDictionary, IDisposable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty rule set dictionary.
+        /// </summary>
         public RuleSetDictionary()
             : base()
         {
@@ -58,6 +70,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a rule set dictionary that is pre-populated with the
+        /// entries from an existing dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are copied into the new collection.
+        /// </param>
         public RuleSetDictionary(
             IDictionary<string, IRuleSet> dictionary /* in */
             )
@@ -71,6 +90,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a rule set dictionary from previously serialized data.
+        /// This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data.
+        /// </param>
+        /// <param name="context">
+        /// The contextual information about the source or destination of the
+        /// serialized data.
+        /// </param>
         private RuleSetDictionary(
             SerializationInfo info,  /* in */
             StreamingContext context /* in */
@@ -85,6 +115,11 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method disposes every rule set contained in this collection.
+        /// Null entries are skipped.  The dictionary entries themselves are
+        /// not removed by this method.
+        /// </summary>
         private void DisposeAll()
         {
             foreach (RuleSetPair pair in this)
@@ -103,6 +138,33 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges a single rule set into the entry identified by
+        /// the specified key.  When an entry already exists for the key, the
+        /// rules from <paramref name="ruleSet" /> are added to it; otherwise,
+        /// <paramref name="ruleSet" /> is stored directly under the key.
+        /// </summary>
+        /// <param name="key">
+        /// The name (key) of the entry to merge into.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set whose rules are merged into the entry.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop merging at the first rule that cannot be added;
+        /// zero to continue past such errors.
+        /// </param>
+        /// <param name="count">
+        /// On input, the running total of rules merged so far; on output, it is
+        /// increased by the number of rules added by this call.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode MergeAll(
             string key,       /* in */
             IRuleSet ruleSet, /* in */
@@ -157,6 +219,39 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a rule set dictionary from its string
+        /// representation.  The string is first parsed into name/value pairs;
+        /// each value is then interpreted as a rule set (either a nested list
+        /// or a file reference, depending on <paramref name="ruleSetType" />)
+        /// and stored under its associated name.
+        /// </summary>
+        /// <param name="value">
+        /// The string representation to parse into name/value pairs.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when creating the contained rule sets.
+        /// </param>
+        /// <param name="ruleSetType">
+        /// The flags that determine how each value is interpreted when creating
+        /// its rule set.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero if duplicate keys encountered while parsing the string
+        /// should be added only (i.e. not permitted to overwrite); zero
+        /// otherwise.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the string consists of keys only (with no associated
+        /// values); zero otherwise.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The newly created rule set dictionary, or null if it could not be
+        /// created.
+        /// </returns>
         public static RuleSetDictionary FromString(
             string value,            /* in */
             CultureInfo cultureInfo, /* in */
@@ -278,6 +373,35 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method merges every rule set from another dictionary into this
+        /// collection.  When <paramref name="key" /> is supplied, all of the
+        /// source rule sets are merged into that single entry; otherwise, each
+        /// source rule set is merged into the entry that shares its key.
+        /// </summary>
+        /// <param name="key">
+        /// The optional name (key) under which all source rule sets should be
+        /// merged.  This parameter may be null, in which case each source rule
+        /// set is merged under its own key.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary whose rule sets are merged into this collection.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop merging at the first rule that cannot be added;
+        /// zero to continue past such errors.
+        /// </param>
+        /// <param name="count">
+        /// On input, the running total of rules merged so far; on output, it is
+        /// increased by the number of rules added by this call.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode MergeAll(
             string key,                   /* in: OPTIONAL */
             RuleSetDictionary dictionary, /* in */
@@ -327,6 +451,50 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the rules from the contained rule sets whose
+        /// keys match the specified patterns into a single rule set.  When no
+        /// rule set is supplied to receive the rules, a new one is created as
+        /// needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when matching keys against the patterns.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The optional rule set that receives the combined rules.  This
+        /// parameter may be null, in which case a new rule set is created.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing keys against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The patterns used to select which entries are included.  This
+        /// parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero if a key must match all of the patterns; zero if matching
+        /// any one of them is sufficient.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if key matching should be case-insensitive; zero
+        /// otherwise.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop at the first rule that cannot be added; zero to
+        /// continue past such errors.
+        /// </param>
+        /// <param name="count">
+        /// On input, the running total of rules combined so far; on output, it
+        /// is increased by the number of rules added by this call.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The rule set containing the combined rules, or null if it could not
+        /// be produced.
+        /// </returns>
         public IRuleSet FlattenAll(
             Interpreter interpreter,      /* in: OPTIONAL */
             IRuleSet ruleSet,             /* in: OPTIONAL */
@@ -405,6 +573,27 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method produces a space-separated string of the keys whose
+        /// values match the specified pattern.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode to use when comparing against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to select which entries are included.  This
+        /// parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is a
+        /// regular expression mode.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys.
+        /// </returns>
         public string KeysToString(
             MatchMode mode,           /* in */
             string pattern,           /* in */
@@ -425,6 +614,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string of all the keys joined by the
+        /// specified separator.
+        /// </summary>
+        /// <param name="separator">
+        /// The separator to place between adjacent keys.
+        /// </param>
+        /// <returns>
+        /// The string containing the keys.
+        /// </returns>
         public string KeysToString(
             string separator /* in */
             )
@@ -440,6 +639,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the keys that
+        /// match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys.
+        /// </returns>
         public string KeysToString(
             string pattern, /* in */
             bool noCase     /* in */
@@ -456,6 +669,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the keys that
+        /// match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which keys are
+        /// included.  This parameter may be null, in which case all keys are
+        /// included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys.
+        /// </returns>
         public string KeysToString(
             string pattern,           /* in */
             RegexOptions regExOptions /* in */
@@ -472,6 +700,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the values whose
+        /// string forms match the specified pattern.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode to use when comparing against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to select which entries are included.  This
+        /// parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is a
+        /// regular expression mode.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching values.
+        /// </returns>
         public string ValuesToString(
             MatchMode mode,           /* in */
             string pattern,           /* in */
@@ -492,6 +741,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the values that
+        /// match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which values are included.  This
+        /// parameter may be null, in which case all values are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching values.
+        /// </returns>
         public string ValuesToString(
             string pattern, /* in */
             bool noCase     /* in */
@@ -508,6 +771,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the values that
+        /// match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which values are
+        /// included.  This parameter may be null, in which case all values are
+        /// included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching values.
+        /// </returns>
         public string ValuesToString(
             string pattern,           /* in */
             RegexOptions regExOptions /* in */
@@ -524,6 +802,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the keys and their
+        /// values for the entries that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which entries are included.  This
+        /// parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys and values.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern, /* in */
             bool noCase     /* in */
@@ -542,6 +834,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the keys and their
+        /// values for the entries that match the specified regular expression
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which entries are
+        /// included.  This parameter may be null, in which case all entries are
+        /// included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys and values.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,           /* in */
             RegexOptions regExOptions /* in */
@@ -560,6 +868,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a space-separated string of the keys that
+        /// match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if matching should be case-insensitive; zero otherwise.
+        /// </param>
+        /// <returns>
+        /// The string containing the matching keys.
+        /// </returns>
         public string ToString(
             string pattern, /* in */
             bool noCase     /* in */
@@ -578,6 +900,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a space-separated string of all the keys in
+        /// this collection.
+        /// </summary>
+        /// <returns>
+        /// The string containing all the keys.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -589,7 +918,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this collection has been disposed and is no longer
+        /// usable.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an <see cref="ObjectDisposedException" /> if this
+        /// collection has been disposed and the engine is configured to throw
+        /// on use of disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -603,6 +941,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this collection.  When
+        /// disposing, every contained rule set is disposed and the collection
+        /// is cleared.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing /* in */
             )
@@ -638,6 +986,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this collection,
+        /// disposing every contained rule set, and suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -648,6 +1000,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this collection, releasing any resources that were not
+        /// already released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~RuleSetDictionary()
         {
             Dispose(false);

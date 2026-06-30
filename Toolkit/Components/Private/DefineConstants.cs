@@ -14,9 +14,17 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class exposes the set of conditional compilation symbols that were
+    /// active when this component was built.
+    /// </summary>
     [ObjectId("0b9a849e-ce19-4e1c-b1ea-dc53c03d8143")]
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of conditional compilation symbol names that were defined
+        /// at build time, terminated by a null element.
+        /// </summary>
         public static readonly StringList OptionList = new StringList(new string[] {
 #if CONSOLE
             "CONSOLE",

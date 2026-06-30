@@ -34,54 +34,162 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of static helper methods used to
+    /// convert between the various primitive value types (and a handful of
+    /// related framework types) supported by the library.  It also contains
+    /// the nested helper types and callback tables used to support dynamic
+    /// (string-based) value conversions performed during marshalling.
+    /// </summary>
     [ObjectId("d93666f3-561b-4257-aaf7-8fd5a5436de9")]
     internal static class ConversionOps
     {
         #region Private Constants
+        /// <summary>
+        /// The number of bits contained in a byte value.
+        /// </summary>
         public static readonly int ByteBits = ToInt(MathOps.Log2(byte.MaxValue)) + 1;
+
+        /// <summary>
+        /// The number of bits contained in a short (or ushort) value.
+        /// </summary>
         private static readonly int ShortBits = ToInt(MathOps.Log2(ushort.MaxValue)) + 1;
+
+        /// <summary>
+        /// The number of bits contained in an int (or uint) value.
+        /// </summary>
         public static readonly int IntBits = ToInt(MathOps.Log2(uint.MaxValue)) + 1;
+
+        /// <summary>
+        /// The number of bits contained in a long (or ulong) value.
+        /// </summary>
         public static readonly int LongBits = ToInt(MathOps.Log2(ulong.MaxValue)) + 1;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of bits contained in two byte values.
+        /// </summary>
         private static readonly int TwoByteBits = ByteBits * 2;
+
+        /// <summary>
+        /// The number of bits contained in four byte values.
+        /// </summary>
         private static readonly int FourByteBits = ByteBits * 4;
+
+        /// <summary>
+        /// The number of bits contained in six byte values.
+        /// </summary>
         private static readonly int SixByteBits = ByteBits * 6;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bit mask used to select the high-order byte of a character
+        /// value.
+        /// </summary>
         private const char CharHighByte = (char)0xFF00;
+
+        /// <summary>
+        /// The bit mask used to select the low-order byte of a character
+        /// value.
+        /// </summary>
         private const char CharLowByte = (char)byte.MaxValue;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bit mask used to select the high-order 16 bits of an integer
+        /// value.
+        /// </summary>
         private const int IntHighShort = unchecked((int)0xFFFF0000);
+
+        /// <summary>
+        /// The bit mask used to select the low-order 16 bits of an integer
+        /// value.
+        /// </summary>
         private const int IntLowShort = (int)ushort.MaxValue;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bit mask used to select the highest-order 16 bits of a long
+        /// integer value.
+        /// </summary>
         private const long LongHighShort = unchecked((long)0xFFFF000000000000);
+
+        /// <summary>
+        /// The bit mask used to select the upper-middle 16 bits of a long
+        /// integer value.
+        /// </summary>
         private const long LongHighMidShort = 0xFFFF00000000;
+
+        /// <summary>
+        /// The bit mask used to select the lower-middle 16 bits of a long
+        /// integer value.
+        /// </summary>
         private const long LongLowMidShort = 0xFFFF0000;
+
+        /// <summary>
+        /// The bit mask used to select the lowest-order 16 bits of a long
+        /// integer value.
+        /// </summary>
         private const long LongLowShort = 0xFFFF;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bit mask used to select the high-order 32 bits of a long
+        /// integer value.
+        /// </summary>
         private const long LongHighInt = unchecked((long)0xFFFFFFFF00000000);
+
+        /// <summary>
+        /// The bit mask used to select the low-order 32 bits of a long integer
+        /// value.
+        /// </summary>
         private const long LongLowInt = (long)uint.MaxValue;
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The string used to represent a request to enable something.
+        /// </summary>
         private const string EnableString = "enable";
+
+        /// <summary>
+        /// The string used to represent a request to disable something.
+        /// </summary>
         private const string DisableString = "disable";
 
+        /// <summary>
+        /// The string used to represent the enabled state.
+        /// </summary>
         private const string EnabledString = "enabled";
+
+        /// <summary>
+        /// The string used to represent the disabled state.
+        /// </summary>
         private const string DisabledString = "disabled";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a delegate
+        /// type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="strict">
+        /// When true, only the <see cref="Delegate" /> type itself is
+        /// considered a match; when false, any type derived from
+        /// <see cref="Delegate" /> is also considered a match.
+        /// </param>
+        /// <returns>
+        /// True if the type is considered a delegate type; otherwise, false.
+        /// </returns>
         public static bool IsDelegateType(Type type, bool strict)
         {
             if (type != null)
@@ -103,6 +211,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is one of the
+        /// built-in delegate types directly supported by the library.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="useGenericCallback">
+        /// When true, the <see cref="GenericCallback" /> delegate type is
+        /// included among the supported built-in delegate types.
+        /// </param>
+        /// <param name="useDynamicCallback">
+        /// When true, the <see cref="DynamicInvokeCallback" /> delegate type is
+        /// included among the supported built-in delegate types.
+        /// </param>
+        /// <returns>
+        /// True if the type is one of the supported built-in delegate types;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsBuiltInDelegateType(
             Type type,
             bool useGenericCallback,
@@ -138,6 +265,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a delegate
+        /// type that can be created via the command callback mechanism.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="useDelegateCallback">
+        /// When true, the <see cref="Delegate" /> type itself is considered a
+        /// supported delegate type.
+        /// </param>
+        /// <param name="useGenericCallback">
+        /// When true, the <see cref="GenericCallback" /> delegate type is
+        /// considered a supported built-in delegate type.
+        /// </param>
+        /// <param name="useDynamicCallback">
+        /// When true, the <see cref="DynamicInvokeCallback" /> delegate type is
+        /// considered a supported built-in delegate type.
+        /// </param>
+        /// <param name="isDelegate">
+        /// Upon return, this will be true if the specified type is the
+        /// <see cref="Delegate" /> type itself.
+        /// </param>
+        /// <returns>
+        /// True if the type is a supported delegate type; otherwise, false.
+        /// </returns>
         private static bool IsSupportedDelegateType(
             Type type,
             bool useDelegateCallback,
@@ -177,10 +330,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region DelegateMethods Class
+        /// <summary>
+        /// This class provides a set of no-op instance methods whose signatures
+        /// match the various supported delegate types.  Instances of those
+        /// delegate types are created from these methods solely so that their
+        /// method signatures (i.e. <see cref="MethodInfo" />) can be used to
+        /// probe whether an arbitrary delegate type is signature-compatible.
+        /// </summary>
         [ObjectId("a88d72f9-b067-44ec-9457-b6e8000cf378")]
         private sealed class DelegateMethods
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of the <see cref="DelegateMethods" />
+            /// class.
+            /// </summary>
             public DelegateMethods()
             {
                 // do nothing.
@@ -190,6 +354,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////
 
             #region Public "Delegate" Methods
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="AsyncCallback" /> delegate type.
+            /// </summary>
+            /// <param name="ar">
+            /// The asynchronous operation status; it is not used.
+            /// </param>
             /* System.AsyncCallback */
             public void NullAsyncCallback(
                 IAsyncResult ar
@@ -200,6 +371,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="EventHandler" /> delegate type.
+            /// </summary>
+            /// <param name="sender">
+            /// The source of the event; it is not used.
+            /// </param>
+            /// <param name="e">
+            /// The event data; it is not used.
+            /// </param>
             /* System.EventHandler */
             public void NullEventHandler(
                 object sender,
@@ -211,6 +392,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="ThreadStart" /> delegate type.
+            /// </summary>
             /* System.Threading.ThreadStart */
             public void NullThreadStart()
             {
@@ -219,6 +404,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="ParameterizedThreadStart" /> delegate type.
+            /// </summary>
+            /// <param name="obj">
+            /// The data passed to the thread; it is not used.
+            /// </param>
             /* System.Threading.ParameterizedThreadStart */
             public void NullParameterizedThreadStart(
                 object obj
@@ -229,6 +421,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="WaitCallback" /> delegate type.
+            /// </summary>
+            /// <param name="state">
+            /// The data passed to the callback; it is not used.
+            /// </param>
             /* System.Threading.WaitCallback */
             public void NullWaitCallback(
                 object state
@@ -239,6 +438,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing.  Its signature matches the
+            /// <see cref="GenericCallback" /> delegate type.
+            /// </summary>
             /* Eagle._Components.Public.Delegates.GenericCallback */
             public void NullGenericCallback()
             {
@@ -247,6 +450,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method does nothing and always returns null.  Its signature
+            /// matches the <see cref="DynamicInvokeCallback" /> delegate type.
+            /// </summary>
+            /// <param name="args">
+            /// The arguments passed to the callback; they are not used.
+            /// </param>
+            /// <returns>
+            /// Always returns null.
+            /// </returns>
             /* System.Delegate.DynamicInvoke */
             public object NullDynamicInvokeCallback(
                 params object[] args
@@ -261,6 +474,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Delegate Type Checking Methods
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="Delegate" /> type itself.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="Delegate" /> type itself;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsDelegate(Type type)
         {
             //
@@ -271,6 +495,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="AsyncCallback" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="AsyncCallback" /> delegate type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsAsyncCallback(Type type)
         {
             return type == typeof(AsyncCallback);
@@ -278,6 +513,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="AsyncCallback" /> delegate type or another delegate type
+        /// with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="AsyncCallback" /> delegate type; otherwise, false.
+        /// </returns>
         public static bool LooksLikeAsyncCallback(Type type)
         {
             if (IsAsyncCallback(type))
@@ -317,6 +564,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="EventHandler" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="EventHandler" /> delegate type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsEventHandler(Type type)
         {
             return type == typeof(EventHandler);
@@ -324,6 +582,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="EventHandler" /> delegate type or another delegate type
+        /// with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="EventHandler" /> delegate type; otherwise, false.
+        /// </returns>
         public static bool LooksLikeEventHandler(Type type)
         {
             if (IsEventHandler(type))
@@ -363,6 +633,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="ThreadStart" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="ThreadStart" /> delegate type;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsThreadStart(Type type)
         {
             return type == typeof(ThreadStart);
@@ -370,6 +651,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="ThreadStart" /> delegate type or another delegate type
+        /// with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="ThreadStart" /> delegate type; otherwise, false.
+        /// </returns>
         public static bool LooksLikeThreadStart(Type type)
         {
             if (IsThreadStart(type))
@@ -409,6 +702,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="ParameterizedThreadStart" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="ParameterizedThreadStart" />
+        /// delegate type; otherwise, false.
+        /// </returns>
         public static bool IsParameterizedThreadStart(Type type)
         {
             return type == typeof(ParameterizedThreadStart);
@@ -416,6 +720,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="ParameterizedThreadStart" /> delegate type or another
+        /// delegate type with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="ParameterizedThreadStart" /> delegate type; otherwise,
+        /// false.
+        /// </returns>
         public static bool LooksLikeParameterizedThreadStart(Type type)
         {
             if (IsParameterizedThreadStart(type))
@@ -456,6 +773,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="WaitCallback" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="WaitCallback" /> delegate type;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWaitCallback(Type type)
         {
             return type == typeof(WaitCallback);
@@ -463,6 +791,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="WaitCallback" /> delegate type or another delegate type
+        /// with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="WaitCallback" /> delegate type; otherwise, false.
+        /// </returns>
         public static bool LooksLikeWaitCallback(Type type)
         {
             if (IsWaitCallback(type))
@@ -502,6 +842,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="GenericCallback" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="GenericCallback" /> delegate
+        /// type; otherwise, false.
+        /// </returns>
         private static bool IsGenericCallback(Type type)
         {
             return type == typeof(GenericCallback);
@@ -509,6 +860,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="GenericCallback" /> delegate type or another delegate
+        /// type with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="GenericCallback" /> delegate type; otherwise, false.
+        /// </returns>
         public static bool LooksLikeGenericCallback(Type type)
         {
             if (IsGenericCallback(type))
@@ -548,6 +911,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is exactly the
+        /// <see cref="DynamicInvokeCallback" /> delegate type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is the <see cref="DynamicInvokeCallback" /> delegate
+        /// type; otherwise, false.
+        /// </returns>
         private static bool IsDynamicInvokeCallback(Type type)
         {
             return type == typeof(DynamicInvokeCallback);
@@ -555,6 +929,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// <see cref="DynamicInvokeCallback" /> delegate type or another
+        /// delegate type with a compatible method signature.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is signature-compatible with the
+        /// <see cref="DynamicInvokeCallback" /> delegate type; otherwise,
+        /// false.
+        /// </returns>
         public static bool LooksLikeDynamicInvokeCallback(Type type)
         {
             if (IsDynamicInvokeCallback(type))
@@ -596,6 +983,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the low-order 32 bits of two long integer
+        /// values into a single long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to use for the high-order 32 bits of the result.
+        /// </param>
+        /// <param name="Y">
+        /// The value to use for the low-order 32 bits of the result.
+        /// </param>
+        /// <returns>
+        /// The combined long integer value.
+        /// </returns>
         public static long MakeLong(long X, long Y) /* LOSSY */
         {
             return ((X & LongLowInt) << IntBits) | (Y & LongLowInt);
@@ -603,6 +1003,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits a long integer value into its high-order and
+        /// low-order 32-bit halves.
+        /// </summary>
+        /// <param name="Z">
+        /// The long integer value to split.
+        /// </param>
+        /// <param name="X">
+        /// Upon return, this will contain the high-order 32 bits of the value.
+        /// </param>
+        /// <param name="Y">
+        /// Upon return, this will contain the low-order 32 bits of the value.
+        /// </param>
         public static void UnmakeLong(
             long Z,
             out long X,
@@ -615,6 +1028,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits a long integer value into its four constituent
+        /// 16-bit parts.
+        /// </summary>
+        /// <param name="V">
+        /// The long integer value to split.
+        /// </param>
+        /// <param name="W">
+        /// Upon return, this will contain the highest-order 16 bits of the
+        /// value.
+        /// </param>
+        /// <param name="X">
+        /// Upon return, this will contain the upper-middle 16 bits of the
+        /// value.
+        /// </param>
+        /// <param name="Y">
+        /// Upon return, this will contain the lower-middle 16 bits of the
+        /// value.
+        /// </param>
+        /// <param name="Z">
+        /// Upon return, this will contain the lowest-order 16 bits of the
+        /// value.
+        /// </param>
         public static void UnmakeLong(
             long V,
             ref long W,
@@ -631,6 +1067,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses the byte order (endianness) of the specified
+        /// integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose byte order will be reversed.
+        /// </param>
+        /// <returns>
+        /// The value with its bytes in reversed order.
+        /// </returns>
         public static int FlipEndian(int X) /* SAFE */
         {
             byte[] bytes = BitConverter.GetBytes(X);
@@ -642,6 +1088,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses the byte order (endianness) of the specified
+        /// unsigned integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose byte order will be reversed.
+        /// </param>
+        /// <returns>
+        /// The value with its bytes in reversed order.
+        /// </returns>
         public static uint FlipEndian(uint X) /* SAFE */
         {
             byte[] bytes = BitConverter.GetBytes(X);
@@ -653,6 +1109,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses the byte order (endianness) of the specified
+        /// long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose byte order will be reversed.
+        /// </param>
+        /// <returns>
+        /// The value with its bytes in reversed order.
+        /// </returns>
         public static long FlipEndian(long X) /* SAFE */
         {
             byte[] bytes = BitConverter.GetBytes(X);
@@ -664,6 +1130,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses the byte order (endianness) of the specified
+        /// unsigned long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose byte order will be reversed.
+        /// </param>
+        /// <returns>
+        /// The value with its bytes in reversed order.
+        /// </returns>
         public static ulong FlipEndian(ulong X) /* SAFE */
         {
             byte[] bytes = BitConverter.GetBytes(X);
@@ -675,6 +1151,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the arithmetic negation of the specified
+        /// unsigned integer value, wrapping around on overflow.
+        /// </summary>
+        /// <param name="X">
+        /// The value to negate.
+        /// </param>
+        /// <returns>
+        /// The negated value.
+        /// </returns>
         public static uint Negate(uint X) /* SAFE */
         {
             return unchecked((uint)(-(int)X));
@@ -684,6 +1170,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method computes the arithmetic negation of the specified
+        /// unsigned byte value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to negate.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned byte value.
+        /// </returns>
         private static byte Negate(byte X) /* SAFE */
         {
             return unchecked((byte)(-(sbyte)X));
@@ -691,6 +1187,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the arithmetic negation of the specified
+        /// unsigned short value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to negate.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned short value.
+        /// </returns>
         private static ushort Negate(ushort X) /* SAFE */
         {
             return unchecked((ushort)(-(short)X));
@@ -698,6 +1204,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the arithmetic negation of the specified
+        /// unsigned long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to negate.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value.
+        /// </returns>
         private static ulong Negate(ulong X) /* SAFE */
         {
             return unchecked((ulong)(-(long)X));
@@ -707,6 +1223,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of the specified array of bytes with its
+        /// elements in reversed order.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes to reverse.  This may be null.
+        /// </param>
+        /// <returns>
+        /// A new array containing the bytes in reversed order, or null if the
+        /// specified array was null.
+        /// </returns>
         public static byte[] Reverse(
             byte[] bytes /* in */
             )
@@ -731,6 +1258,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified tri-state boolean value to a
+        /// native boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is not <see cref="_Public.Boolean.False" />;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToBool(_Public.Boolean X) /* SAFE */
         {
             return (X != _Public.Boolean.False) ? true : false;
@@ -738,6 +1276,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(int X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -745,6 +1292,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned integer value to a
+        /// boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(uint X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -752,6 +1309,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a boolean
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(long X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -760,6 +1327,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(BigInteger X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -770,6 +1347,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified return code value to a boolean
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is <see cref="ReturnCode.Ok" />; otherwise, false.
+        /// </returns>
         private static bool ToBool(ReturnCode X) /* LOSSY */
         {
             return X == ReturnCode.Ok ? true : false;
@@ -779,6 +1366,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified date/time value to a boolean
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value has a non-zero tick count; otherwise, false.
+        /// </returns>
         public static bool ToBool(DateTime X) /* LOSSY */
         {
             return X.Ticks != 0 ? true : false;
@@ -786,6 +1383,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified decimal value to a boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(decimal X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -793,6 +1399,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified double value to a boolean value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// True if the value is non-zero; otherwise, false.
+        /// </returns>
         public static bool ToBool(double X) /* LOSSY */
         {
             return X != 0 ? true : false;
@@ -800,6 +1415,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified object to a boolean value based
+        /// on its underlying runtime type.
+        /// </summary>
+        /// <param name="X">
+        /// The object to convert.  It must be one of the supported primitive,
+        /// enumerated, or floating-point types.
+        /// </param>
+        /// <returns>
+        /// True if the underlying value is considered non-zero (or true);
+        /// otherwise, false.
+        /// </returns>
         public static bool ToBool(object X) /* LOSSY */
         {
             if (X is bool)
@@ -856,6 +1483,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified byte value as a signed byte
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting signed byte value.
+        /// </returns>
         public static sbyte ToSByte(byte X) /* SAFE */
         {
             return unchecked((sbyte)X);
@@ -863,6 +1500,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a signed byte
+        /// value by retaining only its low-order byte.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting signed byte value.
+        /// </returns>
         public static sbyte ToSByte(int X) /* LOSSY */
         {
             return unchecked((sbyte)(X & byte.MaxValue));
@@ -870,6 +1517,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a signed
+        /// byte value by retaining only its low-order byte.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting signed byte value.
+        /// </returns>
         public static sbyte ToSByte(long X) /* LOSSY */
         {
             return unchecked((sbyte)(X & byte.MaxValue));
@@ -877,6 +1534,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified character value to a byte value
+        /// by retaining only its low-order byte.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting byte value.
+        /// </returns>
         public static byte ToByte(char X) /* LOSSY */
         {
             return ToLowByte(X);
@@ -884,6 +1551,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the low-order byte of the specified character
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose low-order byte will be extracted.
+        /// </param>
+        /// <returns>
+        /// The low-order byte of the value.
+        /// </returns>
         public static byte ToLowByte(char X) /* LOSSY */
         {
             return (byte)(X & CharLowByte);
@@ -891,6 +1568,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the high-order byte of the specified character
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value whose high-order byte will be extracted.
+        /// </param>
+        /// <returns>
+        /// The high-order byte of the value.
+        /// </returns>
         public static byte ToHighByte(char X) /* LOSSY */
         {
             return (byte)((X & CharHighByte) >> ByteBits);
@@ -898,6 +1585,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified signed byte value as a byte
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting byte value.
+        /// </returns>
         public static byte ToByte(sbyte X) /* SAFE */
         {
             return unchecked((byte)X);
@@ -905,6 +1602,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a byte value by
+        /// retaining only its low-order byte.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting byte value.
+        /// </returns>
         public static byte ToByte(int X) /* LOSSY */
         {
             return (byte)(X & byte.MaxValue);
@@ -912,6 +1619,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a byte
+        /// value by retaining only its low-order byte.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting byte value.
+        /// </returns>
         public static byte ToByte(long X) /* LOSSY */
         {
             return (byte)(X & byte.MaxValue);
@@ -919,6 +1636,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified byte value to a character value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting character value.
+        /// </returns>
         public static char ToChar(byte X) /* SAFE */
         {
             return (char)X;
@@ -926,6 +1652,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified low-order and high-order byte
+        /// values into a single character value (using little-endian byte
+        /// order).
+        /// </summary>
+        /// <param name="X">
+        /// The value to use for the low-order byte of the result.
+        /// </param>
+        /// <param name="Y">
+        /// The value to use for the high-order byte of the result.
+        /// </param>
+        /// <returns>
+        /// The resulting character value.
+        /// </returns>
         public static char ToChar(byte X, byte Y) /* SAFE, LITTLE-ENDIAN */
         {
             return (char)(X | (Y << ByteBits));
@@ -935,6 +1675,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified unsigned short value to a
+        /// character value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting character value.
+        /// </returns>
         public static char ToChar(ushort X) /* SAFE */
         {
             return (char)(X & char.MaxValue);
@@ -944,6 +1694,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a character
+        /// value by retaining only its low-order 16 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting character value.
+        /// </returns>
         public static char ToChar(int X) /* LOSSY */
         {
             return (char)(X & char.MaxValue);
@@ -951,6 +1711,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a character
+        /// value by retaining only its low-order 16 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting character value.
+        /// </returns>
         public static char ToChar(long X) /* LOSSY */
         {
             return (char)(X & char.MaxValue);
@@ -958,6 +1728,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified integer value into two character
+        /// values, honoring the byte order of the current platform.
+        /// </summary>
+        /// <param name="X">
+        /// The value to split.
+        /// </param>
+        /// <param name="Y">
+        /// Upon return, this will contain the first character value.
+        /// </param>
+        /// <param name="Z">
+        /// Upon return, this will contain the second character value.
+        /// </param>
         private static void ToChars(int X, ref char? Y, ref char? Z) /* SAFE */
         {
             if (BitConverter.IsLittleEndian)
@@ -974,6 +1757,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified long integer value into two
+        /// character values, honoring the byte order of the current platform.
+        /// </summary>
+        /// <param name="X">
+        /// The value to split.
+        /// </param>
+        /// <param name="Y">
+        /// Upon return, this will contain the first character value.
+        /// </param>
+        /// <param name="Z">
+        /// Upon return, this will contain the second character value.
+        /// </param>
         /* NOTE: For use by the Parser.ParseBackslash method only. */
         public static void ToChars(long X, ref char? Y, ref char? Z) /* LOSSY */
         {
@@ -982,6 +1778,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a short
+        /// value by retaining only its low-order 16 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting short value.
+        /// </returns>
         public static short ToShort(long X) /* LOSSY */
         {
             return unchecked((short)(X & ushort.MaxValue));
@@ -989,6 +1795,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified unsigned short value as a
+        /// short value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting short value.
+        /// </returns>
         private static short ToShort(ushort X) /* LOSSY */
         {
             return unchecked((short)X);
@@ -998,6 +1814,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method reinterprets the specified short value as an unsigned
+        /// short value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned short value.
+        /// </returns>
         private static ushort ToUShort(short X) /* SAFE */
         {
             return unchecked((ushort)X);
@@ -1007,6 +1833,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to an unsigned
+        /// short value by retaining only its low-order 16 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned short value.
+        /// </returns>
         public static ushort ToUShort(long X) /* LOSSY */
         {
             return unchecked((ushort)(X & ushort.MaxValue));
@@ -1014,6 +1850,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to an integer
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// One if the value is true; otherwise, zero.
+        /// </returns>
         public static int ToInt(bool X) /* SAFE */
         {
             return X ? 1 : 0;
@@ -1021,6 +1867,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified character value to an integer
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(char X) /* SAFE */
         {
             return X;
@@ -1028,6 +1884,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified <see cref="ReturnCode" /> value to
+        /// an integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(ReturnCode X) /* SAFE */
         {
             return (int)X;
@@ -1035,6 +1901,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified unsigned integer value as an
+        /// integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(uint X) /* SAFE */
         {
             return unchecked((int)X);
@@ -1042,6 +1918,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to an integer
+        /// value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(long X) /* LOSSY */
         {
             return (int)(X & uint.MaxValue);
@@ -1049,6 +1935,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned long integer value to an
+        /// integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(ulong X) /* LOSSY */
         {
             return (int)(X & uint.MaxValue);
@@ -1057,6 +1953,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to an integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(BigInteger X) /* SAFE */
         {
             return (int)X;
@@ -1065,6 +1971,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified pointer-sized integer value to an
+        /// integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(IntPtr X) /* LOSSY */
         {
             return ToInt(X.ToInt64());
@@ -1072,6 +1988,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned pointer-sized integer
+        /// value to an integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(UIntPtr X) /* LOSSY */
         {
             return ToInt(X.ToUInt64());
@@ -1079,6 +2005,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified date/time value to an integer
+        /// value by retaining only the low-order 32 bits of its tick count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting integer value.
+        /// </returns>
         public static int ToInt(DateTime X) /* LOSSY */
         {
             return (int)(X.Ticks & uint.MaxValue);
@@ -1086,6 +2022,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified long integer value into its
+        /// low-order and high-order 32-bit halves.
+        /// </summary>
+        /// <param name="X">
+        /// The value to split.
+        /// </param>
+        /// <param name="Y">
+        /// Upon return, this will contain the low-order 32 bits of the value.
+        /// </param>
+        /// <param name="Z">
+        /// Upon return, this will contain the high-order 32 bits of the value.
+        /// </param>
         public static void ToInts(long X, ref int Y, ref int Z) /* SAFE */
         {
             Y = (int)(X & LongLowInt);
@@ -1095,6 +2044,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method copies the elements of the specified array of unsigned
+        /// long integer values into an array of unsigned integer values,
+        /// converting each element (and allocating the destination array when
+        /// necessary).
+        /// </summary>
+        /// <param name="destination">
+        /// The destination array of unsigned integer values.  When null, a new
+        /// array large enough to hold the source elements will be allocated.
+        /// </param>
+        /// <param name="source">
+        /// The source array of unsigned long integer values.  This may be null,
+        /// in which case nothing is done.
+        /// </param>
         public static void Copy(
             ref uint[] destination,
             ulong[] source
@@ -1126,6 +2089,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified object to an unsigned integer
+        /// value using its <see cref="IConvertible" /> implementation, if any.
+        /// </summary>
+        /// <param name="X">
+        /// The object to convert.  This may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use when performing
+        /// the conversion.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value, or null if the object was null
+        /// or did not implement <see cref="IConvertible" />.
+        /// </returns>
         public static uint? ToUInt(
             object X,
             CultureInfo cultureInfo
@@ -1144,6 +2122,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified integer value as an unsigned
+        /// integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value.
+        /// </returns>
         public static uint ToUInt(int X) /* SAFE */
         {
             return unchecked((uint)X);
@@ -1151,6 +2139,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to an unsigned
+        /// integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value.
+        /// </returns>
         public static uint ToUInt(long X) /* LOSSY */
         {
             return (uint)(X & uint.MaxValue);
@@ -1158,6 +2156,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned long integer value to an
+        /// unsigned integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value.
+        /// </returns>
         public static uint ToUInt(ulong X) /* LOSSY */
         {
             return (uint)(X & uint.MaxValue);
@@ -1165,6 +2173,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified pointer-sized integer value to an
+        /// unsigned integer value by retaining only its low-order 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value.
+        /// </returns>
         public static uint ToUInt(IntPtr X) /* LOSSY */
         {
             return ToUInt(X.ToInt64());
@@ -1172,6 +2190,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned pointer-sized integer
+        /// value to an unsigned integer value by retaining only its low-order
+        /// 32 bits.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned integer value.
+        /// </returns>
         public static uint ToUInt(UIntPtr X) /* LOSSY */
         {
             return ToUInt(X.ToUInt64());
@@ -1179,6 +2208,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a long integer
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// One if the value is true; otherwise, zero.
+        /// </returns>
         public static long ToLong(bool X) /* SAFE */
         {
             return X ? 1 : 0;
@@ -1186,6 +2225,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a long integer
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting long integer value.
+        /// </returns>
         public static long ToLong(int X) /* SAFE */
         {
             return X;
@@ -1193,6 +2242,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified date/time value to a long integer
+        /// value containing its tick count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The tick count of the value.
+        /// </returns>
         public static long ToLong(DateTime X) /* SAFE */
         {
             return X.Ticks;
@@ -1200,6 +2259,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified unsigned long integer value as
+        /// a long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting long integer value.
+        /// </returns>
         public static long ToLong(ulong X) /* SAFE */
         {
             return unchecked((long)X);
@@ -1208,6 +2277,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting long integer value.
+        /// </returns>
         public static long ToLong(BigInteger X) /* SAFE */
         {
             return (long)X;
@@ -1216,6 +2295,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified double value to a long integer
+        /// value by truncating its fractional part.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting long integer value.
+        /// </returns>
         public static long ToLong(double X) /* LOSSY */
         {
             return unchecked((long)X);
@@ -1225,6 +2314,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method reinterprets the bits of the specified double-precision
+        /// floating-point value as a long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting long integer value.
+        /// </returns>
         private static long ToLongBits(double X) /* SAFE */
         {
             return BitConverter.DoubleToInt64Bits(X);
@@ -1232,6 +2331,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned integer value to a
+        /// pointer-sized integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting pointer-sized integer value.
+        /// </returns>
         private static IntPtr ToIntPtr(uint X) /* SAFE */
         {
             return new IntPtr(unchecked((int)X));
@@ -1239,6 +2348,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned long integer value to a
+        /// pointer-sized integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting pointer-sized integer value.
+        /// </returns>
         private static IntPtr ToIntPtr(ulong X) /* SAFE */
         {
             return new IntPtr(unchecked((long)X));
@@ -1248,6 +2367,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified unsigned pointer-sized integer
+        /// value as a (signed) pointer-sized integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting pointer-sized integer value.
+        /// </returns>
         public static IntPtr ToIntPtr(UIntPtr X) /* SAFE */
         {
             // NOTE: Easy way.
@@ -1259,6 +2388,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified object to an unsigned long integer
+        /// value using its <see cref="IConvertible" /> implementation, if any.
+        /// </summary>
+        /// <param name="X">
+        /// The object to convert.  This may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use when performing
+        /// the conversion.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value, or null if the object was
+        /// null or did not implement <see cref="IConvertible" />.
+        /// </returns>
         public static ulong? ToULong(
             object X,
             CultureInfo cultureInfo
@@ -1277,6 +2421,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to an unsigned long
+        /// integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// One if the value is true; otherwise, zero.
+        /// </returns>
         public static ulong ToULong(bool X) /* SAFE */
         {
             return X ? (ulong)1 : 0;
@@ -1284,6 +2438,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified signed byte value to an unsigned
+        /// long integer value, preserving its bit pattern.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value.
+        /// </returns>
         public static ulong ToULong(sbyte X) /* SAFE */
         {
             return unchecked((ulong)(byte)X);
@@ -1291,6 +2455,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified short value to an unsigned long
+        /// integer value, preserving its bit pattern.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value.
+        /// </returns>
         public static ulong ToULong(short X) /* SAFE */
         {
             return unchecked((ulong)(ushort)X);
@@ -1298,6 +2472,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to an unsigned long
+        /// integer value, preserving its bit pattern.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value.
+        /// </returns>
         public static ulong ToULong(int X) /* SAFE */
         {
             return unchecked((ulong)(uint)X);
@@ -1305,6 +2489,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified long integer value as an
+        /// unsigned long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned long integer value.
+        /// </returns>
         public static ulong ToULong(long X) /* SAFE */
         {
             return unchecked((ulong)X);
@@ -1312,6 +2506,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines two unsigned integer values into a single
+        /// unsigned long integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to use for the low-order 32 bits of the result.
+        /// </param>
+        /// <param name="Y">
+        /// The value to use for the high-order 32 bits of the result.
+        /// </param>
+        /// <returns>
+        /// The combined unsigned long integer value.
+        /// </returns>
         public static ulong ToULong(uint X, uint Y) /* SAFE */
         {
             return (ulong)(X | ((ulong)Y << IntBits));
@@ -1319,6 +2526,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to an unsigned
+        /// pointer-sized integer value, preserving its bit pattern.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned pointer-sized integer value.
+        /// </returns>
         public static UIntPtr ToUIntPtr(int X) /* SAFE */
         {
             return new UIntPtr(unchecked((uint)X));
@@ -1326,6 +2543,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to an unsigned
+        /// pointer-sized integer value, preserving its bit pattern.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned pointer-sized integer value.
+        /// </returns>
         public static UIntPtr ToUIntPtr(long X) /* SAFE */
         {
             return new UIntPtr(unchecked((ulong)X));
@@ -1333,6 +2560,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reinterprets the specified (signed) pointer-sized integer
+        /// value as an unsigned pointer-sized integer value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting unsigned pointer-sized integer value.
+        /// </returns>
         public static UIntPtr ToUIntPtr(IntPtr X) /* SAFE */
         {
             // NOTE: Easy way.
@@ -1344,6 +2581,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a decimal value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// One if the value is true; otherwise, zero.
+        /// </returns>
         public static decimal ToDecimal(bool X) /* SAFE */
         {
             return X ? 1 : 0;
@@ -1351,6 +2597,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a decimal value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting decimal value.
+        /// </returns>
         public static decimal ToDecimal(int X) /* SAFE */
         {
             return X;
@@ -1358,6 +2613,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a decimal
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting decimal value.
+        /// </returns>
         public static decimal ToDecimal(long X) /* SAFE */
         {
             return X;
@@ -1366,6 +2631,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a decimal value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting decimal value.
+        /// </returns>
         public static decimal ToDecimal(BigInteger X) /* SAFE */
         {
             return (decimal)X;
@@ -1374,6 +2649,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified date/time value to a decimal value
+        /// containing its tick count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The tick count of the value.
+        /// </returns>
         public static decimal ToDecimal(DateTime X) /* SAFE */
         {
             return X.Ticks;
@@ -1381,6 +2666,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a double value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// One if the value is true; otherwise, zero.
+        /// </returns>
         public static double ToDouble(bool X) /* SAFE */
         {
             return X ? 1 : 0;
@@ -1388,6 +2682,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a double value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting double value.
+        /// </returns>
         public static double ToDouble(int X) /* SAFE */
         {
             return X;
@@ -1395,6 +2698,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a double
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting double value.
+        /// </returns>
         public static double ToDouble(long X) /* SAFE */
         {
             return X;
@@ -1403,6 +2716,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a double value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting double value.
+        /// </returns>
         public static double ToDouble(BigInteger X) /* SAFE */
         {
             return (double)X;
@@ -1411,6 +2734,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified date/time value to a double value
+        /// containing its tick count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The tick count of the value, as a double.
+        /// </returns>
         public static double ToDouble(DateTime X) /* LOSSY */
         {
             return X.Ticks;
@@ -1418,6 +2751,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a date/time value
+        /// using the default date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(bool X) /* SAFE */
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
@@ -1425,6 +2768,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a date/time value
+        /// with the specified date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to associate with the resulting value.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(bool X, DateTimeKind kind) /* SAFE */
         {
             return DateTime.SpecifyKind(new DateTime(X ? 1 : 0), kind);
@@ -1432,6 +2788,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a date/time value
+        /// using the default date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(int X) /* SAFE */
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
@@ -1439,6 +2805,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a date/time value
+        /// with the specified date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to associate with the resulting value.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(int X, DateTimeKind kind) /* SAFE */
         {
             return DateTime.SpecifyKind(new DateTime(X), kind);
@@ -1446,6 +2825,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a date/time
+        /// value using the default date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(long X) /* LOSSY */
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
@@ -1454,6 +2843,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a date/time value using the default date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(BigInteger X) /* SAFE */
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
@@ -1461,6 +2860,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a date/time value with the specified date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to associate with the resulting value.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(BigInteger X, DateTimeKind kind) /* SAFE */
         {
             return ToDateTime((long)X, kind);
@@ -1469,6 +2881,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a date/time
+        /// value with the specified date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to associate with the resulting value.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(long X, DateTimeKind kind) /* LOSSY */
         {
             //
@@ -1480,6 +2905,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified double value to a date/time value
+        /// using the default date/time kind.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(double X) /* LOSSY */
         {
             return ToDateTime(X, ObjectOps.GetDefaultDateTimeKind());
@@ -1487,6 +2922,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified double value to a date/time value
+        /// with the specified date/time kind, treating its raw bits as a tick
+        /// count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to associate with the resulting value.
+        /// </param>
+        /// <returns>
+        /// The resulting date/time value.
+        /// </returns>
         public static DateTime ToDateTime(double X, DateTimeKind kind) /* LOSSY */
         {
             //
@@ -1498,6 +2947,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to a time span
+        /// value.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting time span value.
+        /// </returns>
         public static TimeSpan ToTimeSpan(bool X) /* SAFE */
         {
             return new TimeSpan(X ? 1 : 0);
@@ -1505,6 +2964,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified integer value to a time span value
+        /// containing that number of ticks.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting time span value.
+        /// </returns>
         public static TimeSpan ToTimeSpan(int X) /* SAFE */
         {
             return new TimeSpan(X);
@@ -1512,6 +2981,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified long integer value to a time span
+        /// value containing that number of ticks.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting time span value.
+        /// </returns>
         public static TimeSpan ToTimeSpan(long X) /* SAFE */
         {
             return new TimeSpan(X);
@@ -1520,6 +2999,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer value
+        /// to a time span value containing that number of ticks.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting time span value.
+        /// </returns>
         public static TimeSpan ToTimeSpan(BigInteger X) /* SAFE */
         {
             return new TimeSpan((long)X);
@@ -1528,6 +3017,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified double value to a time span value,
+        /// treating its raw bits as a tick count.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The resulting time span value.
+        /// </returns>
         public static TimeSpan ToTimeSpan(double X) /* LOSSY (?) */
         {
             return new TimeSpan(BitConverter.DoubleToInt64Bits(X));
@@ -1535,6 +3034,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to its
+        /// enable/disable string representation.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The string "enable" if the value is true; otherwise, the string
+        /// "disable".
+        /// </returns>
         public static string ToEnable(bool X)
         {
             return X ? EnableString : DisableString;
@@ -1542,6 +3052,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified boolean value to its
+        /// enabled/disabled string representation.
+        /// </summary>
+        /// <param name="X">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The string "enabled" if the value is true; otherwise, the string
+        /// "disabled".
+        /// </returns>
         public static string ToEnabled(bool X)
         {
             return X ? EnabledString : DisabledString;
@@ -1550,23 +3071,52 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Dynamic Conversion Class
+        /// <summary>
+        /// This class provides the dynamic, string-based value conversion
+        /// support used during marshalling.  It holds the lookup tables that map
+        /// target types to their associated change-type and to-string callback
+        /// methods, along with the conversion methods themselves.
+        /// </summary>
         [ObjectId("8264f2fc-42c9-4892-b152-a6368115c4a7")]
         internal static class Dynamic
         {
             //
             // NOTE: What dynamic ChangeType conversions do we support?
             //
+            /// <summary>
+            /// The table mapping target types to the callback methods used to
+            /// convert a string value into an instance of that type.
+            /// </summary>
             public static readonly TypeChangeTypeCallbackDictionary ChangeTypes =
                 ChangeType.PopulateCallbackTable();
 
             //
             // NOTE: What dynamic ToString type conversions do we support?
             //
+            /// <summary>
+            /// The table mapping source types to the callback methods used to
+            /// convert an instance of that type into its string representation.
+            /// </summary>
             public static readonly TypeToStringCallbackDictionary ToStringTypes =
                 _ToString.PopulateCallbackTable();
 
             ///////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether the specified type is a nullable
+            /// type whose underlying value type matches the specified value
+            /// type.
+            /// </summary>
+            /// <param name="type">
+            /// The type to check.
+            /// </param>
+            /// <param name="valueType">
+            /// The expected underlying value type of the nullable type.
+            /// </param>
+            /// <returns>
+            /// True if the type is a nullable type with the specified underlying
+            /// value type; otherwise, false.
+            /// </returns>
             private static bool IsNullableType(
                 Type type,
                 Type valueType
@@ -1586,9 +3136,21 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////
 
             #region ToString Callback Class
+            /// <summary>
+            /// This class provides the callback methods used to convert
+            /// supported value types into their string representations, honoring
+            /// any interpreter-specific formatting settings.
+            /// </summary>
             [ObjectId("ceeb671d-b4b4-4607-b96e-da5867b011d2")]
             internal static class _ToString
             {
+                /// <summary>
+                /// This method builds and returns the table mapping source types
+                /// to their associated to-string callback methods.
+                /// </summary>
+                /// <returns>
+                /// The newly built to-string callback table.
+                /// </returns>
                 public static TypeToStringCallbackDictionary PopulateCallbackTable()
                 {
                     TypeToStringCallbackDictionary result =
@@ -1611,6 +3173,47 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts a date/time value into its string
+                /// representation, honoring the date/time format configured for
+                /// the interpreter, if any.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter whose configured date/time options will be
+                /// used.
+                /// </param>
+                /// <param name="type">
+                /// The type of the value being converted.
+                /// </param>
+                /// <param name="value">
+                /// The date/time value to convert.  This may be null when the
+                /// type is a nullable date/time type.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion (e.g. the
+                /// date/time format).
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// formatting the value.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data; it is not used.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling; they are not used.
+                /// </param>
+                /// <param name="text">
+                /// Upon success, this will contain the string representation of
+                /// the value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 public static ReturnCode FromDateTime(
                     Interpreter interpreter,
                     Type type,
@@ -1671,9 +3274,23 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////
 
             #region ChangeType Callback Class
+            /// <summary>
+            /// This class provides the callback methods used to convert a string
+            /// value into an instance of one of the supported target types, as
+            /// well as the table that maps each supported target type to its
+            /// conversion callback.
+            /// </summary>
             [ObjectId("96b36848-67b3-4c66-bccf-39f3726f57d0")]
             internal static class ChangeType
             {
+                /// <summary>
+                /// This method builds and returns the table mapping target types
+                /// (including reference, nullable, and array variants) to their
+                /// associated change-type callback methods.
+                /// </summary>
+                /// <returns>
+                /// The newly built change-type callback table.
+                /// </returns>
                 public static TypeChangeTypeCallbackDictionary PopulateCallbackTable()
                 {
                     Type runtimeType = MarshalOps.GetRuntimeType();
@@ -1850,6 +3467,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// boolean value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToBoolean(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -1885,6 +3538,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a signed
+                /// byte value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToSignedByte(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -1929,6 +3618,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a byte
+                /// value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToByte(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -1964,6 +3689,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a narrow
+                /// (16-bit) integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToNarrowInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2007,6 +3768,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an
+                /// unsigned narrow (16-bit) integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToUnsignedNarrowInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2042,6 +3839,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// character value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToCharacter(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2077,6 +3910,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a 32-bit
+                /// integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2120,6 +3989,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an
+                /// unsigned 32-bit integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToUnsignedInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2155,6 +4060,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a wide
+                /// (64-bit) integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToWideInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2198,6 +4139,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an
+                /// unsigned wide (64-bit) integer value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToUnsignedWideInteger(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2233,6 +4210,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a number
+                /// value (or its wrapper, depending on the marshal flags).
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToNumber(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2278,6 +4291,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a variant
+                /// value (or its wrapper, depending on the marshal flags).
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToVariant(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2324,6 +4373,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an
+                /// enumerated value of the specified enumeration type.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToEnumeration(
                     Interpreter interpreter,
                     Type type,
@@ -2388,6 +4473,42 @@ namespace Eagle._Components.Private
 
                 #region Dead Code
 #if DEAD_CODE
+                /// <summary>
+                /// This method converts the specified string value into a return code
+                /// value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToReturnCode(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2425,6 +4546,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// date/time value, honoring any configured date/time options.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToDateTime(
                     Interpreter interpreter,
                     Type type,
@@ -2469,6 +4626,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a time
+                /// span value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToTimeSpan(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2504,6 +4697,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// globally unique identifier (GUID) value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToGuid(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2539,6 +4768,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a decimal
+                /// value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToDecimal(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2574,6 +4839,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a single
+                /// precision floating-point value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToSingle(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2609,6 +4910,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a double
+                /// precision floating-point value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToDouble(
                     Interpreter interpreter, /* NOT USED */
                     Type type,
@@ -2644,6 +4981,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// <see cref="Type" /> value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToType(
                     Interpreter interpreter,
                     Type type, /* NOT USED */
@@ -2677,6 +5050,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an
+                /// absolute <see cref="Uri" /> value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToUri(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2704,6 +5113,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// <see cref="Version" /> value.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToVersion(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2731,6 +5176,44 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into a
+                /// primitive value, then changes it to the requested target type
+                /// using its <see cref="IConvertible" /> implementation when
+                /// necessary.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 private static ReturnCode ToPrimitive(
                     Interpreter interpreter,
                     Type type,
@@ -2794,6 +5277,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified opaque interpreter handle
+                /// string into an <see cref="Interpreter" /> instance.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 public static ReturnCode ToInterpreter(
                     Interpreter interpreter,
                     Type type,
@@ -2821,6 +5340,44 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified opaque object handle string
+                /// into the underlying object instance, verifying that it is
+                /// assignable to (and, when applicable, trusted for) the
+                /// requested target type.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 public static ReturnCode ToObject(
                     Interpreter interpreter,
                     Type type,
@@ -2887,6 +5444,41 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value into an array
+                /// of its constituent characters.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// Always returns <see cref="ReturnCode.Ok" />.
+                /// </returns>
                 private static ReturnCode ToCharacterArray(
                     Interpreter interpreter, /* NOT USED */
                     Type type, /* NOT USED */
@@ -2905,6 +5497,42 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value, interpreted
+                /// as a Tcl list, into a <see cref="StringList" /> instance.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 public static ReturnCode ToStringList(
                     Interpreter interpreter,
                     Type type, /* NOT USED */
@@ -2937,6 +5565,43 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method converts the specified string value, interpreted
+                /// as a command (optionally preceded by callback options), into a
+                /// delegate of the requested type that invokes that command.
+                /// </summary>
+                /// <param name="interpreter">
+                /// The interpreter that provides context for the conversion.
+                /// </param>
+                /// <param name="type">
+                /// The target type of the conversion.
+                /// </param>
+                /// <param name="text">
+                /// The string value to convert.
+                /// </param>
+                /// <param name="options">
+                /// The options that may further refine the conversion.
+                /// </param>
+                /// <param name="cultureInfo">
+                /// The culture-specific formatting information to use when
+                /// performing the conversion.
+                /// </param>
+                /// <param name="clientData">
+                /// The caller-specific data.
+                /// </param>
+                /// <param name="marshalFlags">
+                /// The flags that control marshalling.
+                /// </param>
+                /// <param name="value">
+                /// Upon success, this will contain the converted value.
+                /// </param>
+                /// <param name="error">
+                /// Upon failure, this will contain information about the error.
+                /// </param>
+                /// <returns>
+                /// <see cref="ReturnCode.Ok" /> on success;
+                /// <see cref="ReturnCode.Error" /> on failure.
+                /// </returns>
                 public static ReturnCode ToCommandCallback(
                     Interpreter interpreter,
                     Type type,

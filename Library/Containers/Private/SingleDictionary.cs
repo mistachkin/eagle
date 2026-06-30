@@ -33,6 +33,11 @@ using SomeDictionary = System.Collections.Generic.Dictionary<string, float>;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to
+    /// single-precision floating-point values.  It extends the underlying
+    /// generic dictionary without adding any further behavior.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -40,6 +45,9 @@ namespace Eagle._Containers.Private
     internal sealed class SingleDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public SingleDictionary()
             : base()
         {
@@ -50,6 +58,14 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public SingleDictionary(
             IDictionary<string, float> dictionary
             )
@@ -62,6 +78,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty instance of this class that uses the specified
+        /// equality comparer when comparing keys.
+        /// </summary>
+        /// <param name="comparer">
+        /// The equality comparer to use when comparing keys, or null to use the
+        /// default comparer for the key type.
+        /// </param>
         public SingleDictionary(
             IEqualityComparer<string> comparer
             )
@@ -74,6 +98,19 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// entries copied from the specified dictionary and that uses the
+        /// specified equality comparer when comparing keys.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
+        /// <param name="comparer">
+        /// The equality comparer to use when comparing keys, or null to use the
+        /// default comparer for the key type.
+        /// </param>
         public SingleDictionary(
             IDictionary<string, float> dictionary,
             IEqualityComparer<string> comparer
@@ -90,6 +127,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized data.
+        /// This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source of the serialized
+        /// data.
+        /// </param>
         private SingleDictionary(
             SerializationInfo info,
             StreamingContext context

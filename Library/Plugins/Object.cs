@@ -19,6 +19,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Plugins
 {
+    /// <summary>
+    /// This class implements the system plugin responsible for managing the
+    /// reference counts of opaque object handles held by interpreter
+    /// variables.  When a call frame is popped or deleted, it adjusts the
+    /// reference counts of any objects referenced by that frame's variables so
+    /// that they can be cleaned up correctly.
+    /// </summary>
     [ObjectId("55febaed-b731-4d2c-9176-4144a7550011")]
     [PluginFlags(
         PluginFlags.System | PluginFlags.Notify |
@@ -30,6 +37,14 @@ namespace Eagle._Plugins
     internal sealed class Object : Notify
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the object plugin, merging the plugin
+        /// flags declared via attributes on this type and its base type.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The data used to create and identify this plugin, such as its name
+        /// and flags.  This parameter may be null.
+        /// </param>
         public Object(
             IPluginData pluginData
             )
@@ -43,6 +58,14 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Methods
+        /// <summary>
+        /// This method returns the package flags associated with this plugin.
+        /// Since this is the core library and this class is sealed, the
+        /// resulting flags always include <see cref="PackageFlags.Core" />.
+        /// </summary>
+        /// <returns>
+        /// The package flags for this plugin.
+        /// </returns>
         protected override PackageFlags GetPackageFlags()
         {
             //
@@ -56,6 +79,15 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method clears the object plugin token stored in the
+        /// interpreter state, ensuring it is reset when this plugin is
+        /// terminated.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose object plugin token is reset.  This
+        /// parameter may be null.
+        /// </param>
         private void ResetToken(
             Interpreter interpreter
             )
@@ -75,6 +107,27 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region IState Members
+        /// <summary>
+        /// This method is called when the plugin is being terminated within
+        /// the specified interpreter.  It resets the object plugin token before
+        /// delegating to the base implementation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this plugin is being terminated in.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, plugin-specific data supplied for this operation, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain an informational result.  Upon
+        /// failure, this must contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Terminate(
             Interpreter interpreter,
             IClientData clientData,
@@ -90,6 +143,37 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region INotify Members
+        /// <summary>
+        /// This method is called by the engine to deliver a notification to
+        /// this plugin.  It responds to call frame popped or deleted events by
+        /// adjusting the reference counts of any objects referenced by the
+        /// affected call frame's variables, ensuring those objects can be
+        /// cleaned up as the call frame goes away.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this plugin is associated with.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="eventArgs">
+        /// The event arguments describing the notification, including its
+        /// types, flags, and associated data.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, plugin-specific data supplied for this notification, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments associated with the notification, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain an informational result.  Upon
+        /// failure, this must contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Notify(
             Interpreter interpreter,
             IScriptEventArgs eventArgs,
@@ -217,6 +301,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region IPlugin Members
+        /// <summary>
+        /// This method returns descriptive "about" information for this
+        /// plugin, such as its name, version, and copyright.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this operation is being performed in.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the formatted "about" information.  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode About(
             Interpreter interpreter,
             ref Result result
@@ -228,6 +328,22 @@ namespace Eagle._Plugins
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the list of compile-time options that this
+        /// plugin (i.e. the core library) was built with.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this operation is being performed in.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the list of options.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Options(
             Interpreter interpreter,
             ref Result result

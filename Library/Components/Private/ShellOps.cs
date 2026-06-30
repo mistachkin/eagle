@@ -36,20 +36,43 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides internal helper methods and shared state used to
+    /// implement the Eagle shell, including command line argument processing,
+    /// interactive loop support, kiosk mode handling, and update checking.
+    /// </summary>
     [ObjectId("d9374375-f3bb-402f-8c43-354168741995")]
     internal static class ShellOps
     {
         #region Private Constants
         #region Interactive Command Prefix
+        /// <summary>
+        /// The character used as the prefix for an interactive (i.e. shell)
+        /// command.
+        /// </summary>
         internal static readonly char InteractiveCommandPrefixChar =
             Characters.NumberSign;
 
+        /// <summary>
+        /// The string used as the prefix for an interactive (i.e. shell)
+        /// command.
+        /// </summary>
         internal static readonly string InteractiveCommandPrefix =
             InteractiveCommandPrefixChar.ToString();
 
+        /// <summary>
+        /// The string used as the prefix for an interactive system command
+        /// (i.e. one that is forwarded to the operating system command
+        /// processor).
+        /// </summary>
         internal static readonly string InteractiveSystemCommandPrefix =
             StringOps.StrRepeat(2, InteractiveCommandPrefix);
 
+        /// <summary>
+        /// The array of supported interactive command prefixes, paired with
+        /// their associated human-readable descriptions, ordered from longest
+        /// (most specific) to shortest.
+        /// </summary>
         internal static readonly string[] InteractiveCommandPrefixes = {
             StringOps.StrRepeat(4, InteractiveCommandPrefix),
             "interactive verbatim system command",
@@ -61,6 +84,11 @@ namespace Eagle._Components.Private
             "interactive command"
         };
 
+        /// <summary>
+        /// The array of interactive verbatim command prefixes, paired with
+        /// their replacement prefixes, used to detect commands that should be
+        /// executed verbatim.
+        /// </summary>
         private static readonly string[] InteractiveVerbatimCommandPrefixes = {
             StringOps.StrRepeat(4, InteractiveCommandPrefix),
             InteractiveSystemCommandPrefix,
@@ -68,6 +96,9 @@ namespace Eagle._Components.Private
             InteractiveCommandPrefix
         };
 
+        /// <summary>
+        /// The default prefix used for an interactive (i.e. shell) command.
+        /// </summary>
         internal static readonly string DefaultInteractiveCommandPrefix =
             InteractiveCommandPrefix;
         #endregion
@@ -82,6 +113,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of microseconds to wait in between checking whether the
+        /// current interactive loop is (still) paused.
+        /// </summary>
         internal static long PauseMicroseconds = 2000000; /* 2 seconds */
         #endregion
 
@@ -92,19 +127,55 @@ namespace Eagle._Components.Private
         // NOTE: These procedure names are all RESERVED; however, they may
         //       legally be redefined to do nothing.
         //
+        /// <summary>
+        /// The name of the reserved procedure used to check for updates to the
+        /// script engine.
+        /// </summary>
         private const string CheckForEngineScript = "checkForEngine";
+        /// <summary>
+        /// The name of the reserved procedure used to check for updates to a
+        /// binary plugin.
+        /// </summary>
         private const string CheckForPluginScript = "checkForPlugin";
+        /// <summary>
+        /// The name of the reserved procedure used to fetch an available
+        /// update.
+        /// </summary>
         private const string FetchUpdateScript = "fetchUpdate";
+        /// <summary>
+        /// The name of the reserved procedure used to run the external updater
+        /// tool and exit.
+        /// </summary>
         private const string RunUpdateAndExitScript = "runUpdateAndExit";
+        /// <summary>
+        /// The name of the reserved procedure used to download and extract an
+        /// available update.
+        /// </summary>
         private const string DownloadAndExtractUpdate = "downloadAndExtractUpdate";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region AppSettings Support
+        /// <summary>
+        /// The prefix used when constructing the application setting names that
+        /// supply command line arguments.
+        /// </summary>
         private static string ArgumentSettingPrefix = typeof(ShellOps).Name;
+        /// <summary>
+        /// The format string used to construct the application setting name
+        /// that contains the count of arguments.
+        /// </summary>
         private const string ArgumentCountSettingFormat = "{0}ArgumentCount";
+        /// <summary>
+        /// The format string used to construct the application setting name
+        /// that contains an argument as a string value.
+        /// </summary>
         private const string ArgumentStringSettingFormat = "{0}Argument{1}String";
+        /// <summary>
+        /// The format string used to construct the application setting name
+        /// that contains an argument as a list value.
+        /// </summary>
         private const string ArgumentListSettingFormat = "{0}Argument{1}List";
         #endregion
 
@@ -115,6 +186,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name used for the primary trace listener associated with the
+        /// shell.
+        /// </summary>
         private static string MainListenerName =
             typeof(Interpreter).FullName + ".ShellMain";
 #endif
@@ -124,6 +199,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Shell Support Methods
+        /// <summary>
+        /// This method is the cross-application-domain entry point used to
+        /// start the Eagle shell using the command line arguments for the
+        /// current process.
+        /// </summary>
         public static void StartupShellMain() /* System.CrossAppDomainDelegate */
         {
             /* IGNORED */
@@ -141,6 +221,18 @@ namespace Eagle._Components.Private
         //       is the case, any argument value conversions should just
         //       fallback to using the (system) default culture.
         //
+        /// <summary>
+        /// This method gets the culture to use for argument value conversions,
+        /// falling back to the system default culture when there is no active
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.
+        /// </param>
+        /// <returns>
+        /// The culture associated with the specified interpreter, or null if
+        /// there is no interpreter.
+        /// </returns>
         public static CultureInfo GetCultureInfo(
             Interpreter interpreter
             )
@@ -154,6 +246,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Kiosk Support
+        /// <summary>
+        /// This method applies the specified kiosk mode flags to the
+        /// interpreter, optionally also configuring the argument-related kiosk
+        /// behavior.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to configure, which may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The kiosk mode flags to apply.
+        /// </param>
+        /// <param name="loops">
+        /// The number of interactive loops that have already been entered.
+        /// Some settings are only applied when this is zero.
+        /// </param>
+        /// <returns>
+        /// True if one or more kiosk settings were changed; otherwise, false.
+        /// </returns>
         private static bool ProcessKioskFlags(
             Interpreter interpreter,
             KioskFlags flags,
@@ -197,6 +307,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified value as kiosk mode flags, an
+        /// integer, or a boolean and applies the resulting kiosk mode
+        /// configuration to the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to configure.
+        /// </param>
+        /// <param name="value">
+        /// The string value to interpret as kiosk mode settings.
+        /// </param>
+        /// <param name="loops">
+        /// The number of interactive loops that have already been entered.
+        /// </param>
+        /// <param name="processed">
+        /// Upon success, this is set to non-zero if the kiosk settings were
+        /// changed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ProcessKioskArgument(
             Interpreter interpreter,
             string value,
@@ -301,6 +435,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a human-readable description of the current
+        /// kiosk mode state for the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query, which may be null.
+        /// </param>
+        /// <returns>
+        /// A string describing the kiosk mode state, or null if there is no
+        /// interpreter.
+        /// </returns>
         public static string GetKioskDescription(
             Interpreter interpreter
             )
@@ -320,6 +465,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method constructs the name of a trace listener from the
+        /// specified base name and identifier.
+        /// </summary>
+        /// <param name="name">
+        /// The base name to use, or null to use the default main listener
+        /// name.
+        /// </param>
+        /// <param name="id">
+        /// The identifier to append to the name.
+        /// </param>
+        /// <returns>
+        /// The constructed trace listener name.
+        /// </returns>
         public static string GetTraceListenerName(
             string name, /* in */
             long id      /* in */
@@ -332,6 +491,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans the command line arguments for the named option
+        /// and, if found, returns its associated value, optionally removing
+        /// the option and its value from the list.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of command line arguments to scan, which may be null.
+        /// When removal is requested, this list may be modified.
+        /// </param>
+        /// <param name="name">
+        /// The bare name of the command line option to find.
+        /// </param>
+        /// <param name="remove">
+        /// Non-zero to remove the option and its value from the argument list
+        /// when found.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, when the option is found, this receives its value (an
+        /// empty string is converted to null).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetArgumentValue(
             StringList argv,  /* in, out */
             string name,      /* in */
@@ -422,6 +607,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the named command line option is
+        /// present in the specified argument list.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of command line arguments to scan.  When this is null, the
+        /// option is treated as present.
+        /// </param>
+        /// <param name="name">
+        /// The bare name of the command line option to find.
+        /// </param>
+        /// <returns>
+        /// True if the named option is present (or the list is null);
+        /// otherwise, false.
+        /// </returns>
         private static bool HaveArgumentValue(
             IList<string> argv,
             string name
@@ -446,6 +646,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether arguments file names should be used,
+        /// based on the presence of the associated command line option.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of command line arguments to scan, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if arguments file names should be used; otherwise, false.
+        /// </returns>
         public static bool ShouldUseArgumentsFileNames(
             IList<string> argv
             )
@@ -456,6 +666,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the interpreter host arguments
+        /// should be locked, based on the presence of the associated command
+        /// line option.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of command line arguments to scan, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if the host arguments should be locked; otherwise, false.
+        /// </returns>
         public static bool ShouldLockHostArguments(
             IList<string> argv
             )
@@ -466,6 +687,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any of the specified files exists,
+        /// returning the name of the first one found.
+        /// </summary>
+        /// <param name="fileNames">
+        /// The list of candidate file names to check, which may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, this receives the name of the first existing file.
+        /// </param>
+        /// <returns>
+        /// True if one of the specified files exists; otherwise, false.
+        /// </returns>
         public static bool SomeFileExists(
             StringList fileNames,
             ref string fileName
@@ -491,6 +725,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the most preferred arguments file name
+        /// associated with the specified file name.
+        /// </summary>
+        /// <param name="fileName">
+        /// The base file name used to derive the arguments file names.
+        /// </param>
+        /// <returns>
+        /// The arguments file name to use, or null if none could be
+        /// determined.
+        /// </returns>
         public static string GetArgumentsFileName(
             string fileName
             )
@@ -510,6 +755,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the list of candidate arguments file names
+        /// associated with the specified file name.
+        /// </summary>
+        /// <param name="fileName">
+        /// The base file name used to derive the arguments file names.
+        /// </param>
+        /// <returns>
+        /// The list of candidate arguments file names, or null if none could
+        /// be determined.
+        /// </returns>
         public static StringList GetArgumentsFileNames(
             string fileName
             )
@@ -520,6 +776,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a text reader that reads from the specified
+        /// string.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be read.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon success, this is set to non-zero to indicate that the returned
+        /// reader should be disposed when no longer needed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created text reader, or null if it could not be created.
+        /// </returns>
         private static TextReader GetTextReaderForString(
             string text,
             ref bool dispose,
@@ -542,6 +815,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a text reader that reads from the specified
+        /// file, optionally reading from the standard input channel.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use, or null to use the default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to read, or a standard input designator.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero to permit reading from the console standard input channel
+        /// when the file name designates standard input.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon success, this is set to non-zero if the returned reader should
+        /// be disposed when no longer needed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created text reader, or null if it could not be created.
+        /// </returns>
         private static TextReader GetTextReaderForFile(
             Encoding encoding,
             string fileName,
@@ -586,6 +883,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a number of leading arguments from the argument
+        /// list and then inserts (or appends) the specified new arguments in
+        /// their place.
+        /// </summary>
+        /// <param name="newArgv">
+        /// The new arguments to insert or append, which may be null.
+        /// </param>
+        /// <param name="popCount">
+        /// The number of leading arguments to remove from the argument list.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the new arguments to the end of the list; zero
+        /// to insert them where the removed arguments were.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the resulting argument list.  A new list
+        /// is created when necessary.
+        /// </param>
         public static void CommitToArguments(
             IList<string> newArgv, /* in: OPTIONAL */
             int popCount,          /* in */
@@ -634,6 +950,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads command line arguments, one list per line, from
+        /// the specified text reader and commits them to the argument list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when parsing each line as a list.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader to read the arguments from.
+        /// </param>
+        /// <param name="popCount">
+        /// The number of leading arguments to remove from the argument list.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the read arguments to the end of the list.
+        /// </param>
+        /// <param name="argv">
+        /// Upon success, this contains the resulting argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode ReadArgumentsFromTextReader(
             Interpreter interpreter, /* in */
             TextReader textReader,   /* in */
@@ -691,6 +1032,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads command line arguments from one of the specified
+        /// host scripts and commits them to the argument list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to obtain and parse the host scripts.
+        /// </param>
+        /// <param name="argvFileNames">
+        /// The list of candidate host script names to try, which may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when reading from a file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="popCount">
+        /// The number of leading arguments to remove from the argument list.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the read arguments to the end of the list.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat the absence of any arguments as an error.
+        /// </param>
+        /// <param name="argvFileName">
+        /// Upon success, this receives the name of the host script the
+        /// arguments were read from.
+        /// </param>
+        /// <param name="argv">
+        /// Upon success, this contains the resulting argument list.
+        /// </param>
+        /// <param name="readArgv">
+        /// Upon success, this is incremented when the arguments are read from a
+        /// host script.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains one or more appropriate error messages.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ReadArgumentsFromHost(
             Interpreter interpreter,  /* in */
             StringList argvFileNames, /* in */
@@ -863,6 +1244,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads command line arguments from the specified file
+        /// and commits them to the argument list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when parsing each line as a list.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use, or null to use the default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to read the arguments from.
+        /// </param>
+        /// <param name="popCount">
+        /// The number of leading arguments to remove from the argument list.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero to permit reading from the console standard input channel
+        /// when the file name designates standard input.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the read arguments to the end of the list.
+        /// </param>
+        /// <param name="argv">
+        /// Upon success, this contains the resulting argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ReadArgumentsFromFile(
             Interpreter interpreter, /* in */
             Encoding encoding,       /* in */
@@ -911,6 +1324,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether command line arguments should be
+        /// read from the application settings.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of command line arguments to scan, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if arguments should be read from the application settings;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldUseArgumentsAppSettings(
             IList<string> argv /* in */
             )
@@ -938,6 +1362,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads command line arguments from the application
+        /// settings and commits them to the argument list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when parsing list-valued settings.
+        /// </param>
+        /// <param name="popCount">
+        /// The number of leading arguments to remove from the argument list.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the read arguments to the end of the list.
+        /// </param>
+        /// <param name="argv">
+        /// Upon success, this contains the resulting argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ReadArgumentsFromAppSettings(
             Interpreter interpreter, /* in */
             int popCount,            /* in */
@@ -1039,6 +1485,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the number of arguments in the
+        /// specified list.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of arguments to query, which may be null.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this receives the number of arguments in the list.
+        /// </param>
+        /// <returns>
+        /// True if the count was obtained; otherwise, false.
+        /// </returns>
         public static bool MaybeGetArgumentCount(
             IList<string> argv, /* in */
             ref int count       /* in, out */
@@ -1053,6 +1512,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the argument at the specified index,
+        /// optionally trimming surrounding whitespace.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of arguments to query, which may be null.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the argument to get.
+        /// </param>
+        /// <param name="noTrim">
+        /// Non-zero to return the argument without trimming surrounding
+        /// whitespace.
+        /// </param>
+        /// <param name="arg">
+        /// Upon success, this receives the argument value.
+        /// </param>
+        /// <returns>
+        /// True if the argument was obtained; otherwise, false.
+        /// </returns>
         public static bool MaybeGetArgument(
             IList<string> argv, /* in */
             int index,          /* in */
@@ -1084,6 +1563,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to set the argument at the specified index to
+        /// a new value.
+        /// </summary>
+        /// <param name="argv">
+        /// The list of arguments to modify, which may be null.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the argument to set.
+        /// </param>
+        /// <param name="arg">
+        /// The new argument value.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this receives the number of arguments in the list.
+        /// </param>
+        /// <returns>
+        /// True if the argument was set; otherwise, false.
+        /// </returns>
         public static bool MaybeSetArgument(
             IList<string> argv, /* in */
             int index,          /* in */
@@ -1105,6 +1603,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the argument at the specified index and passes it
+        /// to the configured preview argument callback, advancing the index
+        /// and handling any error.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="callbackData">
+        /// The shell callback data containing the preview argument callback.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.
+        /// </param>
+        /// <param name="phase">
+        /// The argument processing phase.
+        /// </param>
+        /// <param name="noTrim">
+        /// Non-zero to obtain the argument without trimming surrounding
+        /// whitespace.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to perform a trial run without making any persistent
+        /// changes.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// Upon return, this may contain the refreshed interactive host.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, this contains the (possibly advanced) argument index.
+        /// </param>
+        /// <param name="arg">
+        /// Upon return, this receives the (possibly modified) argument value.
+        /// </param>
+        /// <param name="gotArg">
+        /// Upon return, this is set to non-zero if an argument was obtained.
+        /// </param>
+        /// <param name="savedArg">
+        /// Upon return, this receives the original argument value before any
+        /// preview.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is set to non-zero if output should be
+        /// suppressed.
+        /// </param>
+        /// <param name="exitCode">
+        /// Upon failure, this receives the failure exit code.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode MaybeGetAndPreviewArgument(
             Interpreter interpreter,              /* in */
             IShellCallbackData callbackData,      /* in */
@@ -1169,6 +1724,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the configured preview argument callback, if
+        /// any, to inspect or modify the current argument.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host to pass to the callback.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.
+        /// </param>
+        /// <param name="callbackData">
+        /// The shell callback data containing the preview argument callback.
+        /// </param>
+        /// <param name="phase">
+        /// The argument processing phase.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to perform a trial run without making any persistent
+        /// changes.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, this contains the (possibly modified) argument index.
+        /// </param>
+        /// <param name="arg">
+        /// Upon return, this contains the (possibly modified) argument value.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode PreviewArgument(
             Interpreter interpreter,          /* in */
             IInteractiveHost interactiveHost, /* in */
@@ -1217,6 +1810,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the configured unknown argument callback, if
+        /// any, to handle an argument that was not otherwise recognized.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host to pass to the callback.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.
+        /// </param>
+        /// <param name="callbackData">
+        /// The shell callback data containing the unknown argument callback.
+        /// </param>
+        /// <param name="switchCount">
+        /// The number of switch characters that prefixed the argument.
+        /// </param>
+        /// <param name="arg">
+        /// The unrecognized argument value.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to perform a trial run without making any persistent
+        /// changes.
+        /// </param>
+        /// <param name="wasHandled">
+        /// Upon return, this is set to non-zero if the callback handled the
+        /// argument.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode UnknownArgument(
             Interpreter interpreter,          /* in */
             IInteractiveHost interactiveHost, /* in */
@@ -1267,6 +1899,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the colors of the specified interactive host to
+        /// high-contrast colors, saving the previous colors so they can be
+        /// restored later.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose colors should be changed, which may be
+        /// null.
+        /// </param>
+        /// <param name="savedForegroundColor">
+        /// Upon success, this receives the previous foreground color.
+        /// </param>
+        /// <param name="savedBackgroundColor">
+        /// Upon success, this receives the previous background color.
+        /// </param>
+        /// <returns>
+        /// True if the colors were changed; otherwise, false.
+        /// </returns>
         private static bool BeginHighContrastColors(
             IInteractiveHost interactiveHost,
             ref ConsoleColor savedForegroundColor,
@@ -1302,6 +1952,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the previously saved colors of the specified
+        /// interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose colors should be restored, which may be
+        /// null.
+        /// </param>
+        /// <param name="savedForegroundColor">
+        /// Upon entry, this contains the foreground color to restore; upon
+        /// success, it is reset.
+        /// </param>
+        /// <param name="savedBackgroundColor">
+        /// Upon entry, this contains the background color to restore; upon
+        /// success, it is reset.
+        /// </param>
+        /// <returns>
+        /// True if the colors were restored; otherwise, false.
+        /// </returns>
         private static bool EndHighContrastColors(
             IInteractiveHost interactiveHost,
             ref ConsoleColor savedForegroundColor,
@@ -1330,6 +1999,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line of output to the specified interactive
+        /// host, temporarily using high-contrast colors and synchronizing
+        /// access where supported.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, which may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void WriteHost(
             IInteractiveHost interactiveHost,
             string value
@@ -1385,6 +2065,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line of output to the specified interactive
+        /// host and, where appropriate, also to the console and the debug
+        /// host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, which may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void WriteCore(
             IInteractiveHost interactiveHost,
             string value
@@ -1421,6 +2112,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a prompt to the interactive host associated with
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host should be used, which may be
+        /// null.
+        /// </param>
+        /// <param name="value">
+        /// The prompt value to write.
+        /// </param>
         public static void WritePrompt(
             Interpreter interpreter,
             string value
@@ -1436,6 +2138,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a prompt to the specified interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, which may be null.
+        /// </param>
+        /// <param name="value">
+        /// The prompt value to write.
+        /// </param>
         public static void WritePrompt(
             IInteractiveHost interactiveHost,
             string value
@@ -1446,6 +2157,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats and writes a result to the specified
+        /// interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, which may be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result to format and write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The error line number associated with the result, or zero if none.
+        /// </param>
         public static void WriteResult( /* FOR WriteAccessError USE ONLY. */
             IInteractiveHost interactiveHost,
             ReturnCode code,
@@ -1464,6 +2191,25 @@ namespace Eagle._Components.Private
         //       that they will be useful to any external callers (i.e. those
         //       other than ShellMainCore).
         //
+        /// <summary>
+        /// This method reports a shell error using the interactive host and
+        /// quiet setting obtained from the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to report the error for, which may be null.
+        /// </param>
+        /// <param name="savedArg">
+        /// The original argument value associated with the error.
+        /// </param>
+        /// <param name="arg">
+        /// The (possibly modified) argument value associated with the error.
+        /// </param>
+        /// <param name="localCode">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="localResult">
+        /// The result or error message to report.
+        /// </param>
         public static void ShellMainCoreError( /* FOR ShellMain USE ONLY. */
             Interpreter interpreter,
             string savedArg,
@@ -1488,6 +2234,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a non-API generated shell error, for which no
+        /// error line, script stack trace, or return code information is
+        /// needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to report the error for, which may be null.
+        /// </param>
+        /// <param name="savedArg">
+        /// The original argument value associated with the error.
+        /// </param>
+        /// <param name="arg">
+        /// The (possibly modified) argument value associated with the error.
+        /// </param>
+        /// <param name="localCode">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="localResult">
+        /// The result or error message to report.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// Upon return, this may contain the refreshed interactive host.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is set to non-zero if output should be
+        /// suppressed.
+        /// </param>
         private static void ShellMainCoreError(
             Interpreter interpreter,
             string savedArg,
@@ -1514,6 +2287,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a non-API generated shell error, for which no
+        /// error line, script stack trace, or return code information is
+        /// needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to report the error for, which may be null.
+        /// </param>
+        /// <param name="savedArg">
+        /// The original argument value associated with the error.
+        /// </param>
+        /// <param name="arg">
+        /// The (possibly modified) argument value associated with the error.
+        /// </param>
+        /// <param name="localResult">
+        /// The result or error message to report.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to capture the result instead of writing it to the
+        /// interactive host.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// Upon return, this may contain the refreshed interactive host.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is set to non-zero if output should be
+        /// suppressed.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, when performing a trial run, this receives a copy of
+        /// the reported result.
+        /// </param>
         public static void ShellMainCoreError(
             Interpreter interpreter,
             string savedArg,
@@ -1538,6 +2346,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a [non-script] API generated shell error, for
+        /// which no error line or script stack trace information is needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to report the error for, which may be null.
+        /// </param>
+        /// <param name="savedArg">
+        /// The original argument value associated with the error.
+        /// </param>
+        /// <param name="arg">
+        /// The (possibly modified) argument value associated with the error.
+        /// </param>
+        /// <param name="localCode">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="localResult">
+        /// The result or error message to report.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to capture the result instead of writing it to the
+        /// interactive host.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// Upon return, this may contain the refreshed interactive host.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is set to non-zero if output should be
+        /// suppressed.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, when performing a trial run, this receives a copy of
+        /// the reported result.
+        /// </param>
         public static void ShellMainCoreError(
             Interpreter interpreter,
             string savedArg,
@@ -1563,6 +2408,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a shell error, optionally writing it (and any
+        /// associated script stack trace) to the interactive host, or
+        /// capturing it when performing a trial run.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to report the error for, which may be null.
+        /// </param>
+        /// <param name="savedArg">
+        /// The original argument value associated with the error.
+        /// </param>
+        /// <param name="arg">
+        /// The (possibly modified) argument value associated with the error.
+        /// </param>
+        /// <param name="localCode">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="localResult">
+        /// The result or error message to report.
+        /// </param>
+        /// <param name="errorLine">
+        /// The error line number associated with the result, or zero if none.
+        /// </param>
+        /// <param name="errorInfo">
+        /// Non-zero to also report the script stack trace when debugging is
+        /// enabled.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to report the error even when no interpreter or interactive
+        /// host is available.
+        /// </param>
+        /// <param name="whatIf">
+        /// Non-zero to capture the result instead of writing it to the
+        /// interactive host.
+        /// </param>
+        /// <param name="argv">
+        /// Upon return, this contains the (possibly modified) argument list.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// Upon return, this may contain the refreshed interactive host.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is set to non-zero if output should be
+        /// suppressed.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, when performing a trial run, this receives a copy of
+        /// the reported result.
+        /// </param>
         public static void ShellMainCoreError(
             Interpreter interpreter,
             string savedArg,
@@ -1705,6 +2599,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the exit code that represents successful
+        /// completion of the shell.
+        /// </summary>
+        /// <returns>
+        /// The success exit code.
+        /// </returns>
         public static ExitCode SuccessExitCode()
         {
             return ResultOps.SuccessExitCode();
@@ -1712,6 +2613,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the exit code that represents a failure of the
+        /// shell.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the failure, which may be null.  It
+        /// is used for diagnostic purposes only.
+        /// </param>
+        /// <returns>
+        /// The failure exit code.
+        /// </returns>
         public static ExitCode FailureExitCode(
             Interpreter interpreter
             )
@@ -1728,6 +2640,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified return code into the
+        /// corresponding shell exit code.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the conversion, which may be null.
+        /// It is used for diagnostic purposes only.
+        /// </param>
+        /// <param name="returnCode">
+        /// The return code to convert.
+        /// </param>
+        /// <param name="exceptions">
+        /// Non-zero to treat exceptional return codes as errors.
+        /// </param>
+        /// <returns>
+        /// The exit code corresponding to the specified return code.
+        /// </returns>
         public static ExitCode ReturnCodeToExitCode(
             Interpreter interpreter,
             ReturnCode returnCode,
@@ -1749,6 +2678,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the exit code currently associated with the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query, which may be null.
+        /// </param>
+        /// <param name="exitCode">
+        /// Upon return, this receives the exit code.  When there is no
+        /// interpreter, this receives the failure exit code.
+        /// </param>
         public static void GetExitCode(
             Interpreter interpreter,
             out ExitCode exitCode
@@ -1772,6 +2712,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the exit code to use, based on the specified
+        /// return code and the exit code currently associated with the
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query, which may be null.
+        /// </param>
+        /// <param name="returnCode">
+        /// The return code to convert when the interpreter does not already
+        /// have a non-success exit code.
+        /// </param>
+        /// <param name="exitCode">
+        /// Upon return, this receives the exit code.
+        /// </param>
         public static void GetExitCode(
             Interpreter interpreter,
             ReturnCode returnCode,
@@ -1794,6 +2749,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interactive Loop Support Methods
+        /// <summary>
+        /// This method is the cross-application-domain entry point used to
+        /// create an interpreter and enter its interactive loop using the
+        /// command line arguments for the current process.
+        /// </summary>
         public static void StartupInteractiveLoop() /* System.CrossAppDomainDelegate */
         {
             ReturnCode code;
@@ -1827,6 +2787,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the interactive loop associated with the
+        /// specified thread to be unpaused, periodically rechecking until it is
+        /// no longer paused.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the interactive loop.
+        /// </param>
+        /// <param name="appDomainId">
+        /// The identifier of the application domain that owns the interactive
+        /// loop.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread that owns the interactive loop.
+        /// </param>
+        /// <param name="microseconds">
+        /// The number of microseconds to wait between checks.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode WaitPausedInteractiveLoop(
             Interpreter interpreter,
             int appDomainId,
@@ -1896,6 +2880,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified interactive command,
+        /// optionally adding the interactive command and system command
+        /// prefixes.
+        /// </summary>
+        /// <param name="command">
+        /// The interactive command to normalize, which may be null.
+        /// </param>
+        /// <param name="usePrefix">
+        /// Non-zero to add the interactive command prefixes when they are not
+        /// already present.
+        /// </param>
+        /// <param name="normalCommand">
+        /// Upon return, this receives the normalized command with the
+        /// interactive command prefix, or null.
+        /// </param>
+        /// <param name="systemCommand">
+        /// Upon return, this receives the normalized command with the
+        /// interactive system command prefix, or null.
+        /// </param>
         public static void NormalizeInteractiveCommand(
             string command,
             bool usePrefix,
@@ -1941,6 +2945,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text looks like an
+        /// interactive command or an interactive system command.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text looks like an interactive command; otherwise,
+        /// false.
+        /// </returns>
         public static bool LooksLikeAnyInteractiveCommand(
             string text
             )
@@ -1952,6 +2967,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text looks like an
+        /// interactive command or an interactive system command, returning the
+        /// index immediately following the matched prefix.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <param name="nextIndex">
+        /// Upon success, this receives the index immediately following the
+        /// matched prefix.
+        /// </param>
+        /// <returns>
+        /// True if the text looks like an interactive command; otherwise,
+        /// false.
+        /// </returns>
         public static bool LooksLikeAnyInteractiveCommand(
             string text,
             ref int nextIndex
@@ -1965,6 +2996,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text begins with the
+        /// specified interactive command prefix, returning the index
+        /// immediately following it.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <param name="prefix">
+        /// The interactive command prefix to look for.
+        /// </param>
+        /// <param name="nextIndex">
+        /// Upon success, this receives the index immediately following the
+        /// matched prefix.
+        /// </param>
+        /// <returns>
+        /// True if the text begins with the specified prefix; otherwise,
+        /// false.
+        /// </returns>
         private static bool LooksLikeInteractiveCommand(
             string text,
             string prefix,
@@ -1999,6 +3049,17 @@ namespace Eagle._Components.Private
         // WARNING: For use by the InteractiveOps.CanExecuteCommand
         //          method only.
         //
+        /// <summary>
+        /// This method determines whether the specified text looks like an
+        /// interactive system command.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text looks like an interactive system command;
+        /// otherwise, false.
+        /// </returns>
         public static bool LooksLikeInteractiveSystemCommand(
             string text
             )
@@ -2011,6 +3072,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text begins with one
+        /// of the interactive verbatim command prefixes, returning the
+        /// replacement prefix and the index immediately following the matched
+        /// prefix.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <param name="newPrefix">
+        /// Upon success, this receives the replacement prefix associated with
+        /// the matched verbatim prefix.
+        /// </param>
+        /// <param name="nextIndex">
+        /// Upon success, this receives the index immediately following the
+        /// matched prefix.
+        /// </param>
+        /// <returns>
+        /// True if the text begins with a verbatim command prefix; otherwise,
+        /// false.
+        /// </returns>
         public static bool LooksLikeInteractiveVerbatimCommand(
             string text,
             ref string newPrefix,
@@ -2062,6 +3144,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the leading interactive command prefix and
+        /// command name from the specified text, returning the remaining
+        /// arguments.
+        /// </summary>
+        /// <param name="text">
+        /// The text to strip the interactive command from.
+        /// </param>
+        /// <returns>
+        /// The text with the leading interactive command removed, or the
+        /// original text if it does not contain one.
+        /// </returns>
         public static string StripInteractiveCommand(
             string text
             )
@@ -2093,6 +3187,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the cancel flags used when resetting the
+        /// cancellation state for the shell.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to also ignore any pending cancellation.
+        /// </param>
+        /// <returns>
+        /// The cancel flags to use.
+        /// </returns>
         public static CancelFlags GetResetCancelFlags(
             bool force
             )
@@ -2107,6 +3211,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the reserved procedure used to
+        /// perform the specified update action.
+        /// </summary>
+        /// <param name="actionType">
+        /// The update action to get the procedure name for.
+        /// </param>
+        /// <returns>
+        /// The name of the procedure used to perform the specified action.
+        /// </returns>
         private static string GetUpdateProcedureName(
             ActionType actionType
             )
@@ -2119,6 +3233,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name associated with the specified update
+        /// data, falling back to the package name when none is present.
+        /// </summary>
+        /// <param name="updateData">
+        /// The update data to query, which may be null.
+        /// </param>
+        /// <returns>
+        /// The update name to use.
+        /// </returns>
         private static string GetUpdateName(
             IUpdateData updateData
             )
@@ -2136,6 +3260,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the directory to use for the specified update
+        /// action.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.
+        /// </param>
+        /// <param name="targetDirectory">
+        /// The target directory associated with the update.
+        /// </param>
+        /// <param name="actionType">
+        /// The update action to get the directory for.
+        /// </param>
+        /// <returns>
+        /// The directory to use, or null if it could not be determined.
+        /// </returns>
         private static string GetUpdateDirectory(
             Interpreter interpreter,
             string targetDirectory,
@@ -2158,6 +3298,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the target directory associated with the update
+        /// data for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query, which may be null.
+        /// </param>
+        /// <returns>
+        /// The target update directory, or null if there is none.
+        /// </returns>
         public static string GetUpdateDirectory(
             Interpreter interpreter
             )
@@ -2175,6 +3325,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified update data contains
+        /// all of the required information.
+        /// </summary>
+        /// <param name="updateData">
+        /// The update data to validate, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if all required update data is present; otherwise, false.
+        /// </returns>
         public static bool HaveRequiredUpdateData(
             IUpdateData updateData
             )
@@ -2215,6 +3375,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && THREADING
+        /// <summary>
+        /// This method asynchronously checks for an update to the core
+        /// library, on behalf of the interactive loop, using a queued work
+        /// item.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for the update check.
+        /// </param>
+        /// <param name="loopData">
+        /// The interactive loop data associated with the update check.
+        /// </param>
+        /// <param name="missing">
+        /// Non-zero if the setup information is (apparently) missing, in which
+        /// case the last-update-check marker is not updated.
+        /// </param>
         public static void CheckForUpdate(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -2270,6 +3445,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for an update using the specified update data,
+        /// deriving the engine, substitution, event, and expression flags from
+        /// the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for the update check.
+        /// </param>
+        /// <param name="updateData">
+        /// The update data describing the update to check for.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to query the flags in debug mode.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this receives the line number where the error
+        /// occurred.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result of the check; upon failure,
+        /// this receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode CheckForUpdate(
             Interpreter interpreter,
             IUpdateData updateData,
@@ -2294,6 +3494,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for an update using the specified update data,
+        /// evaluating the appropriate reserved scripts and optionally fetching
+        /// or downloading the update.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for the update check.
+        /// </param>
+        /// <param name="updateData">
+        /// The update data describing the update to check for.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when evaluating the scripts.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when evaluating the scripts.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use when evaluating the scripts.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when evaluating the scripts.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this receives the line number where the error
+        /// occurred.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result of the check; upon failure,
+        /// this receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode CheckForUpdate(
             Interpreter interpreter,
             IUpdateData updateData,
@@ -2565,6 +3799,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interactive Loop Thread Support
+        /// <summary>
+        /// This method is the thread entry point used to run an interactive
+        /// loop, using the interpreter and interactive loop data supplied as a
+        /// pair.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread argument, which must be a pair containing the interpreter
+        /// and the interactive loop data.
+        /// </param>
         private static void InteractiveLoopThreadStart(
             object obj
             )
@@ -2626,6 +3869,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates, and optionally starts, a thread that runs an
+        /// interactive loop for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to run the interactive loop for.
+        /// </param>
+        /// <param name="loopData">
+        /// The interactive loop data to use.
+        /// </param>
+        /// <param name="start">
+        /// Non-zero to start the thread before returning.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateInteractiveLoopThread(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -2675,6 +3937,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stops the specified interactive loop thread by
+        /// signaling its done event, canceling its host input, and waiting for
+        /// it to exit.
+        /// </summary>
+        /// <param name="thread">
+        /// The interactive loop thread to stop.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that owns the interactive loop.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to forcibly cancel any pending host input.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode StopInteractiveLoopThread(
             Thread thread,
             Interpreter interpreter,
@@ -2784,6 +4066,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Shell Thread Support
+        /// <summary>
+        /// This method is the thread entry point used to run the Eagle shell,
+        /// using the command line arguments supplied as the thread argument.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread argument, which must be an enumerable of command line
+        /// argument strings.
+        /// </param>
         private static void ShellMainThreadStart(
             object obj
             )
@@ -2818,6 +4108,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates, and optionally starts, a thread that runs the
+        /// Eagle shell using the specified command line arguments.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments to pass to the shell.
+        /// </param>
+        /// <param name="start">
+        /// Non-zero to start the thread before returning.
+        /// </param>
+        /// <returns>
+        /// The created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateShellMainThread(
             IEnumerable<string> args,
             bool start

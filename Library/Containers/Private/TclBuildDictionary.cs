@@ -18,6 +18,12 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Containers.Private.Tcl
 {
+    /// <summary>
+    /// This class represents a dictionary that maps file system paths to native
+    /// Tcl build descriptors (<see cref="TclBuild" />).  It extends the path
+    /// dictionary with a helper for conditionally adding or replacing entries
+    /// based on trust and overwrite policy.
+    /// </summary>
     [ObjectId("14eaf1cf-213f-44da-9a27-731194ae6bc8")]
 #if TCL_WRAPPER
     public
@@ -26,6 +32,9 @@ namespace Eagle._Containers.Private.Tcl
 #endif
     sealed class TclBuildDictionary : PathDictionary<TclBuild>
     {
+        /// <summary>
+        /// Constructs an empty Tcl build dictionary.
+        /// </summary>
         public TclBuildDictionary()
             : base()
         {
@@ -34,6 +43,32 @@ namespace Eagle._Containers.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified Tcl build under the specified key, or
+        /// replaces an existing entry when overwriting is permitted.  The build
+        /// is rejected if the key is invalid or, when trusted-only mode is in
+        /// effect, if the build's file is not trusted.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate whether the build's file is trusted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control trust checking and whether existing entries
+        /// may be overwritten.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the build is added.
+        /// </param>
+        /// <param name="value">
+        /// The Tcl build to add or use as the replacement.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the build
+        /// could not be added.
+        /// </param>
+        /// <returns>
+        /// True if the build was added or replaced; otherwise, false.
+        /// </returns>
         public bool MaybeAddOrReplace(
             Interpreter interpreter, /* in */
             FindFlags flags,         /* in */

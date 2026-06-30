@@ -19,6 +19,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>apply</c> command, which applies an
+    /// anonymous procedure (a lambda expression of the form
+    /// <c>{args body}</c> or <c>{args body namespace}</c>) to a set of
+    /// arguments, evaluating its body in a temporary call frame.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("2bf60b1f-86bd-4271-952a-847b72b613c4")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
@@ -27,9 +34,28 @@ namespace Eagle._Commands
     internal sealed class Apply : Core
     {
         #region Private Static Methods
+        /// <summary>
+        /// This method constructs and returns a per-interpreter unique,
+        /// fully qualified command name within the specified namespace,
+        /// suitable for naming the temporary call frame used to evaluate the
+        /// lambda body.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in, used to
+        /// obtain the next unique identifier.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace in which the generated name should reside, which may
+        /// be the global namespace.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A per-interpreter unique, absolute (fully qualified) name based on
+        /// this command's name and the next interpreter-wide identifier.
+        /// </returns>
         private string NextName(
-            Interpreter interpreter,
-            INamespace @namespace
+            Interpreter interpreter, /* in */
+            INamespace @namespace    /* in */
             )
         {
             //
@@ -45,6 +71,13 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>apply</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Apply(
             ICommandData commandData
             )
@@ -56,11 +89,44 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>apply</c> command.  It interprets the
+        /// first argument as a lambda expression, binds the supplied arguments
+        /// to the lambda's formal parameters in a temporary call frame, and
+        /// evaluates the lambda body, returning its result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the lambda expression; any remaining
+        /// elements are the values bound to the lambda's formal parameters.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by evaluating the
+        /// lambda body.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the lambda body's
+        /// result placed in <paramref name="result" />; otherwise, a non-Ok
+        /// value (e.g. <see cref="ReturnCode.Error" />) when the lambda
+        /// expression is malformed, the wrong number of arguments is supplied,
+        /// the interpreter or argument list is null, or evaluating the lambda
+        /// body fails, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

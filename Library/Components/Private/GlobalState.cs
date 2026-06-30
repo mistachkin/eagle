@@ -66,19 +66,38 @@ using InterpreterDictionaryCache = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the global, application-domain-wide state shared
+    /// by the Eagle core library, including assembly and package identity,
+    /// path overrides, interpreter and thread tracking, object identifier
+    /// generation, and the cooperative locking used to serialize access to
+    /// that state.
+    /// </summary>
     [ObjectId("e8491fec-2fd3-455e-92fd-cf2a84c75e8a")]
     internal static class GlobalState
     {
         #region Private Read-Only Data (Logical Constants)
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Application Domain Data
+        /// <summary>
+        /// The application domain that this class is associated with (i.e. the
+        /// one in which it was first loaded).
+        /// </summary>
         private static readonly AppDomain appDomain = AppDomain.CurrentDomain;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base directory of the application domain that this class is
+        /// associated with, or null if it is not available.
+        /// </summary>
         private static readonly string appDomainBaseDirectory =
             (appDomain != null) ? appDomain.BaseDirectory : null;
 
@@ -94,11 +113,19 @@ namespace Eagle._Components.Private
         //       the value of the AppDomainOps.InvalidId static read-only
         //       field.
         //
+        /// <summary>
+        /// The identifier of the application domain that this class is
+        /// associated with, or negative one if it is not available.
+        /// </summary>
         private static readonly int appDomainId = (appDomain != null) ?
             appDomain.Id : -1;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the application domain that this class is associated
+        /// with is the default application domain for the process.
+        /// </summary>
         private static readonly bool isDefaultAppDomain =
             (appDomain != null) ? appDomain.IsDefaultAppDomain() : false;
 #endif
@@ -107,7 +134,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Default Package Name & Version Data
+        /// <summary>
+        /// The default package name for the Eagle core library.
+        /// </summary>
         private static readonly string DefaultPackageName = "Eagle";
+        /// <summary>
+        /// The default package name for the Eagle core library, in lower-case.
+        /// </summary>
         private static readonly string DefaultPackageNameNoCase = "eagle";
 
         ///////////////////////////////////////////////////////////////////////
@@ -116,11 +149,21 @@ namespace Eagle._Components.Private
         // TODO: This version information should be changed if the major or
         //       minor version of the assembly changes.
         //
+        /// <summary>
+        /// The default major version number for the Eagle core library.
+        /// </summary>
         private static readonly int DefaultMajorVersion = 1;
+        /// <summary>
+        /// The default minor version number for the Eagle core library.
+        /// </summary>
         private static readonly int DefaultMinorVersion = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default (two-part) version for the Eagle core library, built
+        /// from the default major and minor version numbers.
+        /// </summary>
         private static readonly Version DefaultVersion = GetTwoPartVersion(
             DefaultMajorVersion, DefaultMinorVersion);
         #endregion
@@ -132,6 +175,10 @@ namespace Eagle._Components.Private
         // NOTE: This package may contain a set of built-in routines for use
         //       when loading binary plugins.
         //
+        /// <summary>
+        /// The name of the package that may contain the built-in routines used
+        /// when loading binary plugins.
+        /// </summary>
         private static readonly string LoaderPackageName = "Loader";
 
         //
@@ -140,6 +187,9 @@ namespace Eagle._Components.Private
         //       initialization of an interpreter (e.g. the "embed.eagle",
         //       "init.eagle", and "vendor.eagle" files, etc).
         //
+        /// <summary>
+        /// The name of the package that contains the Eagle core script library.
+        /// </summary>
         private static readonly string LibraryPackageName = DefaultPackageName;
 
         //
@@ -149,42 +199,74 @@ namespace Eagle._Components.Private
         //       "prologue.eagle", and "epilogue.eagle" files).  They are also
         //       designed to be used by third-party test suites.
         //
+        /// <summary>
+        /// The name of the package that contains the Eagle test suite
+        /// infrastructure.
+        /// </summary>
         private static readonly string TestPackageName = "Test";
 
         //
         // NOTE: This package may contain a set of built-in packages included
         //       with the Eagle [core] library, e.g. Harpy, et al.
         //
+        /// <summary>
+        /// The name of the package that may contain the built-in packages
+        /// included with the Eagle core library.
+        /// </summary>
         private static readonly string KitPackageName = "Kit";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Name & Version Formatting
+        /// <summary>
+        /// The composite format string used to build a two-part version string.
+        /// </summary>
         private static readonly string UpdateVersionFormat = "{0}.{1}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to build a package name from its
+        /// constituent parts.
+        /// </summary>
         private static readonly string PackageNameFormat = "{0}{1}{2}";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Stub Assembly Data
+        /// <summary>
+        /// The simple name of the stub assembly.
+        /// </summary>
         private const string StubAssemblyName = "Eagle.Eye";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The fully qualified type name of the stub class within the stub
+        /// assembly.
+        /// </summary>
         private const string StubAssemblyTypeName =
             "Eagle._Components.Private.Stub";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached reflected method used to execute via the stub assembly,
+        /// or null if it has not yet been resolved.
+        /// </summary>
         private static MethodInfo StubExecuteMethodInfo = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to build a successful stub result.
+        /// </summary>
         private const string StubOkResultFormat = "ok:{0}";
+        /// <summary>
+        /// The stub result string used to indicate an invalid interpreter.
+        /// </summary>
         private const string StubErrorResult = "invalid interpreter";
 
         ///////////////////////////////////////////////////////////////////////
@@ -199,58 +281,117 @@ namespace Eagle._Components.Private
         //
         // TODO: Verify and/or update this value for each release.
         //
+        /// <summary>
+        /// The minimum allowed file size, in bytes, for a valid stub assembly
+        /// file.
+        /// </summary>
         private static long minimumStubAssemblyFileSize = 50000;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Entry & Executing Assembly Data
+        /// <summary>
+        /// The string comparison type used when comparing assembly names.
+        /// </summary>
         private static StringComparison assemblyNameComparisonType =
             StringComparison.OrdinalIgnoreCase;
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Executing Assembly Data
+        /// <summary>
+        /// The assembly that contains the Eagle core library (i.e. the
+        /// currently executing assembly).
+        /// </summary>
         private static readonly Assembly thisAssembly =
             Assembly.GetExecutingAssembly();
 
 #if CAS_POLICY
+        /// <summary>
+        /// The security evidence for the assembly that contains the Eagle core
+        /// library, or null if it is not available.
+        /// </summary>
         private static readonly Evidence thisAssemblyEvidence =
             (thisAssembly != null) ? thisAssembly.Evidence : null;
 #endif
 
+        /// <summary>
+        /// The name of the assembly that contains the Eagle core library, or
+        /// null if it is not available.
+        /// </summary>
         private static readonly AssemblyName thisAssemblyName =
             (thisAssembly != null) ? thisAssembly.GetName() : null;
 
+        /// <summary>
+        /// The title of the assembly that contains the Eagle core library, or
+        /// null if it is not available.
+        /// </summary>
         private static readonly string thisAssemblyTitle =
             SharedAttributeOps.GetAssemblyTitle(thisAssembly);
 
+        /// <summary>
+        /// The file system location of the assembly that contains the Eagle
+        /// core library, or null if it is not available.
+        /// </summary>
         private static readonly string thisAssemblyLocation =
             (thisAssembly != null) ? thisAssembly.Location : null;
 
+        /// <summary>
+        /// The date and time associated with the assembly that contains the
+        /// Eagle core library.
+        /// </summary>
         private static readonly DateTime thisAssemblyDateTime =
             (thisAssembly != null) ? SharedAttributeOps.GetAssemblyDateTime(
                 thisAssembly) : DateTime.MinValue; /* MUST BE AFTER LOCATION */
 
+        /// <summary>
+        /// The simple name of the assembly that contains the Eagle core
+        /// library, or null if it is not available.
+        /// </summary>
         private static readonly string thisAssemblySimpleName =
             (thisAssemblyName != null) ? thisAssemblyName.Name : null;
 
+        /// <summary>
+        /// The full name of the assembly that contains the Eagle core library,
+        /// or null if it is not available.
+        /// </summary>
         private static readonly string thisAssemblyFullName =
             (thisAssemblyName != null) ? thisAssemblyName.FullName : null;
 
+        /// <summary>
+        /// The version of the assembly that contains the Eagle core library, or
+        /// null if it is not available.
+        /// </summary>
         private static readonly Version thisAssemblyVersion =
             (thisAssemblyName != null) ? thisAssemblyName.Version : null;
 
+        /// <summary>
+        /// The culture associated with the assembly that contains the Eagle
+        /// core library, or null if it is not available.
+        /// </summary>
         private static readonly CultureInfo thisAssemblyCultureInfo =
             (thisAssemblyName != null) ? thisAssemblyName.CultureInfo : null;
 
+        /// <summary>
+        /// The public key token of the assembly that contains the Eagle core
+        /// library, or null if it is not available.
+        /// </summary>
         private static readonly byte[] thisAssemblyPublicKeyToken =
             (thisAssemblyName != null) ? thisAssemblyName.GetPublicKeyToken() : null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached directory path of the assembly that contains the Eagle
+        /// core library, or null if it has not yet been determined.
+        /// </summary>
         private static string thisAssemblyPath = null;
 
+        /// <summary>
+        /// The URI associated with the assembly that contains the Eagle core
+        /// library, or null if it is not available.
+        /// </summary>
         private static readonly Uri thisAssemblyUri =
             SharedAttributeOps.GetAssemblyUri(thisAssembly);
 
@@ -262,6 +403,10 @@ namespace Eagle._Components.Private
         //       addition, the AttributeOps.GetAssemblyUpdateBaseUri
         //       method would most likely need to be changed as well.
         //
+        /// <summary>
+        /// The base URI used when checking for updates, as embedded in the
+        /// assembly that contains the Eagle core library.
+        /// </summary>
         private static readonly Uri thisAssemblyUpdateBaseUri =
             SharedAttributeOps.GetAssemblyUpdateBaseUri(thisAssembly);
 
@@ -271,6 +416,10 @@ namespace Eagle._Components.Private
         //       addition, the AttributeOps.GetAssemblyDownloadBaseUri
         //       method would most likely need to be changed as well.
         //
+        /// <summary>
+        /// The base URI used when downloading files, as embedded in the
+        /// assembly that contains the Eagle core library.
+        /// </summary>
         private static readonly Uri thisAssemblyDownloadBaseUri =
             SharedAttributeOps.GetAssemblyDownloadBaseUri(thisAssembly);
 
@@ -280,6 +429,10 @@ namespace Eagle._Components.Private
         //       addition, the AttributeOps.GetAssemblyScriptBaseUri
         //       method would most likely need to be changed as well.
         //
+        /// <summary>
+        /// The base URI used when fetching scripts, as embedded in the assembly
+        /// that contains the Eagle core library.
+        /// </summary>
         private static readonly Uri thisAssemblyScriptBaseUri =
             SharedAttributeOps.GetAssemblyScriptBaseUri(thisAssembly);
 
@@ -289,12 +442,20 @@ namespace Eagle._Components.Private
         //       addition, the AttributeOps.GetAssemblyAuxiliaryBaseUri
         //       method would most likely need to be changed as well.
         //
+        /// <summary>
+        /// The base URI used for auxiliary purposes, as embedded in the
+        /// assembly that contains the Eagle core library.
+        /// </summary>
         private static readonly Uri thisAssemblyAuxiliaryBaseUri =
             SharedAttributeOps.GetAssemblyAuxiliaryBaseUri(thisAssembly);
 
         //
         // TODO: Change this if the XSD schema URI changes.
         //
+        /// <summary>
+        /// The URI used as the XML schema namespace for the assembly that
+        /// contains the Eagle core library.
+        /// </summary>
         private static readonly Uri thisAssemblyNamespaceUri =
             SharedAttributeOps.GetAssemblyXmlSchemaUri(thisAssembly);
 
@@ -302,12 +463,20 @@ namespace Eagle._Components.Private
         // NOTE: These are the (cached) plugin flags for the core library
         //       assembly.
         //
+        /// <summary>
+        /// The cached plugin flags for the assembly that contains the Eagle
+        /// core library, or null if they have not yet been determined.
+        /// </summary>
         private static PluginFlags? thisAssemblyPluginFlags = null;
 
         //
         // NOTE: The number of times the assembly plugin flags callback has
         //       been invoked for this AppDomain.
         //
+        /// <summary>
+        /// The number of times the assembly plugin flags callback has been
+        /// invoked within this application domain.
+        /// </summary>
         private static int thisAssemblyPluginFlagsCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -316,6 +485,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is the base package name (e.g. "Eagle").
         //
+        /// <summary>
+        /// The base package name for the Eagle core library (e.g. "Eagle").
+        /// </summary>
         private static readonly string packageName = GetPackageName(
             PackageType.Library, false);
 
@@ -324,6 +496,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is the base package name (e.g. "Eagle") in lower-case.
         //
+        /// <summary>
+        /// The base package name for the Eagle core library, in lower-case.
+        /// </summary>
         private static readonly string packageNameNoCase =
             GetPackageName(PackageType.Library, true);
 
@@ -332,6 +507,10 @@ namespace Eagle._Components.Private
         //
         // HACK: The package version *IS* the assembly version.
         //
+        /// <summary>
+        /// The package version for the Eagle core library, which is the same as
+        /// the assembly version.
+        /// </summary>
         private static readonly Version packageVersion =
             thisAssemblyVersion;
 
@@ -345,6 +524,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the full (four-part) package version will be used
+        /// whenever it is possible and reasonable to do so.
+        /// </summary>
         private static bool useLongPackageVersion = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -354,11 +537,19 @@ namespace Eagle._Components.Private
         // NOTE: This is the base package name (e.g. "Eagle") in lower-case
         //       for use on Unix.
         //
+        /// <summary>
+        /// The base package name for the Eagle core library, in lower-case, for
+        /// use on Unix.
+        /// </summary>
         private static readonly string unixPackageName = packageNameNoCase;
 
         //
         // HACK: The Unix package version *IS* the assembly version.
         //
+        /// <summary>
+        /// The package version for the Eagle core library on Unix, which is the
+        /// same as the assembly version.
+        /// </summary>
         private static readonly Version unixPackageVersion =
             thisAssemblyVersion;
 #endif
@@ -366,6 +557,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
+        /// <summary>
+        /// The name used for the script debugger, derived from the package
+        /// name.
+        /// </summary>
         private static readonly string debuggerName = String.Format(
             "{0} {1}", packageName, typeof(Debugger).Name).Trim();
 #endif
@@ -375,15 +570,39 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Entry Assembly Data
+        /// <summary>
+        /// The entry assembly for the process, or null if it has not yet been
+        /// determined.
+        /// </summary>
         private static Assembly entryAssembly = null;
+        /// <summary>
+        /// The name of the entry assembly for the process, or null if it has
+        /// not yet been determined.
+        /// </summary>
         private static AssemblyName entryAssemblyName = null;
 
 #if DEAD_CODE
+        /// <summary>
+        /// The title of the entry assembly for the process, or null if it has
+        /// not yet been determined.
+        /// </summary>
         private static string entryAssemblyTitle = null;
 #endif
 
+        /// <summary>
+        /// The file system location of the entry assembly for the process, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string entryAssemblyLocation = null;
+        /// <summary>
+        /// The version of the entry assembly for the process, or null if it has
+        /// not yet been determined.
+        /// </summary>
         private static Version entryAssemblyVersion = null;
+        /// <summary>
+        /// The cached directory path of the entry assembly for the process, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string entryAssemblyPath = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -396,6 +615,10 @@ namespace Eagle._Components.Private
 #if MONO_BUILD
 #pragma warning disable 414
 #endif
+        /// <summary>
+        /// Non-zero if the entry assembly information has been set up.  This is
+        /// performed eagerly for backward compatibility.
+        /// </summary>
         private static bool entryAssemblySetup = RefreshEntryAssembly(null);
 #if MONO_BUILD
 #pragma warning restore 414
@@ -410,6 +633,10 @@ namespace Eagle._Components.Private
         //         normal "Eagle.dll"; therefore, the base resource name
         //         must match that value, not the package name.
         //
+        /// <summary>
+        /// The base resource name used when looking up managed resources for
+        /// the Eagle core library.
+        /// </summary>
         private static readonly string resourceBaseName =
             thisAssemblySimpleName;
         #endregion
@@ -419,12 +646,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Read-Only Primary Thread Data (Logical Constants)
+        /// <summary>
+        /// The identifier of the primary thread for this application domain.
+        /// </summary>
         private static long primaryThreadId;
+        /// <summary>
+        /// The managed identifier of the primary thread for this application
+        /// domain.
+        /// </summary>
         private static long primaryManagedThreadId;
+        /// <summary>
+        /// The native identifier of the primary thread for this application
+        /// domain.
+        /// </summary>
         private static long primaryNativeThreadId;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The primary thread for this application domain.
+        /// </summary>
         private static readonly Thread primaryThread = SetupPrimaryThread();
         #endregion
 
@@ -435,6 +676,10 @@ namespace Eagle._Components.Private
         //
         // HACK: Which thread currently holds the static lock?
         //
+        /// <summary>
+        /// The identifier of the thread that currently holds the static lock,
+        /// or zero if it is not held.
+        /// </summary>
         private static long lockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -442,6 +687,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether complaints should be
+        /// suppressed.
+        /// </summary>
         private static bool defaultNoComplain = !Build.Debug;
 
         ///////////////////////////////////////////////////////////////////////
@@ -452,6 +701,10 @@ namespace Eagle._Components.Private
         //       be written by the engine, regardless of the per-interpreter
         //       settings.
         //
+        /// <summary>
+        /// When non-zero, policy trace diagnostics will always be written by
+        /// the engine, regardless of the per-interpreter settings.
+        /// </summary>
         private static int policyTrace = 0;
 #endif
         #endregion
@@ -465,46 +718,74 @@ namespace Eagle._Components.Private
         //         numbers does not need to be "secure"; however, what would
         //         be the harm (i.e. other than a minor performance impact)?
         //
+        /// <summary>
+        /// The pseudo-random number generator used when producing initial
+        /// object identifier values.
+        /// </summary>
         private static Random random = new Random(); /* EXEMPT */
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Randomized Initial Integer Identifiers
 #if RANDOMIZE_ID
+        /// <summary>
+        /// The next available object identifier value.
+        /// </summary>
         private static long nextId = Math.Abs((random != null) ?
             random.Next() : 0);
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available token identifier value.
+        /// </summary>
         private static long nextTokenId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available complaint identifier value.
+        /// </summary>
         private static long nextComplaintId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available interpreter identifier value.
+        /// </summary>
         private static long nextInterpreterId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available script thread identifier value.
+        /// </summary>
         private static long nextScriptThreadId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available entry identifier value.
+        /// </summary>
         private static long nextEntryId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available rule set identifier value.
+        /// </summary>
         private static long nextRuleSetId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available file identifier value.
+        /// </summary>
         private static long nextFileId = Math.Abs((random != null) ?
             random.Next() : 0);
 #endif
@@ -515,33 +796,57 @@ namespace Eagle._Components.Private
 
         #region Non-Randomized Initial Integer Identifiers
 #if !RANDOMIZE_ID
+        /// <summary>
+        /// The next available object identifier value.
+        /// </summary>
         private static long nextId = 0;
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available token identifier value.
+        /// </summary>
         private static long nextTokenId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available complaint identifier value.
+        /// </summary>
         private static long nextComplaintId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available interpreter identifier value.
+        /// </summary>
         private static long nextInterpreterId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available script thread identifier value.
+        /// </summary>
         private static long nextScriptThreadId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available entry identifier value.
+        /// </summary>
         private static long nextEntryId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available rule set identifier value.
+        /// </summary>
         private static long nextRuleSetId = 0;
 #endif
 
 #if !SHARED_ID_POOL
+        /// <summary>
+        /// The next available file identifier value.
+        /// </summary>
         private static long nextFileId = 0;
 #endif
 #endif
@@ -553,11 +858,19 @@ namespace Eagle._Components.Private
         #region Threading Data
 #if NATIVE && (WINDOWS || UNIX)
 #if MONO || MONO_HACKS || NET_STANDARD_20
+        /// <summary>
+        /// When non-zero, indicates the native thread identifier support has
+        /// been initialized.
+        /// </summary>
         private static int threadInitialized;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the native thread identifier should be obtained via a
+        /// platform invoke call.
+        /// </summary>
         private static bool pinvokeThreadId;
 #endif
 
@@ -569,6 +882,10 @@ namespace Eagle._Components.Private
         //          objects are active; otherwise, the wrong context state
         //          may be used.
         //
+        /// <summary>
+        /// When non-zero, the native thread identifier is used when selecting
+        /// per-thread context state.
+        /// </summary>
         private static int useNativeThreadIdForContexts = 0;
 #endif
         #endregion
@@ -576,23 +893,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "First" / "Active" / "All" Interpreter Tracking
+        /// <summary>
+        /// The total number of active interpreters across all threads in this
+        /// application domain.
+        /// </summary>
         private static long totalActiveCount;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The first interpreter created within this application domain, or
+        /// null if there is none.
+        /// </summary>
         private static Interpreter firstInterpreter = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The per-thread stack of interpreters that are currently active on
+        /// the calling thread.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static InterpreterStackList activeInterpreters;
 
+        /// <summary>
+        /// The collection of all interpreters in this application domain.
+        /// </summary>
         private static readonly InterpreterDictionary allInterpreters =
             new InterpreterDictionary();
 
+        /// <summary>
+        /// The per-thread cache of interpreter collections used to speed up
+        /// lookups in this application domain.
+        /// </summary>
         private static readonly InterpreterDictionaryCache allInterpretersCache =
             new InterpreterDictionaryCache();
 
+        /// <summary>
+        /// The collection of all interpreters in this application domain, keyed
+        /// by their token identifier.
+        /// </summary>
         private static readonly TokenInterpreterDictionary tokenInterpreters =
             new TokenInterpreterDictionary();
         #endregion
@@ -600,6 +940,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "All" Thread Tracking
+        /// <summary>
+        /// The collection of all engine threads in this application domain.
+        /// </summary>
         private static readonly EngineThreadList allEngineThreads =
             new EngineThreadList();
         #endregion
@@ -608,9 +951,25 @@ namespace Eagle._Components.Private
 
         #region Path Override Data
         #region Environment Variable Path Overrides
+        /// <summary>
+        /// The override for the library path, as obtained from an environment
+        /// variable, or null if there is none.
+        /// </summary>
         private static string libraryPath = null;
+        /// <summary>
+        /// The override for the auto-path list, as obtained from an environment
+        /// variable, or null if there is none.
+        /// </summary>
         private static StringList autoPathList = null;
+        /// <summary>
+        /// The override for the Tcl library path, as obtained from an
+        /// environment variable, or null if there is none.
+        /// </summary>
         private static string tclLibraryPath = null;
+        /// <summary>
+        /// The override for the Tcl auto-path list, as obtained from an
+        /// environment variable, or null if there is none.
+        /// </summary>
         private static StringList tclAutoPathList = null;
         #endregion
 
@@ -621,6 +980,9 @@ namespace Eagle._Components.Private
         // NOTE: This is no longer read-only; also, it has been renamed
         //       from "binaryPath" to "sharedBinaryPath".
         //
+        /// <summary>
+        /// The shared override for the binary path, or null if there is none.
+        /// </summary>
         private static string sharedBinaryPath = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -628,6 +990,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: Shared override for the base path.
         //
+        /// <summary>
+        /// The shared override for the base path, or null if there is none.
+        /// </summary>
         private static string sharedBasePath = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -635,6 +1000,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: Shared override for the library path.
         //
+        /// <summary>
+        /// The shared override for the library path, or null if there is none.
+        /// </summary>
         private static string sharedLibraryPath = null;
         #endregion
 
@@ -644,6 +1012,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Shared override for the externals path.
         //
+        /// <summary>
+        /// The shared override for the externals path, or null if there is
+        /// none.
+        /// </summary>
         private static string sharedExternalsPath = null;
         #endregion
         #endregion
@@ -651,42 +1023,106 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Path Data
+        /// <summary>
+        /// The cached package name path relative to the assembly location, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string assemblyPackageNamePath = null;
+        /// <summary>
+        /// The cached package root path relative to the assembly location, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string assemblyPackageRootPath = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached raw package name path relative to the binary base
+        /// directory, or null if it has not yet been determined.
+        /// </summary>
         private static string rawBinaryBasePackageNamePath = null;
+        /// <summary>
+        /// The cached raw package root path relative to the binary base
+        /// directory, or null if it has not yet been determined.
+        /// </summary>
         private static string rawBinaryBasePackageRootPath = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached raw package name path relative to the base directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string rawBasePackageNamePath = null;
+        /// <summary>
+        /// The cached raw package root path relative to the base directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string rawBasePackageRootPath = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached package path that is a peer of the binary directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string packagePeerBinaryPath = null;
+        /// <summary>
+        /// The cached package path that is a peer of the assembly directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string packagePeerAssemblyPath = null;
+        /// <summary>
+        /// The cached package root path, or null if it has not yet been
+        /// determined.
+        /// </summary>
         private static string packageRootPath = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached package name path relative to the binary directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string packageNameBinaryPath = null;
+        /// <summary>
+        /// The cached package name path relative to the assembly directory, or
+        /// null if it has not yet been determined.
+        /// </summary>
         private static string packageNameAssemblyPath = null;
+        /// <summary>
+        /// The cached package name root path, or null if it has not yet been
+        /// determined.
+        /// </summary>
         private static string packageNameRootPath = null;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if UNIX
+        /// <summary>
+        /// The cached local package name path for use on Unix, or null if it
+        /// has not yet been determined.
+        /// </summary>
         private static string unixPackageNameLocalPath = null;
+        /// <summary>
+        /// The cached package name path for use on Unix, or null if it has not
+        /// yet been determined.
+        /// </summary>
         private static string unixPackageNamePath = null;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// The cached Tcl package name path, or null if it has not yet been
+        /// determined.
+        /// </summary>
         private static string tclPackageNamePath = null;
+        /// <summary>
+        /// The cached Tcl package name root path, or null if it has not yet
+        /// been determined.
+        /// </summary>
         private static string tclPackageNameRootPath = null;
 #endif
         #endregion
@@ -700,6 +1136,11 @@ namespace Eagle._Components.Private
         //       influence [package] behavior of interpreters created after it
         //       has been changed.
         //
+        /// <summary>
+        /// The shared auto-path list used to influence package behavior of
+        /// interpreters created after it has been changed, or null if it has
+        /// not yet been initialized.
+        /// </summary>
         private static StringList sharedAutoPathList = null;
         #endregion
 
@@ -711,12 +1152,20 @@ namespace Eagle._Components.Private
         //       in this application domain.  Set via the Utility class, by an
         //       external caller.
         //
+        /// <summary>
+        /// The global list of trusted hashes used for all interpreters in this
+        /// application domain, or null if there is none.
+        /// </summary>
         private static StringList trustedHashes = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Stub Assembly Data
+        /// <summary>
+        /// The cached raw bytes of the stub assembly, or null if they have not
+        /// yet been loaded.
+        /// </summary>
         private static byte[] stubAssemblyBytes = null;
         #endregion
         #endregion
@@ -724,6 +1173,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Diagnostic Methods
+        /// <summary>
+        /// This method queries the identifier of the thread that currently
+        /// holds the static lock.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread that currently holds the static lock,
+        /// or zero if it is not held.
+        /// </returns>
         private static long MaybeWhoHasLock()
         {
             return Interlocked.CompareExchange(ref lockThreadId, 0, 0);
@@ -731,6 +1188,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the calling thread as the holder of the static
+        /// lock, when the lock has been acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock has been acquired by the calling thread.
+        /// </param>
         private static void MaybeSomebodyHasLock(
             bool locked /* in */
             )
@@ -745,6 +1209,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the record of the thread holding the static lock,
+        /// when the calling thread is releasing it.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock is being released by the calling thread.
+        /// </param>
         private static void MaybeNobodyHasLock(
             bool locked /* in */
             )
@@ -763,6 +1234,13 @@ namespace Eagle._Components.Private
         #region Threading Cooperative Locking Methods
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method attempts to acquire the static lock without waiting.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void TryLock(
             ref bool locked
             )
@@ -778,6 +1256,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock, waiting up to the
+        /// specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock to
+        /// be acquired.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         public static void TryLock(
             int timeout,
             ref bool locked
@@ -792,6 +1282,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the static lock, if it is currently held by the
+        /// calling thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the static lock is held by the calling
+        /// thread; upon return, this parameter will be zero.
+        /// </param>
         public static void ExitLock(
             ref bool locked
             )
@@ -809,6 +1307,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock and then immediately
+        /// releases it, reporting whether the lock could be acquired.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock to
+        /// be acquired, or null to use the default soft-lock timeout.
+        /// </param>
+        /// <returns>
+        /// True if the static lock was acquired; otherwise, false.
+        /// </returns>
         public static bool TryLockAndExit(
             int? timeout
             )
@@ -833,6 +1342,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Special Timeout Locking Methods
+        /// <summary>
+        /// This method attempts to acquire the static lock using the soft-lock
+        /// timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void SoftTryLock(
             ref bool locked
             )
@@ -843,6 +1360,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock using the firm-lock
+        /// timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void FirmTryLock(
             ref bool locked
             )
@@ -853,6 +1378,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock using the hard-lock
+        /// timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void HardTryLock(
             ref bool locked
             )
@@ -865,6 +1398,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Health Support Methods
+        /// <summary>
+        /// This method attempts to acquire the static lock for the purpose of a
+        /// health check, recording an error when it cannot be acquired.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock to
+        /// be acquired, or null to use the default soft-lock timeout.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this parameter will receive any error messages
+        /// produced by this method.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryLockForHealth(
             int? timeout,
             ref bool locked,
@@ -896,6 +1449,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Path Locking Methods
+        /// <summary>
+        /// This method attempts to acquire the static lock for a path metadata
+        /// operation.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void PathMetaTryLock(
             ref bool locked
             )
@@ -905,6 +1466,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock for a path
+        /// operation, using the soft-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void PathSoftTryLock(
             ref bool locked
             )
@@ -914,6 +1483,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock for a path
+        /// operation, using the hard-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the static lock was
+        /// acquired by the calling thread.
+        /// </param>
         private static void PathHardTryLock(
             ref bool locked
             )
@@ -927,6 +1504,26 @@ namespace Eagle._Components.Private
 
         #region Object Identity Methods
 #if USE_APPDOMAIN_FOR_ID
+        /// <summary>
+        /// This method may combine the specified integer identifier with the
+        /// identifier of the current application domain, producing a composite
+        /// long integer identifier that is unique across application domains.
+        /// This handling never applies to the default application domain.
+        /// </summary>
+        /// <param name="id">
+        /// The original integer identifier to be combined with the identifier
+        /// of the current application domain.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The composite long integer identifier; otherwise, the original
+        /// identifier verbatim if it could not be combined with the
+        /// application domain identifier.
+        /// </returns>
         private static long MaybeCombineWithAppDomainId(
             long id,
             bool noComplain
@@ -1018,6 +1615,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global integer identifier,
+        /// suitable for use with script visible entities (e.g. channel names).
+        /// </summary>
+        /// <returns>
+        /// The next available global integer identifier.
+        /// </returns>
         public static long NextId() /* THREAD-SAFE */
         {
             return NextId(defaultNoComplain);
@@ -1025,6 +1629,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global integer identifier,
+        /// suitable for use with script visible entities (e.g. channel names).
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global integer identifier.
+        /// </returns>
         private static long NextId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1060,6 +1676,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available integer identifier using
+        /// the specified interpreter, falling back to the global identifier
+        /// pool when no interpreter is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <returns>
+        /// The next available integer identifier.
+        /// </returns>
         public static long NextId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1069,6 +1697,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available integer identifier using
+        /// the specified interpreter, falling back to the global identifier
+        /// pool when no interpreter is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available integer identifier.
+        /// </returns>
         private static long NextId(
             Interpreter interpreter,
             bool noComplain
@@ -1080,6 +1725,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global token identifier.
+        /// Token identifiers are unique to the application domain so that
+        /// entities possessing a token may be safely shared between multiple
+        /// interpreters.
+        /// </summary>
+        /// <returns>
+        /// The next available global token identifier.
+        /// </returns>
         public static long NextTokenId() /* THREAD-SAFE */
         {
             return NextTokenId(defaultNoComplain);
@@ -1095,6 +1749,20 @@ namespace Eagle._Components.Private
         //       always be used so that isolated interpreters do not pose any
         //       problem for this sharing setup.
         //
+        /// <summary>
+        /// This method generates the next available global token identifier.
+        /// Token identifiers are unique to the application domain so that
+        /// entities possessing a token may be safely shared between multiple
+        /// interpreters.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global token identifier.
+        /// </returns>
         private static long NextTokenId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1125,6 +1793,14 @@ namespace Eagle._Components.Private
         //
         // WARNING: This is used by the DebugOps.Complain subsystem.
         //
+        /// <summary>
+        /// This method generates the next available global complaint
+        /// identifier, for use by the complaint (<c>DebugOps.Complain</c>)
+        /// subsystem.
+        /// </summary>
+        /// <returns>
+        /// The next available global complaint identifier.
+        /// </returns>
         public static long NextComplaintId() /* THREAD-SAFE */
         {
             return NextComplaintId(true); // HACK: Hard-coded, do not change.
@@ -1135,6 +1811,19 @@ namespace Eagle._Components.Private
         //
         // WARNING: This is used by the DebugOps.Complain subsystem.
         //
+        /// <summary>
+        /// This method generates the next available global complaint
+        /// identifier, for use by the complaint (<c>DebugOps.Complain</c>)
+        /// subsystem.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global complaint identifier.
+        /// </returns>
         private static long NextComplaintId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1167,6 +1856,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global interpreter
+        /// identifier.  Interpreter names must be totally unique within the
+        /// application domain.
+        /// </summary>
+        /// <returns>
+        /// The next available global interpreter identifier.
+        /// </returns>
         public static long NextInterpreterId() /* THREAD-SAFE */
         {
             return NextInterpreterId(defaultNoComplain);
@@ -1174,6 +1871,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global interpreter
+        /// identifier.  Interpreter names must be totally unique within the
+        /// application domain.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global interpreter identifier.
+        /// </returns>
         private static long NextInterpreterId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1206,6 +1916,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global script thread
+        /// identifier.  Script thread names must be totally unique within the
+        /// application domain.
+        /// </summary>
+        /// <returns>
+        /// The next available global script thread identifier.
+        /// </returns>
         public static long NextScriptThreadId() /* THREAD-SAFE */
         {
             return NextScriptThreadId(defaultNoComplain);
@@ -1213,6 +1931,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global script thread
+        /// identifier.  Script thread names must be totally unique within the
+        /// application domain.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global script thread identifier.
+        /// </returns>
         private static long NextScriptThreadId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1245,6 +1976,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global entry identifier.
+        /// </summary>
+        /// <returns>
+        /// The next available global entry identifier.
+        /// </returns>
         public static long NextEntryId() /* THREAD-SAFE */
         {
             return NextEntryId(defaultNoComplain);
@@ -1252,6 +1989,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global entry identifier.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global entry identifier.
+        /// </returns>
         private static long NextEntryId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1279,6 +2027,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global event identifier.
+        /// Event names must be totally unique within the application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <returns>
+        /// The next available global event identifier.
+        /// </returns>
         public static long NextEventId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1288,6 +2047,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global event identifier.
+        /// Event names must be totally unique within the application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global event identifier.
+        /// </returns>
         private static long NextEventId(
             Interpreter interpreter,
             bool noComplain
@@ -1302,6 +2077,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global rule set
+        /// identifier.
+        /// </summary>
+        /// <returns>
+        /// The next available global rule set identifier.
+        /// </returns>
         public static long NextRuleSetId() /* THREAD-SAFE */
         {
             return NextRuleSetId(defaultNoComplain);
@@ -1309,6 +2091,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global rule set
+        /// identifier.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global rule set identifier.
+        /// </returns>
         private static long NextRuleSetId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1336,6 +2130,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global file identifier.
+        /// </summary>
+        /// <returns>
+        /// The next available global file identifier.
+        /// </returns>
         public static long NextFileId() /* THREAD-SAFE */
         {
             return NextFileId(defaultNoComplain);
@@ -1343,6 +2143,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global file identifier.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global file identifier.
+        /// </returns>
         private static long NextFileId(
             bool noComplain
             ) /* THREAD-SAFE */
@@ -1370,6 +2181,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global type identifier.
+        /// Type names must be totally unique within the application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <returns>
+        /// The next available global type identifier.
+        /// </returns>
         public static long NextTypeId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1379,6 +2201,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global type identifier.
+        /// Type names must be totally unique within the application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global type identifier.
+        /// </returns>
         private static long NextTypeId(
             Interpreter interpreter,
             bool noComplain
@@ -1396,6 +2234,17 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method generates the next available global thread identifier.
+        /// Thread names must be totally unique within the process.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <returns>
+        /// The next available global thread identifier.
+        /// </returns>
         public static long NextThreadId(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1407,6 +2256,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the next available global thread identifier.
+        /// Thread names must be totally unique within the process.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when generating the identifier, or
+        /// null to use the global identifier pool.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress any error reporting (i.e. complaints) via the
+        /// <c>DebugOps.Complain</c> subsystem in the event the generated
+        /// identifier is invalid (e.g. negative).
+        /// </param>
+        /// <returns>
+        /// The next available global thread identifier.
+        /// </returns>
         public static long NextThreadId(
             Interpreter interpreter,
             bool noComplain
@@ -1426,6 +2291,19 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter creation.
         //
+        /// <summary>
+        /// This method fills the specified byte array with cryptographically
+        /// random bytes obtained from the global random number generator.
+        /// </summary>
+        /// <param name="bytes">
+        /// Upon success, the elements of this byte array are overwritten with
+        /// random bytes.  The length of the array determines how many bytes
+        /// are generated.
+        /// </param>
+        /// <returns>
+        /// True if the random bytes were generated successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool GetRandomBytes(
             ref byte[] bytes
             )
@@ -1463,6 +2341,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates a signed 64-bit pseudo-random number using
+        /// the global random number generator.
+        /// </summary>
+        /// <returns>
+        /// The generated random number, or zero if the underlying random
+        /// bytes could not be obtained.
+        /// </returns>
         public static long GetSignedRandomNumber()
         {
             byte[] bytes = new byte[sizeof(long)];
@@ -1483,6 +2369,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Global Variable Access Methods
+        /// <summary>
+        /// This method gets the identifier of the current thread, using
+        /// either the native or managed thread identifier depending on the
+        /// active build configuration.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the current thread.
+        /// </returns>
         public static long GetCurrentThreadId() /* THREAD-SAFE */
         {
 #if NATIVE_THREAD_ID
@@ -1494,6 +2388,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the system thread identifier of the current
+        /// thread, using either the native or managed thread identifier
+        /// depending on the active build configuration.
+        /// </summary>
+        /// <returns>
+        /// The system thread identifier of the current thread.
+        /// </returns>
         public static long GetCurrentSystemThreadId() /* THREAD-SAFE */
         {
 #if NATIVE_THREAD_ID
@@ -1505,6 +2407,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the thread identifier used for tracking ownership
+        /// of the static lock on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The lock thread identifier for the current thread.
+        /// </returns>
         public static long GetCurrentLockThreadId() /* THREAD-SAFE */
         {
             return AppDomain.GetCurrentThreadId(); /* HOT-PATH */
@@ -1512,6 +2421,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the thread identifier used for interpreter
+        /// contexts on the current thread, using the native or managed thread
+        /// identifier as configured.
+        /// </summary>
+        /// <returns>
+        /// The context thread identifier for the current thread.
+        /// </returns>
         public static long GetCurrentContextThreadId() /* THREAD-SAFE */
         {
 #if NATIVE_THREAD_ID
@@ -1529,6 +2446,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the managed thread identifier of the current
+        /// thread.
+        /// </summary>
+        /// <returns>
+        /// The managed thread identifier of the current thread, or zero if it
+        /// cannot be determined.
+        /// </returns>
         public static long GetCurrentManagedThreadId() /* THREAD-SAFE */
         {
             Thread thread = Thread.CurrentThread;
@@ -1542,6 +2467,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && (WINDOWS || UNIX)
+        /// <summary>
+        /// This method gets the native operating system thread identifier of
+        /// the current thread by calling the native platform API directly.
+        /// </summary>
+        /// <returns>
+        /// The native thread identifier of the current thread.
+        /// </returns>
         /* THREAD-SAFE */
         private static long GetCurrentNativeThreadIdViaPInvoke()
         {
@@ -1564,6 +2496,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the native operating system thread identifier of
+        /// the current thread.
+        /// </summary>
+        /// <returns>
+        /// The native thread identifier of the current thread.
+        /// </returns>
         public static long GetCurrentNativeThreadId() /* THREAD-SAFE */
         {
 #if NATIVE && (WINDOWS || UNIX)
@@ -1591,6 +2530,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE_THREAD_ID
+        /// <summary>
+        /// This method optionally enables or disables the use of native
+        /// thread identifiers for interpreter contexts, subject to whether
+        /// any interpreters currently exist.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to skip the check that prevents changing the setting
+        /// while one or more interpreters exist.
+        /// </param>
+        /// <param name="enable">
+        /// When non-null on input, indicates whether to enable (true) or
+        /// disable (false) the use of native thread identifiers for contexts.
+        /// Upon return, this is set to whether such use is now in effect.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode MaybeUseNativeThreadIdForContexts( /* NOT USED */
             bool force,       /* in */
             ref bool? enable, /* in, out */
@@ -1644,6 +2604,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the current thread as the primary thread for
+        /// the library, sets up its name and associated thread identifiers,
+        /// and emits diagnostic trace output.
+        /// </summary>
+        /// <returns>
+        /// The current thread, now established as the primary thread.
+        /// </returns>
         private static Thread SetupPrimaryThread() /* THREAD-SAFE */
         {
             long threadId = AppDomain.GetCurrentThreadId();
@@ -1681,6 +2649,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method assigns a generated name to the specified thread if it
+        /// does not already have one.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose name should be set.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if a name was assigned to the thread; otherwise, false.
+        /// </returns>
         private static bool MaybeSetupPrimaryThreadName(
             Thread thread
             )
@@ -1710,6 +2688,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the primary thread identifiers (neutral,
+        /// managed, and native) for the library and emits diagnostic trace
+        /// output.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to unconditionally overwrite the existing primary thread
+        /// identifiers; zero to set them only if they have not already been
+        /// set.
+        /// </param>
         public static void SetupPrimaryThreadIds(
             bool force
             )
@@ -1757,6 +2745,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the thread that has been established as the
+        /// primary thread for the library.
+        /// </summary>
+        /// <returns>
+        /// The primary thread, or null if it has not been set.
+        /// </returns>
         private static Thread GetPrimaryThread() /* THREAD-SAFE */
         {
             return primaryThread; /* READ-ONLY */
@@ -1764,6 +2759,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the neutral thread identifier of the primary
+        /// thread.
+        /// </summary>
+        /// <returns>
+        /// The primary thread identifier, or zero if it has not been set.
+        /// </returns>
         public static long GetPrimaryThreadId() /* THREAD-SAFE */
         {
             return Interlocked.CompareExchange(
@@ -1772,6 +2774,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the managed thread identifier of the primary
+        /// thread.
+        /// </summary>
+        /// <returns>
+        /// The primary managed thread identifier, or zero if it has not been
+        /// set.
+        /// </returns>
         public static long GetPrimaryManagedThreadId() /* THREAD-SAFE */
         {
             return Interlocked.CompareExchange(
@@ -1780,6 +2790,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the native thread identifier of the primary
+        /// thread.
+        /// </summary>
+        /// <returns>
+        /// The primary native thread identifier, or zero if it has not been
+        /// set.
+        /// </returns>
         public static long GetPrimaryNativeThreadId() /* THREAD-SAFE */
         {
             return Interlocked.CompareExchange(
@@ -1788,6 +2806,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current thread is the primary
+        /// thread for the library.
+        /// </summary>
+        /// <returns>
+        /// True if the current thread is the primary thread; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsPrimaryThread() /* THREAD-SAFE */
         {
             return IsPrimaryThread(GetCurrentThreadId());
@@ -1795,6 +2821,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current thread is the primary
+        /// thread for the library, comparing managed thread identifiers.
+        /// </summary>
+        /// <returns>
+        /// True if the current thread is the primary thread; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsPrimaryManagedThread() /* THREAD-SAFE */
         {
             return IsPrimaryManagedThread(GetCurrentManagedThreadId());
@@ -1802,6 +2836,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current thread is the primary
+        /// thread for the library, comparing native thread identifiers.
+        /// </summary>
+        /// <returns>
+        /// True if the current thread is the primary thread; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsPrimaryNativeThread() /* THREAD-SAFE */
         {
             return IsPrimaryNativeThread(GetCurrentNativeThreadId());
@@ -1809,6 +2851,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified thread identifier
+        /// matches the neutral identifier of the primary thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The thread identifier to compare against the primary thread
+        /// identifier.
+        /// </param>
+        /// <returns>
+        /// True if the specified thread identifier is that of the primary
+        /// thread; otherwise, false.
+        /// </returns>
         private static bool IsPrimaryThread(
             long threadId
             ) /* THREAD-SAFE */
@@ -1818,6 +2872,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified thread identifier
+        /// matches the managed identifier of the primary thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The managed thread identifier to compare against the primary
+        /// managed thread identifier.
+        /// </param>
+        /// <returns>
+        /// True if the specified thread identifier is that of the primary
+        /// thread; otherwise, false.
+        /// </returns>
         private static bool IsPrimaryManagedThread(
             long threadId
             ) /* THREAD-SAFE */
@@ -1827,6 +2893,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified thread identifier
+        /// matches the native identifier of the primary thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The native thread identifier to compare against the primary native
+        /// thread identifier.
+        /// </param>
+        /// <returns>
+        /// True if the specified thread identifier is that of the primary
+        /// thread; otherwise, false.
+        /// </returns>
         private static bool IsPrimaryNativeThread(
             long threadId
             ) /* THREAD-SAFE */
@@ -1839,6 +2917,22 @@ namespace Eagle._Components.Private
 
         #region "First" / "Active" / "All" Interpreter Tracking Methods
         #region Interpreter Matching Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter matches
+        /// the criteria implied by the specified creation flags, primarily
+        /// the "safe" versus "unsafe" distinction.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any non-null interpreter.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter to test.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter matches the specified criteria; otherwise,
+        /// false.
+        /// </returns>
         private static bool MatchInterpreter(
             CreateFlags? createFlags,
             Interpreter interpreter
@@ -1877,6 +2971,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Stub Interpreter Tracking Methods
+        /// <summary>
+        /// This method gets an interpreter suitable for use as a stub,
+        /// preferring the first interpreter and falling back to any token
+        /// interpreter.
+        /// </summary>
+        /// <returns>
+        /// A suitable stub interpreter, or null if none is available.
+        /// </returns>
         public static Interpreter GetStubInterpreter()
         {
             Interpreter interpreter = GetFirstInterpreter();
@@ -1896,6 +2998,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "First" Interpreter Tracking Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter is the
+        /// first interpreter tracked by the global state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to test.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified interpreter is the first interpreter;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsFirstInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1933,6 +3046,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the first interpreter tracked by the global
+        /// state.
+        /// </summary>
+        /// <returns>
+        /// The first interpreter, or null if there is none.
+        /// </returns>
         public static Interpreter GetFirstInterpreter() /* THREAD-SAFE */
         {
             return GetFirstInterpreter(null);
@@ -1940,6 +3060,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the first interpreter tracked by the global state
+        /// that matches the specified creation flags, emitting diagnostic
+        /// trace output upon failure.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any interpreter.
+        /// </param>
+        /// <returns>
+        /// The matching first interpreter, or null if there is none.
+        /// </returns>
         private static Interpreter GetFirstInterpreter(
             CreateFlags? createFlags
             ) /* THREAD-SAFE */
@@ -1961,6 +3093,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the first interpreter tracked by the global state
+        /// that matches the specified creation flags.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The matching first interpreter, or null if there is none.
+        /// </returns>
         private static Interpreter GetFirstInterpreter(
             CreateFlags? createFlags,
             ref Result error
@@ -1978,6 +3124,29 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter creation.
         //
+        /// <summary>
+        /// This method gets the first interpreter tracked by the global state
+        /// that matches the specified creation flags, reporting whether the
+        /// static lock could not be acquired or no match was found.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any interpreter.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon failure, set to non-zero if the static lock could not be
+        /// acquired.
+        /// </param>
+        /// <param name="notFound">
+        /// Upon failure, set to non-zero if no matching interpreter was
+        /// found.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The matching first interpreter, or null if there is none.
+        /// </returns>
         public static Interpreter GetFirstInterpreter(
             CreateFlags? createFlags,
             ref bool notLocked,
@@ -2029,6 +3198,19 @@ namespace Eagle._Components.Private
         //
         // WARNING: Assumes the static lock is already held.
         //
+        /// <summary>
+        /// This method gets the cached collection of interpreters associated
+        /// with the specified thread.  This method assumes the static lock is
+        /// already held.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose cached interpreters should be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The cached interpreter collection for the thread, or null if there
+        /// is none.
+        /// </returns>
         private static InterpreterDictionary GetCachedInterpreters(
             Thread thread /* in */
             )
@@ -2052,6 +3234,22 @@ namespace Eagle._Components.Private
         //
         // WARNING: Assumes the static lock is already held.
         //
+        /// <summary>
+        /// This method sets or removes the cached collection of interpreters
+        /// associated with the specified thread.  This method assumes the
+        /// static lock is already held.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose cached interpreters should be set or removed.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="interpreters">
+        /// The interpreter collection to cache for the thread, or null to
+        /// remove any existing cached collection.
+        /// </param>
+        /// <returns>
+        /// True if the cache was updated; otherwise, false.
+        /// </returns>
         private static bool SetCachedInterpreters(
             Thread thread,                     /* in */
             InterpreterDictionary interpreters /* in */
@@ -2079,6 +3277,16 @@ namespace Eagle._Components.Private
         //
         // WARNING: Assumes the static lock is already held.
         //
+        /// <summary>
+        /// This method rebuilds the per-thread interpreter cache so that
+        /// every live thread is associated with a fresh copy of the specified
+        /// interpreter collection.  This method assumes the static lock is
+        /// already held.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The interpreter collection to copy into the cache for each live
+        /// thread.  This parameter may be null.
+        /// </param>
         private static void RebuildInterpreterCache(
             InterpreterDictionary interpreters /* in: OPTIONAL */
             )
@@ -2104,6 +3312,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method rebuilds the per-thread interpreter cache from the
+        /// master collection of all interpreters, acquiring the static lock
+        /// as needed.
+        /// </summary>
+        /// <returns>
+        /// True if the cache was rebuilt; otherwise, false.
+        /// </returns>
         public static bool RebuildInterpreterCache()
         {
             bool locked = false;
@@ -2141,6 +3357,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter creation.
         //
+        /// <summary>
+        /// This method adds the specified interpreter to the global state,
+        /// tracking it as the first interpreter when applicable and adding it
+        /// to the master collection of all interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to add.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon failure, set to non-zero if the static lock could not be
+        /// acquired.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The number of places the interpreter was added to within the
+        /// global state.
+        /// </returns>
         public static int AddInterpreter(
             Interpreter interpreter, /* in */
             ref bool notLocked,      /* out */
@@ -2216,6 +3451,18 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter disposal.
         //
+        /// <summary>
+        /// This method removes the specified interpreter from the global
+        /// state, emitting diagnostic trace output if it could not be
+        /// removed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to remove.
+        /// </param>
+        /// <returns>
+        /// The number of places the interpreter was removed from within the
+        /// global state.
+        /// </returns>
         public static int RemoveInterpreter(
             Interpreter interpreter /* in */
             ) /* THREAD-SAFE */
@@ -2246,6 +3493,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter disposal.
         //
+        /// <summary>
+        /// This method removes the specified interpreter from the global
+        /// state, clearing it as the first interpreter when applicable and
+        /// removing it from the master collection of all interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to remove.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon failure, set to non-zero if the static lock could not be
+        /// acquired.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The number of places the interpreter was removed from within the
+        /// global state.
+        /// </returns>
         private static int RemoveInterpreter(
             Interpreter interpreter, /* in */
             ref bool notLocked,      /* out */
@@ -2321,6 +3587,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "All" Interpreter Tracking Methods
+        /// <summary>
+        /// This method gets the first available interpreter matching the
+        /// specified lookup and creation flags.
+        /// </summary>
+        /// <param name="lookupFlags">
+        /// The flags controlling how the interpreter is looked up, including
+        /// validation and verbose error reporting.
+        /// </param>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any interpreter.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon success, receives the matching interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetInterpreter( /* NOTE: GetAnyInterpreter */
             LookupFlags lookupFlags,
             CreateFlags? createFlags,
@@ -2393,6 +3681,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the interpreter having the specified name that
+        /// also matches the specified lookup and creation flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the interpreter to look up.  An empty name is
+        /// permitted.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags controlling how the interpreter is looked up, including
+        /// validation and verbose error reporting.
+        /// </param>
+        /// <param name="createFlags">
+        /// The creation flags used to match the interpreter, or null to match
+        /// any interpreter.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon success, receives the matching interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetInterpreter(
             string name,
             LookupFlags lookupFlags,
@@ -2493,6 +3807,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the collection of all interpreters as a
+        /// string, optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the interpreters by name, or
+        /// null to include all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform pattern matching in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of the matching interpreters, or null if
+        /// it could not be produced.
+        /// </returns>
         public static string InterpretersToString(
             string pattern,
             bool noCase
@@ -2532,6 +3861,18 @@ namespace Eagle._Components.Private
         // BUGFIX: *DEADLOCK* Prevent deadlocks here by using the TryLock
         //         pattern.
         //
+        /// <summary>
+        /// This method counts the interpreters currently tracked by the
+        /// global state.
+        /// </summary>
+        /// <param name="withTokens">
+        /// Non-zero to also include interpreters tracked only by token in the
+        /// count.
+        /// </param>
+        /// <returns>
+        /// The number of tracked interpreters, or <see cref="Count.Invalid" />
+        /// if the static lock could not be acquired.
+        /// </returns>
         public static int CountInterpreters(
             bool withTokens /* in */
             )
@@ -2573,6 +3914,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a snapshot of all interpreters currently tracked
+        /// by the global state.
+        /// </summary>
+        /// <returns>
+        /// A new list containing the tracked interpreters, or null if it
+        /// could not be produced.
+        /// </returns>
         public static IEnumerable<Interpreter> GetInterpreters()
         {
             bool locked = false;
@@ -2608,6 +3957,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the collection of interpreters associated with
+        /// the current thread, using the per-thread cache when available.
+        /// </summary>
+        /// <returns>
+        /// The interpreter collection for the current thread, or null if it
+        /// could not be produced.
+        /// </returns>
         /* THREAD-SAFE */
         public static InterpreterDictionary GetInterpreterPairs()
         {
@@ -2620,6 +3977,18 @@ namespace Eagle._Components.Private
         // BUGFIX: *DEADLOCK* Prevent deadlocks here by using the TryLock
         //         pattern.
         //
+        /// <summary>
+        /// This method gets the collection of interpreters associated with
+        /// the specified thread, using the per-thread cache when available
+        /// and populating it otherwise.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose interpreter collection should be returned.
+        /// </param>
+        /// <returns>
+        /// The interpreter collection for the thread, or null if it could not
+        /// be produced.
+        /// </returns>
         private static InterpreterDictionary GetInterpreterPairs(
             Thread thread
             ) /* THREAD-SAFE */
@@ -2671,6 +4040,14 @@ namespace Eagle._Components.Private
         // BUGFIX: *DEADLOCK* Prevent deadlocks here by using the TryLock
         //         pattern.
         //
+        /// <summary>
+        /// This method gets a deep copy of the master collection of all
+        /// interpreters.
+        /// </summary>
+        /// <returns>
+        /// A deep copy of the interpreter collection, or null if it could not
+        /// be produced.
+        /// </returns>
         /* THREAD-SAFE */
         public static InterpreterDictionary CloneInterpreterPairs()
         {
@@ -2707,6 +4084,26 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is used during interpreter disposal.
         //
+        /// <summary>
+        /// This method filters the specified interpreters based on their
+        /// presence in the master collection of all interpreters and,
+        /// optionally, whether they belong to a non-primary thread.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The interpreters to filter.  This parameter may be null.
+        /// </param>
+        /// <param name="found">
+        /// Non-zero to keep interpreters that are present in the master
+        /// collection; zero to keep those that are absent from it.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also keep interpreters that do not belong to the
+        /// primary system thread.
+        /// </param>
+        /// <returns>
+        /// The filtered list of interpreters, or null if it could not be
+        /// produced.
+        /// </returns>
         private static IEnumerable<IInterpreter> FilterInterpreters(
             IEnumerable<IInterpreter> interpreters,
             bool found,
@@ -2770,6 +4167,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "Active" Interpreter Tracking Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter is currently
+        /// being tracked as an active interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for active status.
+        /// </param>
+        /// <returns>
+        /// True if the specified interpreter is active; otherwise, false.
+        /// </returns>
         public static bool IsActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -2782,6 +4189,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interpreter associated with the topmost active
+        /// interpreter pair, if any.
+        /// </summary>
+        /// <returns>
+        /// The active interpreter, or null if there is no active interpreter.
+        /// </returns>
         /* THREAD-SAFE */
         public static Interpreter GetActiveInterpreterOnly()
         {
@@ -2791,6 +4205,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the topmost active interpreter pair, if any.
+        /// </summary>
+        /// <returns>
+        /// The active <see cref="ActiveInterpreterPair" />, or null if there is no
+        /// active interpreter.
+        /// </returns>
         /* THREAD-SAFE */
         private static ActiveInterpreterPair GetActiveInterpreter()
         {
@@ -2799,6 +4220,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns an active interpreter pair, optionally matching the
+        /// specified client data type.
+        /// </summary>
+        /// <param name="type">
+        /// The type of client data to match against the active interpreter pairs; if
+        /// null, the topmost active interpreter pair is returned.
+        /// </param>
+        /// <returns>
+        /// The matching active <see cref="ActiveInterpreterPair" />, or null if none
+        /// was found.
+        /// </returns>
         public static ActiveInterpreterPair GetActiveInterpreter(
             Type type
             ) /* THREAD-SAFE */
@@ -2842,6 +4275,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string representation of the active interpreters,
+        /// optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the active interpreters; if null, all
+        /// active interpreters are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the active interpreters, or null if there are
+        /// no active interpreters.
+        /// </returns>
         public static string ActiveInterpretersToString(
             string pattern,
             bool noCase
@@ -2855,6 +4303,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a deep copy of the list of active interpreters.
+        /// </summary>
+        /// <returns>
+        /// A deep copy of the active interpreter list, or null if there are no active
+        /// interpreters.
+        /// </returns>
         /* THREAD-SAFE */
         private static InterpreterStackList GetActiveInterpreters()
         {
@@ -2864,6 +4319,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method filters a sequence of interpreters based on their active status
+        /// and whether they are running on a non-primary thread.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The sequence of interpreters to filter.
+        /// </param>
+        /// <param name="found">
+        /// The active status to match; an interpreter is included when its active
+        /// status equals this value.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also include interpreters that are not running on the primary
+        /// system thread.
+        /// </param>
+        /// <returns>
+        /// The filtered sequence of interpreters, or null if no filtering could be
+        /// performed.
+        /// </returns>
         public static IEnumerable<IInterpreter> FilterActiveInterpreters(
             IEnumerable<IInterpreter> interpreters,
             bool found,
@@ -2898,6 +4372,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of times the specified interpreter appears in
+        /// the active interpreter list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to count; if null, the total number of active interpreters
+        /// is returned.
+        /// </param>
+        /// <returns>
+        /// The number of matching active interpreters.
+        /// </returns>
         public static int CountActiveInterpreters(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -2941,6 +4426,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified interpreter from the active interpreter
+        /// list, or clears all active interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to remove; if null, all active interpreters are removed.
+        /// </param>
+        /// <returns>
+        /// The number of active interpreters that were removed.
+        /// </returns>
         public static int ClearActiveInterpreters(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -2988,6 +4483,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method peeks at the topmost interpreter on the specified stack and
+        /// checks whether it matches the specified interpreter.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The interpreter stack to peek at.
+        /// </param>
+        /// <param name="interpreter">
+        /// The optional interpreter to match against the topmost stack entry; if null,
+        /// any topmost entry matches.
+        /// </param>
+        /// <returns>
+        /// True if a matching topmost entry was found; otherwise, false.
+        /// </returns>
         private static bool PeekAndCheckInterpreter(
             InterpreterStackList interpreters, /* in */
             Interpreter interpreter            /* in: OPTIONAL */
@@ -3001,6 +4510,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method peeks at the topmost interpreter on the specified stack, checks
+        /// whether it matches the specified interpreter, and returns the matching pair.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The interpreter stack to peek at.
+        /// </param>
+        /// <param name="interpreter">
+        /// The optional interpreter to match against the topmost stack entry; if null,
+        /// any topmost entry matches.
+        /// </param>
+        /// <param name="anyPair">
+        /// Upon success, receives the matching active interpreter pair; otherwise, it
+        /// is set to null.
+        /// </param>
+        /// <returns>
+        /// True if a matching topmost entry was found; otherwise, false.
+        /// </returns>
         private static bool PeekAndCheckInterpreter(
             InterpreterStackList interpreters, /* in */
             Interpreter interpreter,           /* in: OPTIONAL */
@@ -3048,6 +4575,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method associates the specified log client data with the topmost active
+        /// interpreter pair, pushing a new active interpreter if necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to push if there is no active interpreter pair.
+        /// </param>
+        /// <param name="clientData">
+        /// The log client data to associate with the active interpreter; if null, this
+        /// method does nothing.
+        /// </param>
+        /// <param name="pushed">
+        /// A counter that is incremented when an active interpreter is pushed.
+        /// </param>
         public static void MaybePushActiveLogClientData(
             Interpreter interpreter,
             IClientData clientData,
@@ -3076,6 +4617,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the log client data associated with the topmost active
+        /// interpreter pair, optionally popping the active interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to match when popping the active interpreter.
+        /// </param>
+        /// <param name="pushed">
+        /// A counter tracking the number of pushed active interpreters.
+        /// </param>
+        /// <returns>
+        /// The affected active <see cref="ActiveInterpreterPair" />, or null if there
+        /// was no active interpreter.
+        /// </returns>
         public static ActiveInterpreterPair MaybePopActiveLogClientData(
             Interpreter interpreter,
             ref int pushed
@@ -3117,6 +4672,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the total number of active interpreters across all
+        /// threads.
+        /// </summary>
+        /// <returns>
+        /// The total active interpreter count.
+        /// </returns>
         public static long GetTotalActiveCount()
         {
             return Interlocked.CompareExchange(
@@ -3125,6 +4687,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically increments the total active interpreter count.
+        /// </summary>
+        /// <returns>
+        /// The new total active interpreter count.
+        /// </returns>
         private static long IncreaseActiveCount()
         {
             return Interlocked.Increment(ref totalActiveCount);
@@ -3132,6 +4700,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically decrements the total active interpreter count.
+        /// </summary>
+        /// <returns>
+        /// The new total active interpreter count.
+        /// </returns>
         private static long DecreaseActiveCount()
         {
             return Interlocked.Decrement(ref totalActiveCount);
@@ -3139,6 +4713,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method pushes the specified interpreter onto the active interpreter
+        /// stack.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to push onto the active interpreter stack.
+        /// </param>
         public static void PushActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -3148,6 +4729,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method pushes the specified interpreter and its associated client data
+        /// onto the active interpreter stack.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to push onto the active interpreter stack.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the pushed interpreter.
+        /// </param>
         public static void PushActiveInterpreter(
             Interpreter interpreter,
             IClientData clientData
@@ -3160,6 +4751,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method pushes the specified interpreter and its associated client data
+        /// onto the active interpreter stack, updating the active counters and issuing
+        /// notifications.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to push onto the active interpreter stack.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the pushed interpreter.
+        /// </param>
+        /// <param name="pushed">
+        /// A counter that is incremented when the interpreter is pushed.
+        /// </param>
         private static void PushActiveInterpreter(
             Interpreter interpreter,
             IClientData clientData,
@@ -3209,6 +4814,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the topmost active interpreter pair without removing it
+        /// from the active interpreter stack.
+        /// </summary>
+        /// <returns>
+        /// The topmost active <see cref="ActiveInterpreterPair" />, or null if there is
+        /// no active interpreter.
+        /// </returns>
         /* THREAD-SAFE */
         public static ActiveInterpreterPair PeekActiveInterpreter()
         {
@@ -3219,6 +4832,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the topmost active interpreter pair if it matches the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to match against the topmost active interpreter pair.
+        /// </param>
+        /// <returns>
+        /// The matching active <see cref="ActiveInterpreterPair" />, or null if none
+        /// matched.
+        /// </returns>
         public static ActiveInterpreterPair MaybePeekActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -3230,6 +4854,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the topmost active interpreter pair if it matches the
+        /// specified interpreter and an interpreter has been pushed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The optional interpreter to match against the topmost active interpreter
+        /// pair; if null, the topmost pair is returned.
+        /// </param>
+        /// <param name="pushed">
+        /// A counter tracking the number of pushed active interpreters; it is
+        /// decremented when a matching pair is found.
+        /// </param>
+        /// <returns>
+        /// The matching active <see cref="ActiveInterpreterPair" />, or null if none
+        /// matched.
+        /// </returns>
         private static ActiveInterpreterPair MaybePeekActiveInterpreter(
             Interpreter interpreter,
             ref int pushed
@@ -3271,6 +4911,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes and returns the topmost active interpreter pair from the
+        /// active interpreter stack.
+        /// </summary>
+        /// <returns>
+        /// The removed active <see cref="ActiveInterpreterPair" />, or null if there is
+        /// no active interpreter.
+        /// </returns>
         /* THREAD-SAFE */
         public static ActiveInterpreterPair PopActiveInterpreter()
         {
@@ -3281,6 +4929,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes and returns the topmost active interpreter pair if it
+        /// matches the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to match against the topmost active interpreter pair.
+        /// </param>
+        /// <returns>
+        /// The removed active <see cref="ActiveInterpreterPair" />, or null if none
+        /// matched.
+        /// </returns>
         public static ActiveInterpreterPair MaybePopActiveInterpreter(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -3292,6 +4951,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes and returns the topmost active interpreter pair if it
+        /// matches the specified interpreter and an interpreter has been pushed,
+        /// updating the active counters and issuing notifications.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The optional interpreter to match against the topmost active interpreter
+        /// pair; if null, the topmost pair is removed.
+        /// </param>
+        /// <param name="pushed">
+        /// A counter tracking the number of pushed active interpreters; it is
+        /// decremented when a pair is removed.
+        /// </param>
+        /// <returns>
+        /// The removed active <see cref="ActiveInterpreterPair" />, or null if none
+        /// matched.
+        /// </returns>
         private static ActiveInterpreterPair MaybePopActiveInterpreter(
             Interpreter interpreter,
             ref int pushed
@@ -3366,6 +5042,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "Token" Interpreter Tracking Methods
+        /// <summary>
+        /// This method returns the interpreter associated with the specified token.
+        /// </summary>
+        /// <param name="token">
+        /// The token identifying the interpreter to retrieve.
+        /// </param>
+        /// <returns>
+        /// The interpreter associated with the specified token, or null if no such
+        /// interpreter exists.
+        /// </returns>
         public static Interpreter GetTokenInterpreter(
             ulong token
             ) /* THREAD-SAFE */
@@ -3387,6 +5073,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interpreter associated with the specified token,
+        /// reporting any error encountered.
+        /// </summary>
+        /// <param name="token">
+        /// The token identifying the interpreter to retrieve.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The interpreter associated with the specified token, or null if no such
+        /// interpreter exists.
+        /// </returns>
         public static Interpreter GetTokenInterpreter(
             ulong token,
             ref Result error
@@ -3401,6 +5101,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interpreter associated with the specified token,
+        /// reporting whether the static lock could not be acquired, whether the token
+        /// could not be found, and any error encountered.
+        /// </summary>
+        /// <param name="token">
+        /// The token identifying the interpreter to retrieve.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon return, set to non-zero if the static lock could not be acquired.
+        /// </param>
+        /// <param name="notFound">
+        /// Upon return, set to non-zero if no interpreter matched the specified token.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The interpreter associated with the specified token, or null if no such
+        /// interpreter exists.
+        /// </returns>
         //
         // WARNING: This method is used during interpreter creation.
         //
@@ -3461,6 +5182,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the first available interpreter from the token
+        /// interpreter collection.
+        /// </summary>
+        /// <returns>
+        /// An available interpreter, or null if none was found.
+        /// </returns>
         private static Interpreter GetAnyTokenInterpreter()
         {
             Interpreter interpreter = null;
@@ -3478,6 +5206,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the first available interpreter from the token
+        /// interpreter collection that matches the specified lookup and creation flags.
+        /// </summary>
+        /// <param name="lookupFlags">
+        /// The flags controlling how interpreters are looked up and validated.
+        /// </param>
+        /// <param name="createFlags">
+        /// The optional creation flags an interpreter must match; if null, no creation
+        /// flag matching is performed.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon success, receives the matching interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         private static ReturnCode GetAnyTokenInterpreter(
             LookupFlags lookupFlags,
             CreateFlags? createFlags,
@@ -3550,6 +5299,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified interpreter to the token interpreter
+        /// collection, keyed by its token.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to add to the token interpreter collection.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon return, set to non-zero if the static lock could not be acquired.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter was added; otherwise, false.
+        /// </returns>
         //
         // WARNING: This method is used during interpreter creation.
         //
@@ -3634,6 +5399,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified interpreter from the token interpreter
+        /// collection.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to remove from the token interpreter collection.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter was removed; otherwise, false.
+        /// </returns>
         public static bool RemoveTokenInterpreter(
             Interpreter interpreter
             )
@@ -3660,6 +5435,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified interpreter from the token interpreter
+        /// collection, reporting whether the static lock could not be acquired and any
+        /// error encountered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to remove from the token interpreter collection.
+        /// </param>
+        /// <param name="notLocked">
+        /// Upon return, set to non-zero if the static lock could not be acquired.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter was removed; otherwise, false.
+        /// </returns>
         //
         // WARNING: This method is used during interpreter disposal.
         //
@@ -3740,6 +5532,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region "All" Thread Tracking Methods
+        /// <summary>
+        /// This method adds the specified engine thread to the global collection of
+        /// tracked threads.
+        /// </summary>
+        /// <param name="engineThread">
+        /// The engine thread to add to the global thread collection.
+        /// </param>
+        /// <returns>
+        /// True if the engine thread was added; otherwise, false.
+        /// </returns>
         public static bool AddThread(
             EngineThread engineThread
             ) /* THREAD-SAFE */
@@ -3777,6 +5579,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified engine thread from the global collection
+        /// of tracked threads.
+        /// </summary>
+        /// <param name="engineThread">
+        /// The engine thread to remove from the global thread collection.
+        /// </param>
+        /// <returns>
+        /// True if the engine thread was removed; otherwise, false.
+        /// </returns>
         public static bool RemoveThread(
             EngineThread engineThread
             ) /* THREAD-SAFE */
@@ -3814,6 +5626,21 @@ namespace Eagle._Components.Private
 
         #region Context Manager Support Methods
 #if THREADING
+        /// <summary>
+        /// This method filters the specified list of interpreters down to those
+        /// whose contexts are eligible to be purged, excluding any interpreters
+        /// that are not currently valid as well as any that are present on the
+        /// active interpreter stack.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The list of interpreters to be filtered.  This value may be null.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// When true, primary interpreters are excluded from the resulting list.
+        /// </param>
+        /// <returns>
+        /// The filtered list of interpreters whose contexts may be purged.
+        /// </returns>
         public static IEnumerable<IInterpreter> FilterInterpretersToPurge(
             IEnumerable<IInterpreter> interpreters,
             bool nonPrimary
@@ -3845,6 +5672,10 @@ namespace Eagle._Components.Private
 
         #region Policy Trace Support Properties
 #if POLICY_TRACE
+        /// <summary>
+        /// Gets or sets a value indicating whether diagnostic tracing of policy
+        /// decisions is enabled.  This property is thread-safe.
+        /// </summary>
         public static bool PolicyTrace /* THREAD-SAFE */
         {
             get
@@ -3864,6 +5695,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Version Support Methods
+        /// <summary>
+        /// This method compares two version numbers and returns the one that is
+        /// considered more specific, optionally comparing them when their parts
+        /// differ or when no more specific version can be determined.
+        /// </summary>
+        /// <param name="version1">
+        /// The first version to consider.  This value may be null.
+        /// </param>
+        /// <param name="version2">
+        /// The second version to consider.  This value may be null.
+        /// </param>
+        /// <param name="errorOnNull">
+        /// When true, null is returned if either specified version is null.
+        /// </param>
+        /// <param name="stopOnNotEqual">
+        /// When true, processing stops at the first version part that differs
+        /// between the two versions.
+        /// </param>
+        /// <param name="compareOnNotEqual">
+        /// When true and a differing version part is encountered, the two
+        /// versions are compared to select the result; otherwise, null is
+        /// returned.
+        /// </param>
+        /// <param name="compareOnNotFound">
+        /// When true and no more specific version part can be found, the two
+        /// versions are compared to select the result.
+        /// </param>
+        /// <returns>
+        /// The version considered more specific, or null if one cannot be
+        /// determined.
+        /// </returns>
         public static Version GetMoreSpecificVersion(
             Version version1,
             Version version2,
@@ -3959,6 +5821,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a version number from the specified major and
+        /// minor components, replacing any component below the minimum allowed
+        /// value with zero.
+        /// </summary>
+        /// <param name="major">
+        /// The major version component.
+        /// </param>
+        /// <param name="minor">
+        /// The minor version component.
+        /// </param>
+        /// <returns>
+        /// The constructed version.  This method cannot return null.
+        /// </returns>
         public static Version GetTwoPartVersion( /* CANNOT RETURN NULL */
             int major,
             int minor
@@ -3983,6 +5859,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a version number containing only the major and
+        /// minor components of the specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version whose major and minor components are used.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed two-part version, or null if the specified version
+        /// is null.
+        /// </returns>
         public static Version GetTwoPartVersion( /* MAY RETURN NULL */
             Version version
             )
@@ -3995,6 +5883,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a version number from the specified major, minor,
+        /// and build components, replacing any component below the minimum
+        /// allowed value with zero.
+        /// </summary>
+        /// <param name="major">
+        /// The major version component.
+        /// </param>
+        /// <param name="minor">
+        /// The minor version component.
+        /// </param>
+        /// <param name="build">
+        /// The build version component.
+        /// </param>
+        /// <returns>
+        /// The constructed version.  This method cannot return null.
+        /// </returns>
         public static Version GetThreePartVersion( /* CANNOT RETURN NULL */
             int major,
             int minor,
@@ -4027,6 +5932,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a version number containing only the major,
+        /// minor, and build components of the specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version whose major, minor, and build components are used.  This
+        /// value may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed three-part version, or null if the specified version
+        /// is null.
+        /// </returns>
         public static Version GetThreePartVersion( /* MAY RETURN NULL */
             Version version
             )
@@ -4040,6 +5957,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a version number from the specified major, minor,
+        /// build, and revision components, replacing any component below the
+        /// minimum allowed value with zero.
+        /// </summary>
+        /// <param name="major">
+        /// The major version component.
+        /// </param>
+        /// <param name="minor">
+        /// The minor version component.
+        /// </param>
+        /// <param name="build">
+        /// The build version component.
+        /// </param>
+        /// <param name="revision">
+        /// The revision version component.
+        /// </param>
+        /// <returns>
+        /// The constructed version.  This method cannot return null.
+        /// </returns>
         public static Version GetFourPartVersion( /* CANNOT RETURN NULL */
             int major,
             int minor,
@@ -4082,6 +6019,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Plugin Flags Support Methods
+        /// <summary>
+        /// This method determines whether the plugin flags for the core library
+        /// assembly can be quickly obtained from the cached value without further
+        /// calculation.  This method assumes the global lock is held.
+        /// </summary>
+        /// <param name="anyTriplet">
+        /// The plugin data triplet associated with the request.  This value may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// True if the cached assembly plugin flags may be used; otherwise,
+        /// false.
+        /// </returns>
         //
         // NOTE: This method assumes the global lock is held.
         //
@@ -4096,6 +6046,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the plugin flags for the core library
+        /// assembly from the cached value.  This method assumes the global lock
+        /// is held.
+        /// </summary>
+        /// <param name="pluginFlags">
+        /// Upon success, receives the cached assembly plugin flags.  Upon
+        /// failure, receives <see cref="PluginFlags.None" />.
+        /// </param>
+        /// <returns>
+        /// True if the cached assembly plugin flags were available; otherwise,
+        /// false.
+        /// </returns>
         //
         // NOTE: This method assumes the global lock is held.
         //
@@ -4117,6 +6080,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the assembly associated with the specified
+        /// plugin data triplet, falling back to the core library assembly when
+        /// one cannot be determined.  This method does not require the global
+        /// lock.
+        /// </summary>
+        /// <param name="anyTriplet">
+        /// The plugin data triplet associated with the request.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="assembly">
+        /// Upon return, receives the resolved assembly, which falls back to the
+        /// core library assembly.
+        /// </param>
         //
         // NOTE: This method does not require the global lock.
         //
@@ -4154,6 +6131,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the plugin flags for the specified assembly,
+        /// using the specified list of trusted hashes.  This method does not
+        /// require the global lock.
+        /// </summary>
+        /// <param name="hashes">
+        /// The list of trusted hashes to use when calculating the plugin flags.
+        /// This value may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose plugin flags are calculated.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// Upon return, receives the calculated assembly plugin flags.
+        /// </param>
         //
         // NOTE: This method does not require the global lock.
         //
@@ -4180,6 +6173,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the queued work item callback used to calculate and
+        /// store the plugin flags for the core library assembly, optionally
+        /// combining them into the flags of an associated plugin.
+        /// </summary>
+        /// <param name="state">
+        /// The callback state, which should be a plugin data triplet, or null.
+        /// </param>
         /* ASYNCHRONOUS */
         private static void AssemblyPluginFlagsCallback(
             object state /* in, out */
@@ -4260,6 +6261,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the plugin flags for the core library assembly,
+        /// applying them to the specified plugin data synchronously when possible
+        /// and otherwise queuing the work to be performed asynchronously.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This value may be null.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data whose flags are populated.  This value may be null.
+        /// </param>
+        /// <param name="refresh">
+        /// When true, the cached assembly plugin flags are recalculated instead
+        /// of being reused.
+        /// </param>
+        /// <returns>
+        /// True if the plugin flags were applied synchronously or the work was
+        /// successfully queued; otherwise, false.
+        /// </returns>
         /* SYNCHRONOUS */
         public static bool PopulateAssemblyPluginFlags(
             Interpreter interpreter,
@@ -4320,6 +6340,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Environment Variable Wrapper Methods
+        /// <summary>
+        /// This method gets the value of the specified environment variable.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the environment variable to query.
+        /// </param>
+        /// <returns>
+        /// The value of the environment variable, or null if it is not set.
+        /// </returns>
         private static string GetEnvironmentVariable(
             string variable
             ) /* THREAD-SAFE */
@@ -4329,6 +6359,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the value of the specified environment variable.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the environment variable to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to assign to the environment variable.
+        /// </param>
+        /// <returns>
+        /// True if the environment variable was set successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetEnvironmentVariable(
             string variable,
             string value
@@ -4341,6 +6385,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Application Domain Variable Access Methods
+        /// <summary>
+        /// This method gets the application domain associated with the global
+        /// state.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The application domain, or null if one is not available.
+        /// </returns>
         public static AppDomain GetAppDomain() /* THREAD-SAFE */
         {
             return appDomain;
@@ -4348,6 +6399,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the base directory of the application domain
+        /// associated with the global state.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The application domain base directory, or null if one is not
+        /// available.
+        /// </returns>
         public static string GetAppDomainBaseDirectory() /* THREAD-SAFE */
         {
             return appDomainBaseDirectory;
@@ -4356,6 +6415,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        /// <summary>
+        /// This method verifies that the core library assembly is located
+        /// underneath the base directory of the application domain.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the verification.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain being verified.
+        /// </param>
+        /// <returns>
+        /// True if the core library assembly resides underneath the application
+        /// domain base directory; otherwise, false.
+        /// </returns>
         public static bool VerifyAppDomainBaseDirectory(
             Interpreter interpreter,
             string friendlyName
@@ -4369,6 +6444,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the core library assembly is located
+        /// underneath the base directory of the application domain.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the verification.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain being verified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the
+        /// verification did not succeed.
+        /// </param>
+        /// <returns>
+        /// True if the core library assembly resides underneath the application
+        /// domain base directory; otherwise, false.
+        /// </returns>
         public static bool VerifyAppDomainBaseDirectory(
             Interpreter interpreter,
             string friendlyName,
@@ -4437,6 +6532,14 @@ namespace Eagle._Components.Private
 
         #region Assembly Global Variable Access Methods
         #region Stub Assembly Access Methods
+        /// <summary>
+        /// This method gets the directory path used when locating the stub
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The configured stub assembly path, if available; otherwise, the
+        /// default assembly path.
+        /// </returns>
         private static string GetStubAssemblyPath()
         {
             string path = CommonOps.Environment.GetVariable(
@@ -4450,6 +6553,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the file name (without any directory information)
+        /// for the stub assembly.
+        /// </summary>
+        /// <returns>
+        /// The stub assembly file name, without any directory information.
+        /// </returns>
         private static string GetStubAssemblyFileNameOnly()
         {
             return String.Format("{0}{1}",
@@ -4458,6 +6568,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the fully qualified file name for the stub
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The fully qualified stub assembly file name, including its
+        /// directory.
+        /// </returns>
         public static string GetStubAssemblyFileName()
         {
             return Path.Combine(
@@ -4466,6 +6584,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type belongs to the
+        /// stub assembly.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified type belongs to the stub assembly;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsStubAssemblyType(
             Type type /* in */
             )
@@ -4489,6 +6618,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets, caching it if necessary, the reflected method
+        /// information for the stub type "Execute" method.
+        /// </summary>
+        /// <param name="type">
+        /// The stub type from which to obtain the "Execute" method.
+        /// </param>
+        /// <returns>
+        /// The reflected method information for the stub "Execute" method, or
+        /// null if it could not be obtained.
+        /// </returns>
         private static MethodInfo GetStubExecuteMethodInfo(
             Type type /* in */
             )
@@ -4531,6 +6671,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the stub assembly, if present, in the specified
+        /// application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="arguments">
+        /// The optional arguments to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search, or null to use the current one.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by the stub.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExecuteStubAssemblyInAppDomain(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -4548,6 +6711,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the stub assembly is present in the
+        /// specified application domain, optionally invoking it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="arguments">
+        /// The optional arguments to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search, or null to use the current one.
+        /// </param>
+        /// <param name="noInvoke">
+        /// Non-zero to only check for the presence of the stub type, without
+        /// invoking it.
+        /// </param>
+        /// <param name="allowCreation">
+        /// Upon return, indicates whether the stub explicitly allowed
+        /// interpreter creation to proceed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the stub type is present;
+        /// <see cref="ReturnCode.Continue" /> if it is not present.
+        /// </returns>
         public static ReturnCode IsStubAssemblyInAppDomain(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -4566,6 +6757,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the stub assembly is present in the
+        /// specified application domain, optionally invoking it and capturing
+        /// its result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="arguments">
+        /// The optional arguments to pass to the stub, or null for none.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search, or null to use the current one.
+        /// </param>
+        /// <param name="noInvoke">
+        /// Non-zero to only check for the presence of the stub type, without
+        /// invoking it.
+        /// </param>
+        /// <param name="allowCreation">
+        /// Upon return, indicates whether the stub explicitly allowed
+        /// interpreter creation to proceed.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by the stub, when it is
+        /// invoked.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the stub type is present;
+        /// <see cref="ReturnCode.Continue" /> if it is not present, or if the
+        /// stub explicitly allowed interpreter creation to proceed.
+        /// </returns>
         private static ReturnCode IsStubAssemblyInAppDomain(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -4714,6 +6939,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the stub assembly is loaded as a
+        /// module within the specified process.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when comparing file names, or null
+        /// for none.
+        /// </param>
+        /// <param name="process">
+        /// The process to search, or null to use the current process.
+        /// </param>
+        /// <returns>
+        /// True if the stub assembly is loaded within the process; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsStubAssemblyInProcess(
             Interpreter interpreter, /* in: OPTIONAL */
             Process process          /* in: OPTIONAL */
@@ -4768,6 +7008,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the stub assembly is present in the
+        /// current application domain or loaded within the current process.
+        /// </summary>
+        /// <returns>
+        /// True if the stub assembly is present in either location; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsStubAssemblyAnywhere()
         {
             bool allowCreation;
@@ -4787,6 +7035,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to cache the stub assembly bytes, emitting a
+        /// trace message upon failure.
+        /// </summary>
         public static void TryToCacheStubAssemblyOrTrace()
         {
             ReturnCode code;
@@ -4806,6 +7058,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to read the stub assembly file and cache its
+        /// bytes for later use.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryToCacheStubAssembly(
             ref Result error /* out */
             )
@@ -4887,6 +7151,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to write the cached stub assembly bytes to the
+        /// specified file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to which the cached stub assembly bytes should be
+        /// written.
+        /// </param>
+        /// <param name="clearCache">
+        /// Non-zero to clear the cached stub assembly bytes after they have
+        /// been written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode TryToWriteCachedStubAssembly(
             string fileName, /* in */
             bool clearCache, /* in */
@@ -4947,6 +7231,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to verify and load the stub assembly,
+        /// rewriting it from the cached bytes first if the file is missing.
+        /// </summary>
+        /// <param name="clientData">
+        /// The optional client data used when verifying the assembly, or null
+        /// for none.
+        /// </param>
+        /// <param name="useDefault">
+        /// Non-zero to load the stub assembly into the default application
+        /// domain, when supported.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryToLoadStubAssembly(
             IClientData clientData, /* in: NOT USED */
             bool useDefault,        /* in */
@@ -5066,6 +7370,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Entry Assembly Variable Access Methods
+        /// <summary>
+        /// This method refreshes the cached entry assembly information, using
+        /// the specified assembly or the detected entry assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to use as the entry assembly, or null to detect it
+        /// automatically.
+        /// </param>
+        /// <returns>
+        /// Always returns true.
+        /// </returns>
         public static bool RefreshEntryAssembly(
             Assembly assembly /* in: OPTIONAL */
             )
@@ -5095,6 +7410,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates the entry assembly, falling back to the
+        /// executing assembly when no entry assembly is available.
+        /// </summary>
+        /// <returns>
+        /// The entry assembly, or the executing assembly when no entry
+        /// assembly is available. This method never returns null.
+        /// </returns>
         private static Assembly FindEntryAssembly() /* CANNOT RETURN NULL */
         {
             Assembly assembly = Assembly.GetEntryAssembly(); /* NULL? */
@@ -5121,6 +7444,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly is the cached
+        /// entry assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to compare against the cached entry assembly.
+        /// </param>
+        /// <returns>
+        /// True if the specified assembly is the entry assembly; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsEntryAssembly(
             Assembly assembly
             ) /* THREAD-SAFE */
@@ -5130,6 +7464,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached entry assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached entry assembly.
+        /// </returns>
         public static Assembly GetEntryAssembly() /* THREAD-SAFE */
         {
             return entryAssembly;
@@ -5137,6 +7477,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached name of the entry assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached entry assembly name.
+        /// </returns>
         public static AssemblyName GetEntryAssemblyName() /* THREAD-SAFE */
         {
             return entryAssemblyName;
@@ -5144,6 +7490,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly name matches
+        /// the cached entry assembly name.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name to compare against the cached entry assembly
+        /// name.
+        /// </param>
+        /// <returns>
+        /// True if the specified name matches the entry assembly name;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsEntryAssemblyName( /* THREAD-SAFE */
             string assemblyName
             )
@@ -5158,6 +7516,12 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method gets the cached title of the entry assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached entry assembly title.
+        /// </returns>
         private static string GetEntryAssemblyTitle() /* THREAD-SAFE */
         {
             return entryAssemblyTitle;
@@ -5167,6 +7531,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached file system location of the entry
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached entry assembly location.
+        /// </returns>
         public static string GetEntryAssemblyLocation() /* THREAD-SAFE */
         {
             return entryAssemblyLocation;
@@ -5174,6 +7545,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached version of the entry assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached entry assembly version.
+        /// </returns>
         public static Version GetEntryAssemblyVersion() /* THREAD-SAFE */
         {
             return entryAssemblyVersion;
@@ -5183,6 +7560,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Executing Assembly Variable Access Methods
+        /// <summary>
+        /// This method determines whether the specified assembly is this
+        /// (the Eagle core library) assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to compare against this assembly.
+        /// </param>
+        /// <returns>
+        /// True if the specified assembly is this assembly; otherwise, false.
+        /// </returns>
         public static bool IsAssembly(
             Assembly assembly
             ) /* THREAD-SAFE */
@@ -5192,6 +7579,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets this (the Eagle core library) assembly.
+        /// </summary>
+        /// <returns>
+        /// This assembly.
+        /// </returns>
         public static Assembly GetAssembly() /* THREAD-SAFE */
         {
             return thisAssembly;
@@ -5200,6 +7593,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY
+        /// <summary>
+        /// This method gets the cached security evidence for this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached security evidence for this assembly.
+        /// </returns>
         public static Evidence GetAssemblyEvidence() /* THREAD-SAFE */
         {
             return thisAssemblyEvidence;
@@ -5208,6 +7607,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached name of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached name of this assembly.
+        /// </returns>
         public static AssemblyName GetAssemblyName() /* THREAD-SAFE */
         {
             return thisAssemblyName;
@@ -5215,6 +7620,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly name matches
+        /// the cached name of this assembly.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name to compare against the cached name of this
+        /// assembly.
+        /// </param>
+        /// <returns>
+        /// True if the specified name matches the name of this assembly;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsAssemblyName( /* THREAD-SAFE */
             string assemblyName
             )
@@ -5227,6 +7644,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached title of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached title of this assembly.
+        /// </returns>
         public static string GetAssemblyTitle() /* THREAD-SAFE */
         {
             return thisAssemblyTitle;
@@ -5234,6 +7657,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached file system location of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached file system location of this assembly.
+        /// </returns>
         public static string GetAssemblyLocation() /* THREAD-SAFE */
         {
             return thisAssemblyLocation;
@@ -5241,6 +7670,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified location matches the
+        /// cached file system location of this assembly.
+        /// </summary>
+        /// <param name="location">
+        /// The location to compare against the cached location of this
+        /// assembly.
+        /// </param>
+        /// <returns>
+        /// True if the specified location matches the location of this
+        /// assembly; otherwise, false.
+        /// </returns>
         public static bool IsAssemblyLocation( /* THREAD-SAFE */
             string location
             )
@@ -5251,6 +7692,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached date and time associated with this
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached date and time associated with this assembly.
+        /// </returns>
         public static DateTime GetAssemblyDateTime() /* THREAD-SAFE */
         {
             return thisAssemblyDateTime;
@@ -5258,6 +7706,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached simple name of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached simple name of this assembly.
+        /// </returns>
         public static string GetAssemblySimpleName() /* THREAD-SAFE */
         {
             return thisAssemblySimpleName;
@@ -5265,6 +7719,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached full name of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached full name of this assembly.
+        /// </returns>
         public static string GetAssemblyFullName() /* THREAD-SAFE */
         {
             return thisAssemblyFullName;
@@ -5272,6 +7732,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached version of this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached version of this assembly.
+        /// </returns>
         public static Version GetAssemblyVersion() /* THREAD-SAFE */
         {
             return thisAssemblyVersion;
@@ -5279,6 +7745,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the major and minor components of the cached
+        /// version of this assembly.
+        /// </summary>
+        /// <returns>
+        /// A version containing only the major and minor components of the
+        /// cached version of this assembly.
+        /// </returns>
         public static Version GetTwoPartAssemblyVersion() /* THREAD-SAFE */
         {
             return GetTwoPartVersion(thisAssemblyVersion);
@@ -5286,6 +7760,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached version of this assembly, formatted as
+        /// a string.
+        /// </summary>
+        /// <returns>
+        /// The cached version of this assembly as a string, or null if no
+        /// version is available.
+        /// </returns>
         public static string GetAssemblyVersionString() /* THREAD-SAFE */
         {
             return (thisAssemblyVersion != null) ?
@@ -5294,6 +7776,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the version string used for update checks. When
+        /// this assembly has the default major and minor version, only the
+        /// build and revision components are used; otherwise, the full version
+        /// string is used.
+        /// </summary>
+        /// <returns>
+        /// The update version string, or null if no version is available.
+        /// </returns>
         public static string GetAssemblyUpdateVersion() /* THREAD-SAFE */
         {
             if (thisAssemblyVersion == null)
@@ -5322,6 +7813,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached culture information for this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached culture information for this assembly.
+        /// </returns>
         public static CultureInfo GetAssemblyCultureInfo() /* THREAD-SAFE */
         {
             return thisAssemblyCultureInfo;
@@ -5329,6 +7826,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached public key token for this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached public key token for this assembly.
+        /// </returns>
         public static byte[] GetAssemblyPublicKeyToken() /* THREAD-SAFE */
         {
             return thisAssemblyPublicKeyToken;
@@ -5336,6 +7839,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached primary URI associated with this
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached primary URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyUri() /* THREAD-SAFE */
         {
             return thisAssemblyUri;
@@ -5343,6 +7853,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached base URI used for update operations
+        /// associated with this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached update base URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyUpdateBaseUri() /* THREAD-SAFE */
         {
             return thisAssemblyUpdateBaseUri;
@@ -5350,6 +7867,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached base URI used for download operations
+        /// associated with this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached download base URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyDownloadBaseUri() /* THREAD-SAFE */
         {
             return thisAssemblyDownloadBaseUri;
@@ -5357,6 +7881,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached base URI used for script operations
+        /// associated with this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached script base URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyScriptBaseUri() /* THREAD-SAFE */
         {
             return thisAssemblyScriptBaseUri;
@@ -5364,6 +7895,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached base URI used for auxiliary operations
+        /// associated with this assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached auxiliary base URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyAuxiliaryBaseUri() /* THREAD-SAFE */
         {
             return thisAssemblyAuxiliaryBaseUri;
@@ -5371,6 +7909,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached namespace URI associated with this
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached namespace URI associated with this assembly.
+        /// </returns>
         public static Uri GetAssemblyNamespaceUri() /* THREAD-SAFE */
         {
             return thisAssemblyNamespaceUri;
@@ -5380,6 +7925,14 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method gets the cached plugin flags associated with this
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached plugin flags associated with this assembly, or null if
+        /// the static lock could not be acquired.
+        /// </returns>
         public static PluginFlags? GetAssemblyPluginFlags() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -5412,6 +7965,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the cached plugin flags associated with this
+        /// assembly.
+        /// </summary>
+        /// <param name="pluginFlags">
+        /// The plugin flags to associate with this assembly.
+        /// </param>
+        /// <returns>
+        /// True if the plugin flags were set; otherwise, false.
+        /// </returns>
         private static bool SetAssemblyPluginFlags(
             PluginFlags pluginFlags /* in */
             )
@@ -5449,6 +8012,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Path Variable Access Methods
+        /// <summary>
+        /// This method gets the fully qualified path to the directory containing
+        /// this assembly.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The assembly directory path, or null if it could not be obtained.
+        /// </returns>
         public static string GetAssemblyPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -5480,6 +8050,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the path to the directory containing
+        /// this assembly has been set.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// True if the assembly path has been set to a non-empty value;
+        /// otherwise, false.
+        /// </returns>
         private static bool HaveAssemblyPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -5511,6 +8089,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally initializes and then returns the path to the
+        /// directory containing this assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the assembly path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <returns>
+        /// The assembly directory path, or null if it could not be obtained.
+        /// </returns>
         public static string InitializeOrGetAssemblyPath(
             bool initialize
             ) /* THREAD-SAFE */
@@ -5520,6 +8109,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally initializes and then returns the path to the
+        /// directory containing this assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the assembly path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force re-initialization of the assembly path even if it
+        /// has already been set.
+        /// </param>
+        /// <returns>
+        /// The assembly directory path, or null if it could not be obtained.
+        /// </returns>
         private static string InitializeOrGetAssemblyPath(
             bool initialize,
             bool force
@@ -5531,6 +8135,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the path to the directory containing this
+        /// assembly, without acquiring the associated lock.  The path lock must
+        /// already be held by the caller.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the assembly path even if it has already
+        /// been set.
+        /// </param>
+        /// <returns>
+        /// The assembly directory path.
+        /// </returns>
         private static string InitializeAssemblyPathNoLock(
             bool force
             ) /* THREAD-SAFE */
@@ -5546,6 +8162,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes and returns the path to the directory
+        /// containing this assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the assembly path even if it has already
+        /// been set.
+        /// </param>
+        /// <returns>
+        /// The assembly directory path, or null if it could not be obtained.
+        /// </returns>
         private static string InitializeAssemblyPath(
             bool force
             ) /* THREAD-SAFE */
@@ -5579,6 +8206,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes (if necessary) and then returns the path to
+        /// the directory containing this assembly.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The assembly directory path, or null if it could not be obtained.
+        /// </returns>
         private static string AlwaysGetAssemblyPath() /* THREAD-SAFE */
         {
             return InitializeOrGetAssemblyPath(true);
@@ -5586,6 +8220,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the path to the directory containing the entry
+        /// assembly for the current application.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The entry assembly directory path, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static string GetEntryAssemblyPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -5617,6 +8259,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally initializes and then returns the path to the
+        /// directory containing the entry assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the entry assembly path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <returns>
+        /// The entry assembly directory path, or null if it could not be
+        /// obtained.
+        /// </returns>
         public static string InitializeOrGetEntryAssemblyPath(
             bool initialize
             ) /* THREAD-SAFE */
@@ -5626,6 +8280,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally initializes and then returns the path to the
+        /// directory containing the entry assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the entry assembly path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force re-initialization of the entry assembly path even
+        /// if it has already been set.
+        /// </param>
+        /// <returns>
+        /// The entry assembly directory path, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static string InitializeOrGetEntryAssemblyPath(
             bool initialize,
             bool force
@@ -5637,6 +8307,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the path to the directory containing the
+        /// entry assembly, without acquiring the associated lock.  The path lock
+        /// must already be held by the caller.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the entry assembly path even if it has
+        /// already been set.
+        /// </param>
+        /// <returns>
+        /// The entry assembly directory path.
+        /// </returns>
         private static string InitializeEntryAssemblyPathNoLock(
             bool force
             ) /* THREAD-SAFE */
@@ -5652,6 +8334,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes and returns the path to the directory
+        /// containing the entry assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the entry assembly path even if it has
+        /// already been set.
+        /// </param>
+        /// <returns>
+        /// The entry assembly directory path, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static string InitializeEntryAssemblyPath(
             bool force
             ) /* THREAD-SAFE */
@@ -5685,6 +8379,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes (if necessary) and then returns the path to
+        /// the directory containing the entry assembly.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The entry assembly directory path, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static string AlwaysGetEntryAssemblyPath() /* THREAD-SAFE */
         {
             return InitializeOrGetEntryAssemblyPath(true);
@@ -5692,6 +8395,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the path to the directory containing the entry
+        /// assembly, falling back to the path of this assembly when the entry
+        /// assembly path is not available.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// An assembly directory path, or null if neither could be obtained.
+        /// </returns>
         public static string GetAnyEntryAssemblyPath() /* THREAD-SAFE */
         {
             string path = AlwaysGetEntryAssemblyPath();
@@ -5706,6 +8417,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Binary Executable Variable Access Methods
+        /// <summary>
+        /// This method optionally initializes and then returns the binary base
+        /// path used by the library.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the binary path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <returns>
+        /// The binary base path, or null if it could not be obtained.
+        /// </returns>
         public static string InitializeOrGetBinaryPath(
             bool initialize
             ) /* THREAD-SAFE */
@@ -5715,6 +8437,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally initializes and then returns the binary base
+        /// path used by the library.  This method is thread-safe.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the binary path before returning it;
+        /// otherwise, the current value is returned.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force re-initialization of the binary path even if it has
+        /// already been set.
+        /// </param>
+        /// <returns>
+        /// The binary base path, or null if it could not be obtained.
+        /// </returns>
         private static string InitializeOrGetBinaryPath(
             bool initialize,
             bool force
@@ -5726,6 +8463,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the binary base path used by the library,
+        /// without acquiring the associated lock.  The path lock must already be
+        /// held by the caller.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the binary path even if it has already been
+        /// set.
+        /// </param>
+        /// <returns>
+        /// The binary base path.
+        /// </returns>
         private static string InitializeBinaryPathNoLock(
             bool force
             ) /* THREAD-SAFE */
@@ -5738,6 +8487,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes and returns the binary base path used by the
+        /// library.  This method is thread-safe.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to re-initialize the binary path even if it has already been
+        /// set.
+        /// </param>
+        /// <returns>
+        /// The binary base path, or null if it could not be obtained.
+        /// </returns>
         private static string InitializeBinaryPath(
             bool force
             ) /* THREAD-SAFE */
@@ -5771,6 +8531,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the binary base path used by the
+        /// library.  This method is thread-safe.
+        /// </summary>
+        /// <param name="binaryPath">
+        /// Upon success, this contains the binary base path.  Upon failure, this
+        /// is unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the binary base path was successfully retrieved; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetBinaryPath(
             ref string binaryPath
             ) /* THREAD-SAFE */
@@ -5808,6 +8580,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the binary base path used by the library.  This
+        /// method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The binary base path, or null if it has not been set.
+        /// </returns>
         private static string GetBinaryPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -5839,6 +8618,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally sets the binary base path used by the
+        /// library.  This method is thread-safe.
+        /// </summary>
+        /// <param name="binaryPath">
+        /// The new binary base path.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to overwrite an existing binary base path.
+        /// </param>
+        /// <returns>
+        /// True if the binary base path was set; otherwise, false.
+        /// </returns>
         public static bool MaybeSetBinaryPath(
             string binaryPath,
             bool force
@@ -5879,6 +8671,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Resource Management Variable Access Methods
+        /// <summary>
+        /// This method gets the base name used when accessing managed resources.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The resource base name.
+        /// </returns>
         public static string GetResourceBaseName() /* THREAD-SAFE */
         {
             return resourceBaseName;
@@ -5890,6 +8689,13 @@ namespace Eagle._Components.Private
 
         #region Package Global Variable Access Methods
 #if DEBUGGER
+        /// <summary>
+        /// This method gets the name used for the script debugger.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The debugger name.
+        /// </returns>
         public static string GetDebuggerName() /* THREAD-SAFE */
         {
             return debuggerName;
@@ -5899,6 +8705,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* THREAD-SAFE */
+        /// <summary>
+        /// This method gets the configured package name, returning the default
+        /// package name when none has been set.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The package name; this value is never null.
+        /// </returns>
         public static string GetPackageName() /* CANNOT RETURN NULL */
         {
             return (packageName != null) ?
@@ -5908,6 +8721,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* THREAD-SAFE */
+        /// <summary>
+        /// This method gets the configured case-insensitive package name,
+        /// returning the default when none has been set.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The case-insensitive package name; this value is never null.
+        /// </returns>
         public static string GetPackageNameNoCase() /* CANNOT RETURN NULL */
         {
             return (packageNameNoCase != null) ?
@@ -5916,6 +8737,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package name associated with the specified
+        /// package type.  This method is thread-safe.
+        /// </summary>
+        /// <param name="packageType">
+        /// The package type whose name is requested.
+        /// </param>
+        /// <param name="default">
+        /// The package name to return when the specified package type is not
+        /// recognized; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The package name for the specified package type, or the supplied
+        /// default value; this value may be null.
+        /// </returns>
         public static string GetPackageTypeName( /* MAY RETURN NULL */
             PackageType packageType, /* in */
             string @default          /* OPTIONAL: May be null. */
@@ -5940,6 +8776,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package name for the specified package type.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="packageType">
+        /// The package type whose name is requested.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to return the package name in lower case.
+        /// </param>
+        /// <returns>
+        /// The package name; this value is never null.
+        /// </returns>
         public static string GetPackageName( /* CANNOT RETURN NULL */
             PackageType packageType,
             bool noCase
@@ -5950,6 +8799,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package name for the specified package type,
+        /// optionally surrounding it with a prefix and suffix.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="packageType">
+        /// The package type whose name is requested.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix to prepend to the package name; this value may be
+        /// null.
+        /// </param>
+        /// <param name="suffix">
+        /// The optional suffix to append to the package name; this value may be
+        /// null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to return the package name in lower case.
+        /// </param>
+        /// <returns>
+        /// The package name; this value is never null.
+        /// </returns>
         public static string GetPackageName( /* CANNOT RETURN NULL */
             PackageType packageType,
             string prefix,
@@ -5981,6 +8852,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package version.  This method is thread-safe.
+        /// </summary>
+        /// <param name="shortOnly">
+        /// Non-zero to return only the two-part (major and minor) version; zero
+        /// to return the full version; null to use the configured default.  This
+        /// value may be null.
+        /// </param>
+        /// <returns>
+        /// The package version.
+        /// </returns>
         public static Version GetPackageVersion(
             bool? shortOnly /* in: OPTIONAL, COMPAT: Eagle beta. */
             ) /* THREAD-SAFE */
@@ -5997,6 +8879,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the two-part (major and minor) package version.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The two-part package version.
+        /// </returns>
         private static Version GetShortPackageVersion() /* THREAD-SAFE */
         {
             //
@@ -6009,6 +8898,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the full package version, returning the default
+        /// version when none has been set.  This method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The full package version.
+        /// </returns>
         private static Version GetLongPackageVersion() /* THREAD-SAFE */
         {
             return (packageVersion != null) ?
@@ -6018,6 +8914,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method gets the path used as the Tcl package name.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The Tcl package name path, or null if it has not been set.
+        /// </returns>
         public static string GetTclPackageNamePath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -6049,6 +8952,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the root path used as the Tcl package name.  This
+        /// method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The Tcl package name root path, or null if it has not been set.
+        /// </returns>
         public static string GetTclPackageNameRootPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -6083,6 +8993,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Raw Binary Base Path Management Methods
+        /// <summary>
+        /// This method gets the raw binary base path for this assembly.  This
+        /// method is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The raw binary base path.
+        /// </returns>
         public static string GetRawBinaryBasePath() /* THREAD-SAFE */
         {
             return GetRawBinaryBasePath(thisAssembly);
@@ -6090,6 +9007,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the raw binary base path for this assembly using the
+        /// specified binary path.  This method is thread-safe.
+        /// </summary>
+        /// <param name="binaryPath">
+        /// The binary path to use when computing the base path.
+        /// </param>
+        /// <returns>
+        /// The raw binary base path.
+        /// </returns>
         private static string GetRawBinaryBasePath(
             string binaryPath
             ) /* THREAD-SAFE */
@@ -6099,6 +9026,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the raw binary base path for the specified assembly.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used when computing the base path; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The raw binary base path.
+        /// </returns>
         private static string GetRawBinaryBasePath(
             Assembly assembly /* OPTIONAL: May be null. */
             ) /* THREAD-SAFE */
@@ -6108,6 +9046,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the raw binary base path for the specified assembly
+        /// using the specified binary path.  This method is thread-safe.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used when computing the base path; this value may be
+        /// null.
+        /// </param>
+        /// <param name="binaryPath">
+        /// The binary path to use when computing the base path.
+        /// </param>
+        /// <returns>
+        /// The raw binary base path.
+        /// </returns>
         private static string GetRawBinaryBasePath(
             Assembly assembly, /* OPTIONAL: May be null. */
             string binaryPath
@@ -6120,6 +9072,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Raw Base Path Management Methods
+        /// <summary>
+        /// This method gets the raw base path for this assembly.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The raw base path.
+        /// </returns>
         public static string GetRawBasePath() /* THREAD-SAFE */
         {
             return GetRawBasePath(InitializeOrGetAssemblyPath(false));
@@ -6127,6 +9086,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the raw base path for this assembly using the
+        /// specified path.  This method is thread-safe.
+        /// </summary>
+        /// <param name="path">
+        /// The path to use when computing the base path.
+        /// </param>
+        /// <returns>
+        /// The raw base path.
+        /// </returns>
         private static string GetRawBasePath(
             string path
             ) /* THREAD-SAFE */
@@ -6136,6 +9105,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the raw base path for the specified assembly using
+        /// the specified path.  This method is thread-safe.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used when computing the base path; this value may be
+        /// null.
+        /// </param>
+        /// <param name="path">
+        /// The path to use when computing the base path.
+        /// </param>
+        /// <returns>
+        /// The raw base path.
+        /// </returns>
         private static string GetRawBasePath(
             Assembly assembly, /* OPTIONAL: May be null. */
             string path
@@ -6148,6 +9131,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Base Path Global Variable Management Methods
+        /// <summary>
+        /// This method gets the base path used by the library.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The base path, or null if it could not be determined.
+        /// </returns>
         public static string GetBasePath() /* THREAD-SAFE */
         {
             return GetBasePath(thisAssembly);
@@ -6155,6 +9145,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the base path used by the library for the specified
+        /// assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used when computing the base path; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The base path, or null if it could not be determined.
+        /// </returns>
         private static string GetBasePath(
             Assembly assembly /* OPTIONAL: May be null. */
             ) /* THREAD-SAFE */
@@ -6264,6 +9265,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the base path used by the library.  This method is
+        /// intended for external use only and is thread-safe.
+        /// </summary>
+        /// <param name="basePath">
+        /// The new base path.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh any paths derived from the base path.
+        /// </param>
         public static void SetBasePath( /* EXTERNAL USE ONLY */
             string basePath,
             bool refresh
@@ -6308,6 +9319,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes any paths that are derived from the base path.
+        /// This method is thread-safe.
+        /// </summary>
         private static void RefreshBasePath() /* THREAD-SAFE */
         {
             RefreshLibraryPath();
@@ -6322,6 +9337,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Externals Path Global Variable Management Methods
+        /// <summary>
+        /// This method gets the externals path used by the library.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <returns>
+        /// The externals path, or null if it could not be determined.
+        /// </returns>
         public static string GetExternalsPath() /* THREAD-SAFE */
         {
             return GetExternalsPath(thisAssembly);
@@ -6329,6 +9351,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the externals path used by the library for the
+        /// specified assembly.  This method is thread-safe.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used when computing the externals path; this value may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The externals path, or null if it could not be determined.
+        /// </returns>
         private static string GetExternalsPath(
             Assembly assembly /* OPTIONAL: May be null. */
             ) /* THREAD-SAFE */
@@ -6396,6 +9429,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the externals path used by the library.  This method
+        /// is intended for external use only and is thread-safe.
+        /// </summary>
+        /// <param name="externalsPath">
+        /// The new externals path.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh any paths derived from the externals path.
+        /// </param>
         public static void SetExternalsPath( /* EXTERNAL USE ONLY */
             string externalsPath,
             bool refresh
@@ -6440,6 +9483,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes any paths that are derived from the externals
+        /// path.  This method is thread-safe.
+        /// </summary>
         private static void RefreshExternalsPath() /* THREAD-SAFE */
         {
             //
@@ -6455,6 +9502,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Library Path / Auto-Path Support Methods
+        /// <summary>
+        /// This method fetches the library path and auto-path list associated
+        /// with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths should be fetched.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// Upon success, receives the library path of the specified
+        /// interpreter.
+        /// </param>
+        /// <param name="autoPathList">
+        /// Upon success, receives the auto-path list of the specified
+        /// interpreter.
+        /// </param>
+        /// <returns>
+        /// True if the paths were fetched successfully; otherwise, false.
+        /// </returns>
         private static bool FetchInterpreterPaths(
             Interpreter interpreter,
             ref string libraryPath,
@@ -6470,6 +9536,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fetches the library path, auto-path list, and
+        /// initialization flags associated with the specified interpreter,
+        /// using the interpreter lock to ensure thread-safe access.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths and flags should be fetched.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// Upon success, receives the library path of the specified
+        /// interpreter.
+        /// </param>
+        /// <param name="autoPathList">
+        /// Upon success, receives the auto-path list of the specified
+        /// interpreter.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// Upon success, receives the initialization flags of the specified
+        /// interpreter.
+        /// </param>
+        /// <returns>
+        /// True if the paths and flags were fetched successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool FetchInterpreterPathsAndFlags(
             Interpreter interpreter,
             ref string libraryPath,
@@ -6525,6 +9616,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Disposal Support Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter is in a
+        /// state suitable for being disposed, optionally canceling any pending
+        /// evaluations and checking for global busy status.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to be examined.  This value may be null.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to skip canceling any pending evaluations in the
+        /// interpreter.
+        /// </param>
+        /// <param name="noBusy">
+        /// Non-zero to skip checking whether the interpreter is globally busy.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter should be disposed; otherwise, false.
+        /// </returns>
         private static bool ShouldDisposeInterpreter(
             Interpreter interpreter, /* in */
             bool noCancel,           /* in */
@@ -6592,6 +9701,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of all tracked interpreters whose string
+        /// representation matches the specified pattern.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode used to compare each interpreter against the
+        /// specified pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to select which interpreters should be disposed.
+        /// This value may be null to select all interpreters.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// The flags used to control whether pending evaluations are canceled
+        /// and whether global busy status is honored.
+        /// </param>
+        /// <returns>
+        /// The number of interpreters that were disposed.
+        /// </returns>
         public static int DisposeInterpreters(
             MatchMode mode,         /* in */
             string pattern,         /* in */
@@ -6666,6 +9794,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: *DEADLOCK* This requires the interpreter lock.
         //
+        /// <summary>
+        /// This method gets the library path for the specified interpreter,
+        /// optionally refreshing the auto-path list beforehand.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose library path is being queried.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh the auto-path list prior to computing the
+        /// library path.
+        /// </param>
+        /// <param name="resetShared">
+        /// Non-zero to reset the shared auto-path list when refreshing.
+        /// </param>
+        /// <returns>
+        /// The library path, or the base path if no suitable library path is
+        /// found.
+        /// </returns>
         public static string GetLibraryPath(
             Interpreter interpreter, /* OPTIONAL: May be null. */
             bool refresh,
@@ -6688,6 +9835,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the library path for the specified interpreter
+        /// using the supplied library path, auto-path list, and initialization
+        /// flags, optionally refreshing the auto-path list beforehand.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose library path is being queried.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The library path associated with the interpreter.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The auto-path list associated with the interpreter.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used to control auto-path display and
+        /// strictness.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh the auto-path list prior to computing the
+        /// library path.
+        /// </param>
+        /// <param name="resetShared">
+        /// Non-zero to reset the shared auto-path list when refreshing.
+        /// </param>
+        /// <returns>
+        /// The library path, or the base path if no suitable library path is
+        /// found.
+        /// </returns>
         private static string GetLibraryPath(
             Interpreter interpreter, /* OPTIONAL: May be null. */
             string libraryPath,
@@ -6729,6 +9906,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the library path relative to the specified
+        /// assembly, honoring the supplied path flags to control how the path
+        /// is resolved.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used as the basis for computing the library path.
+        /// This value may be null.
+        /// </param>
+        /// <param name="pathFlags">
+        /// The flags used to control how the library path is computed,
+        /// including whether to use the shared, root, or binary-relative path.
+        /// </param>
+        /// <returns>
+        /// The library path, or null if no suitable library path is found.
+        /// </returns>
         private static string GetLibraryPath(
             Assembly assembly, /* OPTIONAL: May be null. */
             PathFlags pathFlags
@@ -6902,6 +10095,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the shared library path, optionally refreshing the
+        /// dependent package paths so that the change takes effect.
+        /// </summary>
+        /// <param name="libraryPath">
+        /// The new shared library path.  This value may be null.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh the library path so that the change is
+        /// propagated to the dependent package paths.
+        /// </param>
         public static void SetLibraryPath( /* EXTERNAL USE ONLY */
             string libraryPath,
             bool refresh
@@ -6947,6 +10151,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if UNIX
+        /// <summary>
+        /// This method gets the Unix-specific library path, honoring the
+        /// supplied path flags to control whether the shared, local, or
+        /// system library directory is returned.
+        /// </summary>
+        /// <param name="pathFlags">
+        /// The flags used to control how the Unix library path is computed.
+        /// </param>
+        /// <returns>
+        /// The Unix library path, or null if no suitable library path is
+        /// found.
+        /// </returns>
         private static string GetUnixLibraryPath(
             PathFlags pathFlags
             ) /* THREAD-SAFE */
@@ -7019,6 +10235,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the package paths and resets the shared
+        /// auto-path list so that they are recomputed using the current
+        /// library path.
+        /// </summary>
         private static void RefreshLibraryPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -7064,6 +10285,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Path Data Support Methods
+        /// <summary>
+        /// This method refreshes the cached assembly package paths without
+        /// acquiring the path lock.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to recompute the cached paths even when they have already
+        /// been computed.
+        /// </param>
         private static void RefreshAssemblyPackagePathsNoLock(
             bool force
             )
@@ -7083,6 +10312,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the cached raw binary base and raw base
+        /// package paths without acquiring the path lock.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to recompute the cached paths even when they have already
+        /// been computed.
+        /// </param>
         private static void RefreshRawPackagePathsNoLock(
             bool force
             )
@@ -7116,6 +10353,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the cached package paths, including the peer
+        /// binary, peer assembly, root, name-based, Unix, and Tcl package
+        /// paths, without acquiring the path lock.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to recompute the cached paths even when they have already
+        /// been computed.
+        /// </param>
         private static void RefreshPackagePathsNoLock(
             bool force
             )
@@ -7200,6 +10446,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes and/or refreshes the binary, assembly, and
+        /// package paths used by the global state, under the protection of the
+        /// path lock.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the binary, assembly, and entry assembly
+        /// paths.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to refresh the cached assembly, raw, and package paths.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the paths to be recomputed even when they have
+        /// already been computed.
+        /// </param>
+        /// <returns>
+        /// True if the paths were set up successfully; otherwise, false.
+        /// </returns>
         public static bool SetupPaths(
             bool initialize,
             bool refresh,
@@ -7262,6 +10527,25 @@ namespace Eagle._Components.Private
 
         #region Package Path Support Methods
         #region Library Package Path Support Methods
+        /// <summary>
+        /// This method gets the package path name for the specified package
+        /// type, appending the major and minor version components when a
+        /// version is supplied.
+        /// </summary>
+        /// <param name="packageType">
+        /// The package type whose path name is being queried.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <param name="default">
+        /// The default name to use when no name is associated with the
+        /// specified package type.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The package path name, or null if none is available.
+        /// </returns>
         public static string GetPackagePath( /* MAY RETURN NULL */
             PackageType packageType, /* in */
             Version version,         /* OPTIONAL: May be null. */
@@ -7278,6 +10562,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package path relative to the specified
+        /// assembly, optionally appending the package name and version
+        /// components.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly used as the basis for computing the library path.
+        /// This value may be null.
+        /// </param>
+        /// <param name="name">
+        /// The package name to append to the library path.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <param name="pathFlags">
+        /// The flags used to control how the underlying library path is
+        /// computed.
+        /// </param>
+        /// <returns>
+        /// The package path, or null if no suitable library path is found.
+        /// </returns>
         public static string GetPackagePath(
             Assembly assembly,  /* OPTIONAL: May be null. */
             string name,        /* OPTIONAL: May be null. */
@@ -7306,6 +10614,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the package file name, consisting of the package
+        /// name followed by the package version.
+        /// </summary>
+        /// <returns>
+        /// The package file name, or null if the package name is not
+        /// available.
+        /// </returns>
         public static string GetPackageFileNameOnly()
         {
             string name = GetPackageName(); /* "Eagle" */
@@ -7330,6 +10646,26 @@ namespace Eagle._Components.Private
 
         #region Unix Package Path Support Methods
 #if UNIX
+        /// <summary>
+        /// This method gets the Unix-specific package path, optionally
+        /// appending the package name and version components.
+        /// </summary>
+        /// <param name="name">
+        /// The package name to append to the Unix library path.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <param name="pathFlags">
+        /// The flags used to control how the underlying Unix library path is
+        /// computed.
+        /// </param>
+        /// <returns>
+        /// The Unix package path, or null if no suitable library path is
+        /// found.
+        /// </returns>
         private static string GetUnixPackagePath(
             string name,
             Version version,
@@ -7358,6 +10694,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Package Path Support Methods
+        /// <summary>
+        /// This method gets the assembly-relative package path, optionally
+        /// appending the package name and version components.
+        /// </summary>
+        /// <param name="name">
+        /// The package name to append to the assembly library path.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The assembly package path, or null if the assembly path is not
+        /// available.
+        /// </returns>
         private static string GetAssemblyPackagePath(
             string name,
             Version version
@@ -7391,6 +10743,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Raw Binary Base Package Path Support Methods
+        /// <summary>
+        /// This method gets the package path relative to the raw binary base
+        /// path, optionally appending the package name and version components.
+        /// </summary>
+        /// <param name="name">
+        /// The package name to append to the raw binary base library path.
+        /// This value may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The raw binary base package path, or null if the binary path is
+        /// not available.
+        /// </returns>
         private static string GetRawBinaryBasePackagePath(
             string name,
             Version version
@@ -7425,6 +10793,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Raw Base Package Path Support Methods
+        /// <summary>
+        /// This method gets the package path relative to the raw base path,
+        /// optionally appending the package name and version components.
+        /// </summary>
+        /// <param name="name">
+        /// The package name to append to the raw base library path.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version whose major and minor components are appended to the
+        /// result.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The raw base package path, or null if the assembly path is not
+        /// available.
+        /// </returns>
         private static string GetRawBasePackagePath(
             string name,
             Version version
@@ -7458,6 +10842,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Path Global Variable Management Methods
+        /// <summary>
+        /// This method gets the cached assembly package root path, under the
+        /// protection of the path lock.
+        /// </summary>
+        /// <returns>
+        /// The assembly package root path, or null if it is not available or
+        /// the path lock could not be acquired.
+        /// </returns>
         public static string GetAssemblyPackageRootPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -7489,6 +10881,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached package peer binary path, under the
+        /// protection of the path lock.
+        /// </summary>
+        /// <returns>
+        /// The package peer binary path, or null if it is not available or
+        /// the path lock could not be acquired.
+        /// </returns>
         public static string GetPackagePeerBinaryPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -7520,6 +10920,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the cached package peer assembly path, under the
+        /// protection of the path lock.
+        /// </summary>
+        /// <returns>
+        /// The package peer assembly path, or null if it is not available or
+        /// the path lock could not be acquired.
+        /// </returns>
         public static string GetPackagePeerAssemblyPath() /* THREAD-SAFE */
         {
             bool locked = false;
@@ -7554,6 +10962,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Auto-Path Support Methods
+        /// <summary>
+        /// This method determines whether the path associated with the
+        /// specified client data should be added to the auto-path dictionary.
+        /// </summary>
+        /// <param name="autoPaths">
+        /// The dictionary of existing auto-path entries to check against for
+        /// duplicate paths.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data containing the candidate path and its associated
+        /// name.
+        /// </param>
+        /// <param name="strictAutoPath">
+        /// Non-zero to require that the candidate path refer to an existing
+        /// directory.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the path that should be added; otherwise,
+        /// receives null.
+        /// </param>
+        /// <returns>
+        /// True if the path should be added to the auto-path dictionary;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldAddToAutoPathList(
             AutoPathDictionary autoPaths, /* in */
             PathClientData clientData,    /* in */
@@ -7596,6 +11028,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally adds the path associated with the
+        /// specified client data to the auto-path dictionary, if it qualifies
+        /// for inclusion.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, used for diagnostic tracing. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="autoPaths">
+        /// The dictionary of auto-path entries to add to.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data containing the candidate path and its associated
+        /// name.
+        /// </param>
+        /// <param name="showAutoPath">
+        /// Non-zero to emit diagnostic tracing about the added path.
+        /// </param>
+        /// <param name="strictAutoPath">
+        /// Non-zero to require that the candidate path refer to an existing
+        /// directory.
+        /// </param>
         private static void MaybeAddToAutoPathList(
             Interpreter interpreter,      /* in: OPTIONAL */
             AutoPathDictionary autoPaths, /* in */
@@ -7628,6 +11083,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the auto-path dictionary for the specified
+        /// interpreter, including its associated paths.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths are to be considered. This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to consider. This parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of auto-path entries to consider. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="libraryOnly">
+        /// Non-zero to consider only paths that may contain the core script
+        /// library.
+        /// </param>
+        /// <param name="showAutoPath">
+        /// Non-zero to emit diagnostic tracing about the added paths.
+        /// </param>
+        /// <param name="strictAutoPath">
+        /// Non-zero to require that candidate paths refer to existing
+        /// directories.
+        /// </param>
+        /// <param name="autoPaths">
+        /// Upon return, contains the populated auto-path dictionary, created
+        /// if necessary.
+        /// </param>
         private static void GetInterpreterAutoPathList(
             Interpreter interpreter,         /* in: OPTIONAL */
             string libraryPath,              /* in: OPTIONAL */
@@ -7701,6 +11186,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the auto-path dictionary using the paths that
+        /// are shared across all interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, used for diagnostic tracing. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="libraryOnly">
+        /// Non-zero to consider only paths that may contain the core script
+        /// library.
+        /// </param>
+        /// <param name="showAutoPath">
+        /// Non-zero to emit diagnostic tracing about the added paths.
+        /// </param>
+        /// <param name="strictAutoPath">
+        /// Non-zero to require that candidate paths refer to existing
+        /// directories.
+        /// </param>
+        /// <param name="autoPaths">
+        /// Upon return, contains the populated auto-path dictionary, created
+        /// if necessary.
+        /// </param>
         private static void GetSharedAutoPathList(
             Interpreter interpreter,         /* in: OPTIONAL */
             bool libraryOnly,                /* in */
@@ -7772,6 +11280,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the shared auto-path list to null so that it
+        /// will be reinitialized on the next request.
+        /// </summary>
         private static void ResetSharedAutoPathList()
         {
             bool locked = false;
@@ -7816,6 +11328,34 @@ namespace Eagle._Components.Private
         //          bad and counter-intuitive; in the future, it may be
         //          changed.
         //
+        /// <summary>
+        /// This method populates the specified dictionary with the configured
+        /// paths, without acquiring the associated lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths are to be included. This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="interpreterOnly">
+        /// Non-zero to include only paths that are specific to the specified
+        /// interpreter.
+        /// </param>
+        /// <param name="libraryOnly">
+        /// Non-zero to include only paths that may contain the core script
+        /// library.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to include all paths, including the non-auto-path and
+        /// diagnostic entries.
+        /// </param>
+        /// <param name="sequence">
+        /// A counter used to assign relative ordering to each added path
+        /// entry; updated as entries are added.
+        /// </param>
+        /// <param name="paths">
+        /// The dictionary to populate, created if necessary; updated to
+        /// contain the configured paths.
+        /// </param>
         private static void PopulatePathsNoLock(
             Interpreter interpreter,           /* in: OPTIONAL */
             bool interpreterOnly,              /* in */
@@ -8612,6 +12152,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified dictionary with the configured
+        /// paths, acquiring the associated lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths are to be included. This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="interpreterOnly">
+        /// Non-zero to include only paths that are specific to the specified
+        /// interpreter.
+        /// </param>
+        /// <param name="libraryOnly">
+        /// Non-zero to include only paths that may contain the core script
+        /// library.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to include all paths, including the non-auto-path and
+        /// diagnostic entries.
+        /// </param>
+        /// <param name="sequence">
+        /// A counter used to assign relative ordering to each added path
+        /// entry; updated as entries are added.
+        /// </param>
+        /// <param name="paths">
+        /// The dictionary to populate, created if necessary; updated to
+        /// contain the configured paths.
+        /// </param>
         public static void PopulatePaths(
             Interpreter interpreter,           /* in: OPTIONAL */
             bool interpreterOnly,              /* in */
@@ -8650,6 +12218,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method filters the specified dictionary of paths in place,
+        /// optionally removing non-existent and/or duplicate entries.
+        /// </summary>
+        /// <param name="existingOnly">
+        /// Non-zero to remove paths that do not refer to an existing
+        /// directory.
+        /// </param>
+        /// <param name="uniqueOnly">
+        /// Non-zero to remove duplicate paths, keying the resulting entries
+        /// by their path.
+        /// </param>
+        /// <param name="paths">
+        /// The dictionary of paths to filter; upon return, contains only the
+        /// entries that pass the filter.
+        /// </param>
         public static void FilterPaths(
             bool existingOnly,                 /* in */
             bool uniqueOnly,                   /* in */
@@ -8691,6 +12275,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method temporarily prepends the specified path to the
+        /// auto-path environment variable and refreshes the auto-path list,
+        /// saving the previous value for later restoration.
+        /// </summary>
+        /// <param name="path">
+        /// The path to prepend to the auto-path. This parameter may be null.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output during the refresh.
+        /// </param>
+        /// <param name="savedLibPath">
+        /// Upon return, receives the previous value of the auto-path
+        /// environment variable, for later restoration.
+        /// </param>
         public static void BeginWithAutoPath( /* EXTERNAL USE ONLY */
             string path,            /* in */
             bool verbose,           /* in */
@@ -8719,6 +12318,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the previously saved auto-path environment
+        /// variable value and refreshes the auto-path list.
+        /// </summary>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output during the refresh.
+        /// </param>
+        /// <param name="savedLibPath">
+        /// The previously saved auto-path environment variable value to
+        /// restore; reset to null upon return.
+        /// </param>
         public static void EndWithAutoPath( /* EXTERNAL USE ONLY */
             bool verbose,           /* in */
             ref string savedLibPath /* in, out */
@@ -8735,6 +12345,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method re-queries all auto-path related environment variables,
+        /// also resetting the shared auto-path list.
+        /// </summary>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output.
+        /// </param>
         public static void RefreshAutoPathList(
             bool verbose
             ) /* THREAD-SAFE */
@@ -8747,6 +12364,16 @@ namespace Eagle._Components.Private
         //
         // WARNING: Re-query all auto-path related environment variables now.
         //
+        /// <summary>
+        /// This method re-queries all auto-path related environment variables.
+        /// </summary>
+        /// <param name="resetShared">
+        /// Non-zero to also reset the shared auto-path list so that it is
+        /// reinitialized on the next request.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output.
+        /// </param>
         private static void RefreshAutoPathList(
             bool resetShared,
             bool verbose
@@ -8843,6 +12470,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the combined auto-path list for the specified
+        /// interpreter, including the shared auto-path list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths are to be included. This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to force the shared auto-path list to be reinitialized.
+        /// </param>
+        /// <returns>
+        /// The combined auto-path list. This method cannot return null.
+        /// </returns>
         public static StringList GetAutoPathList( /* CANNOT RETURN NULL */
             Interpreter interpreter, /* OPTIONAL: May be null. */
             bool refresh
@@ -8864,6 +12505,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the combined auto-path list for the specified
+        /// interpreter and paths, including the shared auto-path list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose paths are to be included. This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to consider. This parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of auto-path entries to consider. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// Flags that control how the auto-path list is built, including the
+        /// diagnostic and strictness behavior.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to force the shared auto-path list to be reinitialized.
+        /// </param>
+        /// <returns>
+        /// The combined auto-path list. This method cannot return null.
+        /// </returns>
         public static StringList GetAutoPathList( /* CANNOT RETURN NULL */
             Interpreter interpreter, /* OPTIONAL: May be null. */
             string libraryPath,
@@ -8990,6 +12656,22 @@ namespace Eagle._Components.Private
         //
         // WARNING: *DEADLOCK* This requires the interpreter lock.
         //
+        /// <summary>
+        /// This method gathers the various paths used by the interpreter and adds
+        /// them, together with their associated client data, to the supplied
+        /// dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to gather all available paths; otherwise, only a subset of the
+        /// paths is gathered.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the gathered paths and their associated client
+        /// data.  This dictionary may be created if it is initially null.
+        /// </param>
         public static void GetPaths(
             Interpreter interpreter,           /* in */
             bool all,                          /* in */
@@ -9035,6 +12717,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gathers the various paths used by the interpreter and
+        /// displays them, optionally filtering them based on the specified flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which paths are gathered and how they are
+        /// filtered prior to being displayed.
+        /// </param>
         public static void DisplayPaths(
             Interpreter interpreter, /* in */
             DebugPathFlags flags     /* in */
@@ -9096,6 +12789,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Global Trusted Hashes Support Methods
+        /// <summary>
+        /// This method creates and returns a copy of the global list of trusted
+        /// hashes, optionally clearing the original list.
+        /// </summary>
+        /// <param name="clear">
+        /// Non-zero to clear the global list of trusted hashes after copying it.
+        /// </param>
+        /// <returns>
+        /// A copy of the global list of trusted hashes, or null if there are no
+        /// trusted hashes or the required lock could not be acquired.
+        /// </returns>
         public static StringList CopyTrustedHashes(
             bool clear /* in */
             )
@@ -9136,6 +12840,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the trusted hashes associated with the specified
+        /// interpreter into the global list of trusted hashes, optionally clearing
+        /// the global list beforehand.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the global list of trusted hashes before adding the
+        /// copied hashes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the copy
+        /// could not be performed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode CopyTrustedHashes(
             Interpreter interpreter, /* in */
             bool clear,              /* in */
@@ -9148,6 +12871,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified hashes to the global list of trusted
+        /// hashes, optionally clearing the global list beforehand.
+        /// </summary>
+        /// <param name="hashes">
+        /// The hashes to add to the global list of trusted hashes.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the global list of trusted hashes before adding the
+        /// specified hashes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the hashes
+        /// could not be added.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode AddTrustedHashes(
             IEnumerable<string> hashes, /* in: OPTIONAL */
             bool clear,                 /* in */
@@ -9203,6 +12945,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Embedding Support Methods
+        /// <summary>
+        /// This method records that the specified directory was considered using
+        /// the specified detection flags, adding it to the supplied dictionary of
+        /// tracked paths.
+        /// </summary>
+        /// <param name="detectFlags">
+        /// The detection flags that were in effect when the directory was
+        /// considered; these are used to form the dictionary key.
+        /// </param>
+        /// <param name="directory">
+        /// The directory that was considered.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the tracked directory.  This dictionary may be
+        /// created if it is initially null.
+        /// </param>
         private static void TrackPackageDirectory(
             DetectFlags detectFlags,       /* in */
             string directory,              /* in */
@@ -9230,6 +12988,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the specified directory contains a script
+        /// library for the specified package, tracking the directory that was
+        /// considered.
+        /// </summary>
+        /// <param name="packageName">
+        /// The name of the package to check for, if any.
+        /// </param>
+        /// <param name="packageVersion">
+        /// The version of the package to check for, if any.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name, without any directory information, that must exist within
+        /// the candidate directory, if any.
+        /// </param>
+        /// <param name="detectFlags">
+        /// The detection flags that are in effect; these are used when tracking the
+        /// directory that was considered.
+        /// </param>
+        /// <param name="path">
+        /// Upon entry, the candidate directory to check.  Upon success, receives
+        /// the resolved package directory.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the directory that was considered.  This
+        /// dictionary may be created if it is initially null.
+        /// </param>
+        /// <returns>
+        /// True if a suitable package directory was found; otherwise, false.
+        /// </returns>
         private static bool CheckPackageDirectory(
             string packageName,            /* in: OPTIONAL */
             Version packageVersion,        /* in: OPTIONAL */
@@ -9295,6 +13083,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to detect a package script library directory using
+        /// the indicated starting point, tracking each directory that is
+        /// considered.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose location is used as the starting point for the
+        /// search.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data for this operation.  This parameter is not used.
+        /// </param>
+        /// <param name="packageName">
+        /// The name of the package to check for, if any.
+        /// </param>
+        /// <param name="packageVersion">
+        /// The version of the package to check for, if any.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name, without any directory information, that must exist within
+        /// the candidate directory, if any.
+        /// </param>
+        /// <param name="path">
+        /// Upon success, receives the detected package directory.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the directories that were considered.  This
+        /// dictionary may be created if it is initially null.
+        /// </param>
+        /// <returns>
+        /// True if a suitable package directory was found; otherwise, false.
+        /// </returns>
         private static bool DetectPackageFileViaAssembly(
             Assembly assembly,             /* in */
             IClientData clientData,        /* in: NOT USED */
@@ -9324,6 +13144,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to detect a package script library directory using
+        /// the indicated starting point, tracking each directory that is
+        /// considered.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the environment variable whose value is used as the starting
+        /// point for the search.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data for this operation.  This parameter is not used.
+        /// </param>
+        /// <param name="packageName">
+        /// The name of the package to check for, if any.
+        /// </param>
+        /// <param name="packageVersion">
+        /// The version of the package to check for, if any.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name, without any directory information, that must exist within
+        /// the candidate directory, if any.
+        /// </param>
+        /// <param name="path">
+        /// Upon success, receives the detected package directory.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the directories that were considered.  This
+        /// dictionary may be created if it is initially null.
+        /// </param>
+        /// <returns>
+        /// True if a suitable package directory was found; otherwise, false.
+        /// </returns>
         private static bool DetectPackageFileViaEnvironment(
             string variable,               /* in */
             IClientData clientData,        /* in: NOT USED */
@@ -9353,6 +13205,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method attempts to detect a package script library directory using
+        /// the indicated starting point, tracking each directory that is
+        /// considered.
+        /// </summary>
+        /// <param name="version">
+        /// The version whose setup information is used as the starting point for the
+        /// search.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data for this operation.  This parameter is not used.
+        /// </param>
+        /// <param name="packageName">
+        /// The name of the package to check for, if any.
+        /// </param>
+        /// <param name="packageVersion">
+        /// The version of the package to check for, if any.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name, without any directory information, that must exist within
+        /// the candidate directory, if any.
+        /// </param>
+        /// <param name="path">
+        /// Upon success, receives the detected package directory.
+        /// </param>
+        /// <param name="paths">
+        /// Upon return, receives the directories that were considered.  This
+        /// dictionary may be created if it is initially null.
+        /// </param>
+        /// <returns>
+        /// True if a suitable package directory was found; otherwise, false.
+        /// </returns>
         private static bool DetectPackageFileViaSetup(
             Version version,               /* in */
             IClientData clientData,        /* in: NOT USED */
@@ -9382,6 +13266,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to detect and set the script library path using the
+        /// location of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose location is used as the starting point for the
+        /// search, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data for this operation, if any.
+        /// </param>
+        /// <param name="detectFlags">
+        /// The detection flags used to control how the script library path is
+        /// detected.
+        /// </param>
+        /// <returns>
+        /// True if a suitable script library path was detected; otherwise, false.
+        /// </returns>
         public static bool DetectLibraryPath( /* EXTERNAL USE ONLY */
             Assembly assembly,      /* in: OPTIONAL */
             IClientData clientData, /* in: OPTIONAL */
@@ -9394,6 +13296,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to detect and set the script library path using the
+        /// specified assembly name and assembly.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose version may be used during detection, if any.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose location is used as the starting point for the
+        /// search, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data for this operation, if any.
+        /// </param>
+        /// <param name="detectFlags">
+        /// The detection flags used to control how the script library path is
+        /// detected.
+        /// </param>
+        /// <returns>
+        /// True if a suitable script library path was detected; otherwise, false.
+        /// </returns>
         public static bool DetectLibraryPath( /* EXTERNAL USE ONLY */
             AssemblyName assemblyName, /* in: OPTIONAL */
             Assembly assembly,         /* in: OPTIONAL */

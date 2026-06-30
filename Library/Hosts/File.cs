@@ -41,18 +41,60 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Hosts
 {
+    /// <summary>
+    /// This class provides an abstract host implementation, derived from the
+    /// <see cref="Engine" /> host, that is able to locate and load script (and
+    /// other) data on behalf of the script engine.  When the engine requests a
+    /// named piece of data (e.g. a library script), this host searches a series
+    /// of sources, in order: the bundle manager, the snippet manager, the file
+    /// system, the loaded plugins, the various resource managers (host,
+    /// application, library, packages, kit, and interpreter), and finally the
+    /// assembly manifest.  This allows scripts to be embedded as managed
+    /// resources so they need not exist elsewhere on the file system.  It is
+    /// abstract because concrete hosts (e.g. the "Default" host) are expected
+    /// to derive from it.
+    /// </summary>
     [ObjectId("514896d2-7003-45cf-b7fa-69fd443af625")]
     public abstract class File : Engine, IDisposable, IHaveInterpreter
     {
         #region Private Constants
+        /// <summary>
+        /// The default base name for the resource manager that contains the
+        /// embedded core script library.
+        /// </summary>
         private const string DefaultLibraryResourceBaseName = "library";
+
+        /// <summary>
+        /// The default base name for the resource manager that contains the
+        /// embedded core script packages.
+        /// </summary>
         private const string DefaultPackagesResourceBaseName = "packages";
+
+        /// <summary>
+        /// The default base name for the resource manager that contains the
+        /// embedded kit packages.
+        /// </summary>
         private const string DefaultKitResourceBaseName = "kit";
+
+        /// <summary>
+        /// The default base name for the resource manager that contains the
+        /// embedded application-specific (vendor) packages.
+        /// </summary>
         private const string DefaultApplicationResourceBaseName = "application";
+
+        /// <summary>
+        /// The file name suffix used when checking whether a manifest resource
+        /// for a given resource base name is present.
+        /// </summary>
         private const string DefaultResourceNameSuffix = ".resources";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of a resource that is not expected to exist, used to probe
+        /// a freshly created resource manager to verify that it is actually
+        /// functional.
+        /// </summary>
         private const string NotFoundResourceName = "empty";
         #endregion
 
@@ -64,13 +106,32 @@ namespace Eagle._Hosts
         //       missing) application resource manager for every interpreter
         //       that is created in this AppDomain.
         //
+        /// <summary>
+        /// The cached application-specific resource manager, shared across all
+        /// interpreters created in this application domain so the (possibly
+        /// missing) application resource manager need not be queried for each
+        /// new interpreter.
+        /// </summary>
         private static ResourceManager staticApplicationResourceManager = null;
+
+        /// <summary>
+        /// A counter used to ensure that the (potentially expensive) attempt to
+        /// set up the application-specific resource manager is only performed
+        /// once per application domain.
+        /// </summary>
         private static int setupStaticApplicationResourceManager = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Constructors
+        /// <summary>
+        /// Constructs an instance of this host class.
+        /// </summary>
+        /// <param name="hostData">
+        /// Optional data used to initialize the new host, including the
+        /// interpreter that owns it and any custom resource manager.
+        /// </param>
         protected File(
             IHostData hostData
             )
@@ -159,6 +220,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Support
+        /// <summary>
+        /// Gets the interpreter associated with this host, catching and
+        /// optionally tracing any exception thrown while doing so.
+        /// </summary>
+        /// <param name="trace">
+        /// Non-zero to emit a trace message if an exception is caught.
+        /// </param>
+        /// <returns>
+        /// The associated interpreter, or null if it could not be obtained.
+        /// </returns>
         protected internal Interpreter InternalSafeGetInterpreter(
             bool trace
             )
@@ -183,6 +254,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// Clears the interpreter associated with this host, catching and
+        /// optionally tracing any exception thrown while doing so.  This method
+        /// is only available when compiled with the "TEST" option.
+        /// </summary>
+        /// <param name="trace">
+        /// Non-zero to emit a trace message if an exception is caught.
+        /// </param>
         internal void ResetInterpreter(
             bool trace
             )
@@ -205,6 +284,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the interpreter associated with this host without catching any
+        /// exception thrown while doing so.
+        /// </summary>
+        /// <returns>
+        /// The associated interpreter.
+        /// </returns>
         protected Interpreter UnsafeGetInterpreter()
         {
             return Interpreter; /* throw */
@@ -213,6 +299,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// Determines whether this host is running in an application domain
+        /// isolated from its parent interpreter, catching and tracing any
+        /// exception thrown while doing so.  This method is only available when
+        /// compiled with the "ISOLATED_PLUGINS" option.
+        /// </summary>
+        /// <returns>
+        /// True if this host is isolated; otherwise, false.
+        /// </returns>
         protected bool SafeIsIsolated()
         {
             try
@@ -236,6 +331,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Associates this host with its parent interpreter as the isolated
+        /// host, catching and tracing any exception thrown while doing so.  This
+        /// method is only available when compiled with the "ISOLATED_PLUGINS"
+        /// option.
+        /// </summary>
+        /// <returns>
+        /// True if the isolated host was set; otherwise, false.
+        /// </returns>
         private bool SetupInterpreterIsolatedHost()
         {
             try
@@ -259,6 +363,23 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Plugin Support
+        /// <summary>
+        /// Determines whether the specified plugin has the specified flags,
+        /// catching and tracing any exception thrown while doing so.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin whose flags should be checked; may be null.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified flags are present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the plugin has the specified flags; otherwise, false.
+        /// </returns>
         protected static bool SafeHasFlags(
             IPluginData pluginData,
             PluginFlags hasFlags,
@@ -287,6 +408,61 @@ namespace Eagle._Hosts
 
         #region Host Script Support
         #region Script Flags & Package Types Support Methods
+        /// <summary>
+        /// Decomposes the specified script flags into the individual boolean
+        /// values that control how candidate resource names are generated.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to decompose.
+        /// </param>
+        /// <param name="skipQualified">
+        /// Upon return, non-zero if the fully qualified name should be skipped.
+        /// </param>
+        /// <param name="skipNonQualified">
+        /// Upon return, non-zero if the non-qualified name should be skipped.
+        /// </param>
+        /// <param name="skipRelative">
+        /// Upon return, non-zero if the relative name should be skipped.
+        /// </param>
+        /// <param name="skipRawName">
+        /// Upon return, non-zero if the raw (verbatim) name should be skipped.
+        /// </param>
+        /// <param name="skipFileName">
+        /// Upon return, non-zero if file name based names should be skipped.
+        /// </param>
+        /// <param name="skipFileNameOnly">
+        /// Upon return, non-zero if file-name-only names should be skipped.
+        /// </param>
+        /// <param name="skipNonFileNameOnly">
+        /// Upon return, non-zero if non-file-name-only names should be skipped.
+        /// </param>
+        /// <param name="skipLibraryToLib">
+        /// Upon return, non-zero if rewriting "library" to "lib" should be
+        /// skipped.
+        /// </param>
+        /// <param name="skipTestsToLib">
+        /// Upon return, non-zero if rewriting "tests" to "lib" should be
+        /// skipped.
+        /// </param>
+        /// <param name="loaderPackage">
+        /// Upon return, non-zero if the loader package type was requested.
+        /// </param>
+        /// <param name="libraryPackage">
+        /// Upon return, non-zero if the library package type was requested.
+        /// </param>
+        /// <param name="testPackage">
+        /// Upon return, non-zero if the test package type was requested.
+        /// </param>
+        /// <param name="kitPackage">
+        /// Upon return, non-zero if the kit package type was requested.
+        /// </param>
+        /// <param name="automaticPackage">
+        /// Upon return, non-zero if the automatic package type was requested.
+        /// </param>
+        /// <param name="preferDeepFileNames">
+        /// Upon return, non-zero if deeper (more nested) file names should be
+        /// preferred.
+        /// </param>
         private static void ExtractResourceNameScriptFlags(
             ScriptFlags scriptFlags,      /* in */
             out bool skipQualified,       /* out */
@@ -354,6 +530,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decomposes the specified script flags into the individual boolean
+        /// values that control how generated resource names are filtered.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to decompose.
+        /// </param>
+        /// <param name="filterOnSuffixMatch">
+        /// Upon return, non-zero if resource names should be filtered to only
+        /// those whose suffix matches the requested name.
+        /// </param>
+        /// <param name="preferDeepResourceNames">
+        /// Upon return, non-zero if deeper (more nested) resource names should
+        /// be preferred.
+        /// </param>
         private static void ExtractResourceNameScriptFlags(
             ScriptFlags scriptFlags,         /* in */
             out bool filterOnSuffixMatch,    /* out */
@@ -369,6 +560,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decomposes the specified script flags into the individual boolean
+        /// values that control bundle manager error handling.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to decompose.
+        /// </param>
+        /// <param name="failOnError">
+        /// Upon return, non-zero if an error reading a script should cause the
+        /// overall operation to fail.
+        /// </param>
+        /// <param name="ignoreCanRetry">
+        /// Upon return, non-zero if the "can retry" hint should be ignored when
+        /// deciding whether to fail.
+        /// </param>
         private static void ExtractBundleManagerScriptFlags(
             ScriptFlags scriptFlags,       /* in */
             out bool failOnError,          /* out */
@@ -384,6 +590,40 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decomposes the specified script flags into the individual boolean
+        /// values that control how plugins are queried and how errors are
+        /// handled while doing so.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to decompose.
+        /// </param>
+        /// <param name="noPluginResourceName">
+        /// Upon return, non-zero if the plugin-qualified resource name should
+        /// not be used.
+        /// </param>
+        /// <param name="noRawResourceName">
+        /// Upon return, non-zero if the raw (unqualified) resource name should
+        /// not be used.
+        /// </param>
+        /// <param name="failOnException">
+        /// Upon return, non-zero if an exception should cause the overall
+        /// operation to fail.
+        /// </param>
+        /// <param name="stopOnException">
+        /// Upon return, non-zero if an exception should stop the search loop.
+        /// </param>
+        /// <param name="failOnError">
+        /// Upon return, non-zero if an error should cause the overall operation
+        /// to fail.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Upon return, non-zero if an error should stop the search loop.
+        /// </param>
+        /// <param name="ignoreCanRetry">
+        /// Upon return, non-zero if the "can retry" hint should be ignored when
+        /// deciding whether to fail.
+        /// </param>
         private static void ExtractPluginScriptFlags(
             ScriptFlags scriptFlags,       /* in */
             out bool noPluginResourceName, /* out */
@@ -419,6 +659,31 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decomposes the specified script flags into the individual boolean
+        /// values that control error handling while reading script data.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to decompose.
+        /// </param>
+        /// <param name="failOnException">
+        /// Upon return, non-zero if an exception should cause the overall
+        /// operation to fail.
+        /// </param>
+        /// <param name="stopOnException">
+        /// Upon return, non-zero if an exception should stop the search loop.
+        /// </param>
+        /// <param name="failOnError">
+        /// Upon return, non-zero if an error should cause the overall operation
+        /// to fail.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Upon return, non-zero if an error should stop the search loop.
+        /// </param>
+        /// <param name="ignoreCanRetry">
+        /// Upon return, non-zero if the "can retry" hint should be ignored when
+        /// deciding whether to fail.
+        /// </param>
         private static void ExtractErrorHandlingScriptFlags(
             ScriptFlags scriptFlags,  /* in */
             out bool failOnException, /* out */
@@ -446,6 +711,28 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decomposes the specified package type flags into the individual
+        /// boolean values indicating which package types are present.
+        /// </summary>
+        /// <param name="packageType">
+        /// The package type flags to decompose.
+        /// </param>
+        /// <param name="haveLoaderPackage">
+        /// Upon return, non-zero if the loader package type is present.
+        /// </param>
+        /// <param name="haveLibraryPackage">
+        /// Upon return, non-zero if the library package type is present.
+        /// </param>
+        /// <param name="haveTestPackage">
+        /// Upon return, non-zero if the test package type is present.
+        /// </param>
+        /// <param name="haveKitPackage">
+        /// Upon return, non-zero if the kit package type is present.
+        /// </param>
+        /// <param name="haveAutomaticPackage">
+        /// Upon return, non-zero if the automatic package type is present.
+        /// </param>
         private static void ExtractResourceNamePackageTypes(
             PackageType packageType,      /* in */
             out bool haveLoaderPackage,   /* out */
@@ -473,6 +760,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Translates the specified script flags into the corresponding file
+        /// search flags used when searching the file system for a script.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to translate.
+        /// </param>
+        /// <param name="fileSearchFlags">
+        /// Upon return, the file search flags corresponding to the specified
+        /// script flags.
+        /// </param>
         private static void ScriptFlagsToFileSearchFlags(
             ScriptFlags scriptFlags,            /* in */
             out FileSearchFlags fileSearchFlags /* out */
@@ -539,6 +837,20 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Isolation Support Methods
+        /// <summary>
+        /// Returns the specified resource manager unless this host is running
+        /// isolated, in which case null is returned because the resource manager
+        /// cannot be marshalled across application domains.
+        /// </summary>
+        /// <param name="resourceManager">
+        /// The resource manager to conditionally return; may be null.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running in an isolated application domain.
+        /// </param>
+        /// <returns>
+        /// The specified resource manager, or null if running isolated.
+        /// </returns>
         private static ResourceManager MaybeGetResourceManager(
             ResourceManager resourceManager, /* in: OPTIONAL */
             bool isolated                    /* in */
@@ -554,6 +866,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Returns the specified assembly unless this host is running isolated,
+        /// in which case null is returned because the assembly cannot be
+        /// marshalled across application domains.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to conditionally return; may be null.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running in an isolated application domain.
+        /// </param>
+        /// <returns>
+        /// The specified assembly, or null if running isolated.
+        /// </returns>
         private static Assembly MaybeGetAssembly(
             Assembly assembly, /* in: OPTIONAL */
             bool isolated      /* in */
@@ -571,6 +897,20 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Tracing Support Methods
+        /// <summary>
+        /// Determines the trace priority to use when emitting a trace message
+        /// for a data request, based on whether the request is required and
+        /// whether it succeeded.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags for the data request.
+        /// </param>
+        /// <param name="returnCode">
+        /// The return code of the data request.
+        /// </param>
+        /// <returns>
+        /// The trace priority to use.
+        /// </returns>
         protected virtual TracePriority GetDataTracePriority(
             ScriptFlags scriptFlags, /* in */
             ReturnCode returnCode    /* in */
@@ -595,6 +935,34 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Emits a trace message describing a data request, if tracing is
+        /// enabled via the specified data flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the data request.
+        /// </param>
+        /// <param name="prefix">
+        /// A short prefix describing the point at which the trace is emitted.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, including whether tracing is enabled.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request, if any.
+        /// </param>
+        /// <param name="returnCode">
+        /// The current return code of the request.
+        /// </param>
+        /// <param name="result">
+        /// The current result of the request.
+        /// </param>
         protected virtual void GetDataTrace(
             Interpreter interpreter, /* in */
             string prefix,           /* in */
@@ -626,6 +994,28 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Emits a trace message describing the filtering of candidate script
+        /// resource names, if tracing is enabled via the specified data flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the data request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="resourceNames">
+        /// The collection of candidate resource names being filtered, if any.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, including whether tracing is enabled.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <param name="message">
+        /// An additional message describing the current filtering step.
+        /// </param>
         protected virtual void FilterScriptResourceNamesTrace(
             Interpreter interpreter,           /* in */
             string name,                       /* in */
@@ -657,6 +1047,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Emits a trace message describing the de-duplication of candidate
+        /// script resource names, if tracing is enabled via the specified data
+        /// flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the data request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="resourceNames">
+        /// The collection of candidate resource names before de-duplication.
+        /// </param>
+        /// <param name="uniqueResourceNames">
+        /// The dictionary of unique resource names after de-duplication.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, including whether tracing is enabled.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
         protected virtual void GetUniqueResourceNamesTrace(
             Interpreter interpreter,              /* in */
             string name,                          /* in */
@@ -712,6 +1125,24 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Reserved Names Support Methods
+        /// <summary>
+        /// Determines whether a file system search may match using only the
+        /// tail (file name) portion of the requested name.  This is forbidden
+        /// for scripts evaluated pursuant to a [package] command, for reserved
+        /// absolute names, and for core or package scripts.
+        /// </summary>
+        /// <param name="levels">
+        /// The current package nesting level.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <returns>
+        /// True if a tail-only file search should be allowed; otherwise, false.
+        /// </returns>
         protected virtual bool ShouldAllowTailOnlyFileSearch(
             int levels,             /* in */
             DataFlags dataFlags,    /* in */
@@ -738,6 +1169,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the dictionary of well-known (reserved) data names, which comes
+        /// from the base class (i.e. the "Default" host).
+        /// </summary>
+        /// <returns>
+        /// The dictionary of reserved data names.
+        /// </returns>
         protected virtual IDictionary<string, string> GetReservedDataNames()
         {
             //
@@ -753,6 +1191,30 @@ namespace Eagle._Hosts
         // NOTE: This method cannot fail.  Returning false simply means that
         //       the specified script does not contain a "reserved" name.
         //
+        /// <summary>
+        /// Determines whether the specified data name is one of the reserved
+        /// (well-known) names.  This method cannot fail; returning false simply
+        /// means that the specified script does not contain a reserved name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request; not used.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; the reserved name flag is added if
+        /// the name is reserved.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request; not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request; not used.
+        /// </param>
+        /// <returns>
+        /// True if the specified name is reserved; otherwise, false.
+        /// </returns>
         protected virtual bool IsReservedDataName(
             Interpreter interpreter, /* in: NOT USED */
             string name,             /* in */
@@ -783,6 +1245,22 @@ namespace Eagle._Hosts
         //       the specified [file] name contains directory information as
         //       well.
         //
+        /// <summary>
+        /// Determines whether the specified data name consists of a file name
+        /// only, with no directory information.  This method cannot fail;
+        /// returning false simply means that the name contains directory
+        /// information as well.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; the reserved tail-only name flag is
+        /// added if the name is a file name only.
+        /// </param>
+        /// <returns>
+        /// True if the specified name is a file name only; otherwise, false.
+        /// </returns>
         protected virtual bool IsFileNameOnlyDataName(
             string name,            /* in */
             ref DataFlags dataFlags /* in */
@@ -801,6 +1279,25 @@ namespace Eagle._Hosts
         // NOTE: This method cannot fail.  Returning false simply means that
         //       the specified [file] name does not contain an absolute path.
         //
+        /// <summary>
+        /// Determines whether the specified data name is an absolute (rooted)
+        /// file name.  This method cannot fail; returning false simply means
+        /// that the name does not contain an absolute path.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; the reserved absolute name flag is
+        /// added if the name is an absolute file name.
+        /// </param>
+        /// <param name="exists">
+        /// Upon return, non-zero if a file with the specified name exists.
+        /// </param>
+        /// <returns>
+        /// True if the specified name is an absolute file name; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsAbsoluteFileNameDataName(
             string name,             /* in */
             ref DataFlags dataFlags, /* in, out */
@@ -835,6 +1332,34 @@ namespace Eagle._Hosts
         // NOTE: If this method returns false in a derived class, it must set
         //       the error message as well.
         //
+        /// <summary>
+        /// Permits the parameters of a data request to be customized by derived
+        /// classes; this base implementation merges in the configured library
+        /// script flags, if any.  If this method returns false in a derived
+        /// class, it must set the error message as well.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request; not used.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data; not used.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request; the configured library script
+        /// flags are merged into this value.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request; not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, the error message.
+        /// </param>
+        /// <returns>
+        /// True if the parameters were checked successfully; otherwise, false.
+        /// </returns>
         protected virtual bool CheckDataParameters(
             Interpreter interpreter,     /* in: NOT USED */
             ref string name,             /* in, out: NOT USED */
@@ -869,6 +1394,33 @@ namespace Eagle._Hosts
         // NOTE: If this method returns false in a derived class, it must set
         //       the error message as well.
         //
+        /// <summary>
+        /// Determines whether a data request with the specified parameters is
+        /// allowed.  This base implementation is a stub that always allows the
+        /// request; if a derived class returns false, it must set the error
+        /// message as well.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request; not used.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data; not used.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request; not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request; not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, the error message; not used.
+        /// </param>
+        /// <returns>
+        /// True if the data request is allowed; otherwise, false.
+        /// </returns>
         protected virtual bool ShouldAllowDataParameters(
             Interpreter interpreter,     /* in: NOT USED */
             ref string name,             /* in, out: NOT USED */
@@ -885,6 +1437,29 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Resource Name Support Methods
+        /// <summary>
+        /// Infers the package type(s) implied by the specified resource name,
+        /// based on the well-known package sub-path components it contains,
+        /// and merges them into the specified package type flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request; not used.
+        /// </param>
+        /// <param name="name">
+        /// The resource name to inspect.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request; not used.
+        /// </param>
+        /// <param name="packageType">
+        /// The initial package type flags to augment.
+        /// </param>
+        /// <returns>
+        /// The package type flags, with any inferred package types added.
+        /// </returns>
         protected virtual PackageType GetPackageTypeForResourceName(
             Interpreter interpreter, /* in: NOT USED */
             string name,             /* in */
@@ -959,6 +1534,34 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Generates the ordered list of candidate embedded resource names to
+        /// try when locating the script associated with the specified name.  The
+        /// candidates cover the verbatim name, package-relative names, and
+        /// relative names, each with and without a file extension, as controlled
+        /// by the specified script flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, which control which candidate
+        /// names are generated.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose tracing/diagnostics while generating the
+        /// candidate names.
+        /// </param>
+        /// <returns>
+        /// The ordered collection of candidate resource names; some elements
+        /// may be null.
+        /// </returns>
         protected virtual IEnumerable<string> GetDataResourceNames(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -1415,6 +2018,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Filters and/or sorts the specified collection of candidate resource
+        /// names according to the specified script flags, optionally keeping
+        /// only those whose suffix matches the requested name and optionally
+        /// preferring deeper (more nested) names.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="resourceNames">
+        /// The collection of candidate resource names to filter.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, which control the filtering.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose tracing while filtering.
+        /// </param>
+        /// <returns>
+        /// The filtered (and possibly sorted) collection of resource names.
+        /// </returns>
         protected virtual IEnumerable<string> FilterScriptResourceNames(
             Interpreter interpreter,           /* in */
             string name,                       /* in */
@@ -1534,6 +2164,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a dictionary of unique resource names from the specified
+        /// collection of candidate resource names, so that duplicates are not
+        /// searched for needlessly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="resourceNames">
+        /// The collection of candidate resource names, which may contain
+        /// duplicates and null entries.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose tracing.
+        /// </param>
+        /// <returns>
+        /// A dictionary whose keys are the unique, non-null resource names.
+        /// </returns>
         protected virtual StringDictionary GetUniqueResourceNames(
             Interpreter interpreter,           /* in */
             string name,                       /* in */
@@ -1570,6 +2227,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Generates, filters, and de-duplicates the candidate resource names
+        /// for the specified data name, producing the dictionary of unique
+        /// resource names to search.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose tracing.
+        /// </param>
+        /// <param name="uniqueResourceNames">
+        /// Upon return, the dictionary of unique resource names to search.
+        /// </param>
         protected virtual void PopulateUniqueResourceNames(
             Interpreter interpreter,                 /* in */
             string name,                             /* in */
@@ -1598,6 +2278,20 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region GetData Support Methods
+        /// <summary>
+        /// Adds the specified count to the tracking counter at the specified
+        /// index, ignoring the request if the array is null, empty, or the
+        /// index is out of range.
+        /// </summary>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="index">
+        /// The index of the counter to update.
+        /// </param>
+        /// <param name="count">
+        /// The amount to add to the counter (may be negative).
+        /// </param>
         protected virtual void IncrementGetDataCount(
             int[] counts, /* in, out */
             int index,    /* in */
@@ -1620,6 +2314,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Splits the specified data name into its path parts, removing and
+        /// returning the leading directory parts while leaving only the file
+        /// name portion in the name parameter.
+        /// </summary>
+        /// <param name="name">
+        /// On input, the data name to split; upon return, the file name portion
+        /// only.
+        /// </param>
+        /// <returns>
+        /// The list of leading directory parts, or null if the name is empty or
+        /// contains no directory information.
+        /// </returns>
         protected virtual StringList GetDataSubParts(
             ref string name /* in, out */
             )
@@ -1651,6 +2358,44 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Snippet Manager Support Methods
+        /// <summary>
+        /// Attempts to satisfy the data request using the snippet manager
+        /// associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose snippet manager should be consulted.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data (snippet).
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose tracing; not used.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request; not used.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon return, the client data associated with the result; not used.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the snippet bytes, XML, or text.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered; not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the snippet was found;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected virtual ReturnCode GetDataViaSnippetManager(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -1706,6 +2451,46 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region File System Support Methods
+        /// <summary>
+        /// Attempts to satisfy the data request by searching the file system,
+        /// optionally searching parent directories as well.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data (script file).
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which control whether parent
+        /// directories are searched.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose searching.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, which are translated into file
+        /// search flags and updated to indicate a file was found.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon return, the client data associated with the result; not used.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the full path of the located script file.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered; not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the file was found;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected virtual ReturnCode GetDataViaFileSystem(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -1817,6 +2602,23 @@ namespace Eagle._Hosts
         // WARNING: The "internal" use is designed for
         //          the HostOps.GetScript method only.
         //
+        /// <summary>
+        /// Gets the engine flags that should be used when reading a script
+        /// stream for the specified interpreter and flags.  The "internal" use
+        /// is designed for the HostOps.GetScript method only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request; not used.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request.
+        /// </param>
+        /// <returns>
+        /// The engine flags to use when reading the script stream.
+        /// </returns>
         protected internal virtual EngineFlags GetEngineFlagsForReadScriptStream(
             Interpreter interpreter, /* in */
             DataFlags dataFlags,     /* in: NOT USED */
@@ -1830,6 +2632,55 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// Attempts to satisfy the data request using the bundle manager
+        /// associated with the specified interpreter, mounting the bundle
+        /// database if necessary.  This method is only available when compiled
+        /// with the "DATA" option.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose bundle manager should be consulted.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when retrieving the data.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when reading the script text.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which indicate whether bytes or text
+        /// are wanted.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to collect verbose error information.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, updated to indicate that client
+        /// data is present.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, the client data describing the retrieved data.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the retrieved bytes or text.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered while searching.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the data was found;
+        /// <see cref="ReturnCode.Error" /> on a fatal error;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected virtual ReturnCode GetDataViaBundleManager(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -2040,6 +2891,61 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to satisfy the data request using the specified plugin,
+        /// trying each of the unique candidate resource names (both
+        /// plugin-qualified and raw) as a stream or string.  Invalid and static
+        /// system plugins are skipped.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to query; may be null.
+        /// </param>
+        /// <param name="uniqueResourceNames">
+        /// The dictionary of unique candidate resource names to try.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when retrieving the data.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when reading the script text.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which indicate whether bytes or text
+        /// are wanted.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to collect verbose error information.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, updated to indicate that client
+        /// data is present.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, the client data describing the retrieved data.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the retrieved bytes or text.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered while searching.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the data was found;
+        /// <see cref="ReturnCode.Error" /> on a fatal error;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected virtual ReturnCode GetDataViaPlugin(
             Interpreter interpreter,              /* in */
             string name,                          /* in */
@@ -2510,6 +3416,59 @@ namespace Eagle._Hosts
         // WARNING: The "internal" use is designed for
         //          the HostOps.GetScript method only.
         //
+        /// <summary>
+        /// Attempts to satisfy the data request using the specified resource
+        /// manager, trying each of the unique candidate resource names as a
+        /// stream and, failing that, as a string.  The "internal" use is
+        /// designed for the HostOps.GetScript method only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="resourceManagerAnyPair">
+        /// A pair containing the resource manager to query and an associated
+        /// location string; may be null.
+        /// </param>
+        /// <param name="uniqueResourceNames">
+        /// The dictionary of unique candidate resource names to try.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when reading the script text.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which indicate whether bytes or text
+        /// are wanted.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to collect verbose error information.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, updated to indicate that client
+        /// data is present.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, the client data describing the retrieved data.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the retrieved bytes or text.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered while searching.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the data was found;
+        /// <see cref="ReturnCode.Error" /> on a fatal error;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected internal virtual ReturnCode GetDataViaResourceManager(
             Interpreter interpreter,                    /* in */
             string name,                                /* in */
@@ -2867,6 +3826,57 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Assembly Manifest Support Methods
+        /// <summary>
+        /// Attempts to satisfy the data request using the manifest resources of
+        /// the specified assembly, trying each of the unique candidate resource
+        /// names as a manifest resource stream.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose manifest resources should be queried; may be null.
+        /// </param>
+        /// <param name="uniqueResourceNames">
+        /// The dictionary of unique candidate resource names to try.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when reading the script text.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which indicate whether bytes or text
+        /// are wanted.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to collect verbose error information.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if this host is running isolated.
+        /// </param>
+        /// <param name="counts">
+        /// The array of tracking counters to update.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags for the request, updated to indicate that client
+        /// data is present.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, the client data describing the retrieved data.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the retrieved bytes or text.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered while searching.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the data was found;
+        /// <see cref="ReturnCode.Error" /> on a fatal error;
+        /// <see cref="ReturnCode.Continue" /> to keep searching other sources.
+        /// </returns>
         protected virtual ReturnCode GetDataViaAssemblyManifest(
             Interpreter interpreter,              /* in */
             string name,                          /* in */
@@ -3099,6 +4109,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Flags Support
+        /// <summary>
+        /// Resets only the cached host flags for this class so that they will be
+        /// recomputed the next time they are requested.
+        /// </summary>
         private void PrivateResetHostFlagsOnly()
         {
             hostFlags = HostFlags.Invalid;
@@ -3106,6 +4120,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the cached host flags for this class and then resets the host
+        /// flags in the base class.
+        /// </summary>
+        /// <returns>
+        /// True if the base class host flags were reset; otherwise, false.
+        /// </returns>
         private bool PrivateResetHostFlags()
         {
             PrivateResetHostFlagsOnly();
@@ -3114,6 +4135,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes and caches the host flags for this class, if they have not
+        /// already been computed, adding the flags indicating support for the
+        /// "GetStream" and "GetData" methods (and the isolated flag, when
+        /// applicable) to those provided by the base class.
+        /// </summary>
+        /// <returns>
+        /// The host flags for this host.
+        /// </returns>
         protected override HostFlags MaybeInitializeHostFlags()
         {
             if (hostFlags == HostFlags.Invalid)
@@ -3141,6 +4171,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets whether a read exception has occurred, also resetting the cached
+        /// host flags for this class.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if a read exception has occurred.
+        /// </param>
         protected override void SetReadException(
             bool exception
             )
@@ -3151,6 +4188,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets whether a write exception has occurred, also resetting the
+        /// cached host flags for this class.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if a write exception has occurred.
+        /// </param>
         protected override void SetWriteException(
             bool exception
             )
@@ -3163,7 +4207,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The interpreter that owns this host.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// Gets or sets the interpreter that owns this host.
+        /// </summary>
         public virtual Interpreter Interpreter
         {
             get { CheckDisposed(); return interpreter; }
@@ -3174,7 +4225,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Properties
+        /// <summary>
+        /// The assembly whose embedded resources are searched for scripts.
+        /// </summary>
         private Assembly resourceAssembly;
+
+        /// <summary>
+        /// Gets or sets the assembly whose embedded resources are searched for
+        /// scripts.  Setting this property also rebuilds the cached set of
+        /// manifest resource names.
+        /// </summary>
         protected virtual Assembly ResourceAssembly
         {
             get { return resourceAssembly; }
@@ -3183,7 +4243,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached set of manifest resource names present in the resource
+        /// assembly.
+        /// </summary>
         private StringDictionary resourceNames;
+
+        /// <summary>
+        /// Gets or sets the cached set of manifest resource names present in the
+        /// resource assembly.
+        /// </summary>
         protected virtual StringDictionary ResourceNames
         {
             get { return resourceNames; }
@@ -3192,7 +4261,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base name for the resource manager that contains the embedded
+        /// core script library.
+        /// </summary>
         private string libraryResourceBaseName;
+
+        /// <summary>
+        /// Gets or sets the base name for the resource manager that contains the
+        /// embedded core script library.
+        /// </summary>
         protected internal virtual string LibraryResourceBaseName
         {
             get { return libraryResourceBaseName; }
@@ -3201,7 +4279,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The resource manager that contains the embedded core script library.
+        /// </summary>
         private ResourceManager libraryResourceManager;
+
+        /// <summary>
+        /// Gets the resource manager that contains the embedded core script
+        /// library.
+        /// </summary>
         protected internal virtual ResourceManager LibraryResourceManager
         {
             get { return libraryResourceManager; }
@@ -3209,7 +4295,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base name for the resource manager that contains the embedded
+        /// core script packages.
+        /// </summary>
         private string packagesResourceBaseName;
+
+        /// <summary>
+        /// Gets or sets the base name for the resource manager that contains the
+        /// embedded core script packages.
+        /// </summary>
         protected internal virtual string PackagesResourceBaseName
         {
             get { return packagesResourceBaseName; }
@@ -3218,7 +4313,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The resource manager that contains the embedded core script
+        /// packages.
+        /// </summary>
         private ResourceManager packagesResourceManager;
+
+        /// <summary>
+        /// Gets the resource manager that contains the embedded core script
+        /// packages.
+        /// </summary>
         protected internal virtual ResourceManager PackagesResourceManager
         {
             get { return packagesResourceManager; }
@@ -3226,7 +4330,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base name for the resource manager that contains the embedded
+        /// kit packages.
+        /// </summary>
         private string kitResourceBaseName;
+
+        /// <summary>
+        /// Gets or sets the base name for the resource manager that contains the
+        /// embedded kit packages.
+        /// </summary>
         protected internal virtual string KitResourceBaseName
         {
             get { return kitResourceBaseName; }
@@ -3235,7 +4348,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The resource manager that contains the embedded kit packages.
+        /// </summary>
         private ResourceManager kitResourceManager;
+
+        /// <summary>
+        /// Gets the resource manager that contains the embedded kit packages.
+        /// </summary>
         protected internal virtual ResourceManager KitResourceManager
         {
             get { return kitResourceManager; }
@@ -3243,7 +4363,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base name for the resource manager that contains the embedded
+        /// application-specific (vendor) packages.
+        /// </summary>
         private string applicationResourceBaseName;
+
+        /// <summary>
+        /// Gets or sets the base name for the resource manager that contains the
+        /// embedded application-specific (vendor) packages.
+        /// </summary>
         protected internal virtual string ApplicationResourceBaseName
         {
             get { return applicationResourceBaseName; }
@@ -3252,7 +4381,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The resource manager that contains the embedded application-specific
+        /// (vendor) packages.
+        /// </summary>
         private ResourceManager applicationResourceManager;
+
+        /// <summary>
+        /// Gets the resource manager that contains the embedded
+        /// application-specific (vendor) packages.
+        /// </summary>
         protected internal virtual ResourceManager ApplicationResourceManager
         {
             get { return applicationResourceManager; }
@@ -3260,7 +4398,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The customizable resource manager associated with this host, as
+        /// provided by a custom IHost implementation.
+        /// </summary>
         private ResourceManager resourceManager;
+
+        /// <summary>
+        /// Gets the customizable resource manager associated with this host, as
+        /// provided by a custom IHost implementation.
+        /// </summary>
         protected internal virtual ResourceManager ResourceManager
         {
             get { return resourceManager; }
@@ -3268,7 +4415,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The additional script flags that are merged into every data request
+        /// handled by this host.
+        /// </summary>
         private ScriptFlags libraryScriptFlags;
+
+        /// <summary>
+        /// Gets or sets the additional script flags that are merged into every
+        /// data request handled by this host.
+        /// </summary>
         protected internal virtual ScriptFlags LibraryScriptFlags
         {
             get { return libraryScriptFlags; }
@@ -3279,6 +4435,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Resource Support
+        /// <summary>
+        /// Sets the resource assembly to the specified assembly and caches its
+        /// manifest resource names.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to use as the resource assembly; may be null.
+        /// </param>
+        /// <returns>
+        /// True if the resource assembly was set; otherwise, false.
+        /// </returns>
         private bool SetupResourceAssembly(
             Assembly assembly
             )
@@ -3294,6 +4460,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Rebuilds the cached set of manifest resource names from the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose manifest resource names should be cached; may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the resource names were cached; otherwise, false.
+        /// </returns>
         private bool SetupResourceNames(
             Assembly assembly
             )
@@ -3313,6 +4490,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether a manifest resource corresponding to the specified
+        /// resource base name is present in the resource assembly.
+        /// </summary>
+        /// <param name="resourceBaseName">
+        /// The resource base name to check for.
+        /// </param>
+        /// <returns>
+        /// True if the corresponding manifest resource is present; otherwise,
+        /// false.
+        /// </returns>
         private bool HaveResourceBaseName(
             string resourceBaseName
             )
@@ -3331,6 +4519,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates and verifies the resource manager for the embedded core
+        /// script library, if the corresponding manifest resource is present.
+        /// Any exception is caught and traced, and the resource manager is
+        /// cleared if it does not appear to work.
+        /// </summary>
+        /// <returns>
+        /// True if the library resource manager was created and is functional;
+        /// otherwise, false.
+        /// </returns>
         private bool SetupLibraryResourceManager()
         {
             try
@@ -3381,6 +4579,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates and verifies the resource manager for the embedded core
+        /// script packages, if the corresponding manifest resource is present.
+        /// Any exception is caught and traced, and the resource manager is
+        /// cleared if it does not appear to work.
+        /// </summary>
+        /// <returns>
+        /// True if the packages resource manager was created and is functional;
+        /// otherwise, false.
+        /// </returns>
         private bool SetupPackagesResourceManager()
         {
             try
@@ -3431,6 +4639,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates and verifies the resource manager for the embedded kit
+        /// packages, if the corresponding manifest resource is present.  Any
+        /// exception is caught and traced, and the resource manager is cleared
+        /// if it does not appear to work.
+        /// </summary>
+        /// <returns>
+        /// True if the kit resource manager was created and is functional;
+        /// otherwise, false.
+        /// </returns>
         private bool SetupKitResourceManager()
         {
             try
@@ -3481,6 +4699,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Copies this host's application resource manager into the shared,
+        /// per-application-domain cache.
+        /// </summary>
+        /// <returns>
+        /// True if a non-null application resource manager was cached;
+        /// otherwise, false.
+        /// </returns>
         private bool CopyFromApplicationResourceManager()
         {
             if (applicationResourceManager != null)
@@ -3495,6 +4721,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Copies the shared, per-application-domain cached application resource
+        /// manager into this host.
+        /// </summary>
+        /// <returns>
+        /// True if a non-null cached application resource manager was copied;
+        /// otherwise, false.
+        /// </returns>
         private bool CopyToApplicationResourceManager()
         {
             if (staticApplicationResourceManager != null)
@@ -3509,6 +4743,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates and verifies the resource manager for the embedded
+        /// application-specific (vendor) packages, if the corresponding manifest
+        /// resource is present.  Any exception is caught (and traced when
+        /// compiled with verbose tracing), and the resource manager is cleared
+        /// if it does not appear to work.
+        /// </summary>
+        /// <returns>
+        /// True if the application resource manager was created and is
+        /// functional; otherwise, false.
+        /// </returns>
         private bool SetupApplicationResourceManager()
         {
             try
@@ -3567,7 +4812,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInteractiveHost Members
+        /// <summary>
+        /// The cached host flags for this host, or the invalid value if they
+        /// have not yet been computed.
+        /// </summary>
         private HostFlags hostFlags = HostFlags.Invalid;
+
+        /// <summary>
+        /// Gets the host flags for this host, computing and caching them if
+        /// necessary.
+        /// </summary>
+        /// <returns>
+        /// The host flags for this host.
+        /// </returns>
         public override HostFlags GetHostFlags()
         {
             CheckDisposed();
@@ -3579,6 +4836,45 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IFileSystemHost Members
+        /// <summary>
+        /// Opens a stream for the specified file on behalf of the script engine,
+        /// catching any exception thrown while doing so.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file to open.
+        /// </param>
+        /// <param name="mode">
+        /// The file mode that specifies how the file should be opened.
+        /// </param>
+        /// <param name="access">
+        /// The file access that specifies the operations permitted on the file.
+        /// </param>
+        /// <param name="share">
+        /// The file share that specifies how the file may be shared with others.
+        /// </param>
+        /// <param name="bufferSize">
+        /// The size, in bytes, of the stream buffer.
+        /// </param>
+        /// <param name="options">
+        /// The file options to use when opening the file.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// On input, the requested host stream flags; upon return, the effective
+        /// host stream flags.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, the full path of the opened file.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, the error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public override ReturnCode GetStream(
             string path,
             FileMode mode,
@@ -3611,6 +4907,35 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Locates and retrieves the named data (typically a library script) on
+        /// behalf of the script engine, redirecting requests to the host's
+        /// internal sources so the scripts need not exist elsewhere on the file
+        /// system.  The bundle manager, snippet manager, file system, loaded
+        /// plugins, the various resource managers, and finally the assembly
+        /// manifest are searched in order.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the requested data.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The data flags for the request, which control the search behavior and
+        /// whether bytes or text are wanted.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// On input, the script flags for the request; upon return, updated to
+        /// reflect how and from where the data was obtained.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, the client data describing the retrieved data, if any.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the retrieved data; upon failure, error information.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the data was found;
+        /// <see cref="ReturnCode.Error" /> otherwise.
+        /// </returns>
         public override ReturnCode GetData(
             string name,                 /* in */
             DataFlags dataFlags,         /* in */
@@ -4244,6 +5569,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IHost Members
+        /// <summary>
+        /// Resets the cached host flags for this host so that they will be
+        /// recomputed the next time they are requested.
+        /// </summary>
+        /// <returns>
+        /// True if the host flags were reset; otherwise, false.
+        /// </returns>
         public override bool ResetHostFlags()
         {
             CheckDisposed();
@@ -4253,6 +5585,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets this host to its initial state, including resetting the base
+        /// class and the cached host flags.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, the error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public override ReturnCode Reset(
             ref Result error
             )
@@ -4277,6 +5620,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this host has been disposed.
+        /// </summary>
         public override bool Disposed
         {
             get { return disposed; }
@@ -4286,7 +5632,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this host has been disposed and is no longer usable.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// Throws an exception if this host has been disposed and the
+        /// interpreter is configured to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -4300,6 +5654,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Releases the resources used by this host.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <c>Dispose()</c> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         protected override void Dispose(bool disposing)
         {
             try

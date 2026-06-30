@@ -22,6 +22,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>time</c> command, which evaluates a
+    /// script one or more times and reports the average elapsed execution
+    /// time, optionally gathering and formatting additional timing
+    /// statistics.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("3921a1d3-c345-42e5-a567-b9ca2ef6b366")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard
 #if NATIVE && WINDOWS
@@ -34,6 +41,13 @@ namespace Eagle._Commands
     [ObjectGroup("time")]
     internal sealed class Time : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>time</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Time(
             ICommandData commandData
             )
@@ -43,11 +57,43 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>time</c> command.  It evaluates the
+        /// supplied script the requested number of times, honoring any
+        /// timing-related options (for example a timeout or cancellation
+        /// behavior), and produces either the average elapsed microseconds
+        /// per iteration or a formatted statistics string describing the run.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the script to evaluate; an optional
+        /// element two is the iteration count; any remaining elements are
+        /// options.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the average elapsed microseconds per
+        /// iteration or, when statistics are requested, a formatted timing
+        /// statistics string.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok
+        /// value (e.g. <see cref="ReturnCode.Error" />) with details placed
+        /// in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

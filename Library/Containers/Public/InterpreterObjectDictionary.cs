@@ -40,6 +40,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a dictionary that maps interpreters to arbitrary
+    /// object values, using an interpreter-aware equality comparer for its
+    /// keys.  It extends the standard dictionary with a variety of methods for
+    /// converting its keys, values, or both to the Eagle string list format,
+    /// including optional pattern matching.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -47,6 +54,9 @@ namespace Eagle._Containers.Public
     public sealed class InterpreterObjectDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public InterpreterObjectDictionary()
             : base(new _Comparers._Interpreter())
         {
@@ -55,6 +65,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty instance of this class that has the specified
+        /// initial capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The number of elements that the new dictionary can initially store.
+        /// </param>
         public InterpreterObjectDictionary(
             int capacity
             )
@@ -65,6 +82,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose elements are copied into the new dictionary.
+        /// </param>
         public InterpreterObjectDictionary(
             IDictionary<IInterpreter, object> dictionary
             )
@@ -78,6 +102,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.  This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for this dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context, describing the source and destination of the
+        /// serialized data.
+        /// </param>
         private InterpreterObjectDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -92,6 +127,29 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern using the specified matching mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode used to compare each key against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all
+        /// keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is
+        /// regular expression based.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string KeysToString(
             MatchMode mode,
             string pattern,
@@ -110,6 +168,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string, joining the keys
+        /// with the specified separator.
+        /// </summary>
+        /// <param name="separator">
+        /// The string used to separate the keys in the resulting string.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string KeysToString(
             string separator
             )
@@ -123,6 +191,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all
+        /// keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string KeysToString(
             string pattern,
             bool noCase
@@ -137,6 +221,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern that each key must match in order to
+        /// be included in the resulting string.  This parameter may be null, in
+        /// which case all keys are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching keys against the
+        /// pattern.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string KeysToString(
             string pattern,
             RegexOptions regExOptions
@@ -151,6 +252,29 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the values of this dictionary to a string in the Eagle list
+        /// format, optionally including only those values matching the
+        /// specified pattern using the specified matching mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode used to compare each value against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern that each value must match in order to be included in
+        /// the resulting string.  This parameter may be null, in which case all
+        /// values are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is
+        /// regular expression based.
+        /// </param>
+        /// <returns>
+        /// The string representation of the values of this dictionary.
+        /// </returns>
         public string ValuesToString(
             MatchMode mode,
             string pattern,
@@ -169,6 +293,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the values of this dictionary to a string in the Eagle list
+        /// format, optionally including only those values matching the
+        /// specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each value must match in order to be included in
+        /// the resulting string.  This parameter may be null, in which case all
+        /// values are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the values of this dictionary.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             bool noCase
@@ -183,6 +323,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the values of this dictionary to a string in the Eagle list
+        /// format, optionally including only those values matching the
+        /// specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern that each value must match in order
+        /// to be included in the resulting string.  This parameter may be null,
+        /// in which case all values are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching values against
+        /// the pattern.
+        /// </param>
+        /// <returns>
+        /// The string representation of the values of this dictionary.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -197,6 +354,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys and values of this dictionary to a string in the
+        /// Eagle list format, optionally including only those entries whose key
+        /// matches the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order for its entry to be
+        /// included in the resulting string.  This parameter may be null, in
+        /// which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys and values of this dictionary.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -213,6 +386,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys and values of this dictionary to a string in the
+        /// Eagle list format, optionally including only those entries whose key
+        /// matches the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern that each key must match in order for
+        /// its entry to be included in the resulting string.  This parameter
+        /// may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching keys against the
+        /// pattern.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys and values of this dictionary.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -229,6 +419,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all
+        /// keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -245,6 +451,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

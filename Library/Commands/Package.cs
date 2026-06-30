@@ -27,6 +27,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>package</c> command, which manages the
+    /// loading, registration, and version negotiation of script packages.
+    /// It is an ensemble whose sub-commands provide, require, query, and
+    /// withdraw packages, scan for package indexes, and compare or sort
+    /// version numbers.  See <c>core_language.md</c> for the command syntax
+    /// and semantics.
+    /// </summary>
     [ObjectId("c8fd57c0-20b3-4594-a5a7-919d6f9a8272")]
     /* 
      * POLICY: We allow certain "safe" sub-commands.
@@ -38,6 +46,13 @@ namespace Eagle._Commands
     [ObjectGroup("scriptEnvironment")]
     internal sealed class Package : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>package</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Package(
             ICommandData commandData
             )
@@ -49,6 +64,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "absent", "alias", "aliases", "forget", "ifneeded", "indexes", "info",
             "loaded", "names", "pending", "present", "provide", "relativefilename",
@@ -58,6 +78,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -67,11 +91,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are not permitted to
+        /// execute when this command is invoked, as determined by the active
+        /// policy configuration.
+        /// </summary>
         private readonly EnsembleDictionary disallowedSubCommands = new EnsembleDictionary(
             PolicyOps.DisallowedPackageSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are not permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary DisallowedSubCommands
         {
             get { return disallowedSubCommands; }
@@ -81,6 +114,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>package</c> command.  It dispatches to
+        /// the requested ensemble sub-command (for example <c>provide</c>,
+        /// <c>require</c>, <c>ifneeded</c>, <c>present</c>, <c>scan</c>,
+        /// <c>forget</c>, or <c>vsatisfies</c>) in order to register, query,
+        /// load, or withdraw packages and to compare or sort version numbers,
+        /// honoring the recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

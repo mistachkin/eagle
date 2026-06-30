@@ -22,25 +22,54 @@ using _BuildType = Eagle._Components.Shared.BuildType;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class represents a single available release parsed from the update
+    /// server's release data, which may describe a build, an update script, the
+    /// updater itself, or a plugin.  It carries the metadata describing the
+    /// release -- its protocol, public key token, name, culture, patch level,
+    /// time stamp, build type, base URI, and content hashes -- and provides
+    /// methods to parse the release data, verify a downloaded file against the
+    /// recorded hashes, locate matching releases, and build the download URI.
+    /// </summary>
     [Guid("4a7afd47-c3ee-4607-b230-81b924814674")]
     internal sealed class Release
     {
         #region Private Constants
+        /// <summary>
+        /// The trace category used when emitting diagnostic messages from this
+        /// class.
+        /// </summary>
         private static readonly string TraceCategory = typeof(Release).Name;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character inserted after a build or release type name that ends
+        /// in a digit, to separate it from any following digits.
+        /// </summary>
         private static readonly char DigitSeparator = Characters.Underscore;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class contains the constants used when splitting the raw release
+        /// data text into individual lines.
+        /// </summary>
         [Guid("7b75095c-2046-4a3b-9474-c6f8bd7eb97c")]
         private static class Line
         {
+            /// <summary>
+            /// The characters that separate one line of release data from the
+            /// next.
+            /// </summary>
             internal static readonly char[] Separators = {
                 Characters.CarriageReturn, Characters.LineFeed
             };
 
+            /// <summary>
+            /// The characters that, when found at the start of a line, mark that
+            /// line as a comment to be skipped.
+            /// </summary>
             internal static readonly char[] Comments = {
                 Characters.AltComment, Characters.Comment
             };
@@ -48,52 +77,139 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class contains the constants describing the layout of a single
+        /// line of release data: the field separator, the expected field count,
+        /// and the zero-based index of each field.
+        /// </summary>
         [Guid("ee748090-bd67-405a-9bf0-abe774008212")]
         private static class Field
         {
+            /// <summary>
+            /// The character that separates one field from the next within a
+            /// line of release data.
+            /// </summary>
             internal const char Separator = Characters.HorizontalTab;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The number of fields expected in a well-formed line of release
+            /// data.
+            /// </summary>
             internal const int Count = 11;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The field index of the protocol identifier.
+            /// </summary>
             internal const int ProtocolId = 0;
+
+            /// <summary>
+            /// The field index of the public key token.
+            /// </summary>
             internal const int PublicKeyToken = 1;
+
+            /// <summary>
+            /// The field index of the name.
+            /// </summary>
             internal const int Name = 2;
+
+            /// <summary>
+            /// The field index of the culture.
+            /// </summary>
             internal const int Culture = 3;
+
+            /// <summary>
+            /// The field index of the patch level.
+            /// </summary>
             internal const int PatchLevel = 4;
+
+            /// <summary>
+            /// The field index of the time stamp.
+            /// </summary>
             internal const int TimeStamp = 5;
+
+            /// <summary>
+            /// The field index of the base URI.
+            /// </summary>
             internal const int BaseUri = 6;
+
+            /// <summary>
+            /// The field index of the MD5 hash.
+            /// </summary>
             internal const int Md5Hash = 7;
+
+            /// <summary>
+            /// The field index of the SHA1 hash.
+            /// </summary>
             internal const int Sha1Hash = 8;
+
+            /// <summary>
+            /// The field index of the SHA512 hash.
+            /// </summary>
             internal const int Sha512Hash = 9;
+
+            /// <summary>
+            /// The field index of the notes.
+            /// </summary>
             internal const int Notes = 10;
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class contains the protocol identifier strings that classify
+        /// the kind of each release found in the release data.
+        /// </summary>
         [Guid("7736fe22-822e-46f2-86d0-c517dcde802d")]
         private static class Protocol
         {
+            /// <summary>
+            /// The protocol identifier representing an invalid release.
+            /// </summary>
             internal const string Invalid = "0"; /* COMPAT: Eagle beta. */
+
+            /// <summary>
+            /// The protocol identifier representing a release build.
+            /// </summary>
             internal const string Build = "1";   /* COMPAT: Eagle beta. */
+
+            /// <summary>
+            /// The protocol identifier representing an update script.
+            /// </summary>
             internal const string Script = "2";
+
+            /// <summary>
+            /// The protocol identifier representing the updater itself.
+            /// </summary>
             internal const string Self = "3";
+
+            /// <summary>
+            /// The protocol identifier representing a plugin.
+            /// </summary>
             internal const string Plugin = "4";  /* COMPAT: "update.eagle". */
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The counter used to assign a unique identifier to each release
+        /// created from the release data.
+        /// </summary>
         private static int nextId;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty release instance.  This constructor is used
+        /// internally as the common base for the public constructors.
+        /// </summary>
         private Release()
         {
             // do nothing.
@@ -103,6 +219,56 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a release instance from the specified field values.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration associated with this release.
+        /// </param>
+        /// <param name="id">
+        /// The unique identifier of this release.
+        /// </param>
+        /// <param name="protocolId">
+        /// The protocol identifier classifying this release.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token of the release assembly.
+        /// </param>
+        /// <param name="name">
+        /// The name of this release.
+        /// </param>
+        /// <param name="culture">
+        /// The culture associated with this release.
+        /// </param>
+        /// <param name="patchLevel">
+        /// The patch level (version) of this release.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp of this release.
+        /// </param>
+        /// <param name="buildType">
+        /// The build type of this release, or null to use the one associated
+        /// with the configuration.
+        /// </param>
+        /// <param name="baseUri">
+        /// The base URI used to download this release.
+        /// </param>
+        /// <param name="uriFormat">
+        /// The format string used to build the relative download URI, or null
+        /// to use the one associated with the configuration.
+        /// </param>
+        /// <param name="md5Hash">
+        /// The expected MD5 hash of the release file.
+        /// </param>
+        /// <param name="sha1Hash">
+        /// The expected SHA1 hash of the release file.
+        /// </param>
+        /// <param name="sha512Hash">
+        /// The expected SHA512 hash of the release file.
+        /// </param>
+        /// <param name="notes">
+        /// The notes associated with this release.
+        /// </param>
         public Release(
             Configuration configuration,
             int id,
@@ -141,6 +307,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a release instance that is a copy of the specified
+        /// release.
+        /// </summary>
+        /// <param name="release">
+        /// The release to copy.  If this parameter is null, the resulting
+        /// instance is left in its default state.
+        /// </param>
         public Release(
             Release release
             )
@@ -170,7 +344,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the configuration associated with this release.
+        /// </summary>
         private Configuration configuration;
+        /// <summary>
+        /// Gets the configuration associated with this release.
+        /// </summary>
         public Configuration Configuration
         {
             get { return configuration; }
@@ -178,7 +358,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the unique identifier of this release.
+        /// </summary>
         private int id;
+        /// <summary>
+        /// Gets the unique identifier of this release.
+        /// </summary>
         public int Id
         {
             get { return id; }
@@ -186,7 +372,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the protocol identifier classifying this release.
+        /// </summary>
         private string protocolId;
+        /// <summary>
+        /// Gets the protocol identifier classifying this release.
+        /// </summary>
         public string ProtocolId
         {
             get { return protocolId; }
@@ -194,7 +386,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected public key token of the release assembly.
+        /// </summary>
         private byte[] publicKeyToken;
+        /// <summary>
+        /// Gets the expected public key token of the release assembly.
+        /// </summary>
         public byte[] PublicKeyToken
         {
             get { return publicKeyToken; }
@@ -202,7 +400,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the name of this release.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets the name of this release.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -210,7 +414,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the culture associated with this release.
+        /// </summary>
         private CultureInfo culture;
+        /// <summary>
+        /// Gets the culture associated with this release.
+        /// </summary>
         public CultureInfo Culture
         {
             get { return culture; }
@@ -218,7 +428,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the patch level (version) of this release.
+        /// </summary>
         private Version patchLevel;
+        /// <summary>
+        /// Gets the patch level (version) of this release.
+        /// </summary>
         public Version PatchLevel
         {
             get { return patchLevel; }
@@ -226,7 +442,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the time stamp of this release.
+        /// </summary>
         private DateTime? timeStamp;
+        /// <summary>
+        /// Gets the time stamp of this release.
+        /// </summary>
         public DateTime? TimeStamp
         {
             get { return timeStamp; }
@@ -234,7 +456,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the build type of this release, if any.
+        /// </summary>
         private BuildType? buildType;
+        /// <summary>
+        /// Gets the build type of this release, if any.
+        /// </summary>
         public BuildType? BuildType
         {
             get { return buildType; }
@@ -242,7 +470,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the base URI used to download this release.
+        /// </summary>
         private Uri baseUri;
+        /// <summary>
+        /// Gets the base URI used to download this release.
+        /// </summary>
         public Uri BaseUri
         {
             get { return baseUri; }
@@ -250,7 +484,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the format string used to build the relative download URI.
+        /// </summary>
         private string uriFormat;
+        /// <summary>
+        /// Gets the format string used to build the relative download URI.
+        /// </summary>
         public string UriFormat
         {
             get { return uriFormat; }
@@ -258,7 +498,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected MD5 hash of the release file.
+        /// </summary>
         private byte[] md5Hash;
+        /// <summary>
+        /// Gets the expected MD5 hash of the release file.
+        /// </summary>
         public byte[] Md5Hash
         {
             get { return md5Hash; }
@@ -266,7 +512,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected SHA1 hash of the release file.
+        /// </summary>
         private byte[] sha1Hash;
+        /// <summary>
+        /// Gets the expected SHA1 hash of the release file.
+        /// </summary>
         public byte[] Sha1Hash
         {
             get { return sha1Hash; }
@@ -274,7 +526,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected SHA512 hash of the release file.
+        /// </summary>
         private byte[] sha512Hash;
+        /// <summary>
+        /// Gets the expected SHA512 hash of the release file.
+        /// </summary>
         public byte[] Sha512Hash
         {
             get { return sha512Hash; }
@@ -282,7 +540,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the notes associated with this release.
+        /// </summary>
         private string notes;
+        /// <summary>
+        /// Gets the notes associated with this release.
+        /// </summary>
         public string Notes
         {
             get { return notes; }
@@ -290,6 +554,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release has valid required
+        /// field values.  Diagnostic messages are emitted for any field that is
+        /// found to be invalid.
+        /// </summary>
         public bool IsValid
         {
             get
@@ -419,6 +688,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release's patch level is equal
+        /// to the configuration's patch level.  This property also reports true
+        /// when the configuration is forced.
+        /// </summary>
         public bool IsEqual
         {
             get
@@ -454,6 +728,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release's patch level is
+        /// greater than the configuration's patch level.  This property also
+        /// reports true when the configuration is forced.
+        /// </summary>
         public bool IsGreater
         {
             get
@@ -489,6 +768,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release uses the build
+        /// protocol.
+        /// </summary>
         public bool IsBuild
         {
             get { return IsBuildProtocol(protocolId); }
@@ -496,6 +779,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release uses the script
+        /// protocol.
+        /// </summary>
         public bool IsScript
         {
             get { return IsScriptProtocol(protocolId); }
@@ -503,6 +790,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release uses the self protocol
+        /// (i.e. it describes the updater itself).
+        /// </summary>
         public bool IsSelf
         {
             get { return IsSelfProtocol(protocolId); }
@@ -510,6 +801,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this release uses the plugin
+        /// protocol.
+        /// </summary>
         public bool IsPlugin
         {
             get { return IsPluginProtocol(protocolId); }
@@ -519,6 +814,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Returns a string representation of this release, consisting of its
+        /// patch level and time stamp.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this release.
+        /// </returns>
         public override string ToString()
         {
             return String.Format("{0} ({1})",
@@ -530,6 +832,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Emits a diagnostic trace of every field and computed property of
+        /// this release, for debugging purposes.
+        /// </summary>
         public void Dump()
         {
             Trace(configuration, FormatOps.NameAndValue("Id", id),
@@ -616,6 +922,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Verifies that the specified file matches this release, optionally
+        /// checking its strong name and public key token, and always checking
+        /// its MD5, SHA1, and SHA512 hashes against the recorded values.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to use while verifying the file and emitting
+        /// diagnostic messages.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to verify.
+        /// </param>
+        /// <param name="strongName">
+        /// Non-zero to verify the strong name signature and public key token of
+        /// the file in addition to its hashes.
+        /// </param>
+        /// <returns>
+        /// True if the file exists and matches this release; otherwise, false.
+        /// </returns>
         public bool VerifyFile(
             Configuration configuration,
             string fileName,
@@ -767,6 +1092,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// Attempts to create a release by parsing a single line of release
+        /// data.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to associate with the created release.
+        /// </param>
+        /// <param name="releaseId">
+        /// The unique identifier to assign to the created release.
+        /// </param>
+        /// <param name="lineIndex">
+        /// The zero-based index of the line being parsed, used in diagnostic
+        /// messages.
+        /// </param>
+        /// <param name="line">
+        /// The line of release data to parse.
+        /// </param>
+        /// <param name="release">
+        /// Upon success, receives the created release; upon failure, receives
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// True if the release was created successfully; otherwise, false.
+        /// </returns>
         public static bool TryCreate( /* NOT USED */
             Configuration configuration,
             int releaseId,
@@ -786,6 +1138,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Formatting Methods
+        /// <summary>
+        /// Converts the specified build type to its string form for use in a
+        /// download URI, appending a digit separator when the result ends in a
+        /// digit.
+        /// </summary>
+        /// <param name="buildType">
+        /// The build type to convert.
+        /// </param>
+        /// <returns>
+        /// The string form of the build type, or the empty string when the
+        /// build type is the default.
+        /// </returns>
         private static string BuildTypeToString(
             BuildType buildType
             )
@@ -804,6 +1168,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the specified release type to its string form for use in a
+        /// download URI, appending a digit separator when the result ends in a
+        /// digit.
+        /// </summary>
+        /// <param name="releaseType">
+        /// The release type to convert.
+        /// </param>
+        /// <returns>
+        /// The string form of the release type.
+        /// </returns>
         private static string ReleaseTypeToString(
             ReleaseType releaseType
             )
@@ -821,6 +1196,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds the relative download URI for this release using its URI
+        /// format (falling back to the configuration's or the default build URI
+        /// format) and the specified build and release types.
+        /// </summary>
+        /// <param name="buildType">
+        /// The build type to incorporate into the relative URI.
+        /// </param>
+        /// <param name="releaseType">
+        /// The release type to incorporate into the relative URI.
+        /// </param>
+        /// <returns>
+        /// The formatted relative URI, or null when no URI format is available.
+        /// </returns>
         private string Format(
             BuildType buildType,
             ReleaseType releaseType
@@ -848,6 +1237,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Build Type Methods
+        /// <summary>
+        /// Gets the build type of this release, falling back to the default
+        /// build type when none is set.
+        /// </summary>
+        /// <returns>
+        /// The build type of this release, or the default build type.
+        /// </returns>
         public BuildType BuildTypeOrDefault()
         {
             if (buildType != null)
@@ -860,6 +1256,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public URI Methods
+        /// <summary>
+        /// When this release has no base URI, attempts to use the download base
+        /// URI declared by the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose download base URI attribute is consulted.
+        /// </param>
+        /// <returns>
+        /// True if a base URI was obtained from the assembly and applied;
+        /// otherwise, false.
+        /// </returns>
         public bool MaybeUseDownloadBaseUri(
             Assembly assembly
             )
@@ -877,6 +1284,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates the absolute download URI for this release by combining its
+        /// base URI with the relative URI built from the specified build and
+        /// release types.
+        /// </summary>
+        /// <param name="buildType">
+        /// The build type to incorporate into the relative URI.
+        /// </param>
+        /// <param name="releaseType">
+        /// The release type to incorporate into the relative URI.
+        /// </param>
+        /// <returns>
+        /// The absolute download URI, or null when no base URI is set, no
+        /// relative URI could be built, or the combination failed.
+        /// </returns>
         public Uri CreateUri(
             BuildType buildType,
             ReleaseType releaseType
@@ -909,6 +1331,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Miscellaneous Methods
+        /// <summary>
+        /// Atomically generates the next unique release identifier.
+        /// </summary>
+        /// <returns>
+        /// The next unique release identifier.
+        /// </returns>
         private static int NextId()
         {
             return Interlocked.Increment(ref nextId);
@@ -918,6 +1346,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Tracing Methods
+        /// <summary>
+        /// Emits a diagnostic trace message describing the specified exception.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling tracing behavior.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to trace.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to use.
+        /// </param>
+        /// <returns>
+        /// The formatted trace message that was emitted.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string Trace(
             Configuration configuration,
@@ -930,6 +1373,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Emits the specified diagnostic trace message.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling tracing behavior.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to emit.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to use.
+        /// </param>
+        /// <returns>
+        /// The trace message that was emitted.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string Trace(
             Configuration configuration,
@@ -944,6 +1402,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Parsing Methods
+        /// <summary>
+        /// Determines whether the specified protocol identifier represents the
+        /// build protocol.
+        /// </summary>
+        /// <param name="protocolId">
+        /// The protocol identifier to test.
+        /// </param>
+        /// <returns>
+        /// True if the protocol identifier represents the build protocol;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsBuildProtocol(
             string protocolId
             )
@@ -953,6 +1422,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified protocol identifier represents the
+        /// script protocol.
+        /// </summary>
+        /// <param name="protocolId">
+        /// The protocol identifier to test.
+        /// </param>
+        /// <returns>
+        /// True if the protocol identifier represents the script protocol;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsScriptProtocol(
             string protocolId
             )
@@ -962,6 +1442,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified protocol identifier represents the
+        /// self protocol.
+        /// </summary>
+        /// <param name="protocolId">
+        /// The protocol identifier to test.
+        /// </param>
+        /// <returns>
+        /// True if the protocol identifier represents the self protocol;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsSelfProtocol(
             string protocolId
             )
@@ -971,6 +1462,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified protocol identifier represents the
+        /// plugin protocol.
+        /// </summary>
+        /// <param name="protocolId">
+        /// The protocol identifier to test.
+        /// </param>
+        /// <returns>
+        /// True if the protocol identifier represents the plugin protocol;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsPluginProtocol(
             string protocolId
             )
@@ -980,6 +1482,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Parses a single line of release data into a release instance.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to associate with the created release.
+        /// </param>
+        /// <param name="releaseId">
+        /// The unique identifier to assign to the created release.
+        /// </param>
+        /// <param name="lineIndex">
+        /// The zero-based index of the line being parsed, used in diagnostic
+        /// messages.
+        /// </param>
+        /// <param name="line">
+        /// The line of release data to parse.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The created release, or null when the line could not be parsed.
+        /// </returns>
         private static Release ParseLine(
             Configuration configuration,
             int releaseId,
@@ -1085,6 +1609,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Parsing Methods
+        /// <summary>
+        /// Parses the raw release data text into a dictionary of releases keyed
+        /// by configuration, tallying the number of releases encountered for
+        /// each protocol.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to associate with the parsed releases.
+        /// </param>
+        /// <param name="text">
+        /// The raw release data text to parse.
+        /// </param>
+        /// <param name="comparer">
+        /// The equality comparer used to key the releases dictionary.  When
+        /// null on entry, a default comparer is created and returned.
+        /// </param>
+        /// <param name="releases">
+        /// The dictionary that receives the parsed releases keyed by
+        /// configuration.  When null on entry, a new dictionary is created and
+        /// returned.
+        /// </param>
+        /// <param name="protocolCounts">
+        /// The array that receives the counts of releases encountered for each
+        /// protocol (build, script, self, plugin, and other).  When null on
+        /// entry, a new array is created and returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// True if at least one release was parsed; otherwise, false.
+        /// </returns>
         public static bool ParseData(
             Configuration configuration,
             string text,
@@ -1221,6 +1776,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Release Search Methods
+        /// <summary>
+        /// Finds the release matching the specified configuration, optionally
+        /// requiring that it be valid, equal to, and/or greater than the
+        /// configuration's patch level.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to look up.
+        /// </param>
+        /// <param name="releases">
+        /// The dictionary of releases to search.
+        /// </param>
+        /// <param name="valid">
+        /// Non-zero to require that the matching release be valid.
+        /// </param>
+        /// <param name="equal">
+        /// Non-zero to require that the matching release be equal to the
+        /// configuration's patch level.
+        /// </param>
+        /// <param name="greater">
+        /// Non-zero to require that the matching release be greater than the
+        /// configuration's patch level.
+        /// </param>
+        /// <returns>
+        /// The matching release, or null when none is found.
+        /// </returns>
         public static Release Find(
             Configuration configuration,
             IDictionary<Configuration, Release> releases,
@@ -1250,6 +1830,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Finds the release describing the updater itself that matches the
+        /// specified configuration, optionally requiring that it be valid,
+        /// equal to, and/or greater than the configuration's patch level.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to look up, which is reconstituted with the self
+        /// protocol before searching.
+        /// </param>
+        /// <param name="releases">
+        /// The dictionary of releases to search.
+        /// </param>
+        /// <param name="valid">
+        /// Non-zero to require that the matching release be valid.
+        /// </param>
+        /// <param name="equal">
+        /// Non-zero to require that the matching release be equal to the
+        /// configuration's patch level.
+        /// </param>
+        /// <param name="greater">
+        /// Non-zero to require that the matching release be greater than the
+        /// configuration's patch level.
+        /// </param>
+        /// <returns>
+        /// The matching self release, or null when none is found.
+        /// </returns>
         public static Release FindSelf(
             Configuration configuration,
             IDictionary<Configuration, Release> releases,

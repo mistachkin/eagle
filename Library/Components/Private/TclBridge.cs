@@ -21,6 +21,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private.Tcl
 {
+    /// <summary>
+    /// This class bridges an Eagle command (i.e. an <see cref="IExecute" />)
+    /// into a native Tcl interpreter by creating a Tcl command that, when
+    /// evaluated, marshals its arguments into Eagle, executes the associated
+    /// Eagle command, and marshals the result back to Tcl.  It also manages the
+    /// lifetime of the created Tcl command, deleting it (and removing itself
+    /// from the containing interpreter) when the Eagle command or the Tcl
+    /// command goes away.
+    /// </summary>
     [ObjectId("51e232aa-edb5-4dd1-b223-010e6450c339")]
 #if TCL_WRAPPER
     public
@@ -30,23 +39,128 @@ namespace Eagle._Components.Private.Tcl
     sealed class TclBridge /* It's how Tcl/Tk is done. */ : IDisposable
     {
         #region Private Data
+        /// <summary>
+        /// The garbage collector handle that keeps this object pinned in memory
+        /// (i.e. alive) for as long as the native Tcl runtime may call back into
+        /// it.
+        /// </summary>
         private GCHandle handle; /* TclBridge */
+
+        /// <summary>
+        /// The Eagle interpreter that owns this bridge and its associated Eagle
+        /// command.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// The Eagle command that is invoked when the bridged Tcl command is
+        /// evaluated.
+        /// </summary>
         private IExecute execute;
+
+        /// <summary>
+        /// Optional, opaque, caller-defined data passed to the Eagle command
+        /// when it is executed.  May be null.
+        /// </summary>
         private IClientData clientData;
+
+        /// <summary>
+        /// The native pointer to the Tcl interpreter that contains the bridged
+        /// Tcl command.
+        /// </summary>
         private IntPtr interp;
+
+        /// <summary>
+        /// The current nesting level for active calls into the
+        /// <see cref="ObjCmdProc" /> callback.
+        /// </summary>
         private int objCmdProcLevels; // NOTE: Nesting level for ObjCmdProc.
+
+        /// <summary>
+        /// The delegate, held to prevent garbage collection, that the native
+        /// Tcl runtime invokes when the bridged command is evaluated.
+        /// </summary>
         private Tcl_ObjCmdProc objCmdProc;
+
+        /// <summary>
+        /// The delegate, held to prevent garbage collection, that the native
+        /// Tcl runtime invokes when the bridged command is deleted.
+        /// </summary>
         private Tcl_CmdDeleteProc cmdDeleteProc;
+
+        /// <summary>
+        /// The native pointer to the token that identifies the created Tcl
+        /// command, used later to delete it.
+        /// </summary>
         private IntPtr token;
+
+        /// <summary>
+        /// Non-zero if the bridged Tcl command belongs to an isolated Tcl
+        /// thread.
+        /// </summary>
         private bool fromThread;
+
+        /// <summary>
+        /// Non-zero if the Tcl command should be forcibly deleted during
+        /// disposal, even when it is actively being used.
+        /// </summary>
         private bool forceDelete;
+
+        /// <summary>
+        /// Non-zero if errors encountered while deleting the Tcl command during
+        /// disposal should be ignored.
+        /// </summary>
         private bool noComplain;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class, capturing the Eagle and Tcl
+        /// state needed to dispatch and clean up the bridged command, and pins
+        /// the new object in memory so the native Tcl runtime can safely call
+        /// back into it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter that owns this bridge.
+        /// </param>
+        /// <param name="execute">
+        /// The Eagle command to invoke when the bridged Tcl command is
+        /// evaluated.
+        /// </param>
+        /// <param name="clientData">
+        /// Optional, opaque, caller-defined data passed to the Eagle command.
+        /// May be null.
+        /// </param>
+        /// <param name="interp">
+        /// The native pointer to the Tcl interpreter that contains the bridged
+        /// command.
+        /// </param>
+        /// <param name="objCmdProc">
+        /// The delegate the native Tcl runtime invokes when the command is
+        /// evaluated.
+        /// </param>
+        /// <param name="cmdDeleteProc">
+        /// The delegate the native Tcl runtime invokes when the command is
+        /// deleted.
+        /// </param>
+        /// <param name="token">
+        /// The native pointer to the token that identifies the created Tcl
+        /// command.
+        /// </param>
+        /// <param name="fromThread">
+        /// Non-zero if the bridged Tcl command belongs to an isolated Tcl
+        /// thread.
+        /// </param>
+        /// <param name="forceDelete">
+        /// Non-zero if the Tcl command should be forcibly deleted during
+        /// disposal.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero if errors encountered while deleting the Tcl command during
+        /// disposal should be ignored.
+        /// </param>
         private TclBridge(
             Interpreter interpreter,
             IExecute execute,
@@ -116,6 +230,18 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether this bridge is associated with the
+        /// specified Eagle command.
+        /// </summary>
+        /// <param name="execute">
+        /// The Eagle command to compare against the one associated with this
+        /// bridge.
+        /// </param>
+        /// <returns>
+        /// True if the specified Eagle command is the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
         public bool Match(
             IExecute execute
             )
@@ -127,6 +253,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this bridge is associated with the
+        /// specified Tcl interpreter.
+        /// </summary>
+        /// <param name="interp">
+        /// The native pointer to the Tcl interpreter to compare against the one
+        /// associated with this bridge.
+        /// </param>
+        /// <returns>
+        /// True if the specified Tcl interpreter is the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
         public bool Match(
             IntPtr interp
             )
@@ -138,6 +276,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this bridge has the specified
+        /// isolated-thread association.
+        /// </summary>
+        /// <param name="fromThread">
+        /// The isolated-thread flag to compare against the one associated with
+        /// this bridge.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified flag matches the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
         public bool Match(
             bool? fromThread
             )
@@ -151,6 +301,18 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether the specified Eagle command is the
+        /// one associated with this bridge.
+        /// </summary>
+        /// <param name="execute">
+        /// The Eagle command to compare against the one associated with this
+        /// bridge.
+        /// </param>
+        /// <returns>
+        /// True if the specified Eagle command is the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -165,6 +327,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified Tcl interpreter is the
+        /// one associated with this bridge.
+        /// </summary>
+        /// <param name="interp">
+        /// The native pointer to the Tcl interpreter to compare against the one
+        /// associated with this bridge.
+        /// </param>
+        /// <returns>
+        /// True if the specified Tcl interpreter is the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -179,6 +353,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified isolated-thread flag
+        /// matches the one associated with this bridge.
+        /// </summary>
+        /// <param name="fromThread">
+        /// The isolated-thread flag to compare against the one associated with
+        /// this bridge.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified flag matches the one associated with this
+        /// bridge; otherwise, false.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -195,6 +381,14 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this object, which is
+        /// the name of the associated Eagle command.
+        /// </summary>
+        /// <returns>
+        /// The name of the associated Eagle command, or an empty string if it
+        /// has no name.
+        /// </returns>
         public override string ToString()
         {
             // CheckDisposed(); /* EXEMPT: During disposal. */
@@ -208,6 +402,50 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// This method creates a bridge that associates a named Tcl command
+        /// with the specified Eagle command, registering the command with the
+        /// Tcl interpreter.  The bridge handles marshalling of command arguments
+        /// and results as well as the lifetime of both the Tcl and Eagle
+        /// commands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter that will own the bridge.
+        /// </param>
+        /// <param name="execute">
+        /// The Eagle command to invoke when the bridged Tcl command is
+        /// evaluated.
+        /// </param>
+        /// <param name="clientData">
+        /// Optional, opaque, caller-defined data passed to the Eagle command.
+        /// May be null.
+        /// </param>
+        /// <param name="interp">
+        /// The native pointer to the Tcl interpreter in which to create the
+        /// command.
+        /// </param>
+        /// <param name="name">
+        /// The name of the Tcl command to be created.  An empty name is allowed.
+        /// </param>
+        /// <param name="fromThread">
+        /// Non-zero if the bridged Tcl command belongs to an isolated Tcl
+        /// thread.
+        /// </param>
+        /// <param name="forceDelete">
+        /// Non-zero if the Tcl command should be forcibly deleted during
+        /// disposal.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero if errors encountered while deleting the Tcl command during
+        /// disposal should be ignored.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the bridge could not be created.
+        /// </param>
+        /// <returns>
+        /// The newly created bridge, or null if it could not be created.
+        /// </returns>
         public static TclBridge Create(
             Interpreter interpreter,
             IExecute execute,
@@ -375,6 +613,33 @@ namespace Eagle._Components.Private.Tcl
         // should not modify them. Call Tcl_SetObjResult if you want to return something
         // from the objv array.
         //
+        /// <summary>
+        /// This method is the object-based command callback invoked by the
+        /// native Tcl runtime when a bridged Tcl command is evaluated.  It
+        /// rehydrates the bridge from the client data, marshals the Tcl
+        /// arguments into Eagle, executes the associated Eagle command, and
+        /// sets the Tcl interpreter result from the Eagle result.
+        /// </summary>
+        /// <param name="clientData">
+        /// The native pointer to the garbage collector handle that identifies
+        /// the bridge associated with the command.
+        /// </param>
+        /// <param name="interp">
+        /// The native pointer to the Tcl interpreter that is evaluating the
+        /// command.
+        /// </param>
+        /// <param name="objc">
+        /// The number of argument objects supplied to the command, including the
+        /// command name itself.
+        /// </param>
+        /// <param name="objv">
+        /// The native pointer to the array of argument objects supplied to the
+        /// command.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode ObjCmdProc(
             IntPtr clientData,
             IntPtr interp,
@@ -585,6 +850,16 @@ namespace Eagle._Components.Private.Tcl
         // invoked before the command is deleted, and gives the application an
         // opportunity to release any structures associated with the command.
         //
+        /// <summary>
+        /// This method is the command deletion callback invoked by the native
+        /// Tcl runtime when a bridged Tcl command is deleted.  It rehydrates the
+        /// bridge from the client data, removes it from the containing
+        /// interpreter, and disposes of it.
+        /// </summary>
+        /// <param name="clientData">
+        /// The native pointer to the garbage collector handle that identifies
+        /// the bridge associated with the command being deleted.
+        /// </param>
         private static void CmdDeleteProc(
             IntPtr clientData
             )
@@ -692,8 +967,21 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object is currently being disposed; used to prevent
+        /// re-entrant disposal.
+        /// </summary>
         private bool disposing;
+
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this object has been disposed and
+        /// the interpreter is configured to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -704,6 +992,17 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this object.  If
+        /// necessary, it deletes the associated Tcl command, frees the garbage
+        /// collector handle that keeps this object alive, and clears its
+        /// references to the Eagle and Tcl state.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             ) /* throw */
@@ -856,6 +1155,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object, deleting the
+        /// associated Tcl command if necessary, and suppresses finalization.
+        /// </summary>
         public void Dispose() /* throw */
         {
             Dispose(true);
@@ -866,6 +1169,11 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of this class, releasing any resources that
+        /// were not released by an explicit call to the <see cref="Dispose()" />
+        /// method.
+        /// </summary>
         ~TclBridge() /* throw */
         {
             Dispose(false);

@@ -27,11 +27,25 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>test1</c> command, which defines and
+    /// runs a single test case, comparing the actual result and return code of
+    /// the test body against the expected ones and recording the pass, fail,
+    /// skip, or ignore outcome in the interpreter test statistics.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("f20c521d-e16e-43fa-a050-ecf96c93bbdd")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard | CommandFlags.Diagnostic)]
     [ObjectGroup("test")]
     internal sealed class Test1 : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>test1</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Test1(
             ICommandData commandData
             )
@@ -41,11 +55,48 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>test1</c> command.  It evaluates the
+        /// test body, checks any constraints, compares the actual result and
+        /// return code against the expected ones, runs any registered test
+        /// hooks, updates the interpreter test statistics, and produces the
+        /// formatted test output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by the test name, description, an optional
+        /// constraints element, the test body, and the expected result.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the complete formatted output produced
+        /// by the test.  Upon failure, this contains an appropriate error
+        /// message (or the result reported by a test hook when one fails).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the test ran to completion;
+        /// <see cref="ReturnCode.Break" /> when the test was skipped,
+        /// <see cref="ReturnCode.Continue" /> when a failure was ignored, or
+        /// <see cref="ReturnCode.WhatIf" /> when the test was disabled (unless
+        /// changing the raw return code is suppressed); otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// an error occurs while running the test, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

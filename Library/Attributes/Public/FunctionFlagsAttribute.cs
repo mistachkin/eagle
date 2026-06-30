@@ -14,10 +14,21 @@ using Eagle._Components.Public;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This attribute is used to associate a set of function flags with the
+    /// class it is applied to.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
     [ObjectId("d9ae9052-5dbb-4b94-940d-c6a69909117c")]
     public sealed class FunctionFlagsAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class using the specified function
+        /// flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The function flags to associate with the marked class.
+        /// </param>
         public FunctionFlagsAttribute(FunctionFlags flags)
         {
             this.flags = flags;
@@ -25,6 +36,15 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the string
+        /// representation of the function flags.
+        /// </summary>
+        /// <param name="value">
+        /// The function flags, as a string, to associate with the marked
+        /// class.  This value must be parsable as a value of the
+        /// <see cref="FunctionFlags" /> enumeration.
+        /// </param>
         public FunctionFlagsAttribute(string value)
         {
             flags = (FunctionFlags)Enum.Parse(
@@ -33,7 +53,13 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The function flags associated with the marked class.
+        /// </summary>
         private FunctionFlags flags;
+        /// <summary>
+        /// Gets the function flags associated with the marked class.
+        /// </summary>
         public FunctionFlags Flags
         {
             get { return flags; }

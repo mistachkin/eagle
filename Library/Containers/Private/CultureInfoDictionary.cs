@@ -31,9 +31,19 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps culture names to their
+    /// associated <see cref="CultureInfo" /> objects.  It extends the underlying
+    /// generic dictionary with bulk-population helpers and conversion of its
+    /// keys to the Eagle string list format, including optional pattern
+    /// matching.
+    /// </summary>
     [ObjectId("87f76a7b-7e68-4ac9-937a-d225520971b9")]
     internal sealed class CultureInfoDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public CultureInfoDictionary()
             : base()
         {
@@ -42,6 +52,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains an entry for each
+        /// culture in the specified collection, keyed by its string form.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of cultures whose entries are added to the new
+        /// dictionary.
+        /// </param>
         public CultureInfoDictionary(IEnumerable<CultureInfo> collection)
             : base()
         {
@@ -50,6 +68,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an entry for each culture in the specified
+        /// collection, keying each entry by the string form of the culture.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of cultures whose entries are added to this
+        /// dictionary.
+        /// </param>
         public void Add(IEnumerable<CultureInfo> collection)
         {
             foreach (CultureInfo item in collection)
@@ -58,6 +84,22 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all keys
+        /// are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string ToString(string pattern, bool noCase)
         {
             StringList list = new StringList(this.Keys);
@@ -69,6 +111,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

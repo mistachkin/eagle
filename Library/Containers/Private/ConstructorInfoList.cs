@@ -15,9 +15,16 @@ using Eagle._Attributes;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a list of <see cref="ConstructorInfo" /> objects.
+    /// It is a thin specialization of the standard generic list.
+    /// </summary>
     [ObjectId("1ef27ad5-f39d-4146-b26c-3ac39caf01c1")]
     internal sealed class ConstructorInfoList : List<ConstructorInfo>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ConstructorInfoList()
             : base()
         {

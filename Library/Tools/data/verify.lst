@@ -291,6 +291,7 @@ set eagle_manifests(source) {
   Eagle/Library/Commands/Regsub.cs
   Eagle/Library/Commands/Rename.cs
   Eagle/Library/Commands/Return.cs
+  Eagle/Library/Commands/Scan.cs
   Eagle/Library/Commands/Scope.cs
   Eagle/Library/Commands/Seek.cs
   Eagle/Library/Commands/Set.cs
@@ -3203,6 +3204,7 @@ set eagle_manifests(nuGetSource) {
   src/Library/Commands/Regsub.cs
   src/Library/Commands/Rename.cs
   src/Library/Commands/Return.cs
+  src/Library/Commands/Scan.cs
   src/Library/Commands/Scope.cs
   src/Library/Commands/Seek.cs
   src/Library/Commands/Set.cs

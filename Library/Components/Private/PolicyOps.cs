@@ -31,38 +31,74 @@ using UriPair = System.Collections.Generic.KeyValuePair<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the core implementation of the Eagle policy
+    /// subsystem.  It contains the default command policies installed into
+    /// every interpreter, the helper methods used to query and combine policy
+    /// decisions, and the routines used to determine whether objects, types,
+    /// uris, and files should be trusted within a "safe" interpreter.
+    /// </summary>
     [ObjectId("ab00e89a-8a1f-404b-91fd-32d10d0f44ba")]
     internal static class PolicyOps
     {
         #region Private Constants
+        /// <summary>
+        /// This object is used to synchronize access to the static data of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum number of list elements required to make up a valid
+        /// trusted-file hash entry (policy type, hash algorithm name, and hash
+        /// value).
+        /// </summary>
         private const int HashCount = 3;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message format used when a "safe" interpreter is denied the
+        /// use of an object.
+        /// </summary>
         private const string UnsafeObjectError =
             "permission denied: safe interpreter cannot use object from {0}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message format used when a "safe" interpreter is denied the
+        /// use of a type.
+        /// </summary>
         private const string UnsafeTypeError =
             "permission denied: safe interpreter cannot use type from {0}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message format used when a "safe" interpreter is denied the
+        /// use of a uri.
+        /// </summary>
         private const string UnsafeUriError =
             "permission denied: safe interpreter cannot use uri from {0}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message format used when a "safe" interpreter is denied the
+        /// use of a file.
+        /// </summary>
         private const string UnsafeFileError =
             "permission denied: safe interpreter cannot use file from {0}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The complete set of policy decision types that may be queried from an
+        /// interpreter.
+        /// </summary>
         private static readonly PolicyDecisionType[] DecisionTypes = {
             PolicyDecisionType.Command, PolicyDecisionType.Script,
             PolicyDecisionType.File, PolicyDecisionType.Stream
@@ -78,6 +114,10 @@ namespace Eagle._Components.Private
         //       are ALLOWED to be used by scripts running in a "safe"
         //       interpreter.
         //
+        /// <summary>
+        /// The default list of [clock] sub-commands that are allowed to be used
+        /// by scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedClockSubCommandNames =
             new StringDictionary(new string[] {
             "buildnumber", "days", "duration", "filetime", "format",
@@ -91,6 +131,10 @@ namespace Eagle._Components.Private
         //       are ALLOWED to be used by scripts running in a "safe"
         //       interpreter.
         //
+        /// <summary>
+        /// The default list of [file] sub-commands that are allowed to be used by
+        /// scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedFileSubCommandNames =
             new StringDictionary(new string[] {
             "channels", "dirname", "join", "split", "validname"
@@ -102,6 +146,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the default list of [info] sub-commands that are
         //       ALLOWED to be used by scripts running in a "safe" interpreter.
         //
+        /// <summary>
+        /// The default list of [info] sub-commands that are allowed to be used by
+        /// scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedInfoSubCommandNames =
             new StringDictionary(new string[] {
             "appdomain", "args", "body", "commands", "complete", "context",
@@ -117,6 +165,10 @@ namespace Eagle._Components.Private
         // NOTE: Default list of [interp] sub-commands that are ALLOWED to be
         //       used by scripts running in a "safe" interpreter.
         //
+        /// <summary>
+        /// The default list of [interp] sub-commands that are allowed to be used
+        /// by scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedInterpSubCommandNames =
             new StringDictionary(new string[] {
             "alias", "aliases", "cancel", "children", "exists", "issafe",
@@ -129,6 +181,10 @@ namespace Eagle._Components.Private
         // NOTE: Default list of [object] sub-commands that are ALLOWED to be
         //       used by scripts running in a "safe" interpreter.
         //
+        /// <summary>
+        /// The default list of [object] sub-commands that are allowed to be used
+        /// by scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedObjectSubCommandNames =
             new StringDictionary(new string[] {
             "dispose", "exists", "invoke", "invokeall", "invokeraw",
@@ -141,6 +197,10 @@ namespace Eagle._Components.Private
         // NOTE: Default list of [package] sub-commands that are NOT ALLOWED
         //       to be used by scripts running in a "safe" interpreter.
         //
+        /// <summary>
+        /// The default list of [package] sub-commands that are NOT allowed to be
+        /// used by scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary DisallowedPackageSubCommandNames =
             new StringDictionary(new string[] {
             "alias", "aliases", "indexes", "relativefilename", "reset",
@@ -153,6 +213,10 @@ namespace Eagle._Components.Private
         // NOTE: Default list of [uri] sub-commands that are ALLOWED to be
         //       used by scripts running in a "safe" interpreter.
         //
+        /// <summary>
+        /// The default list of [uri] sub-commands that are allowed to be used by
+        /// scripts running in a "safe" interpreter.
+        /// </summary>
         internal static readonly StringDictionary AllowedUriSubCommandNames =
             new StringDictionary(new string[] {
             "get", "isvalid", "post"
@@ -164,6 +228,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Default policies that are added to every interpreter.
         //
+        /// <summary>
+        /// The default set of command policy callbacks that are added to every
+        /// interpreter.
+        /// </summary>
         internal static IEnumerable<ExecuteCallback> CommandCallbacks =
             new ExecuteCallback[] {
             ClockCommandCallback, FileCommandCallback,
@@ -176,6 +244,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method returns a copy of the complete set of policy decision
+        /// types.
+        /// </summary>
+        /// <returns>
+        /// A new list containing the supported policy decision types, or null
+        /// if none are available.
+        /// </returns>
         private static IEnumerable<PolicyDecisionType> GetDecisionTypes()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -189,6 +265,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured initial or final policy decision of
+        /// the specified type for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  This parameter may be null.
+        /// </param>
+        /// <param name="decisionType">
+        /// The policy decision type to query.
+        /// </param>
+        /// <param name="final">
+        /// Non-zero to query the final decision; otherwise, the initial
+        /// decision is queried.
+        /// </param>
+        /// <returns>
+        /// The configured policy decision, or null if there is none or the
+        /// interpreter is null.
+        /// </returns>
         private static PolicyDecision? QueryDecision(
             Interpreter interpreter,
             PolicyDecisionType decisionType,
@@ -231,6 +325,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a policy script, optionally splitting it into a
+        /// list and/or appending an argument list prior to evaluation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate the script.
+        /// </param>
+        /// <param name="text">
+        /// The script to be evaluated.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to append to the script prior to evaluation, if
+        /// requested.  This parameter may be null.
+        /// </param>
+        /// <param name="policyFlags">
+        /// The flags that control how the script is prepared and evaluated.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of evaluating the script; upon
+        /// failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -316,6 +435,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a trusted-file hash entry string into its policy
+        /// type, hash algorithm name, and hash value components.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used during parsing.  This parameter is optional
+        /// and may be null.
+        /// </param>
+        /// <param name="hash">
+        /// The hash entry string to parse.
+        /// </param>
+        /// <param name="policyType">
+        /// Upon success, receives the policy type parsed from the hash entry.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// Upon success, receives the hash algorithm name parsed from the
+        /// hash entry.
+        /// </param>
+        /// <param name="hashValue">
+        /// Upon success, receives the hash value parsed from the hash entry.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode TryParseHash(
             Interpreter interpreter,      /* in: OPTIONAL */
             string hash,                  /* in */
@@ -403,6 +550,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Sub-Command Support Methods
+        /// <summary>
+        /// This method returns a copy of the specified sub-command dictionary
+        /// with any disallowed sub-commands removed.
+        /// </summary>
+        /// <param name="possibleSubCommands">
+        /// The sub-commands to be filtered.  This parameter may be null.
+        /// </param>
+        /// <param name="disallowedSubCommands">
+        /// The sub-commands that should be excluded from the result.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A dictionary containing only the allowed sub-commands, or null if
+        /// the possible sub-commands were null.
+        /// </returns>
         private static EnsembleDictionary FilterSubCommands(
             EnsembleDictionary possibleSubCommands,  /* in */
             EnsembleDictionary disallowedSubCommands /* in */
@@ -432,6 +594,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the allowed or disallowed sub-commands for the
+        /// specified ensemble.
+        /// </summary>
+        /// <param name="ensemble">
+        /// The ensemble whose sub-commands are to be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero to return the allowed sub-commands; otherwise, the
+        /// disallowed sub-commands are returned.
+        /// </param>
+        /// <returns>
+        /// The requested sub-commands, or null if the ensemble was null.
+        /// </returns>
         private static EnsembleDictionary GetSubCommands(
             IEnsemble ensemble, /* in */
             bool allowed        /* in */
@@ -463,6 +640,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the allowed or disallowed sub-commands
+        /// for the specified ensemble.
+        /// </summary>
+        /// <param name="ensemble">
+        /// The ensemble whose sub-command names are to be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero to return the allowed sub-command names; otherwise, the
+        /// disallowed sub-command names are returned.
+        /// </param>
+        /// <returns>
+        /// The requested sub-command names, or null if there are none.
+        /// </returns>
         private static StringDictionary GetSubCommandNames(
             IEnsemble ensemble, /* in */
             bool allowed        /* in */
@@ -496,6 +688,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns all of the sub-commands for the specified ensemble,
+        /// without regard to any policy restrictions.
+        /// </summary>
+        /// <param name="ensemble">
+        /// The ensemble whose sub-commands are to be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// All of the sub-commands for the ensemble, or null if the ensemble
+        /// was null.
+        /// </returns>
         public static EnsembleDictionary GetSubCommandsUnsafe(
             IEnsemble ensemble /* in */
             )
@@ -505,6 +709,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the sub-commands for the specified ensemble that
+        /// are permitted given the safety setting of the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose safety setting is used.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="ensemble">
+        /// The ensemble whose sub-commands are to be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The permitted sub-commands, or null if the interpreter or ensemble
+        /// was null.
+        /// </returns>
         public static EnsembleDictionary GetSubCommandsSafe(
             Interpreter interpreter, /* in */
             IEnsemble ensemble       /* in */
@@ -533,6 +753,26 @@ namespace Eagle._Components.Private
         //       for an ensemble.
         //
         /* Eagle._Components.Private.Delegates.SubCommandFilterCallback */
+        /// <summary>
+        /// This method is used as a callback to filter an arbitrary list of
+        /// matched sub-commands, keeping only those that are allowed for the
+        /// specified ensemble.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose safety setting is used.
+        /// </param>
+        /// <param name="ensemble">
+        /// The ensemble whose allowed sub-commands are used to filter.
+        /// </param>
+        /// <param name="subCommands">
+        /// The sub-commands to be filtered.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The filtered sub-commands, or null if an error was encountered.
+        /// </returns>
         public static IEnumerable<SubCommandPair> OnlyAllowedSubCommands(
             Interpreter interpreter,                 /* in */
             IEnsemble ensemble,                      /* in */
@@ -576,6 +816,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Policy Support Methods
+        /// <summary>
+        /// This method queries the configured initial and/or final policy
+        /// decisions of the requested types from the specified interpreter and
+        /// appends them to a list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <param name="decisionType">
+        /// The policy decision type(s) to query, including whether the
+        /// initial and/or final decisions are wanted.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the queried decision names and their
+        /// values.  This parameter may be null, in which case a new list is
+        /// created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode QueryDecisions(
             Interpreter interpreter,
             PolicyDecisionType decisionType,
@@ -670,6 +934,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified list of policies includes
+        /// all of the default command policy callbacks.
+        /// </summary>
+        /// <param name="policies">
+        /// The policies to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if all of the default command policy callbacks are present;
+        /// otherwise, false.
+        /// </returns>
         public static bool HasExecuteCallbacks(
             PolicyList policies /* in */
             )
@@ -708,6 +983,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new core policy object that wraps the specified
+        /// policy callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The policy callback to be wrapped.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the new policy.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="policyFlags">
+        /// The flags to associate with the new policy.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to associate with the new policy.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created policy, or null if it could not be created.
+        /// </returns>
         public static IPolicy NewCore(
             ExecuteCallback callback, /* in */
             IClientData clientData,   /* in */
@@ -751,6 +1050,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified object may be used by a
+        /// "safe" interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter requesting use of the object.
+        /// </param>
+        /// <param name="text">
+        /// The textual representation of the object, used in error messages.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used to determine whether the object is trusted.
+        /// </param>
+        /// <param name="object">
+        /// The object being checked.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the object may be used; otherwise, false.
+        /// </returns>
         public static bool IsTrustedObject(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -776,6 +1097,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type may be used by a
+        /// "safe" interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter requesting use of the type.
+        /// </param>
+        /// <param name="text">
+        /// The textual representation of the type, used in error messages.
+        /// </param>
+        /// <param name="type">
+        /// The type being checked.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that control whether only explicitly trusted types
+        /// are permitted.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the type may be used; otherwise, false.
+        /// </returns>
         public static bool IsTrustedType(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -838,6 +1182,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified uri may be used by a
+        /// "safe" interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter requesting use of the uri.
+        /// </param>
+        /// <param name="uri">
+        /// The uri being checked.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the uri may be used; otherwise, false.
+        /// </returns>
         public static bool IsTrustedUri(
             Interpreter interpreter, /* in */
             Uri uri,                 /* in */
@@ -874,6 +1234,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is trusted by
+        /// comparing its computed hash against a set of trusted hashes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted hashes are used.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The trusted hashes to use instead of those from the interpreter.
+        /// This parameter is optional and may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file being checked.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file is trusted; otherwise, false.
+        /// </returns>
         public static bool IsTrustedFile(
             Interpreter interpreter,  /* in: OPTIONAL */
             StringList trustedHashes, /* in: OPTIONAL */
@@ -973,6 +1354,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified policy decision represents
+        /// a success, noting that a success does not necessarily indicate a formal
+        /// policy approval.
+        /// </summary>
+        /// <param name="decision">
+        /// The policy decision to examine.
+        /// </param>
+        /// <returns>
+        /// True if the decision represents a success; otherwise, false.
+        /// </returns>
         public static bool IsSuccess(
             PolicyDecision decision /* in */
             )
@@ -996,6 +1388,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified return code and policy
+        /// decision together represent a success.
+        /// </summary>
+        /// <param name="code">
+        /// The return code produced by a policy callback.
+        /// </param>
+        /// <param name="decision">
+        /// The policy decision to examine.
+        /// </param>
+        /// <returns>
+        /// True if the return code and decision represent a success;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSuccess(
             ReturnCode code,        /* in */
             PolicyDecision decision /* in */
@@ -1017,6 +1423,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the final policy decision based on the policy
+        /// flags, the return code, and the current policy decision.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The policy flags that indicate the context of the decision.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by the policy callback, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="decision">
+        /// The current policy decision.
+        /// </param>
+        /// <returns>
+        /// The computed final policy decision.
+        /// </returns>
         public static PolicyDecision FinalDecision(
             PolicyFlags policyFlags, /* in */
             ReturnCode? code,        /* in */
@@ -1050,6 +1473,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the directories trusted by the specified interpreter
+        /// to the specified dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted directories are added.
+        /// </param>
+        /// <param name="directories">
+        /// The dictionary that receives the trusted directories.
+        /// </param>
         private static void AddTrustedDirectories(
             Interpreter interpreter,           /* in */
             PathDictionary<object> directories /* in, out */
@@ -1097,6 +1530,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the types trusted by the specified interpreter to the
+        /// specified dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted types are added.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary that receives the trusted types.
+        /// </param>
         private static void AddTrustedTypes(
             Interpreter interpreter, /* in */
             ObjectDictionary types   /* in, out */
@@ -1131,6 +1574,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the hashes trusted by the specified interpreter to the
+        /// specified list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted hashes are added.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="hashes">
+        /// The list that receives the trusted hashes.
+        /// </param>
         private static void AddTrustedHashes(
             Interpreter interpreter, /* in: OPTIONAL */
             StringList hashes        /* in, out */
@@ -1142,6 +1596,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified trusted hashes to the specified list.
+        /// </summary>
+        /// <param name="trustedHashes">
+        /// The trusted hashes to add.
+        /// </param>
+        /// <param name="hashes">
+        /// The list that receives the trusted hashes.
+        /// </param>
         private static void AddTrustedHashes(
             StringList trustedHashes, /* in */
             StringList hashes         /* in, out */
@@ -1155,6 +1618,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the trusted hashes from the source interpreter into
+        /// the target interpreter.
+        /// </summary>
+        /// <param name="sourceInterpreter">
+        /// The interpreter whose trusted hashes are copied.
+        /// </param>
+        /// <param name="targetInterpreter">
+        /// The interpreter that receives the trusted hashes.
+        /// </param>
         public static void CopyTrustedHashes(
             Interpreter sourceInterpreter, /* in */
             Interpreter targetInterpreter  /* in */
@@ -1169,6 +1642,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified uri is eligible to be
+        /// trusted.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="uri">
+        /// The uri to examine.
+        /// </param>
+        /// <returns>
+        /// True if the uri may be trusted; otherwise, false.
+        /// </returns>
         private static bool CanBeTrustedUri(
             Interpreter interpreter, /* in: NOT USED */
             Uri uri                  /* in */
@@ -1186,6 +1673,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the uris trusted by the specified interpreter to the
+        /// specified dictionary, optionally including those derived from the
+        /// assembly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted uris are added.
+        /// </param>
+        /// <param name="uris">
+        /// The dictionary that receives the trusted uris.
+        /// </param>
+        /// <param name="fromAssembly">
+        /// Non-zero to also include the uris derived from the assembly.
+        /// </param>
         private static void AddTrustedUris(
             Interpreter interpreter,    /* in */
             UriDictionary<object> uris, /* in, out */
@@ -1242,6 +1743,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context and plugin from the specified
+        /// policy callback client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="plugin">
+        /// Upon success, receives the plugin from the policy context.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndPlugin( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in: NOT USED */
             IClientData clientData,           /* in */
@@ -1278,6 +1804,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context, encoding, script, and timeout
+        /// from the specified policy callback client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="encoding">
+        /// Upon success, receives the encoding from the policy context.
+        /// </param>
+        /// <param name="script">
+        /// Upon success, receives the script from the policy context.
+        /// </param>
+        /// <param name="timeout">
+        /// Upon success, receives the timeout from the policy context.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndScript( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in: NOT USED */
             IClientData clientData,           /* in */
@@ -1319,6 +1876,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context, file name, and timeout from
+        /// the specified policy callback client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the file name from the policy context.
+        /// </param>
+        /// <param name="timeout">
+        /// Upon success, receives the timeout from the policy context.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndFileName( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in: NOT USED */
             IClientData clientData,           /* in */
@@ -1358,6 +1943,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context and text from the specified
+        /// policy callback client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text from the policy context.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndText( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in: NOT USED */
             IClientData clientData,           /* in */
@@ -1387,6 +1997,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context, encoding, text, hash value,
+        /// and bytes from the specified policy callback client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="encoding">
+        /// Upon success, receives the encoding from the policy context.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text from the policy context.
+        /// </param>
+        /// <param name="hashValue">
+        /// Upon success, receives the hash value from the policy context.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives a copy of the script bytes, or null if none
+        /// are available.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndTextAndBytes( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in */
             IClientData clientData,           /* in */
@@ -1449,6 +2093,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// This method looks up the command of the specified type that belongs to
+        /// the specified plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the plugin commands.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose commands are searched.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command to look up.
+        /// </param>
+        /// <param name="command">
+        /// Upon success, receives the matching command.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode LookupPluginCommandType( /* POLICY HELPER METHOD */
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
@@ -1464,6 +2128,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the command of the specified type that belongs to
+        /// the specified plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the plugin commands.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose commands are searched.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command to look up.
+        /// </param>
+        /// <param name="command">
+        /// Upon success, receives the matching command.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode LookupPluginCommandType( /* POLICY HELPER METHOD */
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
@@ -1530,6 +2217,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context from the specified policy
+        /// callback client data and determines whether the executable object it
+        /// contains matches the specified command type and token.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="commandType">
+        /// The command type to match against.  This parameter may be null to
+        /// skip matching.
+        /// </param>
+        /// <param name="commandToken">
+        /// The command token to match against, or zero to match by type.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, receives non-zero if the executable object matched.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractContextAndCommand( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in */
             IClientData clientData,           /* in */
@@ -1549,6 +2268,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the policy context from the specified policy
+        /// callback client data and determines whether the executable object it
+        /// contains matches the specified command type and token.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="commandType">
+        /// The command type to match against.  This parameter may be null to
+        /// skip matching.
+        /// </param>
+        /// <param name="commandToken">
+        /// The command token to match against, or zero to match by type.
+        /// </param>
+        /// <param name="policyContext">
+        /// Upon success, receives the policy context.  If this parameter is
+        /// null on input, it is obtained from the client data.
+        /// </param>
+        /// <param name="command">
+        /// Upon success, receives the matched command, if any.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, receives non-zero if the executable object matched.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode ExtractContextAndCommand( /* POLICY HELPER METHOD */
             Interpreter interpreter,          /* in */
             IClientData clientData,           /* in */
@@ -1660,6 +2414,45 @@ namespace Eagle._Components.Private
 
         #region Policy Implementations
         #region Trusted Sub-Command Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on
+        /// whether its sub-command appears in a list of allowed or disallowed
+        /// sub-command names.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="subCommandNames">
+        /// The sub-command names to check against.  This parameter may be
+        /// null, in which case they are obtained from the command.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero if the sub-command names represent the allowed list; otherwise, they
+        /// represent the disallowed list.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaSubCommand( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags,          /* in */
             Type commandType,                 /* in */
@@ -1758,6 +2551,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trusted URI Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on
+        /// whether a uri appears in a list of allowed or disallowed uris.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="uri">
+        /// The uri to check.
+        /// </param>
+        /// <param name="uris">
+        /// The uris to check against.  This parameter may be null.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero if the uris represent the allowed list; otherwise, they
+        /// represent the disallowed list.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaUri( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags,    /* in */
             Type commandType,           /* in */
@@ -1822,6 +2655,47 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trusted Directory Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on
+        /// whether the directory of a file appears in a list of allowed or
+        /// disallowed directories.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose directory is checked.
+        /// </param>
+        /// <param name="directories">
+        /// The directories to check against.  This parameter may be null.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero if the directories represent the allowed list; otherwise, they
+        /// represent the disallowed list.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaDirectory( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags,            /* in */
             Type commandType,                   /* in */
@@ -1902,6 +2776,47 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trusted Object Type Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on
+        /// whether an object type appears in a list of allowed or disallowed
+        /// types.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="objectType">
+        /// The object type to check.
+        /// </param>
+        /// <param name="types">
+        /// The types to check against.  This parameter may be null.
+        /// </param>
+        /// <param name="allowed">
+        /// Non-zero if the types represent the allowed list; otherwise, they
+        /// represent the disallowed list.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaType( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags, /* in */
             Type commandType,        /* in */
@@ -1969,6 +2884,39 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Dynamic User Managed Callback Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on the
+        /// result of invoking a user-managed callback.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke.  This parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaCallback( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags, /* in */
             Type commandType,        /* in */
@@ -2068,6 +3016,43 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Dynamic User Script Evaluation Policy Implementation
+        /// <summary>
+        /// This method implements a policy that approves a command based on the
+        /// result of evaluating a user-supplied script.
+        /// </summary>
+        /// <param name="policyFlags">
+        /// The flags associated with this policy check.
+        /// </param>
+        /// <param name="commandType">
+        /// The type of the command this policy applies to.
+        /// </param>
+        /// <param name="commandToken">
+        /// The token of the command this policy applies to, or zero.
+        /// </param>
+        /// <param name="policyInterpreter">
+        /// The interpreter used to evaluate the policy script.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The policy script to evaluate.  This parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CheckViaScript( /* POLICY IMPLEMENTATION */
             PolicyFlags policyFlags,       /* in */
             Type commandType,              /* in */
@@ -2169,6 +3154,27 @@ namespace Eagle._Components.Private
 
         #region Default Core Command Policies
         #region The Default [clock] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [clock]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2189,6 +3195,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [file] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [file]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2209,6 +3236,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [info] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [info]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2229,6 +3277,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [interp] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [interp]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2249,6 +3318,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [object] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [object]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2269,6 +3359,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [package] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [package]
+        /// command, denying its unsafe sub-commands from being used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2289,6 +3400,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [source] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [source]
+        /// command, allowing it only for trusted directories or trusted uris.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -2353,6 +3485,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region The Default [uri] Command Policy
+        /// <summary>
+        /// This method implements the default command policy for the [uri]
+        /// command, allowing only its safe sub-commands to be used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter executing the command.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to the policy callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to the command being checked.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully,
+        /// even if the command was not approved; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.CommandPolicy | MethodFlags.System |
             MethodFlags.NoAdd)]

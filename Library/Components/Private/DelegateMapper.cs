@@ -72,6 +72,13 @@ using _Count = Eagle._Constants.Count;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class maintains a thread-safe, nested mapping from object types to
+    /// method names to parameter counts to the delegate triplets (method,
+    /// delegate, and flags) registered for them.  It implements
+    /// <see cref="IDelegateMapper" /> and is used to load, look up, enumerate,
+    /// and clear the delegates associated with the methods of a type.
+    /// </summary>
     [ObjectId("d93db8c3-baa8-4aee-840a-051c14d9b7e4")]
     internal sealed class DelegateMapper :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -80,13 +87,26 @@ namespace Eagle._Components.Public
         IDelegateMapper
     {
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the type mapping data of this
+        /// delegate mapper.
+        /// </summary>
         private readonly object syncRoot = new object();
+
+        /// <summary>
+        /// The nested dictionary mapping object types to method names to
+        /// parameter counts to lists of delegate triplets.
+        /// </summary>
         private TypeDictionary types;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty delegate mapper, initializing its type mapping
+        /// data.
+        /// </summary>
         public DelegateMapper()
         {
             Initialize(false);
@@ -96,6 +116,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method resolves the binding flags to use when reflecting over the
+        /// methods of a type, falling back to the default public instance flags
+        /// when none are supplied.
+        /// </summary>
+        /// <param name="bindingFlags">
+        /// The binding flags to use, or null to use the default public instance
+        /// flags.
+        /// </param>
+        /// <returns>
+        /// The resolved binding flags.
+        /// </returns>
         private static BindingFlags GetBindingFlags(
             BindingFlags? bindingFlags
             )
@@ -109,6 +141,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the method bases from a list of delegate
+        /// triplets, preserving their order.
+        /// </summary>
+        /// <param name="delegates">
+        /// The list of delegate triplets to extract method bases from.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// An array of method bases parallel to the supplied list, or null when
+        /// the list is null.
+        /// </returns>
         private static MethodBase[] GetMethodBases(
             DelegateList delegates /* in */
             )
@@ -134,6 +178,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally sorts the delegate triplets in a list, in
+        /// place, according to the specified marshal flags, rebuilding the list
+        /// from the sorted method bases.
+        /// </summary>
+        /// <param name="delegates">
+        /// The list of delegate triplets to sort.  This parameter may be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags controlling how the methods are sorted.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The delegate flags to assign to each rebuilt delegate triplet.
+        /// </param>
         private void MaybeSortDelegates(
             DelegateList delegates,     /* in */
             MarshalFlags marshalFlags,  /* in */
@@ -161,6 +219,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method formats a human-readable identifier for a mapped method,
+        /// combining the object type, method name, parameter count, and index
+        /// into a single string for use in error messages.
+        /// </summary>
+        /// <param name="objectType">
+        /// The object type to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The method name to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="parameterCount">
+        /// The parameter count to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="index">
+        /// The overload index to include, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted error message fragment.
+        /// </returns>
         public static string FormatErrorMessage(
             Type objectType,     /* in: OPTIONAL */
             string methodName,   /* in: OPTIONAL */
@@ -187,6 +265,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method initializes the type mapping data of this delegate mapper,
+        /// allocating it when it is missing or when reinitialization is forced.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to allocate a fresh type mapping even when one already
+        /// exists; zero to allocate one only when it is missing.
+        /// </param>
         private void Initialize(
             bool force /* in */
             )
@@ -200,6 +286,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the type mapping data and, optionally, releases it
+        /// entirely.
+        /// </summary>
+        /// <param name="reset">
+        /// Non-zero to release the type mapping after clearing it; zero to retain
+        /// the (now empty) mapping.
+        /// </param>
+        /// <returns>
+        /// The number of type mappings that were present before clearing, or an
+        /// invalid count when the mapping was unavailable.
+        /// </returns>
         private int ClearAndMaybeReset(
             bool reset /* in */
             )
@@ -226,6 +324,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the bound delegates across all type mappings and,
+        /// optionally, clears the bound delegate from each triplet.
+        /// </summary>
+        /// <param name="clear">
+        /// Non-zero to clear the bound delegate from each triplet while counting;
+        /// zero to only count them.
+        /// </param>
+        /// <returns>
+        /// The number of triplets that had a bound delegate.
+        /// </returns>
         private int CountOrClearDelegates(
             bool clear /* in */
             )
@@ -281,6 +390,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a single method to the type mapping, creating any
+        /// missing intermediate dictionaries (by type, method name, and parameter
+        /// count) and registering a delegate triplet for the method.
+        /// </summary>
+        /// <param name="objectType">
+        /// The object type that owns the method being added.
+        /// </param>
+        /// <param name="method">
+        /// The method to add to the mapping.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags used to optionally sort the resulting delegates, or
+        /// null to leave them unsorted.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The delegate flags to assign to the new triplet, or null to use the
+        /// default flags.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear any existing delegates for the same parameter count
+        /// before adding the method.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, a running count that is incremented for each
+        /// dictionary or entry created or modified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode Add(
             Type objectType,              /* in */
             MethodBase method,            /* in */
@@ -396,6 +539,25 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDelegateMapper Members
+        /// <summary>
+        /// This method counts either the bound delegates or the type mappings
+        /// held by this delegate mapper.
+        /// </summary>
+        /// <param name="delegatesOnly">
+        /// Non-zero to count only the bound delegates; zero to count the type
+        /// mappings.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, a running count to which the computed count is
+        /// added.
+        /// </param>
+        /// <param name="error">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Count(
             bool delegatesOnly, /* in */
             ref int count,      /* in, out */
@@ -422,6 +584,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears either the bound delegates or the entire set of
+        /// type mappings held by this delegate mapper.
+        /// </summary>
+        /// <param name="delegatesOnly">
+        /// Non-zero to clear only the bound delegates; zero to clear the type
+        /// mappings.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, a running count to which the number of cleared
+        /// items is added.
+        /// </param>
+        /// <param name="error">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Clear(
             bool delegatesOnly, /* in */
             ref int count,      /* in, out */
@@ -440,6 +621,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads all of the methods of the specified type that match
+        /// the given binding flags into the type mapping, adding a delegate
+        /// triplet for each.
+        /// </summary>
+        /// <param name="objectType">
+        /// The object type whose methods are loaded.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used to select the methods, or null to use the
+        /// default public instance flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags used to optionally sort the resulting delegates, or
+        /// null to leave them unsorted.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The delegate flags to assign to each new triplet, or null to use the
+        /// default flags.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear any existing delegates before loading the first
+        /// matching method.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, a running count to which the number of created or
+        /// modified entries is added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Load(
             Type objectType,              /* in */
             BindingFlags? bindingFlags,   /* in */
@@ -507,6 +723,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an ensemble of sub-command names from the mapped
+        /// method names of the specified type that have at least one delegate
+        /// registered for the given parameter count.
+        /// </summary>
+        /// <param name="objectType">
+        /// The object type whose mapped methods are queried.
+        /// </param>
+        /// <param name="parameterCount">
+        /// The parameter count that a method must have delegates for in order to
+        /// be included.
+        /// </param>
+        /// <returns>
+        /// An ensemble dictionary of matching sub-command names, or null when the
+        /// type is not mapped.
+        /// </returns>
         public EnsembleDictionary CreateEnsemble(
             Type objectType,   /* in */
             int parameterCount /* in */
@@ -554,6 +786,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the list of delegate triplets registered for a
+        /// specific type, method name, and parameter count, optionally validating
+        /// an index and limiting the number of results returned.
+        /// </summary>
+        /// <param name="objectType">
+        /// The object type to look up.
+        /// </param>
+        /// <param name="methodName">
+        /// The method name to look up.
+        /// </param>
+        /// <param name="parameterCount">
+        /// The parameter count to look up.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of delegates to return, or null for no limit.  When
+        /// supplied, a copy of the list truncated to this length is returned.
+        /// </param>
+        /// <param name="index">
+        /// An overload index to validate against the matched list, or null to
+        /// skip validation.
+        /// </param>
+        /// <param name="delegates">
+        /// Upon success, this receives the matched list of delegate triplets.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Lookup(
             Type objectType,            /* in */
             string methodName,          /* in */
@@ -677,6 +941,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enumerates the mapped method overloads, optionally
+        /// filtered by type, method name, parameter count, and safety, and adds a
+        /// formatted overload description for each match to the supplied ensemble.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate cached method safety.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="objectType">
+        /// The object type to restrict the enumeration to, or null for all mapped
+        /// types.
+        /// </param>
+        /// <param name="methodName">
+        /// The method name pattern to match, or null for all method names.
+        /// </param>
+        /// <param name="parameterCount">
+        /// The parameter count to restrict the enumeration to, or null for all
+        /// parameter counts.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode used when matching the method name pattern.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags used when formatting each method overload.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match the method name pattern without regard to case.
+        /// </param>
+        /// <param name="safe">
+        /// When non-null, restricts the enumeration to methods whose safety
+        /// matches this value; null to include methods regardless of safety.
+        /// </param>
+        /// <param name="subCommands">
+        /// On input and output, the ensemble to which the formatted method
+        /// overloads are added; it is allocated when null and matches exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode ToList(
             Interpreter interpreter,            /* in */
             Type objectType,                    /* in */
@@ -800,6 +1108,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string describing all of the mapped method
+        /// overloads held by this delegate mapper.
+        /// </summary>
+        /// <returns>
+        /// A string listing the mapped method overloads, or null when the
+        /// enumeration fails.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -831,6 +1147,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources held by this delegate mapper and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -841,7 +1161,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this delegate mapper has been
+        /// disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this delegate mapper has already
+        /// been disposed.  It is called at the start of most members to guard
+        /// against use after disposal.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown when this delegate mapper has been disposed and the engine is
+        /// configured to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -856,6 +1189,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this delegate mapper.  It
+        /// implements the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from
+        /// <see cref="Dispose()" /> (i.e. deterministically); zero if it is
+        /// being called from the finalizer.  When non-zero, managed resources
+        /// are released.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing /* in */
             )
@@ -889,6 +1232,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this delegate mapper, releasing any resources that were not
+        /// released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~DelegateMapper()
         {
             Dispose(false);

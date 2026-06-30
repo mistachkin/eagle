@@ -612,6 +612,7 @@
     <Compile Include="Commands\Regsub.cs" />
     <Compile Include="Commands\Rename.cs" />
     <Compile Include="Commands\Return.cs" />
+    <Compile Include="Commands\Scan.cs" />
     <Compile Include="Commands\Scope.cs" />
     <Compile Include="Commands\Seek.cs" />
     <Compile Include="Commands\Set.cs" />

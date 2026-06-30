@@ -54,6 +54,22 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This static class is Eagle's central execution engine; essentially all
+    /// script execution flows through it.  It evaluates scripts, files,
+    /// expressions, and streams; reads and parses script text; performs
+    /// substitution; dispatches commands, procedures, functions, and
+    /// operators; and manages cancellation, halting, error and exception
+    /// information, debugging breakpoints and watchpoints, threading, and the
+    /// asynchronous callback queue.  It is a pure static utility -- it has no
+    /// instances and holds no per-interpreter state; the <see cref="Interpreter" />
+    /// holds that state and delegates the actual work to this class.  Most
+    /// consumers should call the equivalent <see cref="Interpreter" /> methods
+    /// (for example, the interpreter's own script-evaluation methods) rather
+    /// than calling this class directly, since those manage interpreter state
+    /// on the caller's behalf.  See <c>engine_vs_interpreter.md</c> for
+    /// guidance on choosing between the two.
+    /// </summary>
     [ObjectId("204a6f65-204d-6973-7461-63686b696e20")]
     public static class Engine /* unique */
     {
@@ -62,6 +78,10 @@ namespace Eagle._Components.Public
         // NOTE: The maximum length used when adding the original command text that
         //       caused the current script error to the interpreter error info.
         //
+        /// <summary>
+        /// The maximum length of the original command text that is appended to
+        /// the interpreter error information for the current script error.
+        /// </summary>
         private const int ErrorInfoCommandLength = 150;
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -70,6 +90,11 @@ namespace Eagle._Components.Public
         // NOTE: The maximum number of times to append to the errorInfo variable
         //       while unwinding the evaluation stack after a stack overflow.
         //
+        /// <summary>
+        /// The maximum number of times the error information variable is
+        /// appended to while unwinding the evaluation stack after a stack
+        /// overflow.
+        /// </summary>
         private const int ErrorInfoStackOverflowFrames = 5;
 
         //
@@ -77,6 +102,11 @@ namespace Eagle._Components.Public
         //       be appended to while unwinding the evaluation stack after a stack
         //       overflow.
         //
+        /// <summary>
+        /// The maximum level beyond which the error information variable is no
+        /// longer appended to while unwinding the evaluation stack after a
+        /// stack overflow.
+        /// </summary>
         private const int ErrorInfoStackOverflowLevels = 5;
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -85,6 +115,10 @@ namespace Eagle._Components.Public
         // NOTE: The flags used when the engine needs to set a script variable
         //       (typically to report extended error information).
         //
+        /// <summary>
+        /// The variable flags used when the engine needs to set a script
+        /// variable, typically to report extended error information.
+        /// </summary>
         private static readonly VariableFlags ErrorVariableFlags =
             VariableFlags.LibraryMask | VariableFlags.ViaEngine;
 
@@ -92,6 +126,10 @@ namespace Eagle._Components.Public
         // NOTE: The flags used when the engine needs to set the "::errorCode"
         //       script variable.
         //
+        /// <summary>
+        /// The variable flags used when the engine needs to set the
+        /// <c>::errorCode</c> script variable.
+        /// </summary>
         internal static readonly VariableFlags ErrorCodeVariableFlags =
             ErrorVariableFlags |
 #if FAST_ERRORCODE
@@ -104,6 +142,10 @@ namespace Eagle._Components.Public
         // NOTE: The flags used when the engine needs to set the "::errorInfo"
         //       script variable.
         //
+        /// <summary>
+        /// The variable flags used when the engine needs to set the
+        /// <c>::errorInfo</c> script variable.
+        /// </summary>
         internal static readonly VariableFlags ErrorInfoVariableFlags =
             ErrorVariableFlags |
 #if FAST_ERRORINFO
@@ -118,6 +160,10 @@ namespace Eagle._Components.Public
         // NOTE: The default stack size for new threads when compiled or run
         //       on a Mono or Unix platform (or without native code support).
         //
+        /// <summary>
+        /// The default stack size, in bytes, for new threads when compiled or
+        /// run on a Mono or Unix platform (or without native code support).
+        /// </summary>
         private const int DefaultStackSize = 0x100000; // 1MB
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -126,6 +172,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error result used as a last resort when there is
         //       no more memory available.
         //
+        /// <summary>
+        /// The error result used as a last resort when there is no more memory
+        /// available.
+        /// </summary>
         private static readonly Result OutOfMemoryException = typeof(Engine) +
             ".Critical.OutOfMemoryException";
 
@@ -135,6 +185,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error result used as a last resort when there is
         //       no more stack space available.
         //
+        /// <summary>
+        /// The error result used as a last resort when there is no more stack
+        /// space available.
+        /// </summary>
         private static readonly Result StackOverflowException = typeof(Engine) +
             ".Critical.StackOverflowException";
 
@@ -144,6 +198,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error result used when its thread is interrupted
         //       via the Thread.Interrupt() method.
         //
+        /// <summary>
+        /// The error result used when its thread is interrupted via the
+        /// <c>Thread.Interrupt</c> method.
+        /// </summary>
         private static readonly Result ThreadInterruptedException = typeof(Engine) +
             ".Critical.ThreadInterruptedException";
 
@@ -153,6 +211,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error result used when its thread is aborted via
         //       the Thread.Abort() method.
         //
+        /// <summary>
+        /// The error result used when its thread is aborted via the
+        /// <c>Thread.Abort</c> method.
+        /// </summary>
         private static readonly Result ThreadAbortException = typeof(Engine) +
             ".Critical.ThreadAbortException";
 
@@ -163,20 +225,46 @@ namespace Eagle._Components.Public
         //       somehow unusable (i.e. it may have been disposed, deleted,
         //       etc).
         //
+        /// <summary>
+        /// The error message returned when the interpreter is somehow unusable
+        /// (e.g. it may have been disposed or deleted).
+        /// </summary>
         internal static readonly Result InterpreterUnusableError =
             "interpreter is unusable (it may have been disposed)";
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message returned when script evaluation is canceled.
+        /// </summary>
         internal static readonly Result EvalCanceledError = "eval canceled";
+        /// <summary>
+        /// The error message returned when script evaluation is canceled and
+        /// the evaluation stack is unwound.
+        /// </summary>
         internal static readonly Result EvalUnwoundError = "eval unwound";
 
+        /// <summary>
+        /// The error message returned when script evaluation is canceled due to
+        /// a timeout.
+        /// </summary>
         internal static readonly Result EvalCanceledTimeoutError = "eval canceled due to timeout";
+        /// <summary>
+        /// The error message returned when script evaluation is unwound due to
+        /// a timeout.
+        /// </summary>
         internal static readonly Result EvalUnwoundTimeoutError = "eval unwound due to timeout";
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message returned when the interpreter has been halted.
+        /// </summary>
         internal static readonly Result HaltedError = "halted";
+        /// <summary>
+        /// The prominent error message used to indicate that the interpreter
+        /// has been halted.
+        /// </summary>
         internal static readonly Result InterpreterHaltedError = "INTERPRETER HALTED";
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -187,6 +275,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of bytes to attempt to read at once after the "soft"
+        /// end-of-file when reading a script.
+        /// </summary>
         private static int ReadPostScriptBufferSize = 262144; /* 256K */
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -194,7 +286,16 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, blocking channel flags are used for the <c>fcopy</c>
+        /// command.
+        /// </summary>
         internal static bool BlockingFlagsForFcopy = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used for process
+        /// redirection; this must remain false because the operation cannot
+        /// block.
+        /// </summary>
         internal static bool BlockingFlagsForProcess = false; // BUGFIX: Cannot block.
 
         ///////////////////////////////////////////////////////////////////////////////////////
@@ -202,11 +303,35 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when evaluating a
+        /// script.
+        /// </summary>
         private static bool BlockingFlagsForEvaluate = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when executing a
+        /// command.
+        /// </summary>
         private static bool BlockingFlagsForExecute = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when reading a
+        /// script.
+        /// </summary>
         private static bool BlockingFlagsForRead = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when reading the
+        /// bytes of a script.
+        /// </summary>
         private static bool BlockingFlagsForReadBytes = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when reading a script
+        /// from a file.
+        /// </summary>
         private static bool BlockingFlagsForReadFile = true; // COMPAT: Eagle beta.
+        /// <summary>
+        /// When non-zero, blocking channel flags are used when reading a script
+        /// from a stream.
+        /// </summary>
         private static bool BlockingFlagsForReadStream = true; // COMPAT: Eagle beta.
         #endregion
 
@@ -219,6 +344,10 @@ namespace Eagle._Components.Public
         //       read-only.  The only data currently in this category is the
         //       global throw-on-disposed flag.
         //
+        /// <summary>
+        /// The object used to synchronize access to the global engine data that
+        /// is not read-only (currently only the global throw-on-disposed flag).
+        /// </summary>
         private static readonly object syncRoot = new object();
         #endregion
 
@@ -229,6 +358,11 @@ namespace Eagle._Components.Public
         // NOTE: The default value here should always be "true", use the
         //       "NoThrowOnDisposed" environment variable to override.
         //
+        /// <summary>
+        /// When non-zero, an exception is thrown when a disposed interpreter is
+        /// accessed.  The default is true and may be overridden via the
+        /// <c>NoThrowOnDisposed</c> environment variable.
+        /// </summary>
         private static bool ThrowOnDisposed = true;
         #endregion
 
@@ -236,6 +370,10 @@ namespace Eagle._Components.Public
 
         #region Global Extra (Reserved) Stack Space
 #if NATIVE
+        /// <summary>
+        /// The amount of extra stack space, in bytes, reserved when performing
+        /// native stack checks.
+        /// </summary>
         private static ulong ExtraStackSpace = 0;
 #endif
         #endregion
@@ -244,6 +382,28 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Engine Flags Methods
+        /// <summary>
+        /// This method computes the resulting engine flags by applying the
+        /// changes between the old and new flags, permitting only those
+        /// additions allowed by the add mask and those removals allowed by the
+        /// remove mask.
+        /// </summary>
+        /// <param name="oldFlags">
+        /// The original engine flags.
+        /// </param>
+        /// <param name="newFlags">
+        /// The proposed engine flags.
+        /// </param>
+        /// <param name="addMask">
+        /// The mask of engine flags that are permitted to be added.
+        /// </param>
+        /// <param name="removeMask">
+        /// The mask of engine flags that are permitted to be removed.
+        /// </param>
+        /// <returns>
+        /// The resulting engine flags after the permitted additions and
+        /// removals have been applied.
+        /// </returns>
         internal static EngineFlags CombineFlagsWithMasks(
             EngineFlags oldFlags,
             EngineFlags newFlags,
@@ -298,6 +458,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified engine flags with any engine
+        /// flags set in the interpreter, optionally adding the native stack
+        /// checking flags and optionally masking off the error handling flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose engine flags should be honored, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags supplied by the caller.
+        /// </param>
+        /// <param name="checkStack">
+        /// Non-zero to add the native stack space checking flags.
+        /// </param>
+        /// <param name="errorMask">
+        /// Non-zero to remove the error handling flags from the result.
+        /// </param>
+        /// <returns>
+        /// The combined engine flags.
+        /// </returns>
         private static EngineFlags CombineFlags(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -341,6 +522,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the script cancellation flags that correspond to
+        /// the specified engine flags.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// The cancellation flags corresponding to the specified engine flags.
+        /// </returns>
         private static CancelFlags GetCancelFlags(
             EngineFlags engineFlags
             )
@@ -355,6 +546,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method temporarily enables the stack checking engine flags,
+        /// returning the previous engine flags so they may later be restored.
+        /// Setting these flags avoids native stack overflows during deeply
+        /// nested execution that does not pass through the evaluator.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to augment with the stack checking flags.
+        /// </param>
+        /// <returns>
+        /// The engine flags as they were prior to this call, for use with
+        /// <c>RemoveStackCheckFlags</c>.
+        /// </returns>
         internal static EngineFlags AddStackCheckFlags(
             ref EngineFlags engineFlags
             )
@@ -372,6 +576,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the stack checking engine flags to their
+        /// previous state, removing any of those flags that were not set in the
+        /// saved engine flags.
+        /// </summary>
+        /// <param name="savedEngineFlags">
+        /// The engine flags captured prior to the matching call to
+        /// <c>AddStackCheckFlags</c>.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to restore.
+        /// </param>
         internal static void RemoveStackCheckFlags(
             EngineFlags savedEngineFlags,
             ref EngineFlags engineFlags
@@ -395,6 +611,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method derives the engine flags used for command resolution,
+        /// enabling all resolution sources when none are specified and
+        /// optionally requiring an exact match.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require an exact match during resolution.
+        /// </param>
+        /// <returns>
+        /// The engine flags to be used for resolution.
+        /// </returns>
         internal static EngineFlags GetResolveFlags(
             EngineFlags engineFlags,
             bool exact
@@ -421,6 +651,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified engine flags into the
+        /// corresponding readiness check flags.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// The readiness flags corresponding to the specified engine flags.
+        /// </returns>
         internal static ReadyFlags GetReadyFlags(
             EngineFlags engineFlags
             )
@@ -452,6 +692,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the engine, substitution, and expression
+        /// flags to their default values.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// Upon return, receives the default engine flags.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// Upon return, receives the default substitution flags.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// Upon return, receives the default expression flags.
+        /// </param>
         internal static void InitializeAllFlags(
             out EngineFlags engineFlags,             /* out */
             out SubstitutionFlags substitutionFlags, /* out */
@@ -467,6 +720,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the engine, substitution, event, and
+        /// expression flags to their default values.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// Upon return, receives the default engine flags.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// Upon return, receives the default substitution flags.
+        /// </param>
+        /// <param name="eventFlags">
+        /// Upon return, receives the default event flags.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// Upon return, receives the default expression flags.
+        /// </param>
         private static void InitializeAllFlags(
             out EngineFlags engineFlags,             /* out */
             out SubstitutionFlags substitutionFlags, /* out */
@@ -482,6 +751,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to query the engine, substitution, and
+        /// expression flags from the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <param name="blocking">
+        /// Non-zero to wait for the interpreter lock; otherwise, a non-blocking
+        /// lock attempt is made.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Upon success, receives the engine flags from the interpreter.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// Upon success, receives the substitution flags from the interpreter.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// Upon success, receives the expression flags from the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flags were successfully queried; otherwise, zero.
+        /// </returns>
         internal static bool TryQueryAllFlags(
             Interpreter interpreter,                 /* in */
             bool blocking,                           /* in */
@@ -501,6 +796,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to query the engine, substitution, event, and
+        /// expression flags from the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <param name="blocking">
+        /// Non-zero to wait for the interpreter lock; otherwise, a non-blocking
+        /// lock attempt is made.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Upon success, receives the engine flags from the interpreter.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// Upon success, receives the substitution flags from the interpreter.
+        /// </param>
+        /// <param name="eventFlags">
+        /// Upon success, receives the event flags from the interpreter.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// Upon success, receives the expression flags from the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flags were successfully queried; otherwise, zero.
+        /// </returns>
         private static bool TryQueryAllFlags(
             Interpreter interpreter,                 /* in */
             bool blocking,                           /* in */
@@ -566,6 +890,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the engine, substitution, event, and expression
+        /// flags from the specified interpreter and merges them into the
+        /// supplied flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <param name="blocking">
+        /// Non-zero to wait for the interpreter lock; otherwise, a non-blocking
+        /// lock attempt is made.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to augment with those from the interpreter.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to augment with those from the interpreter.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to augment with those from the interpreter.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to augment with those from the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flags were successfully queried and merged;
+        /// otherwise, zero.
+        /// </returns>
         private static bool TryAugmentAllFlags(
             Interpreter interpreter,                 /* in */
             bool blocking,                           /* in */
@@ -602,6 +957,24 @@ namespace Eagle._Components.Public
 
         #region Feature Support Methods
         #region Throw-On-Disposed Support Methods
+        /// <summary>
+        /// This method determines whether an exception should be thrown when a
+        /// disposed interpreter is accessed, considering both the global setting
+        /// and the per-interpreter creation flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose creation flags should be considered.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require both the global setting and the per-interpreter
+        /// flag to be set; zero to require either one; null to select the
+        /// behavior automatically based on whether an interpreter was supplied.
+        /// </param>
+        /// <returns>
+        /// Non-zero if an exception should be thrown when a disposed
+        /// interpreter is accessed; otherwise, zero.
+        /// </returns>
         public static bool IsThrowOnDisposed(
             Interpreter interpreter,
             bool? all
@@ -645,6 +1018,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method configures whether an exception should be thrown when a
+        /// disposed interpreter is accessed, updating the per-interpreter
+        /// creation flags and optionally the global setting.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose creation flags should be updated.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="throwOnDisposed">
+        /// Non-zero to throw an exception when a disposed interpreter is
+        /// accessed.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to also update the global setting; the global setting is
+        /// always updated when no interpreter is supplied.
+        /// </param>
         public static void SetThrowOnDisposed(
             Interpreter interpreter,
             bool throwOnDisposed,
@@ -672,6 +1062,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Stack Space Methods
+        /// <summary>
+        /// This method determines the stack size, in bytes, to use when
+        /// creating a new thread, preferring the specified size, then the
+        /// interpreter setting, and finally a platform-appropriate default.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose configured thread stack size should be used,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The requested maximum stack size, in bytes, or zero to determine it
+        /// automatically.
+        /// </param>
+        /// <returns>
+        /// The stack size, in bytes, to use for the new thread.
+        /// </returns>
         private static int GetNewThreadStackSize(
             Interpreter interpreter,
             int maxStackSize
@@ -719,6 +1125,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method returns the amount of extra stack space, in bytes,
+        /// reserved when performing native stack checks.
+        /// </summary>
+        /// <returns>
+        /// The extra reserved stack space, in bytes.
+        /// </returns>
         internal static ulong GetExtraStackSpace()
         {
             lock (syncRoot)
@@ -729,6 +1142,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the amount of extra stack space, in bytes, reserved
+        /// when performing native stack checks.
+        /// </summary>
+        /// <param name="extraSpace">
+        /// The extra stack space, in bytes, to reserve.
+        /// </param>
         internal static void SetExtraStackSpace(
             ulong extraSpace
             )
@@ -745,6 +1165,31 @@ namespace Eagle._Components.Public
 
         #region Threading Support Methods
         #region Thread Creation Methods
+        /// <summary>
+        /// This method creates a new managed thread that runs the specified
+        /// thread start routine within the script engine.  This overload uses
+        /// no interpreter.
+        /// </summary>
+        /// <param name="start">
+        /// The thread start routine to run on the new thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, for the new thread, or zero to
+        /// determine it automatically.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will be used for a user interface, in
+        /// which case it uses a single-threaded apartment.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero to create the thread as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero to share the active stack of the calling thread.
+        /// </param>
+        /// <returns>
+        /// The newly created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateThread(
             ThreadStart start,
             int maxStackSize,
@@ -760,6 +1205,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new managed thread that runs the specified
+        /// thread start routine within the script engine, using the thread host
+        /// of the specified interpreter when one is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread host should be used to create the
+        /// thread, if available.  This parameter may be null.
+        /// </param>
+        /// <param name="start">
+        /// The thread start routine to run on the new thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, for the new thread, or zero to
+        /// determine it automatically.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will be used for a user interface, in
+        /// which case it uses a single-threaded apartment.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero to create the thread as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero to share the active stack of the calling thread.
+        /// </param>
+        /// <returns>
+        /// The newly created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateThread(
             Interpreter interpreter,
             ThreadStart start,
@@ -854,6 +1328,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new managed thread that runs the specified
+        /// parameterized thread start routine within the script engine.  This
+        /// overload uses no interpreter.
+        /// </summary>
+        /// <param name="start">
+        /// The parameterized thread start routine to run on the new thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, for the new thread, or zero to
+        /// determine it automatically.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will be used for a user interface, in
+        /// which case it uses a single-threaded apartment.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero to create the thread as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero to share the active stack of the calling thread.
+        /// </param>
+        /// <returns>
+        /// The newly created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateThread(
             ParameterizedThreadStart start,
             int maxStackSize,
@@ -869,6 +1368,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new managed thread that runs the specified
+        /// parameterized thread start routine within the script engine, using
+        /// the thread host of the specified interpreter when one is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread host should be used to create the
+        /// thread, if available.  This parameter may be null.
+        /// </param>
+        /// <param name="start">
+        /// The parameterized thread start routine to run on the new thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, for the new thread, or zero to
+        /// determine it automatically.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will be used for a user interface, in
+        /// which case it uses a single-threaded apartment.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero to create the thread as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero to share the active stack of the calling thread.
+        /// </param>
+        /// <returns>
+        /// The newly created thread, or null if it could not be created.
+        /// </returns>
         public static Thread CreateThread(
             Interpreter interpreter,
             ParameterizedThreadStart start,
@@ -970,6 +1498,19 @@ namespace Eagle._Components.Public
         // WARNING: This method is only for use by the Eagle._Hosts.Engine
         //          class.
         //
+        /// <summary>
+        /// This method queues the specified callback to run on a thread-pool
+        /// thread.
+        /// </summary>
+        /// <param name="callBack">
+        /// The callback to run.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the work item is queued.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the work item was successfully queued; otherwise, zero.
+        /// </returns>
         internal static bool QueueWorkItem(
             ThreadStart callBack,
             QueueFlags flags
@@ -987,6 +1528,23 @@ namespace Eagle._Components.Public
         //          class, the Eagle._Components.Public.ScriptThread class,
         //          and the Eagle._Components.Public.ScriptThread class.
         //
+        /// <summary>
+        /// This method queues the specified callback, along with its state, to
+        /// run on a thread-pool thread.
+        /// </summary>
+        /// <param name="callBack">
+        /// The callback to run.
+        /// </param>
+        /// <param name="state">
+        /// The state object passed to the callback.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the work item is queued.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the work item was successfully queued; otherwise, zero.
+        /// </returns>
         internal static bool QueueWorkItem(
             WaitCallback callBack,
             object state,
@@ -1000,6 +1558,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified callback to run on a thread-pool
+        /// thread, using the thread host of the specified interpreter when one
+        /// is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread host should be used to queue the work
+        /// item, if available.  This parameter may be null.
+        /// </param>
+        /// <param name="start">
+        /// The callback to run.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the work item is queued.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the work item was successfully queued; otherwise, zero.
+        /// </returns>
         public static bool QueueWorkItem(
             Interpreter interpreter,
             ThreadStart start,
@@ -1068,6 +1644,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified parameterized callback, along with
+        /// its state, to run on a thread-pool thread, using the thread host of
+        /// the specified interpreter when one is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread host should be used to queue the work
+        /// item, if available.  This parameter may be null.
+        /// </param>
+        /// <param name="start">
+        /// The parameterized callback to run.
+        /// </param>
+        /// <param name="obj">
+        /// The state object passed to the callback.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the work item is queued.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the work item was successfully queued; otherwise, zero.
+        /// </returns>
         public static bool QueueWorkItem(
             Interpreter interpreter,
             ParameterizedThreadStart start,
@@ -1145,6 +1743,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Thread Support Methods
+        /// <summary>
+        /// This method returns the thread host for the specified interpreter,
+        /// provided the interpreter belongs to the current application domain
+        /// and its host is not a transparent proxy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread host is requested.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The thread host for the interpreter, or null if one is not
+        /// available.
+        /// </returns>
         private static IThreadHost GetThreadHost(
             Interpreter interpreter
             )
@@ -1165,6 +1776,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Support Methods
+        /// <summary>
+        /// This method is the thread entry point used to perform an
+        /// asynchronous engine operation.  It extracts the operation context,
+        /// performs the requested evaluation or substitution, and then either
+        /// invokes the completion callback or handles any error as a background
+        /// error.
+        /// </summary>
+        /// <param name="obj">
+        /// The asynchronous context describing the operation to perform; this
+        /// is expected to implement <see cref="IAsynchronousContext" />.  This
+        /// parameter may be null.
+        /// </param>
         private static void EngineThreadStart(
             object obj
             ) /* System.Threading.ParameterizedThreadStart */
@@ -1348,6 +1971,17 @@ namespace Eagle._Components.Public
 
         #region Callback Queue Support Methods
 #if CALLBACK_QUEUE
+        /// <summary>
+        /// This method returns the command name (the first argument) from the
+        /// specified argument list.
+        /// </summary>
+        /// <param name="arguments">
+        /// The argument list whose first element is the command name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The command name, or null if the argument list is null or empty.
+        /// </returns>
         private static string GetCommandName(
             StringList arguments
             )
@@ -1357,6 +1991,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes all callbacks currently queued on the
+        /// specified interpreter, after first confirming that the interpreter
+        /// is usable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose callback queue should be executed.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size permitted for the result of each queued callback.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the last executed
+        /// callback.  Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode ExecuteCallbackQueue(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -1385,6 +2051,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes all callbacks currently queued on the
+        /// specified interpreter.  It has snapshot semantics; any callbacks
+        /// queued while it is running are not executed until the next call.  If
+        /// execution stops early, the remaining callbacks are re-enqueued.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose callback queue should be executed.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when executing each queued callback.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size permitted for the result of each queued callback.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, indicates whether the interpreter is still usable;
+        /// execution stops if the interpreter becomes unusable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the last executed
+        /// callback.  Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode ExecuteCallbackQueue(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -1518,6 +2221,20 @@ namespace Eagle._Components.Public
 #if DEBUGGER
 #if DEBUGGER_ARGUMENTS
         #region Debugger Notification Methods
+        /// <summary>
+        /// This method gets the saved command argument list associated with the
+        /// debugger for the specified interpreter, acquiring the engine lock for
+        /// the duration of the query.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger argument list is being queried.  If
+        /// this is null, no value is returned.
+        /// </param>
+        /// <returns>
+        /// The saved command argument list, or null if the interpreter is
+        /// invalid, the engine lock cannot be acquired, no debugger is present,
+        /// or no argument list has been saved.
+        /// </returns>
         internal static ArgumentList GetDebuggerExecuteArguments(
             Interpreter interpreter
             )
@@ -1568,6 +2285,24 @@ namespace Eagle._Components.Public
         // WARNING: This method is used in the critical path within the script
         //          evaluation engine and must be as simple as possible.
         //
+        /// <summary>
+        /// This method saves the specified command argument list onto the
+        /// debugger for the specified interpreter, acquiring the engine lock for
+        /// the duration of the update.  This method is used in the critical path
+        /// within the script evaluation engine.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger argument list is being set.  If this
+        /// is null, the operation fails.
+        /// </param>
+        /// <param name="arguments">
+        /// The command argument list to save onto the debugger.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the argument list was saved, zero if the interpreter is
+        /// invalid, the engine lock cannot be acquired, or no debugger is
+        /// present.
+        /// </returns>
         private static bool SetDebuggerExecuteArguments(
             Interpreter interpreter,
             ArgumentList arguments
@@ -1619,6 +2354,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Debugger Checking Methods
+        /// <summary>
+        /// This method conditionally resets the pending "debugger exiting" flag
+        /// for the specified interpreter, acquiring the engine lock for the
+        /// duration of the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose pending "debugger exiting" flag is being
+        /// checked and possibly reset.  If this is null, the operation fails.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flag was checked, zero if the interpreter is invalid
+        /// or the engine lock cannot be acquired.
+        /// </returns>
         private static bool CheckIsDebuggerExiting(
             Interpreter interpreter
             )
@@ -1661,6 +2409,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves its associated (isolated) debugging
+        /// interpreter.  This is a convenience overload that does not return the
+        /// debugger itself.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugInterpreter">
+        /// Upon success, receives the debugger's associated debugging
+        /// interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger and its debugging interpreter were
+        /// found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebuggerInterpreter(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1676,6 +2449,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the specified interpreter has a usable
+        /// debugger.  This is a convenience overload that discards all of the
+        /// resolved debugger state and any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled
@@ -1691,6 +2479,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves both the debugger and its associated
+        /// (isolated) debugging interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="debugInterpreter">
+        /// Upon success, receives the debugger's associated debugging
+        /// interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger and its debugging interpreter were
+        /// found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1708,6 +2523,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger, its enabled state, its
+        /// header display flags, and its associated (isolated) debugging
+        /// interpreter.  This is a convenience overload that discards any error
+        /// message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="enabled">
+        /// Upon success, receives whether the debugger is currently enabled.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <param name="debugInterpreter">
+        /// Upon success, receives the debugger's associated debugging
+        /// interpreter.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger and its debugging interpreter were
+        /// found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1725,6 +2571,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger, its enabled state, its
+        /// header display flags, and its associated (isolated) debugging
+        /// interpreter.  This overload performs the additional resolution of the
+        /// debugging interpreter on behalf of the other overloads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="enabled">
+        /// Upon success, receives whether the debugger is currently enabled.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <param name="debugInterpreter">
+        /// Upon success, receives the debugger's associated debugging
+        /// interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger and its debugging interpreter were
+        /// found, zero otherwise.
+        /// </returns>
         private static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1751,6 +2632,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger.  This is a convenience
+        /// overload that discards the enabled state and header display flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1766,6 +2669,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger and its enabled state.  This
+        /// is a convenience overload that discards the header display flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="enabled">
+        /// Upon success, receives whether the debugger is currently enabled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1782,6 +2710,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger and its header display
+        /// flags.  This is a convenience overload that discards the enabled
+        /// state and any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         private static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1797,6 +2747,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger and its header display
+        /// flags.  This is a convenience overload that discards the enabled
+        /// state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1813,6 +2789,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for a usable debugger on the specified interpreter
+        /// and, upon success, resolves the debugger, its enabled state, and its
+        /// header display flags.  This is a convenience overload that discards
+        /// any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="enabled">
+        /// Upon success, receives whether the debugger is currently enabled.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero otherwise.
+        /// </returns>
         private static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1829,6 +2830,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the core debugger check for the specified
+        /// interpreter, acquiring the engine lock for the duration of the query.
+        /// It verifies that the interpreter is usable and not halted, fetches
+        /// the debugger and header display flags, and (unless the enabled state
+        /// is being ignored) requires the debugger to be enabled.  All other
+        /// debugger checking overloads ultimately delegate to this method.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being checked.  If this is null,
+        /// the operation fails.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to succeed even when a debugger is present but not currently
+        /// enabled.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon success, receives the debugger associated with the interpreter.
+        /// </param>
+        /// <param name="enabled">
+        /// Upon success, receives whether the debugger is currently enabled.
+        /// </param>
+        /// <param name="headerFlags">
+        /// Upon success, receives the header display flags for the interpreter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the check
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a usable debugger was found, zero if the interpreter is
+        /// invalid, the engine lock cannot be acquired, the interpreter is
+        /// halted, no debugger is present, or the debugger is not enabled and
+        /// the enabled state is not being ignored.
+        /// </returns>
         internal static bool CheckDebugger(
             Interpreter interpreter,
             bool ignoreEnabled,
@@ -1906,6 +2942,69 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Debugger Setup Methods
+        /// <summary>
+        /// This method creates or tears down the debugger for the specified
+        /// interpreter.  This is a convenience overload that discards the
+        /// resolved debugger and the flag indicating whether the interpreter
+        /// debugger field was modified.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being created or torn down.
+        /// </param>
+        /// <param name="culture">
+        /// The culture name to use when creating the debugger and (when
+        /// isolated) its debugging interpreter.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to use when creating the debugger.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use when creating the debugger.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags to use when creating the debugger.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to use when creating the debugger.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags to use when creating the debugger.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags to use when creating the debugger.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when creating the debugger.
+        /// </param>
+        /// <param name="host">
+        /// The host to use when creating the debugger.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to use when creating the debugger.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths to use when creating the
+        /// debugger.
+        /// </param>
+        /// <param name="ignoreModifiable">
+        /// Non-zero to skip the check that verifies the interpreter is allowed
+        /// to be modified.
+        /// </param>
+        /// <param name="setup">
+        /// Non-zero to create (set up) the debugger; zero to tear down and
+        /// dispose any existing debugger.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero to create an isolated debugging interpreter for the
+        /// debugger.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives result information; upon failure, receives an
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success, zero on failure.
+        /// </returns>
         internal static bool SetupDebugger(
             Interpreter interpreter,
             string culture,
@@ -1938,6 +3037,80 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates or tears down the debugger for the specified
+        /// interpreter, acquiring the engine lock for the duration of the
+        /// operation.  When setting up, an existing debugger is reused (and an
+        /// isolated debugging interpreter is created if requested and missing);
+        /// otherwise a new debugger is created.  When tearing down, any existing
+        /// debugging interpreter and debugger are disposed and cleared.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger is being created or torn down.  If
+        /// this is null, the operation fails.
+        /// </param>
+        /// <param name="culture">
+        /// The culture name to use when creating the debugger and (when
+        /// isolated) its debugging interpreter.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to use when creating the debugger.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use when creating the debugger.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags to use when creating the debugger.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to use when creating the debugger.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags to use when creating the debugger.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags to use when creating the debugger.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when creating the debugger.
+        /// </param>
+        /// <param name="host">
+        /// The host to use when creating the debugger.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to use when creating the debugger.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths to use when creating the
+        /// debugger.
+        /// </param>
+        /// <param name="ignoreModifiable">
+        /// Non-zero to skip the check that verifies the interpreter is allowed
+        /// to be modified.
+        /// </param>
+        /// <param name="setup">
+        /// Non-zero to create (set up) the debugger; zero to tear down and
+        /// dispose any existing debugger.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero to create an isolated debugging interpreter for the
+        /// debugger.
+        /// </param>
+        /// <param name="debugger">
+        /// Upon return, receives the debugger for the interpreter, which will be
+        /// null after a successful tear down.
+        /// </param>
+        /// <param name="modified">
+        /// Upon return, indicates whether the interpreter debugger field was
+        /// changed by this call.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives result information; upon failure, receives an
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success, zero on failure.
+        /// </returns>
         internal static bool SetupDebugger(
             Interpreter interpreter,
             string culture,
@@ -2085,6 +3258,19 @@ namespace Eagle._Components.Public
 
         #region Breakpoint Support Methods
         #region Generic Execute Breakpoint Methods
+        /// <summary>
+        /// This method determines whether either the specified executable entity
+        /// or the specified execute argument entity has a breakpoint set on it.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity (e.g. command or procedure) to check.
+        /// </param>
+        /// <param name="executeArgument">
+        /// The execute argument entity (e.g. function or operator) to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if either entity has a breakpoint set, zero otherwise.
+        /// </returns>
         private static bool HasAnyBreakpoint(
             IExecute execute,
             IExecuteArgument executeArgument
@@ -2096,6 +3282,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified executable entity has a
+        /// breakpoint set on it.  Only procedures and commands are considered.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to check.  If this is null, or is neither a
+        /// procedure nor a command, the result is zero.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the entity has a breakpoint set, zero otherwise.
+        /// </returns>
         internal static bool HasExecuteBreakpoint(
             IExecute execute
             )
@@ -2118,6 +3315,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified execute argument entity
+        /// has a breakpoint set on it.  Only functions and operators are
+        /// considered.
+        /// </summary>
+        /// <param name="executeArgument">
+        /// The execute argument entity to check.  If this is null, or is neither
+        /// a function nor an operator, the result is zero.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the entity has a breakpoint set, zero otherwise.
+        /// </returns>
         internal static bool HasExecuteArgumentBreakpoint(
             IExecuteArgument executeArgument
             )
@@ -2140,6 +3349,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the breakpoint on the specified executable
+        /// entity.  Only procedures and commands are supported.  It is an error
+        /// if the requested state already matches the current state.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity (procedure or command) whose breakpoint is
+        /// being changed.  If this is null, the operation fails.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to set the breakpoint, zero to clear it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the
+        /// breakpoint could not be changed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the breakpoint state was changed, zero otherwise.
+        /// </returns>
         internal static bool SetExecuteBreakpoint(
             IExecute execute,
             bool enable,
@@ -2208,6 +3436,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the breakpoint on the specified execute
+        /// argument entity.  Only functions and operators are supported.  It is
+        /// an error if the requested state already matches the current state.
+        /// </summary>
+        /// <param name="executeArgument">
+        /// The execute argument entity (function or operator) whose breakpoint
+        /// is being changed.  If this is null, the operation fails.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to set the breakpoint, zero to clear it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the
+        /// breakpoint could not be changed.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the breakpoint state was changed, zero otherwise.
+        /// </returns>
         internal static bool SetExecuteArgumentBreakpoint(
             IExecuteArgument executeArgument,
             bool enable,
@@ -2279,6 +3526,26 @@ namespace Eagle._Components.Public
 
         #region Token Breakpoint Methods
 #if DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// This method determines whether the specified token has a breakpoint
+        /// associated with it, either via its own token flags or by matching one
+        /// of the breakpoints registered with the debugger.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching the token against the debugger
+        /// breakpoints.
+        /// </param>
+        /// <param name="debugger">
+        /// The debugger whose registered breakpoints are matched against the
+        /// token.
+        /// </param>
+        /// <param name="token">
+        /// The token to check.  If this is null, the result is zero.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the token has a breakpoint set or matches a registered
+        /// breakpoint, zero otherwise.
+        /// </returns>
         private static bool HasTokenBreakpoint(
             Interpreter interpreter,
             IDebugger debugger,
@@ -2311,6 +3578,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Breakpoint Methods (for [test1] and [test2])
+        /// <summary>
+        /// This method determines whether the specified interpreter has a test
+        /// breakpoint registered for the given name, as used by the
+        /// <c>[test1]</c> and <c>[test2]</c> commands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  If this is null, the result is zero.
+        /// </param>
+        /// <param name="name">
+        /// The name of the test breakpoint to look for.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a matching test breakpoint is registered, zero otherwise.
+        /// </returns>
         private static bool HasTestBreakpoint(
             Interpreter interpreter,
             string name
@@ -2326,6 +3607,68 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Breakpoint Methods
+        /// <summary>
+        /// This method evaluates the current execution point against the active
+        /// debugger to determine whether a breakpoint should be triggered.  It
+        /// considers single-step and multiple-step state, identifier (command,
+        /// procedure, function, and operator), cancellation, unwind, exit,
+        /// error, return, test, and token breakpoint criteria.  When at least
+        /// one criterion is met, it dispatches any associated notifications and
+        /// enters the interactive debugger loop.
+        /// </summary>
+        /// <param name="code">
+        /// The return code of the operation that reached this execution point.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The kind(s) of breakpoint applicable to this execution point.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name associated with this execution point, used for test
+        /// breakpoint matching.
+        /// </param>
+        /// <param name="token">
+        /// The script token at this execution point, used for token breakpoint
+        /// matching.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with this execution point, if any.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect for the current operation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current operation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect for the current operation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current operation.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity (command or procedure) being executed at this
+        /// point, used for identifier breakpoint matching.
+        /// </param>
+        /// <param name="executeArgument">
+        /// The execute argument entity (function or operator) being executed at
+        /// this point, used for identifier breakpoint matching.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the current operation.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the current operation.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list associated with the current operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by handling the breakpoint,
+        /// which may be modified by the interactive debugger loop.
+        /// </param>
+        /// <returns>
+        /// The (possibly updated) return code after any breakpoint handling.
+        /// </returns>
         internal static ReturnCode CheckBreakpoints(
             ReturnCode code,
             BreakpointType breakpointType,
@@ -2476,6 +3819,53 @@ namespace Eagle._Components.Public
 
         #region Watchpoint Methods
 #if DEBUGGER_VARIABLE
+        /// <summary>
+        /// This method evaluates the current variable operation against the
+        /// active debugger to determine whether a variable watchpoint should be
+        /// triggered.  When the debugger is watching for the given breakpoint
+        /// type, it dispatches any associated notifications and enters the
+        /// interactive debugger loop for the duration of an entered watchpoint
+        /// level.
+        /// </summary>
+        /// <param name="code">
+        /// The return code of the operation that reached this watchpoint.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The kind(s) of watchpoint (variable access) applicable to this
+        /// operation.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name associated with this watchpoint operation.
+        /// </param>
+        /// <param name="token">
+        /// The script token associated with this watchpoint operation, if any.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with this watchpoint operation, if
+        /// any.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect for the current operation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current operation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect for the current operation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current operation.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the current operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by handling the watchpoint,
+        /// which may be modified by the interactive debugger loop.
+        /// </param>
+        /// <returns>
+        /// The (possibly updated) return code after any watchpoint handling.
+        /// </returns>
         internal static ReturnCode CheckWatchpoints(
             ReturnCode code,
             BreakpointType breakpointType,
@@ -2572,6 +3962,38 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Event Processing Support Methods
+        /// <summary>
+        /// This method verifies that the interpreter is ready for use and then,
+        /// unless events have been disabled, processes any pending asynchronous
+        /// events (which may run arbitrary script code) before re-verifying that
+        /// the interpreter is still ready.  This method is thread-safe and
+        /// re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose readiness is checked and whose pending events
+        /// are processed.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect, which control whether the readiness
+        /// checks and event processing are performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect.  This parameter is not used.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when processing any pending asynchronous events.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect.  This parameter is not used.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an error message that describes why the check
+        /// or event processing failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, the return code
+        /// from the readiness check or event processing that failed.
+        /// </returns>
         internal static ReturnCode CheckEvents(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -2635,6 +4057,17 @@ namespace Eagle._Components.Public
 
         #region Interpreter Status Methods
         #region Interpreter "Usability" Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter is
+        /// currently usable (i.e. it is non-null and has not been disposed).
+        /// This overload discards any associated error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for usability.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the interpreter is usable; otherwise, zero.
+        /// </returns>
         internal static bool IsUsableNoLock(
             Interpreter interpreter
             )
@@ -2646,6 +4079,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter is
+        /// currently usable (i.e. it is non-null and has not been disposed).
+        /// The caller must hold the appropriate interpreter lock prior to
+        /// calling this method.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for usability.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message that
+        /// explains why the interpreter is not usable.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the interpreter is usable; otherwise, zero.
+        /// </returns>
         private static bool IsUsableNoLock(
             Interpreter interpreter,
             ref Result error
@@ -2671,6 +4120,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if PROFILER
+        /// <summary>
+        /// This method determines whether the specified profiler is currently
+        /// usable, taking into account a previously computed usability flag
+        /// for the associated interpreter.
+        /// </summary>
+        /// <param name="profiler">
+        /// The profiler to check for usability.
+        /// </param>
+        /// <param name="usable">
+        /// Non-zero if the associated interpreter is known to be usable.  When
+        /// this is zero, the profiler is always considered unusable.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the profiler is usable; otherwise, zero.
+        /// </returns>
         private static bool IsUsableNoLock(
             IProfilerState profiler,
             bool usable
@@ -2693,6 +4157,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Deletion Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter has been
+        /// marked as deleted, optionally acquiring the necessary interpreter
+        /// lock and firing the associated interrupt callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for deletion.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how the
+        /// result and interrupt callback are handled.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will receive an error message; this may
+        /// also receive a message indicating the interpreter has been deleted.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> if the interpreter has not been deleted;
+        /// otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode IsDeleted(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -2789,6 +4273,30 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Halting Methods
+        /// <summary>
+        /// This method determines whether evaluation in the specified
+        /// interpreter has been halted, acquiring the necessary interpreter
+        /// lock and firing the associated interrupt callback as needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for the halted state.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how the
+        /// result and interrupt callback are handled.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will receive an error message or the
+        /// reason why evaluation was halted.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> if evaluation has not been halted; otherwise,
+        /// <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode InternalIsHalted(
             Interpreter interpreter,
 #if THREADING
@@ -2904,6 +4412,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method determines whether evaluation in the specified
+        /// interpreter has been halted, using the cancellation flags
+        /// appropriate for the interactive loop.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for the halted state.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will receive an error message or the
+        /// reason why evaluation was halted.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> if evaluation has not been halted; otherwise,
+        /// <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode InteractiveIsHalted(
             Interpreter interpreter,
             ref Result result
@@ -2926,6 +4450,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the halted state of the specified interpreter.
+        /// This overload discards any associated error message and reset
+        /// indicator.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose halted state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode ResetHalt(
             Interpreter interpreter,
             CancelFlags cancelFlags
@@ -2938,6 +4477,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the halted state of the specified interpreter.
+        /// This overload discards the reset indicator.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose halted state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode ResetHalt(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -2951,6 +4507,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the halted state of the specified interpreter,
+        /// reporting whether the state was actually changed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose halted state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the halted state
+        /// was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode ResetHalt(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -2971,6 +4548,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the halted state of the specified interpreter,
+        /// acquiring the necessary interpreter lock and optionally raising a
+        /// notification.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose halted state should be reset.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="haltedResults">
+        /// Upon success, this parameter will receive the result(s) that were
+        /// associated with the halted state, if any.
+        /// </param>
+        /// <param name="halted">
+        /// Upon success, this parameter will be non-zero if the interpreter
+        /// was in the halted state prior to the reset.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the halted state
+        /// was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode InternalResetHalt(
             Interpreter interpreter,
 #if THREADING
@@ -3072,6 +4683,23 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method resets the halted state of the specified interpreter,
+        /// using the cancellation flags appropriate for the interactive loop.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose halted state should be reset.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the halted state
+        /// was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode InteractiveResetHalt(
             Interpreter interpreter,
             ref bool reset,
@@ -3086,6 +4714,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method halts any script evaluation that is in progress within
+        /// the specified interpreter, associating the supplied result with the
+        /// halted state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script evaluation should be halted.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the halted state.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode HaltEvaluate(
             Interpreter interpreter,
             Result result,
@@ -3103,6 +4752,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method halts any script evaluation that is in progress within
+        /// the specified interpreter, acquiring the necessary interpreter lock
+        /// and optionally raising notifications before and after the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script evaluation should be halted.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the halted state.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode InternalHaltEvaluate(
             Interpreter interpreter,
 #if THREADING
@@ -3216,6 +4890,25 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Cancellation Methods
+        /// <summary>
+        /// This method determines whether script evaluation in the specified
+        /// interpreter has been canceled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for script cancellation.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how the
+        /// result and interrupt callback are handled.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will receive an error message or the
+        /// reason why script evaluation was canceled.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> if script evaluation has not been canceled;
+        /// otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode IsCanceled(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -3231,6 +4924,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether script evaluation in the specified
+        /// interpreter has been canceled, acquiring the necessary interpreter
+        /// lock and firing the associated interrupt callback as needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for script cancellation.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how the
+        /// result and interrupt callback are handled.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will receive an error message or the
+        /// reason why script evaluation was canceled.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> if script evaluation has not been canceled;
+        /// otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode InternalIsCanceled(
             Interpreter interpreter,
 #if THREADING
@@ -3383,6 +5100,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the script cancellation state of the specified
+        /// interpreter.  This overload discards any associated error message
+        /// and reset indicator.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script cancellation state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode ResetCancel(
             Interpreter interpreter,
             CancelFlags cancelFlags
@@ -3395,6 +5127,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the script cancellation state of the specified
+        /// interpreter.  This overload discards the reset indicator.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script cancellation state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode ResetCancel(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -3408,6 +5157,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the script cancellation state of the specified
+        /// interpreter, reporting whether the state was actually changed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script cancellation state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the script
+        /// cancellation state was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode ResetCancel(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -3426,6 +5196,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the script cancellation state of the specified
+        /// interpreter, reporting the previous cancellation and unwind states
+        /// as well as whether the state was actually changed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script cancellation state should be reset.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="canceledResults">
+        /// Upon success, this parameter will receive the result(s) that were
+        /// associated with the cancellation state, if any.
+        /// </param>
+        /// <param name="canceled">
+        /// Upon success, this parameter will be non-zero if script evaluation
+        /// was in the canceled state prior to the reset.
+        /// </param>
+        /// <param name="unwound">
+        /// Upon success, this parameter will be non-zero if the interpreter
+        /// was being unwound prior to the reset.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the script
+        /// cancellation state was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode ResetCancel(
             Interpreter interpreter,
             CancelFlags cancelFlags,
@@ -3446,6 +5250,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the script cancellation state of the specified
+        /// interpreter, acquiring the necessary interpreter lock and
+        /// optionally raising a notification.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script cancellation state should be reset.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="canceledResults">
+        /// Upon success, this parameter will receive the result(s) that were
+        /// associated with the cancellation state, if any.
+        /// </param>
+        /// <param name="canceled">
+        /// Upon success, this parameter will be non-zero if script evaluation
+        /// was in the canceled state prior to the reset.
+        /// </param>
+        /// <param name="unwound">
+        /// Upon success, this parameter will be non-zero if the interpreter
+        /// was being unwound prior to the reset.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the script
+        /// cancellation state was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode InternalResetCancel(
             Interpreter interpreter,
 #if THREADING
@@ -3543,6 +5385,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method cancels any script evaluation that is in progress
+        /// within the specified interpreter, associating the supplied result
+        /// with the cancellation state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script evaluation should be canceled.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the cancellation state.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode CancelEvaluate(
             Interpreter interpreter,
             Result result,
@@ -3560,6 +5423,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method cancels any script evaluation that is in progress
+        /// within the specified interpreter, acquiring the necessary
+        /// interpreter lock and optionally raising notifications before and
+        /// after the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script evaluation should be canceled.
+        /// </param>
+        /// <param name="engineContext">
+        /// The per-thread engine context associated with the interpreter, if
+        /// any.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the cancellation state.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// Flags that control how the interpreter lock is acquired and how
+        /// notifications are handled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode InternalCancelEvaluate(
             Interpreter interpreter,
 #if THREADING
@@ -3665,6 +5554,21 @@ namespace Eagle._Components.Public
 
         #region Script Exception Methods
         #region Script Exception Flag Methods
+        /// <summary>
+        /// This method sets or clears the flag that indicates the error code
+        /// has been set for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error code flag should be modified.
+        /// </param>
+        /// <param name="errorCodeSet">
+        /// Non-zero to indicate the error code has been set; zero to clear that
+        /// indication.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flag was modified; otherwise, zero (e.g. when the
+        /// interpreter is null).
+        /// </returns>
         internal static bool SetErrorCodeSet( /* FOR [error], [exec], [return] USE ONLY */
             Interpreter interpreter,
             bool errorCodeSet
@@ -3687,6 +5591,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the flag that indicates an error is in
+        /// progress for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error-in-progress flag should be modified.
+        /// </param>
+        /// <param name="errorInProgress">
+        /// Non-zero to indicate an error is in progress; zero to clear that
+        /// indication.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flag was modified; otherwise, zero (e.g. when the
+        /// interpreter is null).
+        /// </returns>
         internal static bool SetErrorInProgress( /* FOR [return] USE ONLY */
             Interpreter interpreter,
             bool errorInProgress
@@ -3709,6 +5628,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the flag that indicates error
+        /// information has already been logged for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error-already-logged flag should be modified.
+        /// </param>
+        /// <param name="errorAlreadyLogged">
+        /// Non-zero to indicate error information has already been logged; zero
+        /// to clear that indication.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flag was modified; otherwise, zero (e.g. when the
+        /// interpreter is null).
+        /// </returns>
         internal static bool SetErrorAlreadyLogged( /* FOR [error] USE ONLY */
             Interpreter interpreter,
             bool errorAlreadyLogged
@@ -3727,6 +5661,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the flag that prevents the error state
+        /// from being reset for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose no-reset-error flag should be modified.
+        /// </param>
+        /// <param name="noResetError">
+        /// Non-zero to prevent the error state from being reset; zero to allow
+        /// it to be reset.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flag was modified; otherwise, zero (e.g. when the
+        /// interpreter is null).
+        /// </returns>
         internal static bool SetNoResetError( /* FOR [try] USE ONLY */
             Interpreter interpreter,
             bool noResetError
@@ -3749,6 +5698,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears all of the error-related engine flags for the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error flags should be cleared.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the flags were cleared; otherwise, zero (e.g. when the
+        /// interpreter is null).
+        /// </returns>
         private static bool ResetErrorFlags(
             Interpreter interpreter
             )
@@ -3768,6 +5728,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Exception Stack Trace Methods
+        /// <summary>
+        /// This method checks for and resets a pending stack overflow
+        /// condition for the specified interpreter, appending the appropriate
+        /// error information when one is detected.  This method acquires the
+        /// necessary interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check for a stack overflow condition.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero (e.g. when the interpreter is
+        /// null, unusable, or its lock cannot be acquired).
+        /// </returns>
         private static bool CheckStackOverflow(
             Interpreter interpreter
             )
@@ -3833,6 +5806,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the error code and error information for the
+        /// specified interpreter, including their associated Tcl variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error information should be reset.
+        /// </param>
+        /// <param name="waitForLock">
+        /// Non-zero to wait for the interpreter lock to be acquired; zero to
+        /// attempt a non-blocking ("soft") lock.
+        /// </param>
+        /// <param name="failOnError">
+        /// Non-zero to fail if one of the associated variables cannot be reset;
+        /// zero to ignore such failures.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode ResetErrorInformation(
             Interpreter interpreter,
             bool waitForLock,
@@ -3924,6 +5918,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the error code for the specified interpreter based
+        /// on the supplied exception.  This overload supplies no argument list,
+        /// member information, or result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error code should be set.
+        /// </param>
+        /// <param name="exception">
+        /// The exception used to derive the error code.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         public static ReturnCode SetExceptionErrorCode(
             Interpreter interpreter,
             Exception exception
@@ -3935,6 +5943,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the error code for the specified interpreter based
+        /// on the supplied exception, also packing the supplied argument list,
+        /// member information, and result into the saved exception.  Any
+        /// failure is traced for diagnostic purposes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error code should be set.
+        /// </param>
+        /// <param name="exception">
+        /// The exception used to derive the error code.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list to associate with the saved exception, if any.
+        /// </param>
+        /// <param name="memberInfo">
+        /// The member information to associate with the saved exception, if
+        /// any.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the saved exception, if any.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         internal static ReturnCode SetExceptionErrorCode(
             Interpreter interpreter,
             Exception exception,
@@ -3971,6 +6004,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the error code for the specified interpreter based
+        /// on the supplied exception, saving the original exception into the
+        /// per-thread state and setting the error code variable to describe
+        /// the root cause.  This method acquires the necessary interpreter
+        /// lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error code should be set.
+        /// </param>
+        /// <param name="exception">
+        /// The exception used to derive the error code.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list to associate with the saved exception, if any.
+        /// </param>
+        /// <param name="memberInfo">
+        /// The member information to associate with the saved exception, if
+        /// any.
+        /// </param>
+        /// <param name="result">
+        /// The result to associate with the saved exception, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode SetExceptionErrorCode(
             Interpreter interpreter,
             Exception exception,
@@ -4090,6 +6152,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the error code and error information from one
+        /// interpreter to another, appending it to the supplied result.
+        /// </summary>
+        /// <param name="sourceInterpreter">
+        /// The interpreter to copy the error information from.
+        /// </param>
+        /// <param name="targetInterpreter">
+        /// The interpreter to copy the error information to.
+        /// </param>
+        /// <param name="result">
+        /// The result that the error information should be appended to.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         internal static bool CopyErrorInformation(
             Interpreter sourceInterpreter,
             Interpreter targetInterpreter,
@@ -4153,6 +6231,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified error information to the error
+        /// state of the interpreter.  This overload supplies no error code.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error information should be updated.
+        /// </param>
+        /// <param name="result">
+        /// The result that represents the current error message.
+        /// </param>
+        /// <param name="errorInfo">
+        /// The error information to append.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         public static bool AddErrorInformation(
             Interpreter interpreter,
             Result result,
@@ -4165,6 +6259,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified error code and error information
+        /// to the error state of the interpreter, acquiring the necessary
+        /// interpreter lock and using its current engine flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error information should be updated.
+        /// </param>
+        /// <param name="result">
+        /// The result that represents the current error message.
+        /// </param>
+        /// <param name="errorCode">
+        /// The error code to set, or null to use the default.
+        /// </param>
+        /// <param name="errorInfo">
+        /// The error information to append.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         private static bool AddErrorInformation(
             Interpreter interpreter,
             Result result,
@@ -4211,6 +6325,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified error code and error information
+        /// to the error state of the interpreter, using the supplied engine
+        /// flags to determine whether an error is already in progress.  This
+        /// method acquires the necessary interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error information should be updated.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that describe the current error state.
+        /// </param>
+        /// <param name="result">
+        /// The result that represents the current error message.
+        /// </param>
+        /// <param name="errorCode">
+        /// The error code to set, or null to use the default.
+        /// </param>
+        /// <param name="errorInfo">
+        /// The error information to append.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         private static bool AddErrorInformation(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -4295,6 +6433,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates and records the line number where the
+        /// current error occurred for the specified interpreter, based on its
+        /// current parse state.  This method acquires the necessary
+        /// interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error line number should be set.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to record the error line number even when it is zero;
+        /// otherwise, the line number is only recorded when it is non-zero.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         internal static bool SetErrorLine( /* NOTE: For use by [error] only. */
             Interpreter interpreter,
             bool force
@@ -4353,6 +6507,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the one-based line number of a command
+        /// within the specified script text by counting the line terminators
+        /// that precede it.
+        /// </summary>
+        /// <param name="text">
+        /// The script text containing the command.
+        /// </param>
+        /// <param name="commandStart">
+        /// The character offset within the script text where the command
+        /// begins.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will receive the calculated one-based
+        /// line number.
+        /// </param>
         private static void CalculateErrorLine(
             string text,      /* in */
             int commandStart, /* in */
@@ -4374,6 +6544,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records error information for the command currently
+        /// being executed, including the calculated error line and a formatted
+        /// excerpt of the command text.  This method acquires the necessary
+        /// interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose error information should be updated.
+        /// </param>
+        /// <param name="text">
+        /// The script text containing the command.
+        /// </param>
+        /// <param name="commandStart">
+        /// The character offset within the script text where the command
+        /// begins.
+        /// </param>
+        /// <param name="commandLength">
+        /// The length, in characters, of the command text; a negative value
+        /// means the remainder of the script text following the command start.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that describe the current error state.
+        /// </param>
+        /// <param name="result">
+        /// The result that represents the current error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will receive the calculated one-based
+        /// line number where the command begins.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         private static bool LogCommandInformation(
             Interpreter interpreter,
             string text,
@@ -4454,6 +6657,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Exception Return Code Methods
+        /// <summary>
+        /// This method conditionally resets the return code carried by the
+        /// specified result.  This overload discards the reset indicator and
+        /// any associated error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result whose return code should be reset.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to reset the return code regardless of the current
+        /// evaluation level.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode ResetReturnCode(
             Interpreter interpreter,
             Result result,
@@ -4468,6 +6689,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally resets the return code carried by the
+        /// specified result, reporting whether it was actually changed.  The
+        /// return code is reset when forced or when the interpreter is at its
+        /// outermost evaluation level.  This method acquires the necessary
+        /// interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result whose return code should be reset.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to reset the return code regardless of the current
+        /// evaluation level, even when the interpreter has been disposed.
+        /// </param>
+        /// <param name="reset">
+        /// Upon success, this parameter will be non-zero if the return code
+        /// was actually reset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// <c>ReturnCode.Ok</c> on success; otherwise, <c>ReturnCode.Error</c>.
+        /// </returns>
         private static ReturnCode ResetReturnCode(
             Interpreter interpreter,
             Result result,
@@ -4564,6 +6812,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the return code associated with the
+        /// "exception" semantics of the specified interpreter, resets it to
+        /// <c>ReturnCode.Ok</c>, and, when that return code indicates an error,
+        /// updates the error code and error information variables accordingly.
+        /// This method acquires the necessary interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose return information should be updated.
+        /// </param>
+        /// <returns>
+        /// The return code that was associated with the interpreter; this will
+        /// be <c>ReturnCode.Ok</c> when the interpreter is null or unusable, or
+        /// <c>ReturnCode.Error</c> when the interpreter lock cannot be
+        /// acquired.
+        /// </returns>
         internal static ReturnCode UpdateReturnInformation(
             Interpreter interpreter
             )
@@ -4646,6 +6910,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Exception/Result Reset Methods
+        /// <summary>
+        /// This method resets the result of the specified interpreter.  This
+        /// overload uses no additional engine flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose result should be reset.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be reset to null.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         public static bool ResetResult(
             Interpreter interpreter,
             ref Result result
@@ -4656,6 +6933,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the result of the specified interpreter,
+        /// optionally clearing the error flags as well, subject to the
+        /// supplied and current engine flags.  This method acquires the
+        /// necessary interpreter lock.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose result should be reset.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Additional engine flags that influence whether the result and error
+        /// flags are reset.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be reset to null.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         private static bool ResetResult(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -4734,6 +7030,17 @@ namespace Eagle._Components.Public
 
         #region Read Methods
         #region Read Post-Script Methods
+        /// <summary>
+        /// This method removes any leading bytes from the supplied byte
+        /// list up to and including the first "soft" end-of-file byte
+        /// (if any), leaving only the bytes that follow it (i.e. the
+        /// "post-script" bytes).  When the list is null or contains no
+        /// "soft" end-of-file byte, it is left unchanged.
+        /// </summary>
+        /// <param name="bytes">
+        /// The list of bytes to modify in place.  Upon return, any bytes at
+        /// or before the first "soft" end-of-file have been removed.
+        /// </param>
         private static void MaybeRemoveNonPostScriptBytes(
             ref ByteList bytes /* in, out */
             )
@@ -4751,6 +7058,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the "post-script" bytes (i.e. the raw bytes
+        /// that follow the first "soft" end-of-file) from a stream using
+        /// the supplied callbacks.  When requested, it first reads one byte
+        /// at a time until the first "soft" end-of-file is reached and
+        /// then reads the remaining bytes in chunks.  Exceptions thrown by
+        /// the callbacks are the responsibility of the caller to handle.
+        /// </summary>
+        /// <param name="charCallback">
+        /// The callback used to read a single byte (as an integer) from the
+        /// stream when seeking to the first "soft" end-of-file.  When this
+        /// is null, the seeking step cannot be performed.
+        /// </param>
+        /// <param name="bytesCallback">
+        /// The callback used to read a chunk of bytes from the stream.  When
+        /// this is null, no bytes can be read.
+        /// </param>
+        /// <param name="streamLength">
+        /// The total length of the stream, when known, used to preallocate
+        /// capacity for the resulting list of bytes; otherwise, the invalid
+        /// length sentinel.
+        /// </param>
+        /// <param name="seekSoftEof">
+        /// Non-zero to first skip all bytes up to and including the first
+        /// "soft" end-of-file before reading; zero when the stream is
+        /// already positioned appropriately.
+        /// </param>
+        /// <param name="bytes">
+        /// The list of bytes to receive the post-script bytes.  When it is
+        /// non-null upon entry, the bytes read are appended to it; otherwise,
+        /// a new list is created and stored here.
+        /// </param>
         internal static void ReadPostScriptBytes(
             ReadInt32Callback charCallback,  /* in */
             ReadBytesCallback bytesCallback, /* in */
@@ -4958,6 +7297,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Read Script (Shared) Methods
+        /// <summary>
+        /// This method attempts to determine the length, in bytes, of a
+        /// stream.  It only succeeds when the stream is non-null and
+        /// supports seeking.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream whose length is to be queried.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the length of the stream, in bytes.  Upon
+        /// failure, receives the invalid length sentinel.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the stream length was successfully determined;
+        /// otherwise, zero.
+        /// </returns>
         private static bool GetStreamLength(
             Stream stream,  /* in */
             out long length /* out */
@@ -4975,6 +7330,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine the length, in bytes, of the
+        /// underlying base stream associated with a
+        /// <see cref="StreamReader" /> or <see cref="BinaryReader" />.
+        /// </summary>
+        /// <param name="reader">
+        /// The reader object whose underlying base stream length is to be
+        /// queried.
+        /// </param>
+        /// <returns>
+        /// The length of the underlying base stream, in bytes, or the
+        /// invalid length sentinel when it cannot be determined.
+        /// </returns>
         private static long GetStreamLength(
             object reader /* in */
             )
@@ -5001,6 +7369,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up a callback that reads a single character
+        /// (as an integer) from the supplied text reader.  When the text
+        /// reader is null, the callback is left unchanged.
+        /// </summary>
+        /// <param name="textReader">
+        /// The text reader to read characters from.
+        /// </param>
+        /// <param name="charCallback">
+        /// Upon success, receives a callback that reads a single character
+        /// from <paramref name="textReader" />.
+        /// </param>
         private static void GetStreamCallback(
             TextReader textReader,             /* in */
             ref ReadInt32Callback charCallback /* out */
@@ -5014,6 +7394,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up the callbacks used to read a single
+        /// character (as an integer) and a buffer of characters from the
+        /// supplied text reader.  When the text reader is null, the
+        /// callbacks are left unchanged.
+        /// </summary>
+        /// <param name="textReader">
+        /// The text reader to read characters from.
+        /// </param>
+        /// <param name="charCallback">
+        /// Upon success, receives a callback that reads a single character
+        /// from <paramref name="textReader" />.
+        /// </param>
+        /// <param name="charsCallback">
+        /// Upon success, receives a callback that reads a buffer of
+        /// characters from <paramref name="textReader" />.
+        /// </param>
         private static void GetStreamCallbacks(
             TextReader textReader,              /* in */
             ref ReadInt32Callback charCallback, /* out */
@@ -5031,6 +7428,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up a callback that reads a buffer of bytes
+        /// from the supplied binary reader.  When the binary reader is
+        /// null, the callback is left unchanged.
+        /// </summary>
+        /// <param name="binaryReader">
+        /// The binary reader to read bytes from.
+        /// </param>
+        /// <param name="bytesCallback">
+        /// Upon success, receives a callback that reads a buffer of bytes
+        /// from <paramref name="binaryReader" />.
+        /// </param>
         private static void GetStreamCallback(
             BinaryReader binaryReader,          /* in */
             ref ReadBytesCallback bytesCallback /* out */
@@ -5044,6 +7453,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up the callbacks used to read a single byte
+        /// (as an integer) and a buffer of bytes from the supplied binary
+        /// reader.  When the binary reader is null, the callbacks are left
+        /// unchanged.
+        /// </summary>
+        /// <param name="binaryReader">
+        /// The binary reader to read bytes from.
+        /// </param>
+        /// <param name="charCallback">
+        /// Upon success, receives a callback that reads a single byte from
+        /// <paramref name="binaryReader" />.
+        /// </param>
+        /// <param name="bytesCallback">
+        /// Upon success, receives a callback that reads a buffer of bytes
+        /// from <paramref name="binaryReader" />.
+        /// </param>
         private static void GetStreamCallbacks(
             BinaryReader binaryReader,          /* in */
             ref ReadInt32Callback charCallback, /* out */
@@ -5061,6 +7487,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads characters one at a time using the supplied
+        /// callback until a "hard" end-of-stream is reached -- or until a
+        /// "soft" end-of-file is reached, subject to the
+        /// <paramref name="forceSoftEof" /> parameter and whether the
+        /// "original" buffer is being built.  As characters are read, it
+        /// translates end-of-line sequences (carriage-return/line-feed and
+        /// bare carriage-return) into a single line-feed in the normal
+        /// buffer, while the "original" buffer receives every character
+        /// verbatim.  This logic must not be replaced with a bulk file read
+        /// because doing so would not preserve the end-of-file character
+        /// semantics required by the <c>source</c> command.
+        /// </summary>
+        /// <param name="charCallback">
+        /// The callback used to read a single character (as an integer) from
+        /// the stream.
+        /// </param>
+        /// <param name="builder">
+        /// The buffer that receives the script text with its end-of-line
+        /// sequences translated; it may be null.
+        /// </param>
+        /// <param name="originalBuilder">
+        /// The buffer that receives every character verbatim (for use by the
+        /// policy engine); it may be null.
+        /// </param>
+        /// <param name="forceSoftEof">
+        /// Non-zero to stop reading as soon as the first "soft" end-of-file
+        /// is reached even when the "original" buffer is being built; zero
+        /// to keep reading the remaining characters into the "original"
+        /// buffer.
+        /// </param>
+        /// <param name="preSoftEofLength">
+        /// Upon return, receives the length of the "original" buffer at the
+        /// point the first "soft" end-of-file was reached, or the invalid
+        /// length sentinel when none was reached.
+        /// </param>
         private static void ReadScriptVia(
             ReadInt32Callback charCallback, /* in */
             StringBuilder builder,          /* in, out */
@@ -5209,6 +7671,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads an entire script from the stream using the
+        /// supplied callback, returning both the line-ending translated
+        /// text and the verbatim original text.  It is a convenience
+        /// wrapper that discards the pre-"soft" end-of-file length.
+        /// </summary>
+        /// <param name="charCallback">
+        /// The callback used to read a single character (as an integer) from
+        /// the stream.
+        /// </param>
+        /// <param name="streamLength">
+        /// The total length of the stream, when known, used to preallocate
+        /// buffer capacity; otherwise, the invalid length sentinel.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these determine, among other things,
+        /// whether the first "soft" end-of-file forces reading to stop.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon return, receives the verbatim original script text.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the script text with its end-of-line
+        /// sequences translated to line-feeds.
+        /// </param>
         private static void ReadScriptVia(
             ReadInt32Callback charCallback, /* in */
             long streamLength,              /* in */
@@ -5226,6 +7713,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads an entire script from the stream using the
+        /// supplied callback, returning both the line-ending translated
+        /// text and the verbatim original text, along with the length of
+        /// the original text at the first "soft" end-of-file.
+        /// </summary>
+        /// <param name="charCallback">
+        /// The callback used to read a single character (as an integer) from
+        /// the stream.
+        /// </param>
+        /// <param name="streamLength">
+        /// The total length of the stream, when known, used to preallocate
+        /// buffer capacity; otherwise, the invalid length sentinel.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these determine, among other things,
+        /// whether the first "soft" end-of-file forces reading to stop.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon return, receives the verbatim original script text.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the script text with its end-of-line
+        /// sequences translated to line-feeds.
+        /// </param>
+        /// <param name="preSoftEofLength">
+        /// Upon return, receives the length of the original text at the point
+        /// the first "soft" end-of-file was reached, or the invalid length
+        /// sentinel when none was reached.
+        /// </param>
         private static void ReadScriptVia(
             ReadInt32Callback charCallback, /* in */
             long streamLength,              /* in */
@@ -5264,6 +7781,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a string
+        /// of text already held in memory.  Internally, it wraps the text
+        /// in a string reader and processes it as it would a script
+        /// stream, performing end-of-line translation and any applicable
+        /// policy and XML handling.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how the script text is read and
+        /// processed.
+        /// </param>
+        /// <param name="text">
+        /// Upon entry, contains the script text to read.  Upon success, this
+        /// is replaced with the processed script text.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptFromText(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -5303,6 +7850,56 @@ namespace Eagle._Components.Public
 
         #region Read Script (XML) Methods
 #if XML
+        /// <summary>
+        /// This method reads the payload of a single XML script-block
+        /// node.  Depending on the block type recorded on the node, the
+        /// payload is treated as verbatim script text, a base64-encoded
+        /// script, or a (local or remote) URI pointing to a script file;
+        /// the "automatic" block type is resolved to one of these.  This
+        /// method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="node">
+        /// The XML node whose script-block payload is to be read.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when decoding a base64 or URI block;
+        /// when null, an encoding is guessed or a context-specific default
+        /// is used.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading
+        /// the node.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading the node.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading
+        /// the node.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading the node.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon return, receives the verbatim original script text for the
+        /// node.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the processed script text for the node.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptXmlNode(
             Interpreter interpreter,                 /* in */
             XmlNode node,                            /* in */
@@ -5476,6 +8073,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends script text obtained from an XML node to a
+        /// buffer, first ensuring that any text already present in the
+        /// buffer is terminated with a line-feed.  When the buffer is
+        /// null, a new one is created.
+        /// </summary>
+        /// <param name="text">
+        /// The script text to append to the buffer.
+        /// </param>
+        /// <param name="builder">
+        /// The buffer to append to.  When it is null upon entry, a new
+        /// buffer is created and stored here.
+        /// </param>
         private static void AppendTextFromXmlNode(
             string text,              /* in */
             ref StringBuilder builder /* in, out */
@@ -5506,6 +8116,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an XML script read that failed
+        /// with a particular error type should be retried, based on the
+        /// set of error types the caller is willing to retry.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context; this parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// The error that occurred, which may influence the decision; it may
+        /// be null.
+        /// </param>
+        /// <param name="errorType">
+        /// The type of error that occurred.
+        /// </param>
+        /// <param name="retryTypes">
+        /// The set of error types for which a retry is permitted.
+        /// </param>
+        /// <param name="default">
+        /// The default result to use when the decision cannot otherwise be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the failed XML read should be retried; otherwise,
+        /// zero.
+        /// </returns>
         private static bool CanRetryScriptXml(
             Interpreter interpreter,  /* in: NOT USED */
             Result error,             /* in: OPTIONAL */
@@ -5520,6 +8156,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the portion of the original script text
+        /// that precedes the first "soft" end-of-file, which is the
+        /// portion to be treated as XML.  When the text is null or empty,
+        /// or when the length is the invalid sentinel, the original text
+        /// is returned unchanged.
+        /// </summary>
+        /// <param name="originalText">
+        /// The verbatim original script text.
+        /// </param>
+        /// <param name="preSoftEofLength">
+        /// The length of the original text at the first "soft" end-of-file,
+        /// or the invalid length sentinel.
+        /// </param>
+        /// <returns>
+        /// The leading portion of the original text up to the first
+        /// "soft" end-of-file, or the original text itself when no
+        /// truncation is needed.
+        /// </returns>
         private static string GetScriptXml(
             string originalText, /* in */
             int preSoftEofLength /* in */
@@ -5536,6 +8191,68 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an XML script document and reads the script
+        /// blocks it contains, returning the combined (flattened) script
+        /// text.  It is a convenience wrapper that does not expose the
+        /// resulting client data or list of script objects.  This method
+        /// is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for decoding script blocks; when null,
+        /// an encoding is determined from the document or guessed.
+        /// </param>
+        /// <param name="xml">
+        /// The XML script document to parse.
+        /// </param>
+        /// <param name="retryTypes">
+        /// The set of error types for which a retry is permitted, also used
+        /// to carry flags such as whether to flatten the script text.
+        /// </param>
+        /// <param name="validate">
+        /// Non-zero to validate the XML document against the schema before
+        /// reading it.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to perform relaxed (rather than strict) validation.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to read all script blocks in the document; zero to read
+        /// only the first one.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the combined script text read from the
+        /// document.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptXml(
             Interpreter interpreter,                 /* in */
             Encoding encoding,                       /* in */
@@ -5565,6 +8282,77 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an XML script document and reads the script
+        /// blocks it contains, returning the script objects created from
+        /// those blocks and, when requested, the combined (flattened)
+        /// script text.  Each script block is subjected to the "before
+        /// script" policy check before being accepted.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use for decoding script blocks; when null,
+        /// an encoding is determined from the document or guessed.
+        /// </param>
+        /// <param name="xml">
+        /// The XML script document to parse.
+        /// </param>
+        /// <param name="retryTypes">
+        /// The set of error types for which a retry is permitted, also used
+        /// to carry flags such as whether to flatten the script text.
+        /// </param>
+        /// <param name="validate">
+        /// Non-zero to validate the XML document against the schema before
+        /// reading it.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to perform relaxed (rather than strict) validation.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to read all script blocks in the document; zero to read
+        /// only the first one.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the read operation; it may be
+        /// modified during reading.
+        /// </param>
+        /// <param name="scripts">
+        /// Upon success, receives the script objects created from the script
+        /// blocks in the document.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the combined script text read from the
+        /// document when text flattening was requested.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadScriptXml(
             Interpreter interpreter,                 /* in */
             Encoding encoding,                       /* in */
@@ -5893,6 +8681,42 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Read Script (Stream) Methods
+        /// <summary>
+        /// This method reads (and post-processes) a script from a text
+        /// reader.  It queries the active flags from the interpreter (or
+        /// uses defaults when there is none), then reads the requested
+        /// characters, performing end-of-line translation and any
+        /// applicable policy and XML handling.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader to read the script from.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptStream(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -5953,6 +8777,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a text
+        /// reader using the supplied engine flags in addition to those
+        /// queried from the interpreter.  Upon success, the read-script
+        /// client data is returned to the caller.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader to read the script from.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Additional engine flags to combine with those queried from the
+        /// interpreter (or the defaults) for this read operation.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the read operation.  Upon
+        /// success, this is replaced with the read-script client data.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptStream(
             Interpreter interpreter,    /* in */
             string name,                /* in */
@@ -6019,6 +8886,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a text
+        /// reader using the supplied engine flags.  It is a convenience
+        /// wrapper over the overload that exposes the read-script client
+        /// data.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader to read the script from.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Additional engine flags to combine with those queried from the
+        /// interpreter (or the defaults) for this read operation.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptStream(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -6039,6 +8944,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a text
+        /// reader, returning both the verbatim original text and the
+        /// processed text as well as whether the operation may be
+        /// retried.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader to read the script from.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon success, receives the verbatim original script text.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the processed script text.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadScriptStream(
             Interpreter interpreter,     /* in */
             string name,                 /* in */
@@ -6077,6 +9026,54 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script using the
+        /// supplied stream callbacks.  It queries the substitution,
+        /// event, and expression flags from the interpreter (or uses
+        /// defaults) before delegating to the core stream-reading method.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="charCallback">
+        /// The callback used to read a single character (as an integer) from
+        /// the stream.
+        /// </param>
+        /// <param name="charsCallback">
+        /// The callback used to read a buffer of characters from the
+        /// stream.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="readScriptClientData">
+        /// The read-script client data; it may be supplied upon entry and is
+        /// updated upon success with the results of the read operation.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptStream(
             Interpreter interpreter,         /* in */
             string name,                     /* in */
@@ -6125,6 +9122,71 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core implementation that reads (and
+        /// post-processes) a script using the supplied stream callbacks.
+        /// It performs the "before stream", "before script", and
+        /// "after stream" policy checks, reads either the entire stream
+        /// or a fixed number of characters, performs end-of-line
+        /// translation, and optionally recognizes and processes an
+        /// embedded XML script document.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="script">
+        /// The pre-existing script object being read, when applicable; when
+        /// non-null, it indicates there is no underlying file and the
+        /// file-oriented policy checks are skipped.  It may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="charCallback">
+        /// The callback used to read a single character (as an integer) from
+        /// the stream.
+        /// </param>
+        /// <param name="charsCallback">
+        /// The callback used to read a buffer of characters from the
+        /// stream.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read; a negative value reads the
+        /// entire stream up to the first "soft" end-of-file, while a
+        /// positive value reads exactly that many characters.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; this parameter is not used.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; this parameter is not used.
+        /// </param>
+        /// <param name="readScriptClientData">
+        /// Upon success, receives the read-script client data describing the
+        /// results of the read operation.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptStream(
             Interpreter interpreter,                 /* in */
             IScript script,                          /* in */
@@ -6913,6 +9975,29 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Read Script (File) Methods
+        /// <summary>
+        /// This method determines the text encoding to use for a script
+        /// file, based on its name and a fallback encoding type.  It is a
+        /// convenience wrapper that discards the detected byte order mark
+        /// preamble size.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the script file, which may be a local path or a
+        /// remote URI.
+        /// </param>
+        /// <param name="type">
+        /// The fallback encoding type to use when an encoding cannot be
+        /// detected from the file content.
+        /// </param>
+        /// <param name="remoteUri">
+        /// Non-zero when the file name is known to be a remote URI, zero
+        /// when it is known to be local, or null to determine this
+        /// automatically.
+        /// </param>
+        /// <returns>
+        /// The text encoding to use for the script file, or null when one
+        /// cannot be determined.
+        /// </returns>
         internal static Encoding GetEncoding(
             string fileName,
             EncodingType type,
@@ -6927,6 +10012,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the text encoding to use for a script
+        /// file, based on its name and a fallback encoding type.  For an
+        /// existing local file, it inspects the leading bytes (and, for an
+        /// XML document, the XML declaration) to detect the encoding and
+        /// any byte order mark; otherwise, it falls back to the encoding
+        /// for the supplied type.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the script file, which may be a local path or a
+        /// remote URI.
+        /// </param>
+        /// <param name="type">
+        /// The fallback encoding type to use when an encoding cannot be
+        /// detected from the file content.
+        /// </param>
+        /// <param name="remoteUri">
+        /// Non-zero when the file name is known to be a remote URI, zero
+        /// when it is known to be local, or null to determine this
+        /// automatically.
+        /// </param>
+        /// <param name="preambleSize">
+        /// Upon return, receives the size, in bytes, of the byte order mark
+        /// preamble detected at the start of the file, when any.
+        /// </param>
+        /// <returns>
+        /// The text encoding to use for the script file, or null when one
+        /// cannot be determined.
+        /// </returns>
         internal static Encoding GetEncoding(
             string fileName,
             EncodingType type,
@@ -6987,6 +10101,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens a stream for reading a script identified by a
+        /// path, which may be a local file or a remote URI.  It first asks
+        /// the interpreter host for the stream, then falls back to opening
+        /// a local file (for relative or file-scheme URIs) or, when
+        /// permitted, a remote URI via the web subsystem.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may provide the stream via
+        /// its host; it may be null.
+        /// </param>
+        /// <param name="path">
+        /// The path or URI of the script to open.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these control, for example, whether
+        /// remote URIs are allowed.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, receives the fully resolved path of the stream that
+        /// was opened.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The opened stream, or null when the stream could not be
+        /// opened.
+        /// </returns>
         private static Stream OpenScriptStream(
             Interpreter interpreter,
             string path,
@@ -7139,6 +10282,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a file,
+        /// which may be a local file or a remote URI.  It queries the
+        /// active flags from the interpreter (or uses defaults when there
+        /// is none) and performs any applicable policy and XML handling.
+        /// This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read, which may be a local path or
+        /// a remote URI.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptFile(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -7188,6 +10356,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a file,
+        /// which may be a local file or a remote URI, returning the
+        /// read-script client data to the caller.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read, which may be a local path or
+        /// a remote URI.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the read operation.  Upon
+        /// success, this is replaced with the read-script client data.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptFile(
             Interpreter interpreter,    /* in */
             string fileName,            /* in */
@@ -7240,6 +10436,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a file,
+        /// which may be a local file or a remote URI, using the supplied
+        /// engine flags in addition to those queried from the
+        /// interpreter.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read, which may be a local path or
+        /// a remote URI.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Additional engine flags to combine with those queried from the
+        /// interpreter (or the defaults) for this read operation.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptFile(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -7292,6 +10516,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from a file,
+        /// which may be a local file or a remote URI, using the supplied
+        /// engine flags in addition to those queried from the
+        /// interpreter, returning the read-script client data to the
+        /// caller.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read, which may be a local path or
+        /// a remote URI.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Additional engine flags to combine with those queried from the
+        /// interpreter (or the defaults) for this read operation.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the read operation.  Upon
+        /// success, this is replaced with the read-script client data.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ReadScriptFile(
             Interpreter interpreter,    /* in */
             string fileName,            /* in */
@@ -7347,6 +10604,56 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core implementation that reads (and
+        /// post-processes) a script from a file, which may be a local file
+        /// or a remote URI.  It resolves and substitutes the file name,
+        /// detects the encoding when one is not supplied, performs the
+        /// "before file", "before script", and "after file" policy
+        /// checks, and reads the script (optionally including its
+        /// post-script bytes).  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file; when null, an
+        /// encoding is detected from the file content or guessed.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read, which may be a local path or
+        /// a remote URI.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="readScriptClientData">
+        /// Upon success, receives the read-script client data describing the
+        /// results of the read operation.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadScriptFile(
             Interpreter interpreter,                 /* in */
             Encoding encoding,                       /* in */
@@ -7874,6 +11181,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the verbatim original script text recorded
+        /// in the read-script client data produced by a previous file
+        /// read operation.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data returned by a previous script file read
+        /// operation; it may be null.
+        /// </param>
+        /// <returns>
+        /// The verbatim original script text, or null when it is not
+        /// available.
+        /// </returns>
         public static string GetReadScriptFileOriginalText(
             IClientData clientData /* in */
             )
@@ -7891,7 +11211,62 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        private static ReturnCode GetScriptFile(
+        /// <summary>
+        /// This method obtains a script by querying the interpreter host,
+        /// trying the exact file name first and then, when permitted,
+        /// alternate candidate names (the file name without its directory
+        /// and without its extension).  When the host returns a file, that
+        /// file is read; otherwise, the script content returned by the
+        /// host is used.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which is queried for the script;
+        /// it may be null, in which case an error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading a returned script file;
+        /// when null, an encoding is detected or guessed.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script to obtain.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that control how the host is queried; upon
+        /// success, these are updated to reflect the script that was
+        /// obtained.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="readScriptClientData">
+        /// Upon success, receives the read-script client data describing the
+        /// script that was obtained.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be
+        /// retried.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors that occurred while
+        /// attempting to obtain the script, unless error reporting is
+        /// silenced.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
+        internal static ReturnCode GetScriptFile(
             Interpreter interpreter,
             Encoding encoding,
             string fileName,
@@ -8125,6 +11500,48 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a script file directly or, failing that,
+        /// obtains it by querying the interpreter host.  It is a
+        /// convenience wrapper that discards the verbatim original script
+        /// text.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; it may be null, in which case an
+        /// error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file; when null, an
+        /// encoding is detected or guessed.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read or obtain.  Upon success,
+        /// this is updated to reflect the file that was actually used.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadOrGetScriptFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -8147,6 +11564,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a script file directly or, failing that,
+        /// obtains it by querying the interpreter host, returning both
+        /// the verbatim original text and the processed text.  The script
+        /// flags are derived from the interpreter.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; it may be null, in which case an
+        /// error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file; when null, an
+        /// encoding is detected or guessed.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read or obtain.  Upon success,
+        /// this is updated to reflect the file that was actually used.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon success, receives the verbatim original script text.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadOrGetScriptFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -8178,6 +11641,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a script file directly or, failing that,
+        /// obtains it by querying the interpreter host using the supplied
+        /// script flags.  It is a convenience wrapper that discards the
+        /// verbatim original script text.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; it may be null, in which case an
+        /// error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file; when null, an
+        /// encoding is detected or guessed.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that control how the host is queried; these may
+        /// be updated to reflect the script that was used.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read or obtain.  Upon success,
+        /// this is updated to reflect the file that was actually used.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadOrGetScriptFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -8201,6 +11710,57 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a script file directly or, failing that,
+        /// obtains it by querying the interpreter host using the supplied
+        /// script flags, returning both the verbatim original text and the
+        /// processed text.  For security, a remote-to-local transition
+        /// (and any script denied by policy) is blocked.  This method is
+        /// thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; it may be null, in which case an
+        /// error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file; when null, an
+        /// encoding is detected or guessed.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that control how the host is queried; these may
+        /// be updated to reflect the script that was used.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file to read or obtain.  Upon success,
+        /// this is updated to reflect the file that was actually used.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="originalText">
+        /// Upon success, receives the verbatim original script text.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadOrGetScriptFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -8299,6 +11859,32 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Read Script (Bytes) Methods
+        /// <summary>
+        /// This method reads (and post-processes) a script from an array
+        /// of bytes already held in memory.  It is a convenience wrapper
+        /// over the overload that exposes the client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes containing the script to read.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ReadScriptBytes(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -8320,6 +11906,37 @@ namespace Eagle._Components.Public
         // NOTE: For now, this event is private only; however, it may
         //       eventually be exposed.
         //
+        /// <summary>
+        /// This method reads (and post-processes) a script from an array
+        /// of bytes already held in memory.  It queries the active flags
+        /// from the interpreter (or uses defaults) and performs any
+        /// applicable policy and XML handling.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies the active flags
+        /// and policies; it may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes containing the script to read.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the read operation.  Upon
+        /// success, this is replaced with the read-script client data.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text that was read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptBytes(
             Interpreter interpreter,    /* in */
             string name,                /* in */
@@ -8374,6 +11991,67 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (and post-processes) a script from an array
+        /// of bytes by wrapping the bytes in a memory stream and reading
+        /// them through a stream reader.  When no encoding is supplied,
+        /// one is guessed from the bytes.  This method is thread-safe.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which supplies policies and
+        /// notifications; it may be null.
+        /// </param>
+        /// <param name="script">
+        /// The pre-existing script object being read, when applicable; it
+        /// may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when interpreting the bytes; when null,
+        /// an encoding is guessed from the bytes.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the script being read, used for error
+        /// reporting and policy checks; it may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes containing the script to read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index for the read operation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to read, or a negative value to read the
+        /// entire stream up to the first "soft" end-of-file.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect; these may be modified while reading.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; these may be modified while
+        /// reading.
+        /// </param>
+        /// <param name="readScriptClientData">
+        /// The read-script client data; it may be supplied upon entry and is
+        /// updated upon success with the results of the read operation.
+        /// </param>
+        /// <param name="canRetry">
+        /// Upon failure, receives non-zero when the operation may be retried
+        /// (for example, by treating the input as non-XML).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ReadScriptBytes(
             Interpreter interpreter,                 /* in */
             IScript script,                          /* in */
@@ -8435,6 +12113,27 @@ namespace Eagle._Components.Public
 
         #region Execution Methods
         #region ClientData Methods
+        /// <summary>
+        /// This method determines the effective client data to use for an
+        /// execution.  When an explicit value is supplied, it is used;
+        /// otherwise, the per-context client data of the interpreter is used,
+        /// when present.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose context client data may be used as a
+        /// fallback; this may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The explicit client data to use, if any; this may be null.
+        /// </param>
+        /// <param name="useEmpty">
+        /// Non-zero to return the empty client data instance instead of null
+        /// when no client data can be determined.
+        /// </param>
+        /// <returns>
+        /// The effective client data, the empty client data instance, or
+        /// null.
+        /// </returns>
         internal static IClientData GetClientData(
             Interpreter interpreter,
             IClientData clientData,
@@ -8461,6 +12160,18 @@ namespace Eagle._Components.Public
 
         #region Profiler Methods
 #if PROFILER
+        /// <summary>
+        /// This method obtains the profiler associated with the interpreter
+        /// and starts it, so that the elapsed time of a subsequent execution
+        /// can be measured.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose profiler should be obtained and started;
+        /// this may be null.
+        /// </param>
+        /// <returns>
+        /// The started profiler, or null if there is no usable profiler.
+        /// </returns>
         private static IProfilerState GetProfilerAndStart(
             Interpreter interpreter
             )
@@ -8487,6 +12198,29 @@ namespace Eagle._Components.Public
 
         #region Result Limit Methods
 #if RESULT_LIMITS
+        /// <summary>
+        /// This method checks the size of a pending result against the
+        /// configured per-execution result limits for the interpreter.  This
+        /// overload assumes there are no extra length or count values to
+        /// account for.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose result limits should be enforced; this may
+        /// be null.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the result to check.
+        /// </param>
+        /// <param name="count">
+        /// The number of result items to check.
+        /// </param>
+        /// <param name="code">
+        /// Upon failure, this is set to <see cref="ReturnCode.Error" />.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this receives an error message describing the limit
+        /// that was exceeded.
+        /// </param>
         internal static void CheckResultAgainstLimits(
             Interpreter interpreter,
             int length,
@@ -8502,6 +12236,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the combined size of a pending result against
+        /// the configured per-execution result limits for the interpreter.
+        /// The base and extra length and count values are summed, and their
+        /// product is also checked, prior to comparison against the limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose result limits should be enforced; this may
+        /// be null.
+        /// </param>
+        /// <param name="baseLength">
+        /// The base length, in characters, of the result to check.
+        /// </param>
+        /// <param name="extraLength">
+        /// The additional length, in characters, to add to the base length.
+        /// </param>
+        /// <param name="baseCount">
+        /// The base number of result items to check.
+        /// </param>
+        /// <param name="extraCount">
+        /// The additional number of result items to add to the base count.
+        /// </param>
+        /// <param name="code">
+        /// Upon failure, this is set to <see cref="ReturnCode.Error" />.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this receives an error message describing the limit
+        /// that was exceeded.
+        /// </param>
         internal static void CheckResultAgainstLimits(
             Interpreter interpreter,
             int baseLength,
@@ -8593,6 +12356,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks an already-produced result against the
+        /// specified maximum result length.  When the limit is exceeded, the
+        /// result is reset, memory is reclaimed, and an error is produced.
+        /// </summary>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result;
+        /// <see cref="Limits.Unlimited" /> disables the check.
+        /// </param>
+        /// <param name="code">
+        /// Upon failure, this is set to <see cref="ReturnCode.Error" />.
+        /// </param>
+        /// <param name="result">
+        /// The result to check; upon failure, it is reset and receives an
+        /// error message describing the limit that was exceeded.
+        /// </param>
         private static void CheckResultAgainstLimits(
             int executeResultLimit,
             ref ReturnCode code,
@@ -8620,6 +12399,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks an already-produced argument value against the
+        /// specified maximum result length.  When the limit is exceeded, the
+        /// value and any error are reset, memory is reclaimed, and an error
+        /// is produced.
+        /// </summary>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the value;
+        /// <see cref="Limits.Unlimited" /> disables the check.
+        /// </param>
+        /// <param name="code">
+        /// Upon failure, this is set to <see cref="ReturnCode.Error" />.
+        /// </param>
+        /// <param name="value">
+        /// The value to check; upon failure, it is reset to its empty, zero
+        /// state.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this is reset and receives an error message
+        /// describing the limit that was exceeded.
+        /// </param>
         private static void CheckResultAgainstLimits(
             int executeResultLimit,
             ref ReturnCode code,
@@ -8654,6 +12454,29 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Execution Statistics Methods
+        /// <summary>
+        /// This method enforces the operation and command usage quotas for
+        /// the interpreter by incrementing its operation and command counts.
+        /// For a "safe" interpreter, these counts are typically constrained
+        /// by a configured quota.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose usage quotas should be enforced; this may
+        /// be null.
+        /// </param>
+        /// <param name="usageData">
+        /// The entity being executed; when it is an
+        /// <see cref="ICommand" />, the command count is also incremented.
+        /// This may be null.
+        /// </param>
+        /// <param name="code">
+        /// Upon failure (i.e. a quota was exceeded), this is set to an error
+        /// return code.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message describing the quota
+        /// that was exceeded.
+        /// </param>
         private static void CheckUsageAgainstLimits(
             Interpreter interpreter, /* in: OPTIONAL */
             IUsageData usageData,    /* in: OPTIONAL */
@@ -8676,6 +12499,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the usage statistics for the executed entity,
+        /// recording either the elapsed profiled time or a single use.  When
+        /// usage data tracking is disabled via the engine flags, this method
+        /// does nothing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the execution; this may be null.
+        /// </param>
+        /// <param name="usageData">
+        /// The entity whose usage statistics should be updated; this may be
+        /// null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control whether usage data is recorded.
+        /// </param>
+        /// <param name="microseconds">
+        /// The elapsed execution time, in microseconds; when zero, a single
+        /// use is counted instead.
+        /// </param>
+        /// <param name="code">
+        /// Reserved for future use; this is not currently modified.
+        /// </param>
+        /// <param name="error">
+        /// Reserved for future use; this is not currently modified.
+        /// </param>
         private static void UpdateStatistics(
             Interpreter interpreter, /* in: OPTIONAL */
             IUsageData usageData,    /* in: OPTIONAL */
@@ -8711,6 +12560,28 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Delegate Execution Methods
+        /// <summary>
+        /// This method dynamically invokes the specified delegate with the
+        /// supplied arguments, capturing its return value or any exception
+        /// that is thrown.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate to invoke; this may be null.
+        /// </param>
+        /// <param name="args">
+        /// The array of arguments to pass to the delegate; this may be null.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon success, this receives the value returned by the delegate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message or the exception
+        /// that was caught.
+        /// </param>
+        /// <returns>
+        /// Returns <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ExecuteDelegate(
             Delegate @delegate,
             object[] args,
@@ -8741,6 +12612,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the specified delegate using the values of
+        /// the supplied arguments and, upon success, converts its return
+        /// value into a result.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate to invoke; this may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments whose values are passed to the delegate;
+        /// this may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the delegate return value converted
+        /// to a result; upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// Returns <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExecuteDelegate(
             Delegate @delegate,
             ArgumentList arguments,
@@ -8786,6 +12677,45 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Member Execution Methods
+        /// <summary>
+        /// This method resolves a framework type or object instance and then
+        /// invokes the named member on it via reflection, returning the
+        /// value produced by the invocation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter providing the binder, culture, and framework
+        /// lookup; this may not be null.
+        /// </param>
+        /// <param name="id">
+        /// The optional identifier used to select the framework type or
+        /// object; this may be null.
+        /// </param>
+        /// <param name="frameworkFlags">
+        /// The flags that control how the framework type or object is
+        /// located.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The reflection binding flags that control how the member is
+        /// invoked.
+        /// </param>
+        /// <param name="memberName">
+        /// The name of the member to invoke.
+        /// </param>
+        /// <param name="args">
+        /// The array of arguments to pass to the member; this may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// Reserved for future use; this is not currently used.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the value produced by the member
+        /// invocation; upon failure, it receives an error message or the
+        /// exception that was caught.
+        /// </param>
+        /// <returns>
+        /// Returns <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExecuteMember(
             Interpreter interpreter,       /* in */
             Guid? id,                      /* in */
@@ -8854,6 +12784,61 @@ namespace Eagle._Components.Public
 
         #region IExecute Execution Methods
         #region Private IExecute Execution Methods
+        /// <summary>
+        /// This method executes the specified <see cref="IExecute" /> entity
+        /// in the context of the interpreter, enforcing usage and result
+        /// limits and updating the associated statistics.  Any exception
+        /// thrown during execution is caught and converted into an error
+        /// result.  Entities executed via this method do not increment the
+        /// command count for the interpreter.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect; this is not used by this
+        /// method.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect; this is not used by this method.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteIExecute(
             IExecute execute,
             Interpreter interpreter,
@@ -9014,6 +12999,57 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified <see cref="IExecute" /> entity,
+        /// checking for any applicable before and after breakpoints and then
+        /// delegating the actual execution to <c>PrivateExecuteIExecute</c>.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode ExecuteIExecute(
             IExecute execute,
             Interpreter interpreter,
@@ -9079,6 +13115,59 @@ namespace Eagle._Components.Public
 
         #region SubCommand Execution Methods
         #region Private SubCommand Execution Methods
+        /// <summary>
+        /// This method executes the specified sub-command in the context of
+        /// the interpreter, preferring its execute callback when one is
+        /// present, enforcing usage and result limits and updating the
+        /// associated statistics.  Any exception thrown during execution is
+        /// caught and converted into an error result.
+        /// </summary>
+        /// <param name="subCommand">
+        /// The sub-command to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the sub-command is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the sub-command; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the sub-command.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the sub-command;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteSubCommand(
             ISubCommand subCommand,
             Interpreter interpreter,
@@ -9244,6 +13333,60 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified sub-command, checking for any
+        /// applicable before and after breakpoints, resetting the
+        /// interpreter return code as appropriate, and delegating the actual
+        /// execution to <c>PrivateExecuteSubCommand</c>.  When the
+        /// sub-command requests a return, the interpreter return information
+        /// is updated.
+        /// </summary>
+        /// <param name="subCommand">
+        /// The sub-command to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the sub-command is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the sub-command; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the sub-command.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the sub-command;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode ExecuteSubCommand(
             ISubCommand subCommand,
             Interpreter interpreter,
@@ -9349,6 +13492,59 @@ namespace Eagle._Components.Public
 
         #region Command Execution Methods
         #region Private Command Execution Methods
+        /// <summary>
+        /// This method executes the specified command in the context of the
+        /// interpreter, preferring its execute callback when one is present,
+        /// enforcing usage and result limits and updating the associated
+        /// statistics.  Any exception thrown during execution is caught and
+        /// converted into an error result.
+        /// </summary>
+        /// <param name="command">
+        /// The command to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the command is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the command; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the command.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the command;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteCommand(
             ICommand command,
             Interpreter interpreter,
@@ -9514,6 +13710,59 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified command, checking for any
+        /// applicable before and after breakpoints, resetting the
+        /// interpreter return code, and delegating the actual execution to
+        /// <c>PrivateExecuteCommand</c>.  When the command requests a
+        /// return, the interpreter return information is updated.
+        /// </summary>
+        /// <param name="command">
+        /// The command to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the command is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the command; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the command.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the command;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode ExecuteCommand(
             ICommand command,
             Interpreter interpreter,
@@ -9618,6 +13867,59 @@ namespace Eagle._Components.Public
 
         #region Procedure Execution Methods
         #region Private Procedure Execution Methods
+        /// <summary>
+        /// This method executes the specified procedure in the context of
+        /// the interpreter, preferring its execute callback when one is
+        /// present, enforcing usage and result limits and updating the
+        /// associated statistics.  Any exception thrown during execution is
+        /// caught and converted into an error result.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the procedure is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the procedure; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the procedure.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the procedure;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteProcedure(
             IProcedure procedure,
             Interpreter interpreter,
@@ -9783,6 +14085,57 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified procedure, checking for any
+        /// applicable before and after breakpoints, and delegating the
+        /// actual execution to <c>PrivateExecuteProcedure</c>.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the procedure is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the procedure; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the procedure.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the procedure;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode ExecuteProcedure(
             IProcedure procedure,
             Interpreter interpreter,
@@ -9848,6 +14201,61 @@ namespace Eagle._Components.Public
 
         #region Function Execution Methods
         #region Private Function Execution Methods
+        /// <summary>
+        /// This method executes the specified function in the context of the
+        /// interpreter, enforcing usage and result limits and updating the
+        /// associated statistics.  Any exception thrown during execution is
+        /// caught and converted into an error.
+        /// </summary>
+        /// <param name="function">
+        /// The function to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the function is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the function; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the function.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the value.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this receives the value produced by the function.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message or the exception
+        /// that was caught.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteFunction(
             IFunction function,
             Interpreter interpreter,
@@ -10005,6 +14413,61 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Function Execution Methods
+        /// <summary>
+        /// This method executes the specified function, verifying that it is
+        /// enabled and permitted for the interpreter, checking for any
+        /// applicable before and after breakpoints, and delegating the
+        /// actual execution to <c>PrivateExecuteFunction</c>.
+        /// </summary>
+        /// <param name="function">
+        /// The function to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the function is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the function; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the function.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the value.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this receives the value produced by the function.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message or the exception
+        /// that was caught.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         internal static ReturnCode ExecuteFunction(
             IFunction function,
             Interpreter interpreter,
@@ -10098,6 +14561,61 @@ namespace Eagle._Components.Public
 
         #region Operator Execution Methods
         #region Private Operator Execution Methods
+        /// <summary>
+        /// This method executes the specified operator in the context of the
+        /// interpreter, enforcing usage and result limits and updating the
+        /// associated statistics.  Any exception thrown during execution is
+        /// caught and converted into an error.
+        /// </summary>
+        /// <param name="operator">
+        /// The operator to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the operator is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the operator; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the operator.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the value.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this receives the value produced by the operator.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message or the exception
+        /// that was caught.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode PrivateExecuteOperator(
             IOperator @operator,
             Interpreter interpreter,
@@ -10258,6 +14776,61 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Operator Execution Methods
+        /// <summary>
+        /// This method executes the specified operator, verifying that it is
+        /// enabled, checking for any applicable before and after
+        /// breakpoints, and delegating the actual execution to
+        /// <c>PrivateExecuteOperator</c>.
+        /// </summary>
+        /// <param name="operator">
+        /// The operator to execute; this may not be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the operator is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the operator; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the operator.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when issuing any execution notifications.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the value.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, this is non-zero if an exception was caught during
+        /// execution.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this receives the value produced by the operator.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message or the exception
+        /// that was caught.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         internal static ReturnCode ExecuteOperator(
             IOperator @operator,
             Interpreter interpreter,
@@ -10334,6 +14907,53 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region External Execution Methods
+        /// <summary>
+        /// This method executes the specified <see cref="IExecute" /> entity
+        /// after verifying that the interpreter is usable.  It is a
+        /// convenience wrapper that resolves the effective client data and
+        /// forwards to the core execution method.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the entity to execute, used for diagnostic messages.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity to execute.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when processing any asynchronous events.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         internal static ReturnCode Execute(
             string name,
             IExecute execute,
@@ -10370,6 +14990,62 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the central execution entry point used by both the
+        /// evaluation engine core and external callers; any semantics that
+        /// must apply to every command, sub-command, procedure, or other
+        /// executable entity are applied here.  It cooperatively processes
+        /// any pending asynchronous events, enforces the hidden, disabled,
+        /// and policy checks, dispatches to the appropriate type-specific
+        /// execution method, and rebalances the call stack if an exception
+        /// occurs.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the entity to execute, used for diagnostic messages.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity to execute.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed,
+        /// including the hidden and policy handling.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when processing any asynchronous events.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode Execute(
             string name,
             IExecute execute,
@@ -10942,6 +15618,48 @@ namespace Eagle._Components.Public
         //
         // WARNING: This method is now obsolete.  Use the new one below.
         //
+        /// <summary>
+        /// This method is obsolete; use the overload that accepts nullable
+        /// flags and the <c>useInterpreterFlags</c> parameter instead.  It
+        /// forwards to that overload without augmenting the supplied flags
+        /// from the interpreter.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the entity to execute, used for diagnostic messages.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity to execute.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how execution is performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when processing any asynchronous events.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         [Obsolete()]
         public static ReturnCode ExternalExecuteWithFrame( // COMPAT: Eagle beta.
             string name,
@@ -10972,6 +15690,55 @@ namespace Eagle._Components.Public
         //       make sure that the call stack is balanced upon exit and that the previous
         //       engine flags are restored.
         //
+        /// <summary>
+        /// This method is the only public entry point that can directly
+        /// execute any executable entity in the core library without going
+        /// through the evaluation engine.  It pushes a tracking call frame,
+        /// enables the external execution engine flags, executes the entity,
+        /// and then restores the saved flags and rebalances the call stack.
+        /// Great care is taken to prevent exceptions from escaping.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the entity to execute, used for diagnostic messages.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity to execute.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the entity is executed; this
+        /// may not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-specific data to pass to the entity; this may
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to pass to the entity.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use, or null to use the default flags.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use, or null to use the default flags.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use, or null to use the default flags.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use, or null to use the default flags.
+        /// </param>
+        /// <param name="useInterpreterFlags">
+        /// Non-zero to augment the supplied flags with the corresponding
+        /// flags from the interpreter.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the entity;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         public static ReturnCode ExternalExecuteWithFrame( /* EXTERNAL USE ONLY */
             string name,
             IExecute execute,
@@ -11117,6 +15884,34 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Argument List Execution Methods
+        /// <summary>
+        /// This method attempts to retrieve a cached <see cref="IExecute" />
+        /// entity directly from the supplied argument, avoiding a full
+        /// command resolution.  It also reports the entity name and whether
+        /// argument-based caching is enabled for the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose argument caching configuration is
+        /// consulted; this may be null.
+        /// </param>
+        /// <param name="argument">
+        /// The argument that may carry the entity name and a cached entity;
+        /// this may be null.
+        /// </param>
+        /// <param name="viaArgument">
+        /// Upon return, this is non-zero if argument-based caching is
+        /// enabled for the interpreter.
+        /// </param>
+        /// <param name="executeName">
+        /// Upon return, this receives the entity name taken from the
+        /// argument, if any.
+        /// </param>
+        /// <param name="execute">
+        /// Upon return, this receives the cached entity, if one was found.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a cached entity was found; otherwise, zero.
+        /// </returns>
         private static bool MaybeGetIExecuteViaArgument(
             Interpreter interpreter,
             Argument argument,
@@ -11150,6 +15945,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to store the resolved <see cref="IExecute" />
+        /// entity in the supplied argument so that it can be reused on
+        /// subsequent executions, but only when the name is absolute or the
+        /// entity resides in the global namespace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the argument cache; this may be
+        /// null.
+        /// </param>
+        /// <param name="argument">
+        /// The argument in which to cache the entity; this may be null.
+        /// </param>
+        /// <param name="viaArgument">
+        /// Non-zero if argument-based caching is enabled.
+        /// </param>
+        /// <param name="execute">
+        /// The resolved entity to cache.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the entity was cached; otherwise, zero.
+        /// </returns>
         private static bool MaybeCacheIExecuteViaArgument(
             Interpreter interpreter,
             Argument argument,
@@ -11172,6 +15989,51 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called directly by the evaluation engine core to
+        /// execute a command represented by a list of arguments.  It
+        /// resolves the command (or procedure) named by the first argument,
+        /// optionally consulting the argument cache and the unknown command
+        /// handler, and then dispatches it via the core execution method,
+        /// pushing and popping the global call frame as required.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in whose context the command is executed.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments; the first argument is the name of the
+        /// command to resolve and execute.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that control how command resolution and
+        /// execution are performed.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used when processing any asynchronous events.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the current evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum length, in characters, permitted for the result.
+        /// This parameter is only present when result limits are enabled at
+        /// compile-time.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, this is non-zero if the interpreter remains usable
+        /// (i.e. was not disposed) after execution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the result produced by the command;
+        /// upon failure, it receives an error message.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the execution;
+        /// <see cref="ReturnCode.Ok" /> indicates success.
+        /// </returns>
         private static ReturnCode ExecuteArguments(
             Interpreter interpreter,
             ArgumentList arguments,
@@ -11448,6 +16310,21 @@ namespace Eagle._Components.Public
 
         #region Evaluation Methods
         #region Evaluation Cleanup Methods
+        /// <summary>
+        /// This method attempts to clean up any object references held by the
+        /// specified interpreter that are no longer needed, complaining (via
+        /// <see cref="DebugOps" />) if the cleanup fails.  The interpreter
+        /// engine lock is acquired for the duration of the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose object references should be cleaned up.  If
+        /// this parameter is null, no action is taken.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the object references were successfully cleaned up;
+        /// otherwise, zero (for example, when the interpreter is null, is not
+        /// usable, the lock could not be acquired, or the cleanup failed).
+        /// </returns>
         private static bool CleanupObjectReferencesOrComplain(
             Interpreter interpreter
             )
@@ -11505,6 +16382,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to clean up any namespaces of the specified
+        /// interpreter that are pending deletion, complaining (via
+        /// <see cref="DebugOps" />) if the cleanup fails.  The interpreter
+        /// engine lock is acquired for the duration of the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose pending namespaces should be cleaned up.  If
+        /// this parameter is null, no action is taken.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the namespaces were successfully cleaned up; otherwise,
+        /// zero (for example, when the interpreter is null, is not usable, the
+        /// lock could not be acquired, or the cleanup failed).
+        /// </returns>
         internal static bool CleanupNamespacesOrComplain(
             Interpreter interpreter
             )
@@ -11564,6 +16456,64 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation Exit-Hook Methods
+        /// <summary>
+        /// This method performs the bookkeeping that must occur when a script
+        /// evaluation completes (i.e. "exits").  It checks for and handles any
+        /// applicable exit breakpoints, raises script completion or evaluation
+        /// notifications, and -- when the appropriate nesting level has been
+        /// reached -- cleans up object references and namespaces, resets the
+        /// stack overflow and debugger state, populates error information, and
+        /// resets the result return code as needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the script was evaluated.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the script
+        /// that was evaluated.  This parameter may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current script line number at the point of evaluation exit.
+        /// </param>
+        /// <param name="text">
+        /// The text of the script that was evaluated.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within <paramref name="text" /> that
+        /// was evaluated.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters within <paramref name="text" /> that were
+        /// evaluated.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that were in effect for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that were in effect for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that were in effect for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that were in effect for the evaluation.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by the evaluation.  This value may be
+        /// modified by an exit breakpoint.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by the evaluation.  This value may be modified
+        /// by an exit breakpoint or by error information processing.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with any error.  It is used when
+        /// populating the error information for the result.
+        /// </param>
+        /// <returns>
+        /// The (possibly modified) return code for the completed evaluation.
+        /// </returns>
         private static ReturnCode EvaluateExited(
             Interpreter interpreter,             /* in */
             string fileName,                     /* in */
@@ -11720,6 +16670,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation Helper Methods
+        /// <summary>
+        /// This method determines whether a null argument should be used in
+        /// place of the specified result, based on its flags.
+        /// </summary>
+        /// <param name="result">
+        /// The result to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the result is non-null and has the
+        /// <see cref="ResultFlags.ForceNullArgument" /> flag set; otherwise,
+        /// zero.
+        /// </returns>
         private static bool ShouldUseNullArgument(
             Result result
             )
@@ -11733,6 +16695,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a null result should be used in
+        /// place of the specified result, based on its flags.
+        /// </summary>
+        /// <param name="result">
+        /// The result to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the result is non-null and has the
+        /// <see cref="ResultFlags.ForceNullResult" /> flag set; otherwise,
+        /// zero.
+        /// </returns>
         private static bool ShouldUseNullResult(
             Result result
             )
@@ -11747,6 +16721,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// This method determines whether the specified interpreter is
+        /// currently tracking argument source locations, which is used by the
+        /// debugger to associate breakpoints with command arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to examine.  If this parameter is null, the result
+        /// is zero.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the interpreter is non-null and is tracking argument
+        /// source locations; otherwise, zero.
+        /// </returns>
         internal static bool HasArgumentLocation(
             Interpreter interpreter
             )
@@ -11760,6 +16747,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method advances to and retrieves the next token from the
+        /// specified parser state.  When a current token is supplied via
+        /// <paramref name="token" />, the token index is first advanced past
+        /// it (and its components) before the next token is fetched.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parser state containing the tokens.  If this parameter is null,
+        /// an error is returned.
+        /// </param>
+        /// <param name="token">
+        /// On input, the current token (may be null to begin at the start); on
+        /// output, the token located at the resulting token index.
+        /// </param>
+        /// <param name="tokenIndex">
+        /// On input, the current token index; on output, the index of the
+        /// returned token.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if a token was retrieved; otherwise,
+        /// <see cref="ReturnCode.Error" /> (for example, when the parser state
+        /// is null or the resulting token index is out of range).
+        /// </returns>
         private static ReturnCode GetToken(
             IParseState parseState, /* in */
             ref IToken token,       /* in, out */
@@ -11794,6 +16807,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the string representation of the specified
+        /// value into a boolean, using fast parsing that accepts any numeric
+        /// value in any supported radix.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.  Its string representation is parsed as a
+        /// boolean.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the value.  This parameter may be
+        /// null to use the default culture behavior.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this receives the parsed boolean value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the value was converted to a
+        /// boolean; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode ToBoolean(
             IGetValue getValue,
             CultureInfo cultureInfo,
@@ -11824,6 +16860,23 @@ namespace Eagle._Components.Public
 
         #region Evaluation (IToken) Methods
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// This method widens the supplied script line range so that it
+        /// encompasses the start and end lines of the specified token.  Any
+        /// unknown line values are taken from the token, and known token lines
+        /// extend the range only when they fall outside it.
+        /// </summary>
+        /// <param name="token">
+        /// The token whose start and end lines are used to adjust the range.
+        /// </param>
+        /// <param name="startLine">
+        /// On input, the current lowest line number; on output, the lowest
+        /// line number including the token.
+        /// </param>
+        /// <param name="endLine">
+        /// On input, the current highest line number; on output, the highest
+        /// line number including the token.
+        /// </param>
         private static void CheckTokenLines(
             IToken token,
             ref int startLine,
@@ -11847,6 +16900,60 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a contiguous run of parser-state tokens in
+        /// the context of the given interpreter, concatenating their results.
+        /// This overload does not report the script line range; it delegates
+        /// to the overload that does, discarding that information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the tokens.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state that contains the tokens to evaluate.
+        /// </param>
+        /// <param name="startTokenIndex">
+        /// The index of the first token to evaluate.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="tokenCount">
+        /// The number of tokens to evaluate, beginning at
+        /// <paramref name="startTokenIndex" />.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the concatenated result produced by the
+        /// tokens.  Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateTokens(
             Interpreter interpreter,
             IParseState parseState,
@@ -11886,6 +16993,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the value of a named interpreter variable (or
+        /// array element) for use while evaluating a token.  The value is
+        /// fetched without forcing string conversion of object values.  When
+        /// the lookup fails, or yields a null value or error, an empty string
+        /// is substituted so callers do not misinterpret it as a request to
+        /// use the entire parse-state text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose variable value is retrieved.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable (or array) to retrieve.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index to retrieve, or null when retrieving a
+        /// scalar variable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the variable value (or an empty string
+        /// when the value is null).  Upon failure, this contains the error
+        /// message (or an empty string when none is available).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the variable value was retrieved;
+        /// otherwise, a non-Ok value.
+        /// </returns>
         private static ReturnCode GetTokenVariableValue(
             Interpreter interpreter,
             string varName,
@@ -11922,6 +17056,70 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a contiguous run of parser-state tokens in
+        /// the context of the given interpreter, concatenating their results
+        /// into a single result.  It additionally reports the lowest and
+        /// highest script line numbers spanned by the evaluated tokens.  This
+        /// is the core token-evaluation routine to which the other overload
+        /// delegates.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the tokens.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state that contains the tokens to evaluate.
+        /// </param>
+        /// <param name="startTokenIndex">
+        /// The index of the first token to evaluate.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="tokenCount">
+        /// The number of tokens to evaluate, beginning at
+        /// <paramref name="startTokenIndex" />.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="startLine">
+        /// On input, the current lowest line number; on output, the lowest
+        /// script line number spanned by the evaluated tokens.
+        /// </param>
+        /// <param name="endLine">
+        /// On input, the current highest line number; on output, the highest
+        /// script line number spanned by the evaluated tokens.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the concatenated result produced by the
+        /// tokens.  Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
 #if DEBUGGER && DEBUGGER_BREAKPOINTS
         private
 #else
@@ -12296,6 +17494,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (IScript) Methods
+        /// <summary>
+        /// This method evaluates the specified compiled script in the context
+        /// of the given interpreter.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  This overload records the error line
+        /// (if any) on the interpreter automatically; use the overload that
+        /// accepts a <c>ref int errorLine</c> when the caller needs the error
+        /// line directly.  Most consumers should call the equivalent
+        /// <see cref="Interpreter" /> evaluation method instead, which manages
+        /// interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="script">
+        /// The compiled script to evaluate.  This parameter may be null, in
+        /// which case there is nothing to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             IScript script,
@@ -12315,6 +17542,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified compiled script in the context
+        /// of the given interpreter, additionally reporting the script line
+        /// associated with any error.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  Most consumers should call the
+        /// equivalent <see cref="Interpreter" /> evaluation method instead,
+        /// which manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="script">
+        /// The compiled script to evaluate.  This parameter may be null, in
+        /// which case there is nothing to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             IScript script,
@@ -12408,6 +17666,70 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a portion of the specified compiled script in
+        /// the context of the given interpreter.  It reads the script text
+        /// (honoring any embedded script-stream handling), optionally pushes a
+        /// dedicated engine call frame, tracks the script location, and then
+        /// evaluates the resulting text.  It is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="script">
+        /// The compiled script to evaluate.  If this parameter is null, or has
+        /// null text, an error is returned.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the script text at which to
+        /// begin evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the text.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation; these may be augmented
+        /// while the script text is read.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  A
+        /// <see cref="ReturnCode.Return" /> code is converted into updated
+        /// return information for the interpreter.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter,
             IScript script,
@@ -12587,6 +17909,25 @@ namespace Eagle._Components.Public
         //          sure that is what you want.  This method is custom
         //          tailored to work from inside SQL Server.
         //
+        /// <summary>
+        /// This method evaluates the specified script text using a private,
+        /// single-use interpreter that it creates and disposes internally.  It
+        /// is a top-level entry point and is thread-safe and re-entrant.  This
+        /// overload is custom tailored for hosting scenarios (for example, use
+        /// from within SQL Server); most consumers should create an
+        /// <see cref="Interpreter" /> and use its evaluation methods instead.
+        /// </summary>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting <see cref="ReturnCode" />;
+        /// <see cref="ReturnCode.Ok" /> (zero) indicates success.
+        /// </returns>
         public static int /* ReturnCode */ EvaluateOneScript(
             string text,
             ref string result
@@ -12613,6 +17954,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script text in the context of
+        /// the given interpreter, using the default engine, substitution,
+        /// event, and expression flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  This overload records the error line
+        /// (if any) on the interpreter automatically.  Most consumers should
+        /// call the equivalent <see cref="Interpreter" /> evaluation method
+        /// instead, which manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12627,6 +17995,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script text in the context of
+        /// the given interpreter, using the default engine, substitution,
+        /// event, and expression flags, additionally reporting the script line
+        /// associated with any error.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  Most consumers should call the
+        /// equivalent <see cref="Interpreter" /> evaluation method instead,
+        /// which manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12642,6 +18041,47 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script text in the context of
+        /// the given interpreter, using the supplied engine, substitution,
+        /// event, and expression flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  This overload records the error line
+        /// (if any) on the interpreter automatically; use the overload that
+        /// accepts a <c>ref int errorLine</c> when the caller needs the error
+        /// line directly.  Most consumers should call the equivalent
+        /// <see cref="Interpreter" /> evaluation method instead, which manages
+        /// interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  This parameter should not be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12691,6 +18131,66 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a portion of the specified script text in the
+        /// context of the given interpreter, using the supplied flags and
+        /// limits.  It is thread-safe and re-entrant.  This overload records
+        /// the error line (if any) on the interpreter automatically; use the
+        /// overload that accepts a <c>ref int errorLine</c> when the caller
+        /// needs the error line directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within <paramref name="text" /> at
+        /// which to begin evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         internal static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12734,6 +18234,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script text in the context of
+        /// the given interpreter, using the supplied engine, substitution,
+        /// event, and expression flags, additionally reporting the script line
+        /// associated with any error.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  Most consumers should call the
+        /// equivalent <see cref="Interpreter" /> evaluation method instead,
+        /// which manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  This parameter should not be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12784,6 +18327,69 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a portion of the specified script text in the
+        /// context of the given interpreter.  It first resolves the current
+        /// script location (file name and line) for breakpoint and error
+        /// reporting purposes, then delegates to the core evaluation routine.
+        /// It is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within <paramref name="text" /> at
+        /// which to begin evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -12832,6 +18438,74 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a portion of the specified script text in the
+        /// context of the given interpreter, using the supplied script file
+        /// name and starting line for error and location reporting.  It is
+        /// thread-safe and re-entrant.  This overload records the error line
+        /// (if any) on the interpreter automatically; use the overload that
+        /// accepts a <c>ref int errorLine</c> when the caller needs the error
+        /// line directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the script,
+        /// used for error and location reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The script line number at which evaluation begins.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within <paramref name="text" /> at
+        /// which to begin evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string fileName,
@@ -12876,6 +18550,80 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core script-text evaluation routine.  It parses
+        /// the specified script text one command at a time and executes each
+        /// command in the context of the given interpreter, honoring
+        /// breakpoints, cancellation, notifications, and the supplied flags and
+        /// limits, until the text is exhausted or a non-Ok return code stops
+        /// the loop.  It is thread-safe and re-entrant.  All of the other
+        /// script-text evaluation overloads ultimately delegate here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the script,
+        /// used for error and location reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The script line number at which evaluation begins.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  If this parameter is null, an error
+        /// is returned.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within <paramref name="text" /> at
+        /// which to begin evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string fileName,
@@ -13722,6 +19470,43 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Scope Call Frame Methods
+        /// <summary>
+        /// This method evaluates the specified script text within a brand new
+        /// scope call frame, using the supplied flags.  The scope call frame
+        /// created for the evaluation is stored into the result so it remains
+        /// accessible to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script (and,
+        /// via the stored scope call frame, the created scope).  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateScriptWithScopeFrame(
             Interpreter interpreter,             /* in */
             string text,                         /* in */
@@ -13749,6 +19534,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script text within a scope call
+        /// frame, using the supplied flags.  When a scope call frame is
+        /// provided, it is used; otherwise, a new engine scope is created and
+        /// added to the interpreter.  After evaluation, all scope call frames
+        /// opened during the script are popped and a reference to any newly
+        /// created frame is returned to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="frame">
+        /// On input, an existing scope call frame to use, or null to create a
+        /// new one; on output, the newly created scope call frame, when one was
+        /// created and the interpreter remains usable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode EvaluateScriptWithScopeFrame(
             Interpreter interpreter,             /* in */
             string text,                         /* in */
@@ -13837,6 +19666,51 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Methods
+        /// <summary>
+        /// This method evaluates the specified script text asynchronously in
+        /// the context of the given interpreter, either on a newly created
+        /// engine thread or via a queued work item.  It is a top-level entry
+        /// point and is thread-safe, re-entrant, and asynchronous; it returns
+        /// as soon as the work has been scheduled, and the optional callback is
+        /// later invoked with the evaluation outcome.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.  If this parameter is null, an error
+        /// is returned.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the asynchronous evaluation completes.
+        /// This parameter may be null for "fire-and-forget" scripts.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-defined data passed through to the callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure to schedule the asynchronous evaluation, this contains
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the asynchronous evaluation was
+        /// successfully scheduled; otherwise, <see cref="ReturnCode.Error" />
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode EvaluateScript(
             Interpreter interpreter,
             string text,
@@ -13924,6 +19798,56 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (Stream) Methods
+        /// <summary>
+        /// This method evaluates a portion of the script obtained from the
+        /// specified text reader in the context of the given interpreter,
+        /// using the supplied flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  This overload records the error line
+        /// (if any) on the interpreter automatically; use the overload that
+        /// accepts a <c>ref int errorLine</c> when the caller needs the error
+        /// line directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the stream, used for error and location
+        /// reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader from which the script is read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the stream at which to begin
+        /// evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the stream.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateStream(
             Interpreter interpreter,
             string name,
@@ -13959,6 +19883,60 @@ namespace Eagle._Components.Public
         //       for that transition (e.g. call frame management) should happen here [and
         //       only here].
         //
+        /// <summary>
+        /// This method evaluates a portion of the script obtained from the
+        /// specified text reader in the context of the given interpreter,
+        /// additionally reporting the script line associated with any error.
+        /// It is a top-level entry point and is thread-safe and re-entrant.
+        /// This is the bridge between the stream evaluation pipeline and the
+        /// string evaluation pipeline; the call frame management for that
+        /// transition is performed here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the stream, used for error and location
+        /// reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader from which the script is read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the stream at which to begin
+        /// evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the stream.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateStream(
             Interpreter interpreter,
             string name,
@@ -14076,6 +20054,56 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Scope Call Frame Methods
+        /// <summary>
+        /// This method evaluates a portion of the script obtained from the
+        /// specified text reader within a brand new scope call frame, using the
+        /// supplied flags.  It is a top-level entry point and is thread-safe
+        /// and re-entrant.  The scope call frame created for the evaluation is
+        /// stored into the result so it remains accessible to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the stream, used for error and location
+        /// reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader from which the script is read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the stream at which to begin
+        /// evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the stream.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script (and,
+        /// via the stored scope call frame, the created scope).  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateStreamWithScopeFrame(
             Interpreter interpreter,             /* in */
             string name,                         /* in */
@@ -14107,6 +20135,64 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a portion of the script obtained from the
+        /// specified text reader within a scope call frame, using the supplied
+        /// flags.  It is a top-level entry point and is thread-safe and
+        /// re-entrant.  When a scope call frame is provided, it is used;
+        /// otherwise, a new engine scope is created and added to the
+        /// interpreter.  After evaluation, all scope call frames opened during
+        /// the script are popped and a reference to any newly created frame is
+        /// returned to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the stream, used for error and location
+        /// reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader from which the script is read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the stream at which to begin
+        /// evaluation.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to evaluate, or
+        /// <see cref="Length.Invalid" /> to evaluate to the end of the stream.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="frame">
+        /// On input, an existing scope call frame to use, or null to create a
+        /// new one; on output, the newly created scope call frame, when one was
+        /// created and the interpreter remains usable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode EvaluateStreamWithScopeFrame(
             Interpreter interpreter,             /* in */
             string name,                         /* in */
@@ -14200,6 +20286,34 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (File) Methods
+        /// <summary>
+        /// This method evaluates the script contained in the specified file in
+        /// the context of the given interpreter, using the default engine,
+        /// substitution, event, and expression flags.  It is a top-level entry
+        /// point and is thread-safe and re-entrant.  This overload records the
+        /// error line (if any) on the interpreter automatically.  Most
+        /// consumers should call the equivalent <see cref="Interpreter" />
+        /// evaluation method instead, which manages interpreter state on the
+        /// caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.  Control-flow values such as
+        /// <see cref="ReturnCode.Return" />, <see cref="ReturnCode.Break" />,
+        /// and <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateFile(
             Interpreter interpreter,
             string fileName,
@@ -14214,6 +20328,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file in
+        /// the context of the given interpreter, using the supplied engine,
+        /// substitution, event, and expression flags.  It is a top-level entry
+        /// point and is thread-safe and re-entrant.  This overload records the
+        /// error line (if any) on the interpreter automatically; use the
+        /// overload that accepts a <c>ref int errorLine</c> when the caller
+        /// needs the error line directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateFile(
             Interpreter interpreter,
             string fileName,
@@ -14239,6 +20391,48 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file in
+        /// the context of the given interpreter, using the supplied flags,
+        /// additionally reporting the script line associated with any error.
+        /// It is a top-level entry point and is thread-safe and re-entrant.
+        /// Most consumers should call the equivalent <see cref="Interpreter" />
+        /// evaluation method instead, which manages interpreter state on the
+        /// caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateFile(
             Interpreter interpreter,
             string fileName,
@@ -14258,6 +20452,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file in
+        /// the context of the given interpreter, reading the file using the
+        /// supplied character encoding and the default flags.  It is a
+        /// top-level entry point and is thread-safe and re-entrant.  This
+        /// overload records the error line (if any) on the interpreter
+        /// automatically.  Most consumers should call the equivalent
+        /// <see cref="Interpreter" /> evaluation method instead, which manages
+        /// interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         public static ReturnCode EvaluateFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -14273,6 +20498,48 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file in
+        /// the context of the given interpreter, reading the file using the
+        /// supplied character encoding and flags.  It is thread-safe and
+        /// re-entrant.  This overload records the error line (if any) on the
+        /// interpreter automatically; use the overload that accepts a
+        /// <c>ref int errorLine</c> when the caller needs the error line
+        /// directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         private static ReturnCode EvaluateFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -14306,6 +20573,54 @@ namespace Eagle._Components.Public
         //       for that transition (e.g. call frame management) should happen here [and
         //       only here].
         //
+        /// <summary>
+        /// This method is the core file-evaluation routine.  It reads (or
+        /// otherwise obtains) the script from the specified file, optionally
+        /// discovers temporary packages, optionally pushes a dedicated engine
+        /// call frame, tracks the script location, and then evaluates the
+        /// script text in the context of the given interpreter.  It is the
+        /// bridge between the file evaluation pipeline and the string
+        /// evaluation pipeline.  It is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.  It may be
+        /// adjusted while the script is read or obtained.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.  Control-flow
+        /// values such as <see cref="ReturnCode.Return" />,
+        /// <see cref="ReturnCode.Break" />, and
+        /// <see cref="ReturnCode.Continue" /> may also propagate out.
+        /// </returns>
         internal static ReturnCode EvaluateFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -14505,6 +20820,48 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Scope Call Frame Methods
+        /// <summary>
+        /// This method evaluates the script contained in the specified file
+        /// within a brand new scope call frame, using the supplied character
+        /// encoding and flags.  It is thread-safe and re-entrant.  The scope
+        /// call frame created for the evaluation is stored into the result so
+        /// it remains accessible to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script (and,
+        /// via the stored scope call frame, the created scope).  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateFileWithScopeFrame(
             Interpreter interpreter,             /* in */
             Encoding encoding,                   /* in */
@@ -14533,6 +20890,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file
+        /// within a scope call frame, using the supplied character encoding and
+        /// flags.  It is thread-safe and re-entrant.  When a scope call frame
+        /// is provided, it is used; otherwise, a new engine scope is created and
+        /// added to the interpreter.  After evaluation, all scope call frames
+        /// opened during the script are popped and a reference to any newly
+        /// created frame is returned to the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="frame">
+        /// On input, an existing scope call frame to use, or null to create a
+        /// new one; on output, the newly created scope call frame, when one was
+        /// created and the interpreter remains usable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode EvaluateFileWithScopeFrame(
             Interpreter interpreter,             /* in */
             Encoding encoding,                   /* in */
@@ -14622,6 +21028,51 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Methods
+        /// <summary>
+        /// This method evaluates the script contained in the specified file
+        /// asynchronously in the context of the given interpreter, either on a
+        /// newly created engine thread or via a queued work item.  It is a
+        /// top-level entry point and is thread-safe, re-entrant, and
+        /// asynchronous; it returns as soon as the work has been scheduled, and
+        /// the optional callback is later invoked with the evaluation outcome.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.  If this
+        /// parameter is null or empty, an error is returned.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the asynchronous evaluation completes.
+        /// This parameter may be null for "fire-and-forget" scripts.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-defined data passed through to the callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure to schedule the asynchronous evaluation, this contains
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the asynchronous evaluation was
+        /// successfully scheduled; otherwise, <see cref="ReturnCode.Error" />
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode EvaluateFile(
             Interpreter interpreter,
             string fileName,
@@ -14709,6 +21160,38 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (Bundle) Methods
+        /// <summary>
+        /// This method evaluates the specified compiled script using the
+        /// settings carried by the supplied bundle data, which may select a
+        /// particular interpreter, isolation level, security level, and rule
+        /// set.  The bundle language must match the current package; otherwise,
+        /// an error is returned.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the script.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="script">
+        /// The compiled script to evaluate.  If this parameter is null, an
+        /// error is returned.
+        /// </param>
+        /// <param name="bundleData">
+        /// The bundle data describing how the script should be evaluated (for
+        /// example, language, interpreter, isolation, and security).  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the script.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, this is set to the script line number associated with
+        /// the error, or zero when not applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateScript(
             Interpreter interpreter, /* in */
             IScript script,          /* in */
@@ -14886,6 +21369,51 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Evaluation (Expression) Methods
+        /// <summary>
+        /// This method evaluates the specified expression text in the context
+        /// of the given interpreter and, on error, appends the supplied error
+        /// information (formatted with the newline and the error line) to the
+        /// result.  It is intended for internal use only.  It is a top-level
+        /// entry point and is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the expression.
+        /// </param>
+        /// <param name="text">
+        /// The expression text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="errorInfo">
+        /// A composite format string used to build the error information that
+        /// is appended on failure; it receives the newline and the error line
+        /// as format arguments.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the expression.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         internal static ReturnCode EvaluateExpressionWithErrorInfo( /* INTERNAL USE ONLY */
             Interpreter interpreter,
             string text,
@@ -14946,6 +21474,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified expression text in the context
+        /// of the given interpreter, using the default engine, substitution,
+        /// event, and expression flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  Most consumers should call the
+        /// equivalent <see cref="Interpreter" /> expression evaluation method
+        /// instead, which manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the expression.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The expression text to evaluate.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the expression.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode EvaluateExpression(
             Interpreter interpreter,
             string text,
@@ -14960,6 +21512,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified expression text in the context
+        /// of the given interpreter, using the supplied engine, substitution,
+        /// event, and expression flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  It first resolves the current location
+        /// (file name and line) for reporting purposes, then delegates to the
+        /// core expression evaluation routine.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the expression.  If
+        /// this parameter is not usable, an error is returned.
+        /// </param>
+        /// <param name="text">
+        /// The expression text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the expression.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode EvaluateExpression(
             Interpreter interpreter,
             string text,
@@ -15021,6 +21608,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified expression text in the context
+        /// of the given interpreter, using the supplied flags and limits.  It
+        /// is thread-safe and re-entrant.  It resolves the current location
+        /// (file name and line) for reporting purposes, then delegates to the
+        /// core expression evaluation routine.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the expression.  If
+        /// this parameter is not usable, an error is returned.
+        /// </param>
+        /// <param name="text">
+        /// The expression text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the expression.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode EvaluateExpression(
             Interpreter interpreter,
             string text,
@@ -15071,6 +21707,63 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core expression-evaluation routine.  It parses
+        /// the specified expression text and evaluates it in the context of the
+        /// given interpreter, honoring events, cancellation, and the supplied
+        /// flags and limits.  It is thread-safe and re-entrant.  All of the
+        /// other expression evaluation overloads ultimately delegate here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the expression.  If
+        /// this parameter is null or not usable, an error is returned.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the
+        /// expression, used for error and location reporting.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The line number at which the expression begins.
+        /// </param>
+        /// <param name="text">
+        /// The expression text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use for the evaluation.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the evaluation.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the expression.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode EvaluateExpression(
             Interpreter interpreter,
             string fileName,
@@ -15264,6 +21957,49 @@ namespace Eagle._Components.Public
         #region Substitution Methods
         #region Substitution Exit-Hook Methods
 #if (DEBUGGER && DEBUGGER_ENGINE) || NOTIFY
+        /// <summary>
+        /// This method performs the bookkeeping that must occur when a string
+        /// substitution completes (i.e. "exits").  It checks for and handles
+        /// any applicable exit breakpoints and raises substitution
+        /// notifications.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the substitution was performed.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the string
+        /// that was substituted.  This parameter may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number at the point of substitution exit.
+        /// </param>
+        /// <param name="text">
+        /// The text that was substituted.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that were in effect for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that were in effect for the substitution.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that were in effect for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that were in effect for the substitution.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by the substitution.  This value may be
+        /// modified by an exit breakpoint.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by the substitution.  This value may be
+        /// modified by an exit breakpoint.
+        /// </param>
+        /// <returns>
+        /// The (possibly modified) return code for the completed substitution.
+        /// </returns>
         private static ReturnCode SubstituteExited(
             Interpreter interpreter,             /* in */
             string fileName,                     /* in */
@@ -15337,6 +22073,62 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Substitution (Token) Methods
+        /// <summary>
+        /// This method performs substitution over a run of parser-state tokens
+        /// in the context of the given interpreter, handling text, backslash,
+        /// variable, and command tokens, and concatenating the substituted
+        /// pieces into a single result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state that contains the tokens to substitute.
+        /// </param>
+        /// <param name="startTokenIndex">
+        /// The index of the first token to substitute.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during substitution.
+        /// </param>
+        /// <param name="tokenCount">
+        /// On input, the number of tokens to substitute; on output, the number
+        /// of tokens that remain unprocessed (decremented as tokens are
+        /// consumed).
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the concatenated, substituted result.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode SubstituteTokens(
             Interpreter interpreter,
             IParseState parseState,
@@ -15577,6 +22369,26 @@ namespace Eagle._Components.Public
         //          sure that is what you want.  This method is custom
         //          tailored to work from inside SQL Server.
         //
+        /// <summary>
+        /// This method performs substitution on the specified string using a
+        /// private, single-use interpreter that it creates and disposes
+        /// internally, with the default substitution flags.  It is a top-level
+        /// entry point and is thread-safe and re-entrant.  This overload is
+        /// custom tailored for hosting scenarios (for example, use from within
+        /// SQL Server); most consumers should create an
+        /// <see cref="Interpreter" /> and use its substitution methods instead.
+        /// </summary>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting <see cref="ReturnCode" />;
+        /// <see cref="ReturnCode.Ok" /> (zero) indicates success.
+        /// </returns>
         public static int /* ReturnCode */ SubstituteOneString(
             string text,
             ref string result
@@ -15603,6 +22415,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the specified string in the
+        /// context of the given interpreter, using the supplied substitution
+        /// flags and the default engine, event, and expression flags.  It is a
+        /// top-level entry point and is thread-safe and re-entrant.  Most
+        /// consumers should call the equivalent <see cref="Interpreter" />
+        /// substitution method instead, which manages interpreter state on the
+        /// caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// (for example, <see cref="ReturnCode.Error" />) with details placed
+        /// in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteString(
             Interpreter interpreter,
             string text,
@@ -15618,6 +22459,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the specified string in the
+        /// context of the given interpreter, using the supplied engine,
+        /// substitution, event, and expression flags.  It is a top-level entry
+        /// point and is thread-safe and re-entrant.  It first resolves the
+        /// current location (file name and line) for reporting purposes, then
+        /// delegates to the core substitution routine.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.
+        /// </param>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteString(
             Interpreter interpreter,
             string text,
@@ -15680,6 +22556,65 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core string-substitution routine.  It parses the
+        /// specified string as if it were a double-quoted word and performs the
+        /// requested variable, command, and backslash substitutions in the
+        /// context of the given interpreter, honoring the supplied flags and
+        /// limits.  On a parse error it substitutes the valid prefix before
+        /// reporting the error.  It is thread-safe and re-entrant.  All of the
+        /// other string substitution overloads ultimately delegate here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  When
+        /// this parameter is null, no substitution is performed.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file (or other origin) associated with the string,
+        /// used for error and location reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="currentLine">
+        /// The line number at which the string begins.
+        /// </param>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size, in characters, permitted for the result produced
+        /// by a single executed command.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size, in characters, permitted for a nested result.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// Non-zero if the interpreter belongs to the current application
+        /// domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// Non-zero if argument source locations should be tracked for the
+        /// debugger during substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode SubstituteString(
             Interpreter interpreter,
             string fileName,
@@ -16092,6 +23027,53 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Methods
+        /// <summary>
+        /// This method performs substitution on the specified string
+        /// asynchronously in the context of the given interpreter, either on a
+        /// newly created engine thread or via a queued work item.  It is a
+        /// top-level entry point and is thread-safe, re-entrant, and
+        /// asynchronous; it returns as soon as the work has been scheduled, and
+        /// the optional callback is later invoked with the substitution
+        /// outcome.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  If
+        /// this parameter is null, an error is returned.
+        /// </param>
+        /// <param name="text">
+        /// The string to perform substitution on.  If this parameter is null,
+        /// an error is returned.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the asynchronous substitution completes.
+        /// This parameter may be null for "fire-and-forget" scripts.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-defined data passed through to the callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure to schedule the asynchronous substitution, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the asynchronous substitution was
+        /// successfully scheduled; otherwise, <see cref="ReturnCode.Error" />
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode SubstituteString(
             Interpreter interpreter,
             string text,
@@ -16179,13 +23161,54 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Substitution (Stream) Methods
-        //
-        // NOTE: This method is somewhat special.  It is the only place where the stream
-        //       substitution pipeline (via SubstituteStream) ends up calling into the
-        //       string substitution pipeline (via SubstituteString).  Therefore,
-        //       "special handling" for that transition (e.g. call frame management)
-        //       should happen here [and only here].
-        //
+        /// <summary>
+        /// This method performs substitution on the script obtained from the
+        /// specified text reader in the context of the given interpreter, using
+        /// the supplied flags.  It is a top-level entry point and is
+        /// thread-safe and re-entrant.  This is the bridge between the stream
+        /// substitution pipeline and the string substitution pipeline; the call
+        /// frame management for that transition is performed here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the stream, used for error and location
+        /// reporting.  This parameter may be null.
+        /// </param>
+        /// <param name="textReader">
+        /// The text reader from which the string is read.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the stream at which to begin
+        /// substitution.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to substitute, or
+        /// <see cref="Length.Invalid" /> to substitute to the end of the
+        /// stream.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteStream(
             Interpreter interpreter,
             string name,
@@ -16288,6 +23311,34 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Substitution (File) Methods
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file in the context of the given interpreter, using the supplied
+        /// substitution flags and the default engine, event, and expression
+        /// flags.  It is a top-level entry point and is thread-safe and
+        /// re-entrant.  Most consumers should call the equivalent
+        /// <see cref="Interpreter" /> substitution method instead, which
+        /// manages interpreter state on the caller's behalf.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents are substituted.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteFile(
             Interpreter interpreter,
             string fileName,
@@ -16303,6 +23354,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file in the context of the given interpreter, using the supplied
+        /// engine, substitution, event, and expression flags.  It is a
+        /// top-level entry point and is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents are substituted.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteFile(
             Interpreter interpreter,
             string fileName,
@@ -16321,6 +23405,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file in the context of the given interpreter, reading the file using
+        /// the supplied character encoding and substitution flags, with the
+        /// default engine, event, and expression flags.  It is a top-level
+        /// entry point and is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents are substituted.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -16337,13 +23450,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
-        //
-        // NOTE: This method is somewhat special.  It is the only place where the file
-        //       substitution pipeline (via SubstituteFile) ends up calling into the
-        //       string substitution pipeline (via SubstituteString).  Therefore,
-        //       "special handling" for that transition (e.g. call frame management)
-        //       should happen here [and only here].
-        //
+        /// <summary>
+        /// This method is the core file-substitution routine.  It reads (or
+        /// otherwise obtains) the contents of the specified file using the
+        /// supplied character encoding, optionally pushes a dedicated engine
+        /// call frame, tracks the script location, and then performs
+        /// substitution on the file contents in the context of the given
+        /// interpreter.  It is the bridge between the file substitution
+        /// pipeline and the string substitution pipeline.  It is a top-level
+        /// entry point and is thread-safe and re-entrant.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  If
+        /// this parameter is null, an error is returned.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding used to read the file, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents are substituted.  It may be
+        /// adjusted while the file is read or obtained.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the substituted string.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode SubstituteFile(
             Interpreter interpreter,
             Encoding encoding,
@@ -16472,6 +23621,53 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Methods
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file asynchronously in the context of the given interpreter, either
+        /// on a newly created engine thread or via a queued work item.  It is a
+        /// top-level entry point and is thread-safe, re-entrant, and
+        /// asynchronous; it returns as soon as the work has been scheduled, and
+        /// the optional callback is later invoked with the substitution
+        /// outcome.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to perform the substitution.  If
+        /// this parameter is null, an error is returned.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents are substituted.  If this
+        /// parameter is null or empty, an error is returned.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use for the substitution.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that control which kinds of substitution are
+        /// performed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use for the substitution.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use for the substitution.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the asynchronous substitution completes.
+        /// This parameter may be null for "fire-and-forget" scripts.
+        /// </param>
+        /// <param name="clientData">
+        /// The opaque, caller-defined data passed through to the callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure to schedule the asynchronous substitution, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the asynchronous substitution was
+        /// successfully scheduled; otherwise, <see cref="ReturnCode.Error" />
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode SubstituteFile(
             Interpreter interpreter,
             string fileName,

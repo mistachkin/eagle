@@ -23,6 +23,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>return</c> command, which returns a
+    /// result from the enclosing procedure, source file, or interpreter and
+    /// allows the return code and error information to be controlled via the
+    /// <c>-code</c>, <c>-errorinfo</c>, and <c>-errorcode</c> options.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("a54f8720-ba76-476c-91b1-3f140d587c70")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
@@ -30,6 +37,13 @@ namespace Eagle._Commands
     [ObjectGroup("control")]
     internal sealed class Return : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>return</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Return(
             ICommandData commandData
             )
@@ -39,11 +53,47 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>return</c> command.  It parses any
+        /// supplied <c>-code</c>, <c>-errorinfo</c>, and <c>-errorcode</c>
+        /// options, records the requested return code and error information on
+        /// the interpreter, and returns <see cref="ReturnCode.Return" /> so
+        /// that the enclosing procedure, file, or interpreter unwinds with the
+        /// optional result string.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements supply the optional
+        /// <c>-code</c>, <c>-errorinfo</c>, and <c>-errorcode</c> options
+        /// followed by an optional result string.  This parameter should not
+        /// be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the optional result string (or an
+        /// empty string when none was supplied).  Upon failure, this contains
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Return" /> when invoked correctly, signaling
+        /// the enclosing scope to unwind with the requested return code;
+        /// otherwise, <see cref="ReturnCode.Error" /> when option parsing
+        /// fails, the wrong number of arguments is supplied, the interpreter
+        /// is null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

@@ -19,48 +19,134 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of static helper methods used to parse,
+    /// format, query, and modify a custom textual "attribute flags" format.  In
+    /// this format, each set of single-character flags is associated with a
+    /// 64-bit integer key; the flags for the default key may appear without a
+    /// surrounding key prefix, while the flags for any other key are enclosed in
+    /// braces and preceded by the hexadecimal key and a separator.
+    /// </summary>
     [ObjectId("17b64eff-174f-4856-bafd-df94c759de17")]
     internal static class AttributeFlags
     {
         #region Private Constants
+        /// <summary>
+        /// The character used to separate a hexadecimal key from its associated
+        /// flags within a complex (keyed) flag specification.
+        /// </summary>
         private static readonly char NameSeparator = Characters.Colon;
+
+        /// <summary>
+        /// The number of hexadecimal digits used to represent a key in the
+        /// legacy fixed-width flag format (i.e. a 64-bit integer).
+        /// </summary>
         private static readonly int NameLength = 16; // (i.e. hexadecimal 64-bit integer)
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The meta-character that switches a change operation into add mode, so
+        /// that subsequent flag characters are added.
+        /// </summary>
         public const char AddCharacter = Characters.PlusSign;
+
+        /// <summary>
+        /// The meta-character that switches a change operation into remove mode,
+        /// so that subsequent flag characters are removed.
+        /// </summary>
         private const char RemoveCharacter = Characters.MinusSign;
+
+        /// <summary>
+        /// The meta-character that clears the existing flags for the key and
+        /// switches a change operation into add mode.
+        /// </summary>
         private const char SetCharacter = Characters.EqualSign;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The meta-character that expands to all digit, uppercase alphabet, and
+        /// lowercase alphabet flag characters.
+        /// </summary>
         private const char AllChars = Characters.Asterisk;
+
+        /// <summary>
+        /// The meta-character that expands to all digit flag characters.
+        /// </summary>
         private const char AllDigitChars = Characters.NumberSign;
+
+        /// <summary>
+        /// The meta-character that expands to all uppercase and lowercase
+        /// alphabet flag characters.
+        /// </summary>
         private const char AllAlphabetChars = Characters.ExclamationMark;
+
+        /// <summary>
+        /// The meta-character that expands to all uppercase alphabet flag
+        /// characters.
+        /// </summary>
         private const char AllUpperAlphabetChars = Characters.DollarSign;
+
+        /// <summary>
+        /// The meta-character that expands to all lowercase alphabet flag
+        /// characters.
+        /// </summary>
         private const char AllLowerAlphabetChars = Characters.AtSign;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to render a keyed set of flags in
+        /// the legacy format, where the key is a fixed-width hexadecimal integer
+        /// immediately followed by the flags, all enclosed in braces.
+        /// </summary>
         private static readonly string LegacyFlagFormat =
             "{{{0:X" + NameLength.ToString() + "}{1}}}";
 
+        /// <summary>
+        /// The composite format string used to render a keyed set of flags in
+        /// the current format, where the variable-width hexadecimal key and the
+        /// flags are separated by a colon and enclosed in braces.
+        /// </summary>
         private static readonly string FlagFormat = "{{{0:X}:{1}}}";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The key value that represents the absence of a key, whose flags are
+        /// rendered without any surrounding key prefix or braces.
+        /// </summary>
         private static readonly long NoKey = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constants
+        /// <summary>
+        /// The default key used for flags that are not associated with an
+        /// explicit key (i.e. the no-key value).
+        /// </summary>
         public static readonly long DefaultKey = NoKey;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method converts a hexadecimal name string into its
+        /// corresponding 64-bit integer key.
+        /// </summary>
+        /// <param name="name">
+        /// The hexadecimal name string to convert.
+        /// </param>
+        /// <param name="key">
+        /// Upon success, receives the key parsed from the name.
+        /// </param>
+        /// <returns>
+        /// True if the entire name was parsed as a hexadecimal integer;
+        /// otherwise, false.
+        /// </returns>
         private static bool HexadecimalNameToKey(
             string name,
             ref long key
@@ -82,6 +168,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid
+        /// within a key name (i.e. a hexadecimal digit).
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid within a key name; otherwise, false.
+        /// </returns>
         private static bool CharIsValidName(
             char character
             )
@@ -91,6 +187,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid as a
+        /// flag value character (i.e. an identifier character).
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid as a flag value character; otherwise,
+        /// false.
+        /// </returns>
         private static bool CharIsValidValue(
             char character
             )
@@ -100,6 +207,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method expands a flag character into the set of characters it
+        /// represents, handling the meta-characters that stand for groups of
+        /// digit and alphabet characters.
+        /// </summary>
+        /// <param name="character">
+        /// The flag (or meta-) character to expand.
+        /// </param>
+        /// <returns>
+        /// The set of characters represented by the input character, or null
+        /// when the character is not a recognized meta-character and is not a
+        /// valid flag value character.
+        /// </returns>
         private static IEnumerable<char> GetChars(
             char character
             )
@@ -148,6 +268,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a dictionary that maps each distinct character in
+        /// the specified sequence to the number of times it occurs.
+        /// </summary>
+        /// <param name="characters">
+        /// The sequence of characters to tally.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each character to its occurrence count, or null
+        /// when the input sequence is null.
+        /// </returns>
         private static IDictionary<char, long> CharsToDictionary(
             IEnumerable<char> characters
             )
@@ -172,6 +303,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method tallies the characters in the specified string builder
+        /// into the specified character-count dictionary, creating the
+        /// dictionary when it does not yet exist.
+        /// </summary>
+        /// <param name="characters">
+        /// The characters to tally.
+        /// </param>
+        /// <param name="keyFlags">
+        /// The dictionary mapping each character to its occurrence count.  When
+        /// null upon entry, a new dictionary is created and returned via this
+        /// parameter.
+        /// </param>
         private static void CharsToDictionary(
             StringBuilder characters,
             ref IDictionary<char, long> keyFlags
@@ -196,6 +340,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flattens a character-count dictionary back into the
+        /// sequence of its keys, optionally sorting them.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The character-count dictionary whose keys are flattened.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the resulting characters are sorted.
+        /// </param>
+        /// <returns>
+        /// A string containing the dictionary keys (as the underlying
+        /// enumerable of characters), or null when the dictionary is null.
+        /// </returns>
         private static IEnumerable<char> DictionaryToChars(
             IDictionary<char, long> dictionary,
             bool sort
@@ -216,6 +374,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges a per-key dictionary of character-count
+        /// dictionaries into a per-key dictionary of flag strings, optionally
+        /// sorting the flags for each key.
+        /// </summary>
+        /// <param name="flags">
+        /// The per-key character-count dictionaries to merge.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the flags for each key are sorted.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each key to its merged flag string.
+        /// </returns>
         private static IDictionary<long, string> Merge(
             IDictionary<long, IDictionary<char, long>> flags,
             bool sort
@@ -234,6 +406,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges the flag characters accumulated for a single key
+        /// into the per-key character-count dictionaries, creating the entry for
+        /// the key when it does not yet exist.
+        /// </summary>
+        /// <param name="X">
+        /// The per-key character-count dictionaries into which the flags are
+        /// merged.
+        /// </param>
+        /// <param name="Y">
+        /// The accumulated flag characters to merge for the specified key.
+        /// </param>
+        /// <param name="key">
+        /// The key whose flag characters are being merged.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, a null existing entry for the key is treated as a
+        /// failure; otherwise, it is replaced with a new dictionary.
+        /// </param>
+        /// <returns>
+        /// True if the flags were merged; otherwise, false.
+        /// </returns>
         private static bool Union(
             IDictionary<long, IDictionary<char, long>> X,
             StringBuilder Y,
@@ -273,6 +467,20 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method computes the union of two flag dictionaries, summing
+        /// the values for any keys present in both.
+        /// </summary>
+        /// <param name="X">
+        /// The first dictionary to combine.
+        /// </param>
+        /// <param name="Y">
+        /// The second dictionary to combine.
+        /// </param>
+        /// <returns>
+        /// A new dictionary containing the union of the two dictionaries, or
+        /// null if both are null.
+        /// </returns>
         private static IDictionary<char, long> Union(
             IDictionary<char, long> X,
             IDictionary<char, long> Y
@@ -312,6 +520,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the union of the flag characters contained in
+        /// two strings.
+        /// </summary>
+        /// <param name="X">
+        /// The first string of flag characters to combine.
+        /// </param>
+        /// <param name="Y">
+        /// The second string of flag characters to combine.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the resulting flag characters are sorted.
+        /// </param>
+        /// <returns>
+        /// A string containing the union of the flag characters, or null if
+        /// both strings are null.
+        /// </returns>
         private static string Union( /* NOT USED */
             string X,
             string Y,
@@ -325,6 +550,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the intersection of two flag dictionaries,
+        /// summing the values for the keys present in both.
+        /// </summary>
+        /// <param name="X">
+        /// The first dictionary to combine.
+        /// </param>
+        /// <param name="Y">
+        /// The second dictionary to combine.
+        /// </param>
+        /// <returns>
+        /// A new dictionary containing the intersection of the two
+        /// dictionaries, or null if either is null.
+        /// </returns>
         private static IDictionary<char, long> Intersection(
             IDictionary<char, long> X,
             IDictionary<char, long> Y
@@ -353,6 +592,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the intersection of the flag characters
+        /// contained in two strings.
+        /// </summary>
+        /// <param name="X">
+        /// The first string of flag characters to combine.
+        /// </param>
+        /// <param name="Y">
+        /// The second string of flag characters to combine.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the resulting flag characters are sorted.
+        /// </param>
+        /// <returns>
+        /// A string containing the intersection of the flag characters, or
+        /// null if either string is null.
+        /// </returns>
         private static string Intersection( /* NOT USED */
             string X,
             string Y,
@@ -366,6 +622,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the difference of two flag dictionaries,
+        /// containing the entries from the first that are not present in the
+        /// second.
+        /// </summary>
+        /// <param name="X">
+        /// The dictionary whose entries are retained.
+        /// </param>
+        /// <param name="Y">
+        /// The dictionary whose entries are removed from the first.
+        /// </param>
+        /// <returns>
+        /// A new dictionary containing the difference of the two dictionaries,
+        /// or null if the first dictionary is null.
+        /// </returns>
         private static IDictionary<char, long> Difference(
             IDictionary<char, long> X,
             IDictionary<char, long> Y
@@ -387,6 +658,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the difference of the flag characters
+        /// contained in two strings.
+        /// </summary>
+        /// <param name="X">
+        /// The string of flag characters that are retained.
+        /// </param>
+        /// <param name="Y">
+        /// The string of flag characters that are removed from the first.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the resulting flag characters are sorted.
+        /// </param>
+        /// <returns>
+        /// A string containing the difference of the flag characters, or null
+        /// if the first string is null.
+        /// </returns>
         private static string Difference( /* NOT USED */
             string X,
             string Y,
@@ -404,6 +692,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method parses a textual attribute flags specification into a
+        /// dictionary that maps each key to its set of flags.  In complex mode,
+        /// keyed flags enclosed in braces are recognized; in simple mode, only
+        /// the flags for the default key are recognized.
+        /// </summary>
+        /// <param name="text">
+        /// The textual attribute flags specification to parse.
+        /// </param>
+        /// <param name="complex">
+        /// When non-zero, complex (keyed, braced) specifications are permitted;
+        /// otherwise, only simple specifications are permitted.
+        /// </param>
+        /// <param name="space">
+        /// When non-zero, whitespace characters in the text are ignored.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the flags for each key are sorted in the result.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each key to its flag string, or null on failure.
+        /// </returns>
         public static IDictionary<long, string> Parse( /* 0.0 */
             string text,
             bool complex,
@@ -733,6 +1046,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method renders a dictionary of per-key flags back into its
+        /// textual attribute flags representation.
+        /// </summary>
+        /// <param name="flags">
+        /// The dictionary mapping each key to its flag string.
+        /// </param>
+        /// <param name="legacy">
+        /// When non-zero, keyed flags are rendered using the legacy fixed-width
+        /// key format; otherwise, the current key format is used.
+        /// </param>
+        /// <param name="compact">
+        /// When non-zero, duplicate flag characters are collapsed before
+        /// rendering.
+        /// </param>
+        /// <param name="space">
+        /// When non-zero, a space is inserted between successive keyed groups.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the keys and the flags within each key are sorted.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The textual attribute flags representation, or null on failure.
+        /// </returns>
         public static string Format( /* 0.1 */
             IDictionary<long, string> flags,
             bool legacy,
@@ -781,6 +1121,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the flags associated with the
+        /// specified key include some or all of the specified flag characters.
+        /// </summary>
+        /// <param name="flags">
+        /// The dictionary mapping each key to its flag string.
+        /// </param>
+        /// <param name="key">
+        /// The key whose flags are tested.
+        /// </param>
+        /// <param name="haveFlags">
+        /// The flag characters to test for.  An empty string tests for the
+        /// presence of no flags (have-none).  A null value always matches.
+        /// </param>
+        /// <param name="all">
+        /// When non-zero, all of the specified flags must be present; otherwise,
+        /// any one of them being present is sufficient.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, an invalid flag value character causes the test to
+        /// fail; otherwise, such characters are ignored.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present according to the specified
+        /// criteria; otherwise, false.
+        /// </returns>
         public static bool Have( /* 1.1 */
             IDictionary<long, string> flags,
             long key,
@@ -850,6 +1216,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method applies a sequence of change operations to the flags
+        /// associated with the specified key, returning a new dictionary with
+        /// the modified flags.  The change string may contain add, remove, and
+        /// set meta-characters as well as the meta-characters that expand to
+        /// groups of flag characters.
+        /// </summary>
+        /// <param name="flags">
+        /// The dictionary mapping each key to its flag string.
+        /// </param>
+        /// <param name="key">
+        /// The key whose flags are changed.
+        /// </param>
+        /// <param name="changeFlags">
+        /// The change specification to apply.  Flags default to being added
+        /// unless a remove or set meta-character is encountered.
+        /// </param>
+        /// <param name="sort">
+        /// When non-zero, the resulting flags for the key are sorted.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// A new dictionary containing the modified flags, or null on failure.
+        /// </returns>
         public static IDictionary<long, string> Change( /* 1.2 */
             IDictionary<long, string> flags,
             long key,
@@ -995,6 +1387,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified text is a well-formed textual
+        /// attribute flags specification by attempting to parse it.
+        /// </summary>
+        /// <param name="text">
+        /// The textual attribute flags specification to verify.
+        /// </param>
+        /// <param name="complex">
+        /// When non-zero, complex (keyed, braced) specifications are permitted;
+        /// otherwise, only simple specifications are permitted.
+        /// </param>
+        /// <param name="space">
+        /// When non-zero, whitespace characters in the text are ignored.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// True if the text was parsed successfully; otherwise, false.
+        /// </returns>
         public static bool Verify( /* 2.1 */
             string text,
             bool complex,

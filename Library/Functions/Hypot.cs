@@ -17,6 +17,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>hypot</c> expression function, which
+    /// returns the Euclidean distance <c>sqrt(x*x + y*y)</c> of its two numeric
+    /// arguments, computed using an overflow-safe scaled algorithm.  See
+    /// <c>core_language.md</c> for expression and function semantics.
+    /// </summary>
     [ObjectId("c05488d0-87d2-4d01-855b-ccd83b613b8f")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Binary)]
@@ -25,6 +31,13 @@ namespace Eagle._Functions
     internal sealed class Hypot : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>hypot</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Hypot(
             IFunctionData functionData /* in */
             )
@@ -37,6 +50,40 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>hypot</c> function.  It validates the
+        /// arguments using the base implementation, converts both arguments to
+        /// doubles, and produces their Euclidean distance using a scaled,
+        /// overflow-safe algorithm that factors out the larger magnitude (to
+        /// match the behavior of the C <c>hypot()</c> function used by Tcl).
+        /// If either operand is infinite, positive infinity is returned.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; elements one and two are the two values whose
+        /// Euclidean distance is computed.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the computed Euclidean distance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when an argument is missing or not
+        /// numeric, or a math exception occurs, with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */
@@ -70,9 +117,43 @@ namespace Eagle._Functions
 
             try
             {
-                value = Math.Sqrt(
-                    doubleValue[0] * doubleValue[0] +
-                    doubleValue[1] * doubleValue[1]);
+                //
+                // NOTE: Use the scaled hypot algorithm instead of the naive
+                //       sqrt(x*x + y*y).  The naive form spuriously overflows
+                //       to +Inf (or underflows to 0) for very large/small
+                //       operands even when the true result is representable
+                //       (e.g. hypot(1e200, 1e200) is ~1.41e200, not +Inf).
+                //       Tcl's hypot() (C hypot) is overflow-safe; match it by
+                //       factoring out the larger magnitude.
+                //
+                double hypotX = Math.Abs(doubleValue[0]);
+                double hypotY = Math.Abs(doubleValue[1]);
+
+                if (double.IsInfinity(hypotX) || double.IsInfinity(hypotY))
+                {
+                    //
+                    // NOTE: C hypot() returns +Inf when either operand is
+                    //       infinite.
+                    //
+                    value = double.PositiveInfinity;
+                }
+                else
+                {
+                    double hypotMax = (hypotX > hypotY) ? hypotX : hypotY;
+                    double hypotMin = (hypotX > hypotY) ? hypotY : hypotX;
+
+                    if (hypotMax == 0.0)
+                    {
+                        value = 0.0;
+                    }
+                    else
+                    {
+                        double hypotRatio = hypotMin / hypotMax;
+
+                        value = hypotMax * Math.Sqrt(
+                            1.0 + (hypotRatio * hypotRatio));
+                    }
+                }
             }
             catch (Exception e)
             {

@@ -27,6 +27,12 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>array</c> command, which creates,
+    /// queries, and manipulates array variables, including their elements,
+    /// default element values, and element searches.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("fe8bac16-d7a1-4b29-b4a1-7948ee4d9611")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("variable")]
@@ -43,17 +49,41 @@ namespace Eagle._Commands
         //       code archaeology and in response to a Coverity
         //       defect report.
         //
+        /// <summary>
+        /// The default case-sensitivity used when matching array element
+        /// names and values.  This value is logically read-only and is
+        /// false, which means that matching is case-sensitive by default,
+        /// for compatibility with native Tcl.
+        /// </summary>
         private static bool DefaultNoCase = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The collection of sub-command names supported by the
+        /// <c>array default</c> sub-command (for example <c>exists</c>,
+        /// <c>get</c>, <c>set</c>, and <c>unset</c>), used to dispatch each
+        /// <c>array default</c> invocation to the appropriate handler.  This
+        /// value may be null until it is initialized.
+        /// </summary>
         private EnsembleDictionary defaultSubSubCommands = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the collection of sub-command names supported
+        /// by the <c>array default</c> sub-command, creating the collection
+        /// first if necessary.
+        /// </summary>
+        /// <param name="subCommands">
+        /// Upon input, the existing collection of sub-command names, if any;
+        /// upon output, the collection populated with the supported
+        /// <c>array default</c> sub-command names.  This parameter may be null
+        /// on input, in which case a new collection is created.
+        /// </param>
         private void InitializeDefaultSubSubCommands(
             ref EnsembleDictionary subCommands /* in, out */
             )
@@ -72,6 +102,13 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>array</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Array(
             ICommandData commandData
             )
@@ -83,6 +120,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "anymore", "copy", "default", "donesearch", "exists",
             "for", "foreach", "get", "lmap", "names", "nextelement",
@@ -92,6 +134,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -101,6 +147,36 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>array</c> command.  It dispatches to
+        /// the requested ensemble sub-command (for example <c>get</c>,
+        /// <c>set</c>, <c>names</c>, or <c>exists</c>) in order to create,
+        /// query, or manipulate an array variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, element one is the sub-command name, and any further
+        /// elements are the arguments for that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the requested
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

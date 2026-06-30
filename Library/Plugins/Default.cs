@@ -24,6 +24,14 @@ using _ClientData = Eagle._Components.Public.ClientData;
 
 namespace Eagle._Plugins
 {
+    /// <summary>
+    /// This class provides the default, base implementation of the
+    /// <see cref="IPlugin" /> interface.  Most plugins, including those
+    /// built into the core library, derive from this class and override
+    /// only the behavior they need to customize, inheriting the standard
+    /// plugin functionality (e.g. command, policy, function, and trace
+    /// management) from this class.
+    /// </summary>
     [ObjectId("8c30d1ad-e753-4334-82ff-ea395e2542b5")]
     public class Default :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -33,18 +41,26 @@ namespace Eagle._Plugins
     {
         #region Public Constructors
         /// <summary>
-        ///   This is the constructor used by the core library to create an
-        ///   instance of the plugin, passing the necessary data to be used
-        ///   for initializing the plugin.
+        /// Constructs an instance of the <see cref="Default" /> plugin.
+        /// This is the constructor used by the core library to create an
+        /// instance of the plugin.  When the supplied <see cref="IPluginData" />
+        /// is present, its identifying information (e.g. <see cref="Id" />,
+        /// <see cref="Name" />, <see cref="Flags" />, <see cref="Version" />,
+        /// assembly metadata, etc.) and any pre-built entity collections are
+        /// copied into the new instance; otherwise, empty command, policy,
+        /// and token collections are created.  A <see cref="ResourceManager" />
+        /// (unless <see cref="PluginFlags.NoResources" /> is set) and an
+        /// <see cref="AuxiliaryData" /> dictionary (unless
+        /// <see cref="PluginFlags.NoAuxiliaryData" /> is set) are also
+        /// established for the new instance.
         /// </summary>
-        ///
         /// <param name="pluginData">
-        ///   An instance of the plugin data component used to hold the data
-        ///   necessary to fully initialize the plugin instance.  This
-        ///   parameter may be null.  Derived plugins are free to override
-        ///   this constructor; however, they are very strongly encouraged to
-        ///   call this constructor (i.e. the base class constructor) in that
-        ///   case.
+        /// An instance of the <see cref="IPluginData" /> component used to
+        /// hold the data necessary to fully initialize the plugin instance.
+        /// This parameter may be null.  Derived plugins are free to override
+        /// this constructor; however, they are very strongly encouraged to
+        /// call this constructor (i.e. the base class constructor) in that
+        /// case.
         /// </param>
         public Default(
             IPluginData pluginData
@@ -208,20 +224,22 @@ namespace Eagle._Plugins
 
         #region Protected Methods
         /// <summary>
-        ///   Returns the name of the package to add to the interpreter when
-        ///   this plugin is initialized.  Generally, this name is based on
-        ///   the name of the containing assembly and/or the fully qualified
-        ///   type name.
+        /// Returns the name of the package to add to the
+        /// <see cref="Interpreter" /> when this plugin is initialized (i.e.
+        /// the name used with <c>[package provide]</c> via
+        /// <see cref="Initialize" />).  Generally, this name is based on the
+        /// name of the containing <see cref="Assembly" /> and/or the fully
+        /// qualified type name.
         /// </summary>
-        ///
         /// <param name="simple">
-        ///   Non-zero if the simple name for the plugin should be used.
+        /// When <c>true</c>, the simple (i.e. unqualified) name for the
+        /// plugin should be used; otherwise, the more fully qualified name
+        /// is used.
         /// </param>
-        ///
         /// <returns>
-        ///   The name of the package to add to the interpreter that this
-        ///   plugin is being loaded into -OR- null if the name cannot be
-        ///   determined.
+        /// The name of the package to add to the <see cref="Interpreter" />
+        /// that this plugin is being loaded into -OR- null if the name
+        /// cannot be determined.
         /// </returns>
         protected virtual string GetPackageName(
             bool simple
@@ -233,14 +251,16 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   Returns the flags for the package to add to the interpreter when
-        ///   this plugin is initialized.
+        /// Returns the <see cref="PackageFlags" /> for the package to add to
+        /// the <see cref="Interpreter" /> when this plugin is initialized.
+        /// Since this name is always coming from a plugin, the base
+        /// implementation simply returns <see cref="PackageFlags.Plugin" />.
         /// </summary>
-        ///
         /// <returns>
-        ///   The flags for the package to add to the interpreter that this
-        ///   plugin is being loaded into -OR- <see cref="PackageFlags.None" />
-        ///   if they cannot be determined.
+        /// The <see cref="PackageFlags" /> for the package to add to the
+        /// <see cref="Interpreter" /> that this plugin is being loaded into
+        /// -OR- <see cref="PackageFlags.None" /> if they cannot be
+        /// determined.
         /// </returns>
         protected virtual PackageFlags GetPackageFlags()
         {
@@ -256,11 +276,20 @@ namespace Eagle._Plugins
 
         #region IIdentifierName Members
         /// <summary>
-        ///   The name of this plugin.  This will normally be set based on the
-        ///   plugin data provided to the constructor of this class; however,
-        ///   it can be manually reset at any time.
+        /// The backing field for the <see cref="Name" /> property; holds the
+        /// name of this plugin.  This will normally be set based on the
+        /// <see cref="IPluginData" /> provided to the constructor of this
+        /// class; however, it can be manually reset at any time.
         /// </summary>
         private string name;
+        /// <summary>
+        /// The name of this plugin.  This is typically the package name
+        /// (e.g. as returned by <see cref="GetPackageName" />) and is used to
+        /// identify the plugin within the <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The name of this plugin, or null if it has not been set.
+        /// </value>
         public virtual string Name
         {
             get { return name; }
@@ -272,10 +301,20 @@ namespace Eagle._Plugins
 
         #region IIdentifierBase Members
         /// <summary>
-        ///   The kind of identifier for this object instance.  For plugins,
-        ///   this should always be "Plugin".
+        /// The backing field for the <see cref="Kind" /> property; holds the
+        /// kind of identifier for this object instance.  For plugins, this
+        /// should always be <see cref="IdentifierKind.Plugin" />.  It is set
+        /// to that value by the constructor of this class.
         /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// The <see cref="IdentifierKind" /> represented by this plugin
+        /// instance; for plugins this is normally
+        /// <see cref="IdentifierKind.Plugin" />.
+        /// </summary>
+        /// <value>
+        /// The kind of identifier associated with this instance.
+        /// </value>
         public virtual IdentifierKind Kind
         {
             get { return kind; }
@@ -285,12 +324,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The unique Id of this plugin class (or instance).  The default
-        ///   value is Guid.Empty.  This will normally be set based on the
-        ///   plugin data provided to the constructor of this class; however,
-        ///   it can be manually reset at any time.
+        /// The backing field for the <see cref="Id" /> property; holds the
+        /// unique identifier of this plugin class (or instance).  The default
+        /// value is <see cref="Guid.Empty" />.  This will normally be derived
+        /// from the <c>ObjectId</c> attribute (or the <see cref="IPluginData" />
+        /// provided to the constructor of this class); however, it can be
+        /// manually reset at any time.
         /// </summary>
         private Guid id;
+        /// <summary>
+        /// The unique <see cref="Guid" /> identifier associated with this
+        /// plugin class (or instance).
+        /// </summary>
+        /// <value>
+        /// The unique identifier for this plugin, or <see cref="Guid.Empty" />
+        /// if none has been assigned.
+        /// </value>
         public virtual Guid Id
         {
             get { return id; }
@@ -302,14 +351,24 @@ namespace Eagle._Plugins
 
         #region IGetClientData / ISetClientData Members
         /// <summary>
-        ///   The client data passed to the original method that created this
-        ///   plugin instance.  This value will be passed to the Initialize and
-        ///   Terminate methods whenever they are called by the core library.
-        ///   This will normally be set based on the plugin data provided to
-        ///   the constructor of this class; however, it can be manually reset
-        ///   at any time.
+        /// The backing field for the <see cref="ClientData" /> property; holds
+        /// the <see cref="IClientData" /> passed to the original method that
+        /// created this plugin instance.  This value will be passed to the
+        /// <see cref="Initialize" /> and <see cref="Terminate" /> methods
+        /// whenever they are called by the core library.  This will normally
+        /// be set based on the <see cref="IPluginData" /> provided to the
+        /// constructor of this class; however, it can be manually reset at
+        /// any time.
         /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// The <see cref="IClientData" /> instance associated with this
+        /// plugin, passed to the <see cref="Initialize" /> and
+        /// <see cref="Terminate" /> methods.
+        /// </summary>
+        /// <value>
+        /// The anonymous client data for this plugin, which may be null.
+        /// </value>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -321,13 +380,22 @@ namespace Eagle._Plugins
 
         #region IIdentifier Members
         /// <summary>
-        ///   The logical group name for this plugin.  The default value is
-        ///   null.  This property is not currently used by the core library.
-        ///   This will normally be set based on the plugin data provided to
-        ///   the constructor of this class; however, it can be manually reset
-        ///   at any time.
+        /// The backing field for the <see cref="Group" /> property; holds the
+        /// logical group name for this plugin.  The default value is null.
+        /// This property is not currently used by the core library.  This
+        /// will normally be set based on the <see cref="IPluginData" />
+        /// provided to the constructor of this class; however, it can be
+        /// manually reset at any time.
         /// </summary>
         private string group;
+        /// <summary>
+        /// The logical group name associated with this plugin.  This is not
+        /// currently used by the core library and is reserved for use by the
+        /// plugin and/or its host application.
+        /// </summary>
+        /// <value>
+        /// The group name for this plugin, which may be null.
+        /// </value>
         public virtual string Group
         {
             get { return group; }
@@ -337,13 +405,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The description associated with this plugin class (or instance).
-        ///   The default value is null.  This property is not currently used
-        ///   by the core library.  This will normally be set based on the
-        ///   plugin data provided to the constructor of this class; however,
-        ///   it can be manually reset at any time.
+        /// The backing field for the <see cref="Description" /> property;
+        /// holds the description associated with this plugin class (or
+        /// instance).  The default value is null.  This property is not
+        /// currently used by the core library.  This will normally be set
+        /// based on the <see cref="IPluginData" /> provided to the
+        /// constructor of this class; however, it can be manually reset at
+        /// any time.
         /// </summary>
         private string description;
+        /// <summary>
+        /// The human-readable description associated with this plugin class
+        /// (or instance).
+        /// </summary>
+        /// <value>
+        /// The description for this plugin, which may be null.
+        /// </value>
         public virtual string Description
         {
             get { return description; }
@@ -355,11 +432,26 @@ namespace Eagle._Plugins
 
         #region IState Members
         /// <summary>
-        ///   This property is used to keep track of whether or not the plugin
-        ///   has (ever) been initialized.  Generally, it should only be set
-        ///   by the Initialize and Terminate methods.
+        /// The backing field for the <see cref="Initialized" /> property;
+        /// holds the net number of times this plugin has been initialized
+        /// minus the number of times it has been terminated.  It is
+        /// manipulated atomically (via <see cref="Interlocked" />) and should
+        /// generally only be set by the <see cref="Initialize" /> and
+        /// <see cref="Terminate" /> methods.
         /// </summary>
         private int initializeCount;
+        /// <summary>
+        /// Non-zero if this plugin has (ever) been initialized within an
+        /// <see cref="Interpreter" />.  This implements the
+        /// <see cref="IState" /> portion of the <see cref="IPlugin" />
+        /// contract; the getter reports <c>true</c> when the net
+        /// initialization count is greater than zero, and the setter
+        /// increments (when set to <c>true</c>) or decrements (when set to
+        /// <c>false</c>) that count.
+        /// </summary>
+        /// <value>
+        /// Non-zero if this plugin is currently considered initialized.
+        /// </value>
         public virtual bool Initialized
         {
             get
@@ -379,28 +471,35 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   Initialize the plugin and add any contained commands.
-        ///
-        ///   WARNING: PLEASE DO NOT CHANGE THIS METHOD BECAUSE DERIVED PLUGINS
-        ///            DEPEND ON ITS EXACT SEMANTICS.
+        /// Initializes the plugin within the specified
+        /// <see cref="Interpreter" /> and adds any contained commands,
+        /// policies, and functions.  Subject to the configured
+        /// <see cref="PluginFlags" />, this method loads the commands
+        /// (via <c>AddCommands</c>) and policies (via <c>AddPolicies</c>)
+        /// declared by the plugin, formally provides the package to the
+        /// interpreter (via <c>PkgProvide</c> using
+        /// <see cref="GetPackageName" /> and <see cref="GetPackageFlags" />),
+        /// and then marks the plugin as initialized.
+        /// WARNING: PLEASE DO NOT CHANGE THIS METHOD BECAUSE DERIVED PLUGINS
+        ///          DEPEND ON ITS EXACT SEMANTICS.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.
+        /// The <see cref="Interpreter" /> context we are executing in.  A
+        /// valid interpreter is required unless the
+        /// <see cref="PluginFlags.NoInitialize" /> flag is set.
         /// </param>
-        ///
         /// <param name="clientData">
-        ///   The extra data supplied when this plugin was initially created,
-        ///   if any.
+        /// The extra <see cref="IClientData" /> supplied when this plugin was
+        /// initially created, if any.  This parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this may contain an informational message.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this may contain an informational message (e.g. the
+        /// plugin name and version).  Upon failure, this must contain an
+        /// appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Initialize(
             Interpreter interpreter,
@@ -569,28 +668,36 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   Terminate the plugin and remove any contained commands.
-        ///
-        ///   WARNING: PLEASE DO NOT CHANGE THIS METHOD BECAUSE DERIVED PLUGINS
-        ///            DEPEND ON ITS EXACT SEMANTICS.
+        /// Terminates the plugin within the specified
+        /// <see cref="Interpreter" /> and removes any contained traces,
+        /// policies, functions, and commands.  Subject to the configured
+        /// <see cref="PluginFlags" />, this method unloads the traces (via
+        /// <c>RemoveTraces</c>), policies (via <c>RemovePolicies</c>),
+        /// functions (via <c>RemoveFunctions</c>), and commands (via
+        /// <c>RemoveCommands</c>) associated with the plugin, formally
+        /// withdraws the package from the interpreter (via
+        /// <c>WithdrawPackage</c>), and then marks the plugin as no longer
+        /// initialized.  This is the inverse of <see cref="Initialize" />.
+        /// WARNING: PLEASE DO NOT CHANGE THIS METHOD BECAUSE DERIVED PLUGINS
+        ///          DEPEND ON ITS EXACT SEMANTICS.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.
+        /// The <see cref="Interpreter" /> context we are executing in.  A
+        /// valid interpreter is required unless the
+        /// <see cref="PluginFlags.NoTerminate" /> flag is set.
         /// </param>
-        ///
         /// <param name="clientData">
-        ///   The extra data supplied when this plugin was initially created,
-        ///   if any.
+        /// The extra <see cref="IClientData" /> supplied when this plugin was
+        /// initially created, if any.  This parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this may contain an informational message.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this may contain an informational message (e.g. the
+        /// plugin name and version).  Upon failure, this must contain an
+        /// appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Terminate(
             Interpreter interpreter,
@@ -762,12 +869,20 @@ namespace Eagle._Plugins
 
         #region ITypeAndName Members
         /// <summary>
-        ///   The full name for the type that implements this plugin instance.
-        ///   This will normally be set based on the plugin data provided to
-        ///   the constructor of this class; however, it can be manually reset
-        ///   at any time.
+        /// The backing field for the <see cref="TypeName" /> property; holds
+        /// the full name for the type that implements this plugin instance.
+        /// This will normally be set based on the <see cref="IPluginData" />
+        /// provided to the constructor of this class; however, it can be
+        /// manually reset at any time.
         /// </summary>
         private string typeName;
+        /// <summary>
+        /// The fully qualified name of the <see cref="Type" /> that
+        /// implements this plugin instance.
+        /// </summary>
+        /// <value>
+        /// The fully qualified type name for this plugin, which may be null.
+        /// </value>
         public virtual string TypeName
         {
             get { return typeName; }
@@ -777,10 +892,18 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The optional type instance that corresponds to the type name as
-        ///   specified by the associated type name string.
+        /// The backing field for the <see cref="Type" /> property; holds the
+        /// optional <see cref="Type" /> instance that corresponds to the type
+        /// name specified by the associated <see cref="TypeName" /> string.
         /// </summary>
         private Type type;
+        /// <summary>
+        /// The <see cref="Type" /> that implements this plugin instance,
+        /// corresponding to the configured <see cref="TypeName" />.
+        /// </summary>
+        /// <value>
+        /// The implementing type for this plugin, which may be null.
+        /// </value>
         public virtual Type Type
         {
             get { return type; }
@@ -792,13 +915,22 @@ namespace Eagle._Plugins
 
         #region IPluginData Members
         /// <summary>
-        ///   The flags for this plugin class and instance combined.  See the
-        ///   PluginFlags enumeration for a full list of values and their
-        ///   associated meanings.  This will normally be set based on the
-        ///   plugin data provided to the constructor of this class; however,
-        ///   it can be manually reset at any time.
+        /// The backing field for the <see cref="Flags" /> property; holds the
+        /// flags for this plugin class and instance combined.  See the
+        /// <see cref="PluginFlags" /> enumeration for a full list of values
+        /// and their associated meanings.  This will normally be set based on
+        /// the <see cref="IPluginData" /> provided to the constructor of this
+        /// class; however, it can be manually reset at any time.
         /// </summary>
         private PluginFlags flags;
+        /// <summary>
+        /// The <see cref="PluginFlags" /> for this plugin class and instance
+        /// combined.  These flags govern much of the behavior of
+        /// <see cref="Initialize" /> and <see cref="Terminate" />.
+        /// </summary>
+        /// <value>
+        /// The combined plugin flags for this instance.
+        /// </value>
         public virtual PluginFlags Flags
         {
             get { return flags; }
@@ -808,11 +940,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The version for this plugin class.  This will normally be set
-        ///   based on the plugin data provided to the constructor of this
-        ///   class; however, it can be manually reset at any time.
+        /// The backing field for the <see cref="Version" /> property; holds
+        /// the version for this plugin class.  This will normally be set
+        /// based on the <see cref="IPluginData" /> provided to the
+        /// constructor of this class; however, it can be manually reset at
+        /// any time.
         /// </summary>
         private Version version;
+        /// <summary>
+        /// The <see cref="Version" /> of this plugin.  This is reported
+        /// (together with the <see cref="Name" />) when the package is
+        /// provided to the <see cref="Interpreter" /> by
+        /// <see cref="Initialize" />.
+        /// </summary>
+        /// <value>
+        /// The version of this plugin, which may be null.
+        /// </value>
         public virtual Version Version
         {
             get { return version; }
@@ -822,14 +965,21 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The URI associated with this plugin class.  This should have a
-        ///   value that represents the origin of the plugin.  This will
-        ///   normally be set based on the plugin data provided to the
-        ///   constructor of this class; however, it can be manually reset at
-        ///   any time.  The exact format of this URI is unspecified; however,
-        ///   it may contain the name and/or version of the plugin.
+        /// The backing field for the <see cref="Uri" /> property; holds the
+        /// URI associated with this plugin class.  This should have a value
+        /// that represents the origin of the plugin.  This will normally be
+        /// set based on the <see cref="IPluginData" /> provided to the
+        /// constructor of this class; however, it can be manually reset at
+        /// any time.  The exact format of this URI is unspecified; however,
+        /// it may contain the name and/or version of the plugin.
         /// </summary>
         private Uri uri;
+        /// <summary>
+        /// The <see cref="Uri" /> representing the origin of this plugin.
+        /// </summary>
+        /// <value>
+        /// The origin URI for this plugin, which may be null.
+        /// </value>
         public virtual Uri Uri
         {
             get { return uri; }
@@ -839,14 +989,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The update URI associated with this plugin class.  This should
-        ///   have a value that can be used to check for updates.  This will
-        ///   normally be set based on the plugin data provided to the
-        ///   constructor of this class; however, it can be manually reset at
-        ///   any time.  The exact format of this URI is unspecified; however,
-        ///   it may contain the name and/or version of the plugin.
+        /// The backing field for the <see cref="UpdateUri" /> property; holds
+        /// the update URI associated with this plugin class.  This should
+        /// have a value that can be used to check for updates.  This will
+        /// normally be set based on the <see cref="IPluginData" /> provided
+        /// to the constructor of this class; however, it can be manually
+        /// reset at any time.  The exact format of this URI is unspecified;
+        /// however, it may contain the name and/or version of the plugin.
         /// </summary>
         private Uri updateUri;
+        /// <summary>
+        /// The <see cref="Uri" /> that may be used to check for updates to
+        /// this plugin.
+        /// </summary>
+        /// <value>
+        /// The update URI for this plugin, which may be null.
+        /// </value>
         public virtual Uri UpdateUri
         {
             get { return updateUri; }
@@ -856,20 +1014,28 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The application domain hosting this plugin instance.  When the
-        ///   plugin has been loaded into an isolated application domain, this
-        ///   will always be a different application domain than the one
-        ///   containing the parent interpreter.  Therefore, care must be taken
-        ///   to avoid using parameter types that cannot be easily marshalled
-        ///   between application domains when calling instance methods of the
-        ///   interpreter or other core library components.  Types in the .NET
-        ///   Framework and/or the core library that are marked as serializable
-        ///   and/or derive from [Script]MarshalByRefObject should always be
-        ///   safe to use when calling such methods.  This will normally be set
-        ///   based on the plugin data provided to the constructor of this
-        ///   class; however, it can be manually reset at any time.
+        /// The backing field for the <see cref="AppDomain" /> property; holds
+        /// the application domain hosting this plugin instance.  When the
+        /// plugin has been loaded into an isolated application domain, this
+        /// will always be a different application domain than the one
+        /// containing the parent <see cref="Interpreter" />.  Therefore, care
+        /// must be taken to avoid using parameter types that cannot be easily
+        /// marshalled between application domains when calling instance
+        /// methods of the interpreter or other core library components.
+        /// Types in the .NET Framework and/or the core library that are
+        /// marked as serializable and/or derive from
+        /// <c>[Script]MarshalByRefObject</c> should always be safe to use
+        /// when calling such methods.  This will normally be set based on the
+        /// <see cref="IPluginData" /> provided to the constructor of this
+        /// class; however, it can be manually reset at any time.
         /// </summary>
         private AppDomain appDomain;
+        /// <summary>
+        /// The <see cref="AppDomain" /> hosting this plugin instance.
+        /// </summary>
+        /// <value>
+        /// The application domain that hosts this plugin, which may be null.
+        /// </value>
         public virtual AppDomain AppDomain
         {
             get { return appDomain; }
@@ -879,13 +1045,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The assembly containing this plugin instance.  When the plugin
-        ///   has been loaded into an isolated application domain, this value
-        ///   will be null.  This will normally be set based on the plugin data
-        ///   provided to the constructor of this class; however, it can be
-        ///   manually reset at any time.
+        /// The backing field for the <see cref="Assembly" /> property; holds
+        /// the assembly containing this plugin instance.  When the plugin has
+        /// been loaded into an isolated application domain, this value will be
+        /// null.  This will normally be set based on the
+        /// <see cref="IPluginData" /> provided to the constructor of this
+        /// class; however, it can be manually reset at any time.
         /// </summary>
         private Assembly assembly;
+        /// <summary>
+        /// The <see cref="Assembly" /> containing this plugin instance, or
+        /// null when the plugin has been loaded into an isolated application
+        /// domain.
+        /// </summary>
+        /// <value>
+        /// The assembly that contains this plugin, which may be null.
+        /// </value>
         public virtual Assembly Assembly
         {
             get { return assembly; }
@@ -895,12 +1070,24 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The name for the assembly containing this plugin instance.  This
-        ///   will normally be set based on the plugin data provided to the
-        ///   constructor of this class; however, it can be manually reset at
-        ///   any time.
+        /// The backing field for the <see cref="AssemblyName" /> property;
+        /// holds the name for the assembly containing this plugin instance.
+        /// This will normally be set based on the <see cref="IPluginData" />
+        /// provided to the constructor of this class; however, it can be
+        /// manually reset at any time.  It is especially useful when the
+        /// <see cref="Assembly" /> itself is null due to isolation, since it
+        /// allows the <see cref="ResourceManager" /> to be created from the
+        /// name alone.
         /// </summary>
         private AssemblyName assemblyName;
+        /// <summary>
+        /// The <see cref="AssemblyName" /> of the assembly containing this
+        /// plugin instance.
+        /// </summary>
+        /// <value>
+        /// The name of the assembly that contains this plugin, which may be
+        /// null.
+        /// </value>
         public virtual AssemblyName AssemblyName
         {
             get { return assemblyName; }
@@ -910,12 +1097,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The creation time of the assembly containing this plugin
-        ///   instance.  This will normally be set based on the plugin data
-        ///   provided to the constructor of this class; however, it can be
-        ///   manually reset at any time.
+        /// The backing field for the <see cref="DateTime" /> property; holds
+        /// the creation time of the assembly containing this plugin instance.
+        /// This will normally be set based on the <see cref="IPluginData" />
+        /// provided to the constructor of this class; however, it can be
+        /// manually reset at any time.
         /// </summary>
         private DateTime? dateTime;
+        /// <summary>
+        /// The creation time of the <see cref="Assembly" /> containing this
+        /// plugin instance.
+        /// </summary>
+        /// <value>
+        /// The assembly creation time stamp, or null if it is unknown.
+        /// </value>
         public virtual DateTime? DateTime
         {
             get { return dateTime; }
@@ -925,12 +1120,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The full path and file name for the assembly containing this
-        ///   plugin instance.  This will normally be set based on the plugin
-        ///   data provided to the constructor of this class; however, it can
-        ///   be manually reset at any time.
+        /// The backing field for the <see cref="FileName" /> property; holds
+        /// the full path and file name for the assembly containing this
+        /// plugin instance.  This will normally be set based on the
+        /// <see cref="IPluginData" /> provided to the constructor of this
+        /// class; however, it can be manually reset at any time.
         /// </summary>
         private string fileName;
+        /// <summary>
+        /// The full path and file name of the <see cref="Assembly" />
+        /// containing this plugin instance.
+        /// </summary>
+        /// <value>
+        /// The path to the assembly file for this plugin, which may be null.
+        /// </value>
         public virtual string FileName
         {
             get { return fileName; }
@@ -940,11 +1143,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of commands associated with this plugin instance.  This
-        ///   will be populated by the core library while the plugin is being
-        ///   loaded.  It should not normally be modified by the plugin class.
+        /// The backing field for the <see cref="Commands" /> property; holds
+        /// the list of commands associated with this plugin instance.  This
+        /// will be populated by the core library while the plugin is being
+        /// loaded (e.g. by <see cref="Initialize" />).  It should not
+        /// normally be modified by the plugin class.
         /// </summary>
         private CommandDataList commands;
+        /// <summary>
+        /// The <see cref="CommandDataList" /> of commands associated with
+        /// this plugin instance.
+        /// </summary>
+        /// <value>
+        /// The collection of commands provided by this plugin.
+        /// </value>
         public virtual CommandDataList Commands
         {
             get { return commands; }
@@ -954,12 +1166,21 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of policies associated with this plugin instance.  This
-        ///   will be populated by the core library while the plugin is being
-        ///   loaded into the interpreter.  It should not normally be modified
-        ///   by the plugin class.
+        /// The backing field for the <see cref="Policies" /> property; holds
+        /// the list of policies associated with this plugin instance.  This
+        /// will be populated by the core library while the plugin is being
+        /// loaded into the <see cref="Interpreter" /> (e.g. by
+        /// <see cref="Initialize" />).  It should not normally be modified by
+        /// the plugin class.
         /// </summary>
         private PolicyDataList policies;
+        /// <summary>
+        /// The <see cref="PolicyDataList" /> of policies associated with this
+        /// plugin instance.
+        /// </summary>
+        /// <value>
+        /// The collection of policies provided by this plugin.
+        /// </value>
         public virtual PolicyDataList Policies
         {
             get { return policies; }
@@ -969,11 +1190,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of command tokens associated with this plugin instance.
-        ///   This will be populated by the core library while the plugin is
-        ///   being loaded into the interpreter.
+        /// The backing field for the <see cref="CommandTokens" /> property;
+        /// holds the list of command tokens associated with this plugin
+        /// instance.  This will be populated by the core library while the
+        /// plugin is being loaded into the <see cref="Interpreter" /> (e.g.
+        /// by <see cref="Initialize" />).
         /// </summary>
         private LongList commandTokens;
+        /// <summary>
+        /// The <see cref="LongList" /> of command tokens registered by this
+        /// plugin instance within the <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The collection of interpreter command tokens owned by this plugin.
+        /// </value>
         public virtual LongList CommandTokens
         {
             get { return commandTokens; }
@@ -983,11 +1213,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of function tokens associated with this plugin instance.
-        ///   This will be populated by the core library while the plugin is
-        ///   being loaded into the interpreter.
+        /// The backing field for the <see cref="FunctionTokens" /> property;
+        /// holds the list of function tokens associated with this plugin
+        /// instance.  This will be populated by the core library while the
+        /// plugin is being loaded into the <see cref="Interpreter" />.
         /// </summary>
         private LongList functionTokens;
+        /// <summary>
+        /// The <see cref="LongList" /> of function tokens registered by this
+        /// plugin instance within the <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The collection of interpreter function tokens owned by this
+        /// plugin.
+        /// </value>
         public virtual LongList FunctionTokens
         {
             get { return functionTokens; }
@@ -997,11 +1236,19 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of policy tokens associated with this plugin instance.
-        ///   This will be populated by the core library while the plugin is
-        ///   being loaded into the interpreter.
+        /// The backing field for the <see cref="PolicyTokens" /> property;
+        /// holds the list of policy tokens associated with this plugin
+        /// instance.  This will be populated by the core library while the
+        /// plugin is being loaded into the <see cref="Interpreter" />.
         /// </summary>
         private LongList policyTokens;
+        /// <summary>
+        /// The <see cref="LongList" /> of policy tokens registered by this
+        /// plugin instance within the <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The collection of interpreter policy tokens owned by this plugin.
+        /// </value>
         public virtual LongList PolicyTokens
         {
             get { return policyTokens; }
@@ -1011,11 +1258,19 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The list of trace tokens associated with this plugin instance.
-        ///   This will be populated by the core library while the plugin is
-        ///   being loaded into the interpreter.
+        /// The backing field for the <see cref="TraceTokens" /> property;
+        /// holds the list of trace tokens associated with this plugin
+        /// instance.  This will be populated by the core library while the
+        /// plugin is being loaded into the <see cref="Interpreter" />.
         /// </summary>
         private LongList traceTokens;
+        /// <summary>
+        /// The <see cref="LongList" /> of trace tokens registered by this
+        /// plugin instance within the <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The collection of interpreter trace tokens owned by this plugin.
+        /// </value>
         public virtual LongList TraceTokens
         {
             get { return traceTokens; }
@@ -1025,13 +1280,25 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The resource manager associated with this plugin instance.  This
-        ///   will be used as the basis for locating the resource strings
-        ///   requested via the GetString method.  This will normally be set
-        ///   based on the plugin data provided to the constructor of this
-        ///   class; however, it can be manually reset at any time.
+        /// The backing field for the <see cref="ResourceManager" /> property;
+        /// holds the resource manager associated with this plugin instance.
+        /// This will be used as the basis for locating the resource strings
+        /// requested via the <see cref="GetString" /> method (and streams via
+        /// <see cref="GetStream" />).  This will normally be set based on the
+        /// <see cref="IPluginData" /> provided to the constructor of this
+        /// class (or created from the <see cref="Assembly" /> or
+        /// <see cref="AssemblyName" />); however, it can be manually reset at
+        /// any time.
         /// </summary>
         private ResourceManager resourceManager;
+        /// <summary>
+        /// The <see cref="ResourceManager" /> used to locate the resource
+        /// strings and streams for this plugin instance.
+        /// </summary>
+        /// <value>
+        /// The resource manager for this plugin, which may be null (e.g. when
+        /// <see cref="PluginFlags.NoResources" /> is set).
+        /// </value>
         public virtual ResourceManager ResourceManager
         {
             get { return resourceManager; }
@@ -1041,11 +1308,20 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   The auxiliary data associated with this plugin instance.  This
-        ///   is reserved for use by the plugin itself.  The core library does
-        ///   not use this property.
+        /// The backing field for the <see cref="AuxiliaryData" /> property;
+        /// holds the auxiliary data associated with this plugin instance.
+        /// This is reserved for use by the plugin itself.  The core library
+        /// does not use this property.
         /// </summary>
         private ObjectDictionary auxiliaryData;
+        /// <summary>
+        /// The auxiliary <see cref="ObjectDictionary" /> associated with this
+        /// plugin instance; this is reserved for use by the plugin itself.
+        /// </summary>
+        /// <value>
+        /// The arbitrary per-plugin data dictionary, which may be null (e.g.
+        /// when <see cref="PluginFlags.NoAuxiliaryData" /> is set).
+        /// </value>
         public virtual ObjectDictionary AuxiliaryData
         {
             get { return auxiliaryData; }
@@ -1057,11 +1333,21 @@ namespace Eagle._Plugins
 
         #region IWrapperData Members
         /// <summary>
-        ///   The token for this plugin instance.  This will normally be set
-        ///   based on the plugin data provided to the constructor of this
-        ///   class; however, it can be manually reset at any time.
+        /// The backing field for the <see cref="Token" /> property; holds the
+        /// token for this plugin instance.  This will normally be set based
+        /// on the <see cref="IPluginData" /> provided to the constructor of
+        /// this class (and may be zero at that point); however, it can be
+        /// manually reset at any time.
         /// </summary>
         private long token;
+        /// <summary>
+        /// The token that identifies this plugin instance within the
+        /// <see cref="Interpreter" />.
+        /// </summary>
+        /// <value>
+        /// The interpreter wrapper token for this plugin, or zero if none has
+        /// been assigned.
+        /// </value>
         public virtual long Token
         {
             get { return token; }
@@ -1074,16 +1360,16 @@ namespace Eagle._Plugins
 #if NOTIFY || NOTIFY_OBJECT
         #region INotify Members
         /// <summary>
-        ///   This method is supposed to calculate and return the notification
-        ///   types supported by this plugin instance.
+        /// Calculates and returns the notification types supported by this
+        /// plugin instance.  The base implementation supports no notification
+        /// types and therefore returns <see cref="NotifyType.None" />.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.
+        /// The <see cref="Interpreter" /> context we are executing in.
         /// </param>
-        ///
         /// <returns>
-        ///   The notification types supported by this plugin instance.
+        /// The <see cref="NotifyType" /> values supported by this plugin
+        /// instance.
         /// </returns>
         public virtual NotifyType GetTypes(
             Interpreter interpreter
@@ -1095,16 +1381,15 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is supposed to calculate and return the notification
-        ///   flags supported by this plugin instance.
+        /// Calculates and returns the notification flags supported by this
+        /// plugin instance.  The base implementation supports no notification
+        /// flags and therefore returns <see cref="NotifyFlags.None" />.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.
+        /// The <see cref="Interpreter" /> context we are executing in.
         /// </param>
-        ///
         /// <returns>
-        ///   The notification flags supported by this plugin instance.
+        /// The <see cref="NotifyFlags" /> supported by this plugin instance.
         /// </returns>
         public virtual NotifyFlags GetFlags(
             Interpreter interpreter
@@ -1116,37 +1401,35 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library when the plugin needs
-        ///   to receive a notification supported by it.
+        /// This method is called by the core library when the plugin needs to
+        /// receive a notification supported by it (i.e. one matching the
+        /// <see cref="NotifyType" /> and <see cref="NotifyFlags" /> reported
+        /// by <see cref="GetTypes" /> and <see cref="GetFlags" />).  The base
+        /// implementation does nothing and simply returns success.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="eventArgs">
-        ///   The context data associated with this notification.  This
-        ///   parameter may be null.
+        /// The <see cref="IScriptEventArgs" /> context data associated with
+        /// this notification.  This parameter may be null.
         /// </param>
-        ///
         /// <param name="clientData">
-        ///   The client data associated with this notification.  This
-        ///   parameter may be null.
+        /// The <see cref="IClientData" /> associated with this notification.
+        /// This parameter may be null.
         /// </param>
-        ///
         /// <param name="arguments">
-        ///   The script arguments associated with this notification.  This
-        ///   parameter may be null.
+        /// The <see cref="ArgumentList" /> of script arguments associated
+        /// with this notification.  This parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   The result associated with this notification.  This parameter
-        ///   is used for input and output and may be null.
+        /// The <see cref="Result" /> associated with this notification.  This
+        /// parameter is used for input and output and may be null.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Notify(
             Interpreter interpreter,
@@ -1165,44 +1448,40 @@ namespace Eagle._Plugins
 
         #region IExecuteRequest Members
         /// <summary>
-        ///   This optional method is designed to handle arbitrary execution
-        ///   requests from other plugins and/or the interpreter itself.  It
-        ///   is legal to return success without performing any action.
+        /// This optional method is designed to handle arbitrary execution
+        /// requests from other plugins and/or the <see cref="Interpreter" />
+        /// itself.  It is legal to return success without performing any
+        /// action; the base implementation does exactly that.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="clientData">
-        ///   The extra data to be used when servicing the execution request,
-        ///   if any.  This parameter must be treated as strictly optional when
-        ///   servicing the execution request.  Any execution request that
-        ///   would succeed when this parameter is non-null must also succeed
-        ///   when this parameter is null.
+        /// The extra <see cref="IClientData" /> to be used when servicing the
+        /// execution request, if any.  This parameter must be treated as
+        /// strictly optional when servicing the execution request.  Any
+        /// execution request that would succeed when this parameter is
+        /// non-null must also succeed when this parameter is null.
         /// </param>
-        ///
         /// <param name="request">
-        ///   The object must contain the data required to service the
-        ///   execution request, if any.  If the execution request can be
-        ///   properly serviced without any data, this parameter may be null.
+        /// The object that must contain the data required to service the
+        /// execution request, if any.  If the execution request can be
+        /// properly serviced without any data, this parameter may be null.
         /// </param>
-        ///
         /// <param name="response">
-        ///   This object must be modified to contain the result of the
-        ///   execution request, if any.  If the execution request does not
-        ///   require data to be included in the response, this parameter
-        ///   may be modified to contain null.
+        /// This object must be modified to contain the result of the
+        /// execution request, if any.  If the execution request does not
+        /// require data to be included in the response, this parameter may be
+        /// modified to contain null.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Execute(
             Interpreter interpreter,
@@ -1220,18 +1499,18 @@ namespace Eagle._Plugins
 
         #region IPlugin Members
         /// <summary>
-        ///   This method is called after <see cref="Initialize" />, if it was
-        ///   successful.
+        /// This method is called after <see cref="Initialize" />, if it was
+        /// successful, to give the plugin an opportunity to perform any
+        /// follow-up work that must occur once initialization has completed.
+        /// The base implementation does nothing.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="clientData">
-        ///   The extra data supplied to the <see cref="Initialize" /> method,
-        ///   if any.
+        /// The extra <see cref="IClientData" /> supplied to the
+        /// <see cref="Initialize" /> method, if any.
         /// </param>
         public virtual void PostInitialize(
             Interpreter interpreter,
@@ -1244,28 +1523,27 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is used to obtain a <see cref="Type" /> or instance
-        ///   of a type within the plugin.
+        /// This method is used to obtain a <see cref="Type" /> or instance of
+        /// a type within the plugin, identified by its <c>ObjectId</c>
+        /// attribute.  The base implementation does not expose any framework
+        /// types and therefore always fails.
         /// </summary>
-        ///
         /// <param name="id">
-        ///   The <see cref="Guid" /> value associated with the
-        ///   <see cref="ObjectId" /> attribute for the target type.
+        /// The <see cref="Guid" /> value associated with the <c>ObjectId</c>
+        /// attribute for the target type.  This parameter may be null.
         /// </param>
-        ///
         /// <param name="flags">
-        ///   These flags determine the semantics of the lookup process used
-        ///   to locate the target type.
+        /// The <see cref="FrameworkFlags" /> that determine the semantics of
+        /// the lookup process used to locate the target type.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, the <see cref="Result.Value" /> property will be
-        ///   the target type itself (<see cref="Type" />) or an instance of
-        ///   it.
+        /// Upon success, the <see cref="Result.Value" /> property will be the
+        /// target type itself (<see cref="Type" />) or an instance of it.
+        /// Upon failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode GetFramework(
             Guid? id,
@@ -1279,32 +1557,30 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library when a named stream
-        ///   is needed.
+        /// This method is called by the core library when a named stream is
+        /// needed, typically resolved against the plugin
+        /// <see cref="ResourceManager" />.  The base implementation provides
+        /// no streams and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the stream to return.  This parameter may not be
-        ///   null.
+        /// The name of the <see cref="Stream" /> to return.  This parameter
+        /// may not be null.
         /// </param>
-        ///
         /// <param name="cultureInfo">
-        ///   The target culture for the resource string to return.  This
-        ///   parameter may be null to indicate the invariant culture.
+        /// The target <see cref="CultureInfo" /> for the stream to return.
+        /// This parameter may be null to indicate the invariant culture.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested stream upon success or null upon failure.
+        /// The requested <see cref="Stream" /> upon success or null upon
+        /// failure.
         /// </returns>
         public virtual Stream GetStream(
             Interpreter interpreter,
@@ -1319,32 +1595,30 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library when a resource string
-        ///   is needed.
+        /// This method is called by the core library when a resource string
+        /// is needed, typically resolved against the plugin
+        /// <see cref="ResourceManager" />.  The base implementation provides
+        /// no resource strings and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the resource string to return.  This parameter may
-        ///   not be null.
+        /// The name of the resource string to return.  This parameter may not
+        /// be null.
         /// </param>
-        ///
         /// <param name="cultureInfo">
-        ///   The target culture for the resource string to return.  This
-        ///   parameter may be null to indicate the invariant culture.
+        /// The target <see cref="CultureInfo" /> for the resource string to
+        /// return.  This parameter may be null to indicate the invariant
+        /// culture.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested resource string upon success or null upon failure.
+        /// The requested resource string upon success or null upon failure.
         /// </returns>
         public virtual string GetString(
             Interpreter interpreter,
@@ -1359,31 +1633,30 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method may be called to request the URI for this plugin
-        ///   class (or instance).
+        /// This method may be called to request the URI for this plugin class
+        /// (or instance), such as the origin <see cref="Uri" /> or the
+        /// <see cref="UpdateUri" />.  The base implementation provides no URIs
+        /// and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the URI being requested -OR- null to return the
-        ///   default URI for the plugin.
+        /// The name of the URI being requested -OR- null to return the
+        /// default <see cref="Uri" /> for the plugin.
         /// </param>
-        ///
         /// <param name="cultureInfo">
-        ///   The target culture for the URI to return.  This parameter may
-        ///   be null to indicate the invariant culture.
+        /// The target <see cref="CultureInfo" /> for the URI to return.  This
+        /// parameter may be null to indicate the invariant culture.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
         /// <returns>
-        ///
+        /// The requested <see cref="Uri" /> upon success or null upon
+        /// failure.
         /// </returns>
         public virtual Uri GetUri(
             Interpreter interpreter,
@@ -1398,29 +1671,26 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method may be called to request the license certificate
-        ///   file name for this plugin class (or instance).
+        /// This method may be called to request the license certificate file
+        /// name for this plugin class (or instance).  The base implementation
+        /// provides no certificate file name and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the license certificate file name being requested
-        ///   -OR- null to return the default license certificate file name
-        ///   for the plugin.
+        /// The name of the license certificate file name being requested -OR-
+        /// null to return the default license certificate file name for the
+        /// plugin.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested certificate file name upon success or null upon
-        ///   failure.
+        /// The requested certificate file name upon success or null upon
+        /// failure.
         /// </returns>
         public virtual string GetCertificateFileName(
             Interpreter interpreter,
@@ -1434,27 +1704,26 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request licensing
-        ///   information about this plugin class (or instance).
+        /// This method is called by the core library to request licensing
+        /// information (i.e. the license certificate) about this plugin class
+        /// (or instance).  The base implementation provides no certificate
+        /// and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the license certificate being requested -OR- null
-        ///   to return the default license certificate for the plugin.
+        /// The name of the license certificate being requested -OR- null to
+        /// return the default license certificate for the plugin.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested identifier upon success or null upon failure.
+        /// The requested <see cref="IIdentifier" /> (representing the
+        /// certificate) upon success or null upon failure.
         /// </returns>
         public virtual IIdentifier GetCertificate(
             Interpreter interpreter,
@@ -1468,27 +1737,25 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request key pair
-        ///   information about this plugin class (or instance).
+        /// This method is called by the core library to request key pair
+        /// information about this plugin class (or instance).  The base
+        /// implementation provides no key pair and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the license certificate being requested -OR- null
-        ///   to return the default license certificate for the plugin.
+        /// The name of the key pair being requested -OR- null to return the
+        /// default key pair for the plugin.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested identifier upon success or null upon failure.
+        /// The requested <see cref="IIdentifier" /> (representing the key
+        /// pair) upon success or null upon failure.
         /// </returns>
         public virtual IIdentifier GetKeyPair(
             Interpreter interpreter,
@@ -1502,27 +1769,25 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request key ring
-        ///   information about this plugin class (or instance).
+        /// This method is called by the core library to request key ring
+        /// information about this plugin class (or instance).  The base
+        /// implementation provides no key ring and therefore returns null.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="name">
-        ///   The name of the license certificate being requested -OR- null
-        ///   to return the default license certificate for the plugin.
+        /// The name of the key ring being requested -OR- null to return the
+        /// default key ring for the plugin.
         /// </param>
-        ///
         /// <param name="error">
-        ///   Upon success, the value of this parameter is undefined.  Upon
-        ///   failure, this must contain an appropriate error message.
+        /// Upon success, the value of this parameter is undefined.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   The requested identifier upon success or null upon failure.
+        /// The requested <see cref="IIdentifier" /> (representing the key
+        /// ring) upon success or null upon failure.
         /// </returns>
         public virtual IIdentifier GetKeyRing(
             Interpreter interpreter,
@@ -1536,23 +1801,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request additional
-        ///   human-readable information about this plugin class (or instance)
-        ///   be written to the interpreter host, if applicable.
+        /// This method is called by the core library to request that
+        /// additional human-readable information about this plugin class (or
+        /// instance) be written to the interpreter host, if applicable.  The
+        /// base implementation writes nothing and simply returns success.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this must contain the requested information.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this must contain the requested information.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Banner(
             Interpreter interpreter,
@@ -1565,22 +1829,23 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request additional
-        ///   human-readable information about this plugin class (or instance).
+        /// This method is called by the core library to request additional
+        /// human-readable "about" information (e.g. authorship or copyright
+        /// details) about this plugin class (or instance).  The base
+        /// implementation provides no such information and simply returns
+        /// success.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this must contain the requested information.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this must contain the requested information.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode About(
             Interpreter interpreter,
@@ -1593,23 +1858,22 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request the list of
-        ///   compile-time and/or runtime options for this plugin class (or
-        ///   instance).
+        /// This method is called by the core library to request the list of
+        /// compile-time and/or runtime options for this plugin class (or
+        /// instance).  The base implementation reports no options and simply
+        /// returns success.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this must contain the requested information.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this must contain the requested information.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Options(
             Interpreter interpreter,
@@ -1622,23 +1886,23 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         /// <summary>
-        ///   This method is called by the core library to request its status
-        ///   string, if any.  The intent of the status string is that it may
-        ///   be included with the overall core library version.
+        /// This method is called by the core library to request its status
+        /// string, if any.  The intent of the status string is that it may be
+        /// included with the overall core library version.  The base
+        /// implementation provides no status string and simply returns
+        /// success.
         /// </summary>
-        ///
         /// <param name="interpreter">
-        ///   The interpreter context we are executing in.  This parameter may
-        ///   be null.
+        /// The <see cref="Interpreter" /> context we are executing in.  This
+        /// parameter may be null.
         /// </param>
-        ///
         /// <param name="result">
-        ///   Upon success, this must contain the requested information.
-        ///   Upon failure, this must contain an appropriate error message.
+        /// Upon success, this must contain the requested information.  Upon
+        /// failure, this must contain an appropriate error message.
         /// </param>
-        ///
         /// <returns>
-        ///   ReturnCode.Ok on success, ReturnCode.Error on failure.
+        /// <see cref="ReturnCode.Ok" /> on success,
+        /// <see cref="ReturnCode.Error" /> on failure.
         /// </returns>
         public virtual ReturnCode Status(
             Interpreter interpreter,

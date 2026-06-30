@@ -50,10 +50,20 @@ using EventTypesModifiersKeysDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for mapping keyboard events
+    /// (by event type, modifier keys, and key) to callbacks, and for chaining
+    /// those callbacks together when dispatching Windows Forms keyboard events.
+    /// </summary>
     [ObjectId("9d09f3f3-b11a-444d-8a17-368c72d8ef84")]
     internal static class KeyOps
     {
         #region Keyboard Mappings Data Class
+        /// <summary>
+        /// This class maintains a set of mappings from keyboard events, keyed
+        /// by event type, then modifier keys, then key, to the callbacks that
+        /// should be invoked to handle them.
+        /// </summary>
         [ObjectId("bf67db97-801c-4fcf-b4c7-3a44335daa2e")]
         internal sealed class KeyEventMap
         {
@@ -61,8 +71,20 @@ namespace Eagle._Components.Private
             //
             // HACK: These are purposely not read-only.
             //
+            /// <summary>
+            /// The result used to indicate that a callback was not invoked.
+            /// </summary>
             private static ReturnCode? CallbackNotInvoked = null;
+
+            /// <summary>
+            /// The result used to indicate that a callback was invoked
+            /// successfully.
+            /// </summary>
             private static ReturnCode? CallbackWasInvoked = ReturnCode.Ok;
+
+            /// <summary>
+            /// The result used to indicate that a callback threw an exception.
+            /// </summary>
             private static ReturnCode? CallbackDidThrow = ReturnCode.Error;
 
             ///////////////////////////////////////////////////////////////////
@@ -70,6 +92,9 @@ namespace Eagle._Components.Private
             //
             // HACK: This is purposely not read-only.
             //
+            /// <summary>
+            /// The default result triplet used prior to invoking a callback.
+            /// </summary>
             private static FormEventResultTriplet CallbackResult = null;
 
             ///////////////////////////////////////////////////////////////////
@@ -77,21 +102,45 @@ namespace Eagle._Components.Private
             //
             // HACK: These are purposely not read-only.
             //
+            /// <summary>
+            /// When non-zero, exceptions thrown by a callback are traced.
+            /// </summary>
             private static bool CallbackTraceThrow = true;
+
+            /// <summary>
+            /// When non-zero, exceptions thrown by a callback are re-thrown.
+            /// </summary>
             private static bool CallbackReThrow = false;
+
+            /// <summary>
+            /// When non-zero, the result of a callback is applied back to the
+            /// event arguments.
+            /// </summary>
             private static bool CallbackApplyEventArgs = true;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Private Data
+            /// <summary>
+            /// The object used to synchronize access to the instance data of
+            /// this object.
+            /// </summary>
             private readonly object syncRoot = new object();
+
+            /// <summary>
+            /// The mappings from event type, then modifier keys, then key, to
+            /// the associated callbacks.
+            /// </summary>
             private EventTypesModifiersKeysDictionary eventTypeMappings;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Private Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
             private KeyEventMap()
             {
                 Initialize(false);
@@ -101,6 +150,12 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Static "Factory" Methods
+            /// <summary>
+            /// This method creates a new instance of this class.
+            /// </summary>
+            /// <returns>
+            /// The newly created instance.
+            /// </returns>
             public static KeyEventMap Create()
             {
                 return new KeyEventMap();
@@ -110,6 +165,14 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method (re)initializes the event type mappings for this
+            /// object.
+            /// </summary>
+            /// <param name="force">
+            /// Non-zero to force the mappings to be re-created even if they
+            /// already exist.
+            /// </param>
             private void Initialize(
                 bool force /* in */
                 )
@@ -123,6 +186,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method attempts to find the callback associated with the
+            /// specified event type and event arguments.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to look up.
+            /// </param>
+            /// <param name="e">
+            /// The event arguments describing the event, including the modifier
+            /// keys and key.
+            /// </param>
+            /// <param name="callback">
+            /// Upon success, receives the associated callback; otherwise,
+            /// receives null.
+            /// </param>
+            /// <returns>
+            /// True if a callback was found; otherwise, false.
+            /// </returns>
             private bool TryGetCallback(
                 EventType eventType,           /* in */
                 EventArgs e,                   /* in */
@@ -182,6 +263,25 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method dispatches the specified event to its associated
+            /// callback, if any, applying the callback's result back to the
+            /// event arguments.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the event.
+            /// </param>
+            /// <param name="e">
+            /// The event arguments describing the event.
+            /// </param>
+            /// <returns>
+            /// The return code produced by the callback, or a sentinel value
+            /// indicating that no callback was invoked or that the callback
+            /// threw an exception.
+            /// </returns>
             public ReturnCode? EventHandler(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -231,6 +331,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether a callback is associated with the
+            /// specified event type, modifier keys, and key.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to look up.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to look up.
+            /// </param>
+            /// <param name="keys">
+            /// The key to look up.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if a matching callback exists; otherwise, false.
+            /// </returns>
             public bool Has(
                 EventType eventType, /* in */
                 Keys modifiers,      /* in */
@@ -249,6 +368,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the callback associated with the specified
+            /// event type, modifier keys, and key.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to look up.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to look up.
+            /// </param>
+            /// <param name="keys">
+            /// The key to look up.
+            /// </param>
+            /// <param name="callback">
+            /// Upon success, receives the associated callback; otherwise,
+            /// receives null.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if a matching callback was found; otherwise, false.
+            /// </returns>
             public bool Get(
                 EventType eventType,            /* in */
                 Keys modifiers,                 /* in */
@@ -294,6 +436,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adds a description of the configured mappings,
+            /// optionally filtered by event type, modifier keys, and key, to
+            /// the specified list.
+            /// </summary>
+            /// <param name="eventType">
+            /// The event type to filter by, or null for all event types.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to filter by, or null for all modifier keys.
+            /// </param>
+            /// <param name="keys">
+            /// The key to filter by, or null for all keys.
+            /// </param>
+            /// <param name="list">
+            /// The list to which the descriptions should be added, created if
+            /// necessary.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if the descriptions were added successfully; otherwise,
+            /// false.
+            /// </returns>
             public bool List(
                 EventType? eventType,    /* in */
                 Keys? modifiers,         /* in */
@@ -391,6 +558,41 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adds, overwrites, or validates the callback
+            /// associated with the specified event type, modifier keys, and
+            /// key.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to change.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to change.
+            /// </param>
+            /// <param name="keys">
+            /// The key to change.
+            /// </param>
+            /// <param name="callback">
+            /// The callback to associate with the event type, modifier keys,
+            /// and key.
+            /// </param>
+            /// <param name="addEventType">
+            /// Non-zero to add the event type mapping if it does not already
+            /// exist.
+            /// </param>
+            /// <param name="addModifiers">
+            /// Non-zero to add the modifier mapping if it does not already
+            /// exist.
+            /// </param>
+            /// <param name="overwriteKeys">
+            /// Non-zero to permit overwriting an existing key mapping.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if the mapping was changed successfully; otherwise, false.
+            /// </returns>
             public bool Change(
                 EventType eventType,        /* in: NOT USED */
                 Keys modifiers,             /* in */
@@ -438,6 +640,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adds a callback for the specified event type,
+            /// modifier keys, and key.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to add.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to add.
+            /// </param>
+            /// <param name="keys">
+            /// The key to add.
+            /// </param>
+            /// <param name="callback">
+            /// The callback to associate with the event type, modifier keys,
+            /// and key.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if the callback was added successfully; otherwise, false.
+            /// </returns>
             public bool Add(
                 EventType eventType,        /* in */
                 Keys modifiers,             /* in */
@@ -453,6 +678,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method removes the callback associated with the specified
+            /// event type, modifier keys, and key.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to remove.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to remove.
+            /// </param>
+            /// <param name="keys">
+            /// The key to remove.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if the callback was removed successfully; otherwise, false.
+            /// </returns>
             public bool Remove(
                 EventType eventType, /* in */
                 Keys modifiers,      /* in */
@@ -466,6 +710,34 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method removes the callback associated with the specified
+            /// event type, modifier keys, and key, optionally removing the
+            /// containing mappings once they become empty.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of event to remove.
+            /// </param>
+            /// <param name="modifiers">
+            /// The modifier keys to remove.
+            /// </param>
+            /// <param name="keys">
+            /// The key to remove.
+            /// </param>
+            /// <param name="compactModifiers">
+            /// Non-zero to also remove the modifier mapping when it becomes
+            /// empty.
+            /// </param>
+            /// <param name="compactEventType">
+            /// Non-zero to also remove the event type mapping when it becomes
+            /// empty.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// True if the callback was removed successfully; otherwise, false.
+            /// </returns>
             public bool Remove(
                 EventType eventType,   /* in */
                 Keys modifiers,        /* in */
@@ -557,16 +829,56 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The return code used when a callback returns a null result and no
+        /// explicit null return code has been supplied.
+        /// </summary>
         private static ReturnCode DefaultNullCode = ReturnCode.Continue;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The string used to display the absence of an event type, modifier
+        /// keys, or key.
+        /// </summary>
         private static readonly string DisplayNone = "<none>";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method dispatches the specified event to each of the supplied
+        /// keyboard event maps in turn, accumulating the results.
+        /// </summary>
+        /// <param name="eventType">
+        /// The type of event being handled.
+        /// </param>
+        /// <param name="sender">
+        /// The object that raised the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the event.
+        /// </param>
+        /// <param name="throwCode">
+        /// The return code to use when a callback throws an exception, or null.
+        /// </param>
+        /// <param name="nullCode">
+        /// The return code to use when a callback returns a null result, or
+        /// null.
+        /// </param>
+        /// <param name="chainCount">
+        /// The running count of callbacks that were invoked, updated in place.
+        /// </param>
+        /// <param name="chainCode">
+        /// The accumulated return code, updated in place.
+        /// </param>
+        /// <param name="chainError">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="args">
+        /// The keyboard event maps to dispatch the event to.
+        /// </param>
         public static void ChainEventHandlers(
             EventType eventType,      /* in */
             object sender,            /* in */
@@ -586,6 +898,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dispatches the specified event to each of the supplied
+        /// keyboard event maps in turn, accumulating the results.
+        /// </summary>
+        /// <param name="keyEventMaps">
+        /// The keyboard event maps to dispatch the event to.
+        /// </param>
+        /// <param name="eventType">
+        /// The type of event being handled.
+        /// </param>
+        /// <param name="sender">
+        /// The object that raised the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the event.
+        /// </param>
+        /// <param name="throwCode">
+        /// The return code to use when a callback throws an exception, or null.
+        /// </param>
+        /// <param name="nullCode">
+        /// The return code to use when a callback returns a null result, or
+        /// null.
+        /// </param>
+        /// <param name="chainCount">
+        /// The running count of callbacks that were invoked, updated in place.
+        /// </param>
+        /// <param name="chainCode">
+        /// The accumulated return code, updated in place.
+        /// </param>
+        /// <param name="chainError">
+        /// Upon failure, receives information about the error.
+        /// </param>
         private static void ChainEventHandlers(
             IEnumerable<KeyEventMap> keyEventMaps, /* in */
             EventType eventType,                   /* in */
@@ -684,6 +1028,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method initializes the event type mappings with the default
+        /// event types, optionally forcing them to be re-created.
+        /// </summary>
+        /// <param name="eventTypeMappings">
+        /// The event type mappings to initialize, in place.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the mappings to be re-created even if they already
+        /// exist.
+        /// </param>
         private static void InitializeEventTypeMappings(
             ref EventTypesModifiersKeysDictionary eventTypeMappings, /* in, out */
             bool force                                               /* in */
@@ -713,6 +1068,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the modifier mappings with the default
+        /// modifier key combinations, optionally forcing them to be re-created.
+        /// </summary>
+        /// <param name="modifierMappings">
+        /// The modifier mappings to initialize, in place.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the mappings to be re-created even if they already
+        /// exist.
+        /// </param>
         private static void InitializeModifierMappings(
             ref ModifiersKeysDictionary modifierMappings, /* in, out */
             bool force                                    /* in */
@@ -737,6 +1103,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the modifier mappings for the specified
+        /// event type.
+        /// </summary>
+        /// <param name="eventTypeMappings">
+        /// The event type mappings to search.
+        /// </param>
+        /// <param name="eventType">
+        /// The event type to look up.
+        /// </param>
+        /// <param name="addEventType">
+        /// Non-zero to add the event type mapping if it does not already exist.
+        /// </param>
+        /// <param name="verifyNotNull">
+        /// Non-zero to require that the resulting modifier mappings are
+        /// non-null.
+        /// </param>
+        /// <param name="modifierMappings">
+        /// Upon success, receives the modifier mappings for the event type;
+        /// otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the modifier mappings were obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetEventTypeMapping(
             EventTypesModifiersKeysDictionary eventTypeMappings, /* in */
             EventType eventType,                                 /* in */
@@ -754,6 +1144,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the modifier mappings for the specified
+        /// event type.
+        /// </summary>
+        /// <param name="eventTypeMappings">
+        /// The event type mappings to search.
+        /// </param>
+        /// <param name="eventType">
+        /// The event type to look up.
+        /// </param>
+        /// <param name="addEventType">
+        /// Non-zero to add the event type mapping if it does not already exist.
+        /// </param>
+        /// <param name="verifyNotNull">
+        /// Non-zero to require that the resulting modifier mappings are
+        /// non-null.
+        /// </param>
+        /// <param name="noError">
+        /// Non-zero to suppress setting the error message on failure.
+        /// </param>
+        /// <param name="modifierMappings">
+        /// Upon success, receives the modifier mappings for the event type;
+        /// otherwise, receives null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the modifier mappings were obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetEventTypeMapping(
             EventTypesModifiersKeysDictionary eventTypeMappings, /* in */
             EventType eventType,                                 /* in */
@@ -812,6 +1232,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the key mappings for the specified
+        /// modifier keys.
+        /// </summary>
+        /// <param name="modifierMappings">
+        /// The modifier mappings to search.
+        /// </param>
+        /// <param name="modifiers">
+        /// The modifier keys to look up.
+        /// </param>
+        /// <param name="addModifiers">
+        /// Non-zero to add the modifier mapping if it does not already exist.
+        /// </param>
+        /// <param name="verifyNotNull">
+        /// Non-zero to require that the resulting key mappings are non-null.
+        /// </param>
+        /// <param name="keyMappings">
+        /// Upon success, receives the key mappings for the modifier keys;
+        /// otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the key mappings were obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetModifierMapping(
             ModifiersKeysDictionary modifierMappings, /* in */
             Keys modifiers,                           /* in */
@@ -829,6 +1272,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the key mappings for the specified
+        /// modifier keys.
+        /// </summary>
+        /// <param name="modifierMappings">
+        /// The modifier mappings to search.
+        /// </param>
+        /// <param name="modifiers">
+        /// The modifier keys to look up.
+        /// </param>
+        /// <param name="addModifiers">
+        /// Non-zero to add the modifier mapping if it does not already exist.
+        /// </param>
+        /// <param name="verifyNotNull">
+        /// Non-zero to require that the resulting key mappings are non-null.
+        /// </param>
+        /// <param name="noError">
+        /// Non-zero to suppress setting the error message on failure.
+        /// </param>
+        /// <param name="keyMappings">
+        /// Upon success, receives the key mappings for the modifier keys;
+        /// otherwise, receives null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the key mappings were obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetModifierMapping(
             ModifiersKeysDictionary modifierMappings, /* in */
             Keys modifiers,                           /* in */
@@ -887,6 +1359,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get (or validate the absence of) the
+        /// callback for the specified key within the given key mappings.
+        /// </summary>
+        /// <param name="keyMappings">
+        /// The key mappings to search.
+        /// </param>
+        /// <param name="modifiers">
+        /// The modifier keys associated with the lookup, used for diagnostic
+        /// messages.
+        /// </param>
+        /// <param name="keys">
+        /// The key to look up.
+        /// </param>
+        /// <param name="overwriteKeys">
+        /// Non-zero if an existing key mapping is expected (e.g. when
+        /// overwriting); zero if the absence of a mapping is expected.
+        /// </param>
+        /// <param name="callback">
+        /// Upon success, receives the associated callback, if any; otherwise,
+        /// receives null.
+        /// </param>
+        /// <returns>
+        /// True if the expected condition was met; otherwise, false.
+        /// </returns>
         private static bool TryGetCallback(
             KeysDictionary keyMappings,    /* in */
             Keys modifiers,                /* in */
@@ -904,6 +1401,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get (or validate the absence of) the
+        /// callback for the specified key within the given key mappings.
+        /// </summary>
+        /// <param name="keyMappings">
+        /// The key mappings to search.
+        /// </param>
+        /// <param name="modifiers">
+        /// The modifier keys associated with the lookup, used for diagnostic
+        /// messages.
+        /// </param>
+        /// <param name="keys">
+        /// The key to look up.
+        /// </param>
+        /// <param name="overwriteKeys">
+        /// Non-zero if an existing key mapping is expected (e.g. when
+        /// overwriting); zero if the absence of a mapping is expected.
+        /// </param>
+        /// <param name="noError">
+        /// Non-zero to suppress setting the error message on failure.
+        /// </param>
+        /// <param name="callback">
+        /// Upon success, receives the associated callback, if any; otherwise,
+        /// receives null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the expected condition was met; otherwise, false.
+        /// </returns>
         private static bool TryGetCallback(
             KeysDictionary keyMappings,     /* in */
             Keys modifiers,                 /* in */
@@ -952,6 +1480,22 @@ namespace Eagle._Components.Private
         //       ones that require something other than a KeyEventArgs object,
         //       this method (and perhaps its callers) must be modified.
         //
+        /// <summary>
+        /// This method extracts the modifier keys and key from the specified
+        /// event arguments.
+        /// </summary>
+        /// <param name="e">
+        /// The event arguments to extract from.
+        /// </param>
+        /// <param name="modifiers">
+        /// Upon success, receives the modifier keys.
+        /// </param>
+        /// <param name="keys">
+        /// Upon success, receives the key.
+        /// </param>
+        /// <returns>
+        /// True if the modifier keys and key were extracted; otherwise, false.
+        /// </returns>
         private static bool ExtractFromEventArgs(
             EventArgs e,        /* in */
             ref Keys modifiers, /* out */
@@ -974,6 +1518,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the return code from the specified result
+        /// triplet, falling back to a default when none is present.
+        /// </summary>
+        /// <param name="triplet">
+        /// The result triplet to extract from, or null.
+        /// </param>
+        /// <param name="default">
+        /// The default return code to use when the triplet does not specify
+        /// one.
+        /// </param>
+        /// <returns>
+        /// The extracted return code, or the supplied default.
+        /// </returns>
         private static ReturnCode? ExtractReturnCode(
             FormEventResultTriplet triplet, /* in */
             ReturnCode? @default            /* in */
@@ -992,6 +1550,19 @@ namespace Eagle._Components.Private
         //       ones that require something other than a KeyEventArgs object,
         //       this method (and perhaps its callers) must be modified.
         //
+        /// <summary>
+        /// This method applies the values from the specified result triplet
+        /// back to the given event arguments.
+        /// </summary>
+        /// <param name="triplet">
+        /// The result triplet whose values should be applied, or null.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments to update.
+        /// </param>
+        /// <returns>
+        /// True if the values were applied; otherwise, false.
+        /// </returns>
         private static bool ApplyToEventArgs(
             FormEventResultTriplet triplet, /* in */
             EventArgs e                     /* in, out */
@@ -1016,6 +1587,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified event type for display.
+        /// </summary>
+        /// <param name="eventType">
+        /// The event type to format.
+        /// </param>
+        /// <returns>
+        /// The display string for the event type.
+        /// </returns>
         private static string ToString(
             EventType eventType /* in */
             )
@@ -1026,6 +1606,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified key for display.
+        /// </summary>
+        /// <param name="keys">
+        /// The key to format.
+        /// </param>
+        /// <returns>
+        /// The display string for the key.
+        /// </returns>
         private static string ToString(
             Keys keys /* in */
             )
@@ -1035,6 +1624,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified modifier keys and key for display.
+        /// </summary>
+        /// <param name="modifiers">
+        /// The modifier keys to format.
+        /// </param>
+        /// <param name="keys">
+        /// The key to format.
+        /// </param>
+        /// <returns>
+        /// The display string for the modifier keys and key.
+        /// </returns>
         private static string ToString(
             Keys modifiers, /* in */
             Keys keys       /* in */
@@ -1064,6 +1665,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of default keyboard event types.
+        /// </summary>
+        /// <returns>
+        /// The list of default keyboard event types.
+        /// </returns>
         private static EventTypeList GetDefaultEventTypes()
         {
             EventTypeList result = new EventTypeList();
@@ -1078,6 +1685,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of default modifier key combinations.
+        /// </summary>
+        /// <returns>
+        /// The list of default modifier key combinations.
+        /// </returns>
         private static KeysList GetDefaultModifiers()
         {
             KeysList result = new KeysList();

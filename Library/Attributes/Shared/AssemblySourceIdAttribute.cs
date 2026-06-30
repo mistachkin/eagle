@@ -17,6 +17,11 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This class implements a custom attribute used to mark an assembly with
+    /// the source control identifier (e.g. the revision hash) of the sources
+    /// it was built from.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, Inherited = false)]
 #if EAGLE
     [ObjectId("90a887ec-e4b5-4628-ae30-bc52b22f3d09")]
@@ -25,6 +30,14 @@ namespace Eagle._Attributes
 #endif
     public sealed class AssemblySourceIdAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class, recording the specified
+        /// source identifier value.
+        /// </summary>
+        /// <param name="value">
+        /// The source control identifier string to associate with the
+        /// assembly.
+        /// </param>
         public AssemblySourceIdAttribute(
             string value
             )
@@ -34,7 +47,15 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The source control identifier string associated with the assembly.
+        /// </summary>
         private string sourceId;
+
+        /// <summary>
+        /// Gets the source control identifier string associated with the
+        /// assembly.
+        /// </summary>
         public string SourceId
         {
             get { return sourceId; }

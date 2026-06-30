@@ -24,6 +24,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>namespace</c> command, which provides
+    /// the namespace sub-commands (for example <c>eval</c>, <c>current</c>,
+    /// <c>delete</c>, <c>export</c>, <c>import</c>, and <c>which</c>) used to
+    /// query and manipulate script namespaces.  This command exists primarily
+    /// to improve source code compatibility with simple stand-alone scripts
+    /// that wrap themselves in a <c>namespace eval</c> block; full namespace
+    /// support is not provided.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("3f2b8b9a-c7c6-4eae-b88b-2a99b3c97591")]
     [CommandFlags(
         CommandFlags.NoAdd | CommandFlags.Safe |
@@ -38,6 +48,10 @@ namespace Eagle._Commands
         //       "customization" (i.e. via a script using something
         //       like [object invoke -flags +NonPublic]).
         //
+        /// <summary>
+        /// Non-zero if the <c>namespace rename</c> sub-command is permitted to
+        /// rename the global namespace.
+        /// </summary>
         private bool RenameGlobalOk = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -47,11 +61,22 @@ namespace Eagle._Commands
         //       customization (i.e. via a script using something
         //       like [object invoke -flags +NonPublic]).
         //
+        /// <summary>
+        /// Non-zero if the <c>namespace rename</c> sub-command is permitted to
+        /// rename a namespace that is currently in use.
+        /// </summary>
         private bool RenameInUseOk = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>namespace</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Namespace2(
             ICommandData commandData
             )
@@ -63,6 +88,10 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-commands supported by this command, keyed by
+        /// sub-command name.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "children", "code", "current", "delete", "descendants",
@@ -74,6 +103,9 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-commands supported by this command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -83,11 +115,42 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>namespace</c> command.  It dispatches to
+        /// the requested sub-command (supplied as the first argument) and
+        /// produces that sub-command's result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any remaining
+        /// elements are the arguments for that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the requested
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the sub-command fails, an
+        /// unknown sub-command or wrong number of arguments is supplied, the
+        /// interpreter is null, or the argument list is null, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

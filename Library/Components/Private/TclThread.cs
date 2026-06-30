@@ -33,6 +33,22 @@ using TclBridgePair = System.Collections.Generic.KeyValuePair<
 
 namespace Eagle._Components.Private.Tcl
 {
+    /// <summary>
+    /// This class hosts a native Tcl interpreter on a dedicated managed thread
+    /// and provides the inter-thread plumbing needed to drive it from other
+    /// threads.  Because native Tcl interpreters have strict thread affinity,
+    /// all operations against the wrapped interpreter (creation, evaluation,
+    /// substitution, variable access, command bridging, cancellation, and
+    /// deletion) are marshaled to the owning thread as queued events; on
+    /// Windows these are delivered via native asynchronous procedure calls
+    /// (APCs), while other platforms use a generic event-signaling mechanism.
+    /// The thread runs an event loop that processes both the native Tcl event
+    /// loop and the queued requests, signaling named "start", "done", "idle",
+    /// and "queue" events for coordination.  It implements
+    /// <see cref="ISynchronize" /> and is disposable; disposing the object
+    /// gracefully shuts down (and, if requested, deletes) the wrapped Tcl
+    /// interpreter and terminates the owning thread.
+    /// </summary>
     [ObjectId("8fb7faec-3d8b-4e44-ad88-3e2b9627eca9")]
 #if TCL_WRAPPER
     public
@@ -45,9 +61,28 @@ namespace Eagle._Components.Private.Tcl
         //
         // NOTE: Event names for Tcl worker threads.
         //
+        /// <summary>
+        /// The name prefix used when building the named event signaled once the
+        /// Tcl worker thread is ready to start receiving events.
+        /// </summary>
         private const string tclThreadStartEventPrefix = "threadStart";
+
+        /// <summary>
+        /// The name prefix used when building the named event signaled once the
+        /// Tcl worker thread is done (i.e. should exit its event loop).
+        /// </summary>
         private const string tclThreadDoneEventPrefix = "threadDone";
+
+        /// <summary>
+        /// The name prefix used when building the named event signaled to make
+        /// the Tcl worker thread process any pending idle events.
+        /// </summary>
         private const string tclThreadIdleEventPrefix = "threadIdle";
+
+        /// <summary>
+        /// The name prefix used when building the named event signaled to make
+        /// the Tcl worker thread process a queued inter-thread request.
+        /// </summary>
         private const string tclThreadQueueEventPrefix = "threadQueue";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -55,45 +90,188 @@ namespace Eagle._Components.Private.Tcl
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether failures encountered while
+        /// adding bridged Tcl commands should be suppressed (i.e. not result in
+        /// a complaint).  This is intentionally not read-only so that it may be
+        /// adjusted at runtime.
+        /// </summary>
         private static bool DefaultCommandNoComplain = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The garbage collector handle used to keep this object pinned (alive)
+        /// in memory for as long as it is referenced by native code, until it is
+        /// disposed.
+        /// </summary>
         private GCHandle handle; /* TclThread */
 
+        /// <summary>
+        /// The Eagle interpreter that owns this object and on whose behalf the
+        /// wrapped native Tcl interpreter is created and managed.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// The optional callback invoked to notify interested parties when a
+        /// queued event has been processed.  This field may be null.
+        /// </summary>
         private ResultCallback callback;
+
+        /// <summary>
+        /// The optional client data passed along to the notification callback.
+        /// This field may be null.
+        /// </summary>
         private IClientData clientData;
+
+        /// <summary>
+        /// The timeout, in milliseconds, used when waiting for events and for
+        /// queued event results.
+        /// </summary>
         private int timeout;
+
+        /// <summary>
+        /// The name associated with this object and its managed thread.
+        /// </summary>
         private string name;
+
+        /// <summary>
+        /// The flags controlling the creation and behavior of this object and
+        /// its managed thread.
+        /// </summary>
         private TclThreadFlags flags;
 
+        /// <summary>
+        /// The native (operating system) identifier of the managed thread that
+        /// owns the wrapped Tcl interpreter.
+        /// </summary>
         private long threadId;
+
+        /// <summary>
+        /// The managed thread that owns and runs the event loop for the wrapped
+        /// Tcl interpreter.
+        /// </summary>
         private Thread thread;
+
+        /// <summary>
+        /// The opaque native handle to the wrapped Tcl interpreter, or
+        /// <see cref="IntPtr.Zero" /> if none currently exists.
+        /// </summary>
         private IntPtr interp;
+
+        /// <summary>
+        /// Non-zero if a Tcl interpreter has been created at least once for this
+        /// object.
+        /// </summary>
         private bool initialized; /* NOTE: Has an interp ever been created? */
+
+        /// <summary>
+        /// Non-zero if the owning thread has been finalized (i.e. the wrapped
+        /// Tcl interpreter can no longer service requests).
+        /// </summary>
         private bool finalized;   /* NOTE: Has the thread been finalized? */
 
+        /// <summary>
+        /// The cached script cancellation delegate, captured at construction to
+        /// avoid tricky locking issues when cancellation is later requested.
+        /// This field may be null.
+        /// </summary>
         private Tcl_CancelEval cancelEval; /* NOTE: Cached to avoid tricky locking issues. */
 
+        /// <summary>
+        /// The name of the named "start" event used for inter-thread
+        /// communication.  This field is written once and then treated as
+        /// read-only.
+        /// </summary>
         private string startEventName;   /* NOTE: Write-once, then read-only. */
+
+        /// <summary>
+        /// The name of the named "done" event used for inter-thread
+        /// communication.  This field is written once and then treated as
+        /// read-only.
+        /// </summary>
         private string doneEventName;    /* NOTE: Write-once, then read-only. */
+
+        /// <summary>
+        /// The name of the named "idle" event used for inter-thread
+        /// communication.  This field is written once and then treated as
+        /// read-only.
+        /// </summary>
         private string idleEventName;    /* NOTE: Write-once, then read-only. */
+
+        /// <summary>
+        /// The name of the named "queue" event used for inter-thread
+        /// communication.  This field is written once and then treated as
+        /// read-only.
+        /// </summary>
         private string queueEventName;   /* NOTE: Write-once, then read-only. */
 
+        /// <summary>
+        /// The wait handle for the named "start" event, signaled once the worker
+        /// thread is ready to start receiving events.
+        /// </summary>
         private EventWaitHandle startEvent;
+
+        /// <summary>
+        /// The wait handle for the named "done" event, signaled to request that
+        /// the worker thread exit its event loop.
+        /// </summary>
         private EventWaitHandle doneEvent;
+
+        /// <summary>
+        /// The wait handle for the named "idle" event, signaled to request that
+        /// the worker thread process pending idle events.
+        /// </summary>
         private EventWaitHandle idleEvent;
+
+        /// <summary>
+        /// The wait handle for the named "queue" event, signaled to request that
+        /// the worker thread process a queued inter-thread request.
+        /// </summary>
         private EventWaitHandle queueEvent;
 
+        /// <summary>
+        /// The opaque data (a garbage collector handle to the pending event)
+        /// associated with the next queued request for the worker thread.
+        /// Access to this field is synchronized.
+        /// </summary>
         private IntPtr queueEventData; /* NOTE: Access is synchronized. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a new instance of this class, allocating the garbage
+        /// collector handle that keeps it alive, creating the named inter-thread
+        /// communication events, and creating (and optionally starting) the
+        /// managed thread that will own the wrapped Tcl interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter that owns this object.
+        /// </param>
+        /// <param name="callback">
+        /// The optional callback invoked when a queued event has been processed.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data passed along to the notification callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used when waiting for events and for
+        /// queued event results.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with this object and its managed thread.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the creation and behavior of this object and
+        /// its managed thread.
+        /// </param>
         private TclThread(
             Interpreter interpreter,
             ResultCallback callback,
@@ -191,7 +369,16 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeBase Members
+        /// <summary>
+        /// The object used to synchronize access to the mutable state of this
+        /// object.
+        /// </summary>
         private object syncRoot;
+
+        /// <summary>
+        /// Gets the object used to synchronize access to the mutable state of
+        /// this object.
+        /// </summary>
         public object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
@@ -201,6 +388,14 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Members
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// without waiting.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         public void TryLock(
             ref bool locked
             )
@@ -212,6 +407,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// waiting up to the configured wait-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         public void TryLockWithWait(
             ref bool locked
             )
@@ -228,6 +431,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// without waiting and without checking whether this object has been
+        /// disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         public void TryLockNoThrow(
             ref bool locked
             )
@@ -239,6 +451,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// waiting up to the specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock to
+        /// be acquired.
+        /// </param>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         public void TryLock(
             int timeout,
             ref bool locked
@@ -251,6 +475,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases an exclusive lock previously acquired on this
+        /// object.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the lock is currently held; upon return, this
+        /// parameter will be set to zero if the lock was released.
+        /// </param>
         public void ExitLock(
             ref bool locked
             )
@@ -264,6 +496,15 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// without waiting and without checking whether this object has been
+        /// disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         private void PrivateTryLock(
             ref bool locked
             )
@@ -276,6 +517,19 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire an exclusive lock on this object,
+        /// waiting up to the specified timeout and without checking whether this
+        /// object has been disposed.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock to
+        /// be acquired.
+        /// </param>
+        /// <param name="locked">
+        /// Upon success, this parameter will be set to non-zero if the lock was
+        /// acquired; otherwise, it will be set to zero.
+        /// </param>
         private void PrivateTryLock(
             int timeout,
             ref bool locked
@@ -289,6 +543,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases an exclusive lock previously acquired on this
+        /// object, without checking whether this object has been disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon entry, non-zero if the lock is currently held; upon return, this
+        /// parameter will be set to zero if the lock was released.
+        /// </param>
         private void PrivateExitLock(
             ref bool locked
             )
@@ -308,6 +570,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Data Accessor Members
+        /// <summary>
+        /// Gets the native (operating system) identifier of the managed thread
+        /// that owns the wrapped Tcl interpreter.
+        /// </summary>
         public long ThreadId
         {
             get { CheckDisposed(); lock (syncRoot) { return threadId; } }
@@ -315,6 +581,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the opaque native handle to the wrapped Tcl interpreter, or
+        /// <see cref="IntPtr.Zero" /> if none currently exists.
+        /// </summary>
         public IntPtr Interp
         {
             get { CheckDisposed(); lock (syncRoot) { return interp; } }
@@ -322,6 +592,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether a Tcl interpreter has been created at
+        /// least once for this object.
+        /// </summary>
         public bool Initialized
         {
             get { CheckDisposed(); lock (syncRoot) { return initialized; } }
@@ -329,6 +603,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the owning thread has been finalized
+        /// (i.e. the wrapped Tcl interpreter can no longer service requests).
+        /// </summary>
         public bool Finalized
         {
             get { CheckDisposed(); lock (syncRoot) { return finalized; } }
@@ -336,6 +614,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the timeout, in milliseconds, used when waiting for events and
+        /// for queued event results.
+        /// </summary>
         public int Timeout
         {
             get { CheckDisposed(); lock (syncRoot) { return timeout; } }
@@ -343,6 +625,9 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the name associated with this object and its managed thread.
+        /// </summary>
         public string Name
         {
             get { CheckDisposed(); lock (syncRoot) { return name; } }
@@ -350,6 +635,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this object uses the generic (i.e.
+        /// non-Windows-specific) event queueing mechanism.
+        /// </summary>
         public bool IsGeneric
         {
             get { CheckDisposed(); lock (syncRoot) { return PrivateIsGeneric; } }
@@ -358,6 +647,11 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private
+        /// <summary>
+        /// Gets a value indicating whether this object uses the generic (i.e.
+        /// non-Windows-specific) event queueing mechanism, without checking
+        /// whether this object has been disposed.
+        /// </summary>
         private bool PrivateIsGeneric
         {
             get { return FlagOps.HasFlags(flags, TclThreadFlags.Generic, true); }
@@ -368,6 +662,18 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method waits up to the specified timeout for the worker thread
+        /// to signal that it is ready to start receiving events.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the "start"
+        /// event to be signaled.
+        /// </param>
+        /// <returns>
+        /// True if the "start" event was signaled within the timeout; otherwise,
+        /// false.
+        /// </returns>
         public bool WaitForStart(
             int timeout
             )
@@ -393,6 +699,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits up to the specified timeout for the worker thread
+        /// to signal that it is done (i.e. has exited its event loop).
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the "done"
+        /// event to be signaled.
+        /// </param>
+        /// <returns>
+        /// True if the "done" event was signaled within the timeout; otherwise,
+        /// false.
+        /// </returns>
         public bool WaitForDone(
             int timeout
             )
@@ -418,6 +736,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits up to the specified timeout for the worker thread
+        /// to signal that it has processed pending idle events.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the "idle"
+        /// event to be signaled.
+        /// </param>
+        /// <returns>
+        /// True if the "idle" event was signaled within the timeout; otherwise,
+        /// false.
+        /// </returns>
         public bool WaitForIdle(
             int timeout
             )
@@ -443,6 +773,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits up to the specified timeout for the worker thread
+        /// to acknowledge a queued inter-thread request.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the "queue"
+        /// event to be signaled.
+        /// </param>
+        /// <returns>
+        /// True if the "queue" event was signaled within the timeout; otherwise,
+        /// false.
+        /// </returns>
         public bool WaitForQueue(
             int timeout
             )
@@ -470,6 +812,13 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this object, which is
+        /// the string form of the wrapped Tcl interpreter handle.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the wrapped Tcl interpreter handle.
+        /// </returns>
         public override string ToString()
         {
             // CheckDisposed(); /* EXEMPT: During disposal. */
@@ -488,8 +837,22 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object is currently in the process of being disposed
+        /// (used to prevent re-entrancy).
+        /// </summary>
         private bool disposing;
+
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an <see cref="ObjectDisposedException" /> if this
+        /// object has been disposed and the interpreter is configured to throw
+        /// when disposed objects are used.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -500,6 +863,17 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the resources used by this object, attempting
+        /// to gracefully shut down (and delete) the wrapped Tcl interpreter,
+        /// closing the inter-thread communication events, releasing the garbage
+        /// collector handle, and clearing the remaining state.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             ) /* throw */
@@ -686,6 +1060,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method disposes of the resources used by this object and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose() /* throw */
         {
             Dispose(true);
@@ -696,6 +1074,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of this class, releasing any resources that
+        /// were not explicitly disposed.
+        /// </summary>
         ~TclThread() /* throw */
         {
             Dispose(false);
@@ -705,6 +1087,40 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// This method creates a new instance of this class, which is capable of
+        /// creating a native Tcl interpreter on a new managed thread and
+        /// processing requests pertaining to it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter that will own the created object.
+        /// </param>
+        /// <param name="callback">
+        /// The optional callback invoked when a queued event has been processed.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data passed along to the notification callback.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used when waiting for events and for
+        /// queued event results.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the created object and its managed thread.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the creation and behavior of the created object
+        /// and its managed thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The newly created object, or null if it could not be created.
+        /// </returns>
         public static TclThread Create(
             Interpreter interpreter,
             ResultCallback callback,
@@ -781,6 +1197,22 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Thread Procedure Helper Methods
+        /// <summary>
+        /// This method determines whether the native Tcl event notifier for the
+        /// specified thread is usable (i.e. the thread has been initialized and
+        /// has not been finalized).
+        /// </summary>
+        /// <param name="thread">
+        /// The object whose notifier usability is being checked.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// True if the notifier is usable; otherwise, false.
+        /// </returns>
         private static bool IsNotifierUsable(
             TclThread thread,
             ref Result error
@@ -833,6 +1265,35 @@ namespace Eagle._Components.Private.Tcl
         // NOTE: This method may throw, must be executed from within a
         //       try/catch block.
         //
+        /// <summary>
+        /// This method processes any pending events in the native Tcl event loop
+        /// for the specified thread, provided its notifier is usable.
+        /// </summary>
+        /// <param name="thread">
+        /// The object whose native Tcl events are being processed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The Eagle interpreter associated with the wrapped Tcl interpreter.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used when processing native Tcl events.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to emit diagnostic trace output.
+        /// </param>
+        /// <param name="noTrace">
+        /// Non-zero to suppress the trace output emitted when the notifier is not
+        /// usable.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress complaints about errors encountered while
+        /// processing native Tcl events.
+        /// </param>
+        /// <returns>
+        /// True if the Tcl API object was valid (i.e. the interpreter was not
+        /// disposed) and event processing may continue; otherwise, false.
+        /// </returns>
         private static bool DoOneEvent(
             TclThread thread,
             Interpreter interpreter,
@@ -898,6 +1359,26 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the locally opened inter-thread communication
+        /// event wait handles.  It is only called from the thread procedure.
+        /// </summary>
+        /// <param name="startEvent">
+        /// The "start" event wait handle to close.  Upon return, this parameter
+        /// will be set to null.
+        /// </param>
+        /// <param name="doneEvent">
+        /// The "done" event wait handle to close.  Upon return, this parameter
+        /// will be set to null.
+        /// </param>
+        /// <param name="idleEvent">
+        /// The "idle" event wait handle to close.  Upon return, this parameter
+        /// will be set to null.
+        /// </param>
+        /// <param name="queueEvent">
+        /// The "queue" event wait handle to close.  Upon return, this parameter
+        /// will be set to null.
+        /// </param>
         private static void CloseEvents( /* NOTE: Only called from ThreadStart. */
             ref EventWaitHandle startEvent,
             ref EventWaitHandle doneEvent,
@@ -913,6 +1394,31 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens the named inter-thread communication event wait
+        /// handles for use by the thread procedure.  It is only called from the
+        /// thread procedure.
+        /// </summary>
+        /// <param name="startEvent">
+        /// Upon success, this parameter will be set to the opened "start" event
+        /// wait handle.
+        /// </param>
+        /// <param name="doneEvent">
+        /// Upon success, this parameter will be set to the opened "done" event
+        /// wait handle.
+        /// </param>
+        /// <param name="idleEvent">
+        /// Upon success, this parameter will be set to the opened "idle" event
+        /// wait handle.
+        /// </param>
+        /// <param name="queueEvent">
+        /// Upon success, this parameter will be set to the opened "queue" event
+        /// wait handle.
+        /// </param>
+        /// <returns>
+        /// True if all four event wait handles were opened successfully;
+        /// otherwise, false.
+        /// </returns>
         private bool OpenEvents( /* NOTE: Only called from ThreadStart. */
             ref EventWaitHandle startEvent,
             ref EventWaitHandle doneEvent,
@@ -980,6 +1486,13 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the Tcl API object associated with the Eagle
+        /// interpreter that owns this object.
+        /// </summary>
+        /// <returns>
+        /// The associated Tcl API object, or null if none is available.
+        /// </returns>
         private ITclApi GetTclApi()
         {
             Interpreter interpreter;
@@ -994,6 +1507,13 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the collection of bridged Tcl commands associated
+        /// with the wrapped Tcl interpreter.
+        /// </summary>
+        /// <returns>
+        /// The collection of bridged Tcl commands, or null if none is available.
+        /// </returns>
         private TclBridgeDictionary GetTclBridges()
         {
             Interpreter interpreter;
@@ -1013,6 +1533,13 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Thread Procedure
+        /// <summary>
+        /// This method is the procedure for the managed thread that owns the
+        /// wrapped Tcl interpreter.  It opens the inter-thread communication
+        /// events, signals that it is ready, and then runs the main event loop,
+        /// dispatching queued requests and processing the native Tcl (and, on
+        /// Windows, the Windows message) event loop until it is asked to exit.
+        /// </summary>
         private void ThreadStart()
         {
             long threadId;
@@ -1370,6 +1897,18 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Event Queueing Members
+        /// <summary>
+        /// This method determines whether an event of the specified type has
+        /// thread affinity (i.e. must be processed on the thread that owns the
+        /// wrapped Tcl interpreter).
+        /// </summary>
+        /// <param name="type">
+        /// The type of event being checked.
+        /// </param>
+        /// <returns>
+        /// True if events of the specified type have thread affinity; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasThreadAffinity(
             EventType type
             )
@@ -1383,6 +1922,32 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to shut down the worker thread and, if
+        /// requested, delete the wrapped Tcl interpreter.  It queues an interp
+        /// deletion event (when applicable), signals the "done" event so the
+        /// worker thread exits, and optionally waits for (or aborts) the thread.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object associated with the wrapped Tcl interpreter.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="tclBridges">
+        /// The collection of bridged Tcl commands to dispose when deleting the
+        /// interpreter.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the shutdown behavior (for example, whether to
+        /// delete the interpreter, wait for the thread to end, or abort it).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Shutdown(
             ITclApi tclApi,
             TclBridgeDictionary tclBridges,
@@ -1592,6 +2157,33 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event of the specified type for processing by
+        /// the worker thread (or, for events without thread affinity, processes
+        /// it on the current thread).
+        /// </summary>
+        /// <param name="type">
+        /// The type of event to queue.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the event is processed.
+        /// </param>
+        /// <param name="data">
+        /// The optional data associated with the event.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// Non-zero to wait for the event to be processed and return its result;
+        /// zero to queue the event and return immediately.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be set to the result of the event
+        /// (when processed synchronously) or to an error message upon failure.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode QueueEvent(
             EventType type,
             EventFlags flags,
@@ -1609,6 +2201,37 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event of the specified type for processing by
+        /// the worker thread, selecting the Windows-specific or generic event
+        /// queueing mechanism as appropriate.
+        /// </summary>
+        /// <param name="type">
+        /// The type of event to queue.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the event is processed.
+        /// </param>
+        /// <param name="data">
+        /// The optional data associated with the event.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// Non-zero to wait for the event to be processed and return its result;
+        /// zero to queue the event and return immediately.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be set to the result of the event
+        /// (when processed synchronously) or to an error message upon failure.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be set to the line number where an
+        /// error occurred during script evaluation, if applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode QueueEvent(
             EventType type,
             EventFlags flags,
@@ -1630,6 +2253,38 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event of the specified type for processing by
+        /// the worker thread using the generic (i.e. non-Windows-specific)
+        /// event-signaling mechanism.  Events without thread affinity are
+        /// processed directly on the current thread.
+        /// </summary>
+        /// <param name="type">
+        /// The type of event to queue.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the event is processed.
+        /// </param>
+        /// <param name="data">
+        /// The optional data associated with the event.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// Non-zero to wait for the event to be processed and return its result;
+        /// zero to queue the event and return immediately.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be set to the result of the event
+        /// (when processed synchronously) or to an error message upon failure.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be set to the line number where an
+        /// error occurred during script evaluation, if applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode QueueEventGeneric(
             EventType type,
             EventFlags flags,
@@ -1831,6 +2486,38 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if WINDOWS
+        /// <summary>
+        /// This method queues an event of the specified type for processing by
+        /// the worker thread on Windows, using a native asynchronous procedure
+        /// call (APC).  Events without thread affinity are queued to (and
+        /// processed on) the current thread.
+        /// </summary>
+        /// <param name="type">
+        /// The type of event to queue.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the event is processed.
+        /// </param>
+        /// <param name="data">
+        /// The optional data associated with the event.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// Non-zero to wait for the event to be processed and return its result;
+        /// zero to queue the event and return immediately.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be set to the result of the event
+        /// (when processed synchronously) or to an error message upon failure.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be set to the line number where an
+        /// error occurred during script evaluation, if applicable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode QueueEventWindows(
             EventType type,
             EventFlags flags,
@@ -2039,6 +2726,17 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Script Cancellation Helper Members
+        /// <summary>
+        /// This method gets the native Tcl script cancellation delegate
+        /// associated with the specified Eagle interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter whose Tcl API object provides the cancellation
+        /// delegate.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The script cancellation delegate, or null if none is available.
+        /// </returns>
         private static Tcl_CancelEval GetCancelEvaluateDelegate(
             Interpreter interpreter
             )
@@ -2061,6 +2759,32 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method requests cancellation of the script currently being
+        /// evaluated by the specified Tcl interpreter, using the supplied
+        /// cancellation delegate, without acquiring any locks.  It may be called
+        /// from any thread (per TIP #285).
+        /// </summary>
+        /// <param name="cancelEval">
+        /// The native Tcl script cancellation delegate to invoke.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interp">
+        /// The opaque native handle to the Tcl interpreter whose script
+        /// evaluation should be cancelled.
+        /// </param>
+        /// <param name="unwind">
+        /// Non-zero to fully unwind the script in progress; zero to cancel it
+        /// without unwinding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode CancelEvaluateNoLock(
             Tcl_CancelEval cancelEval, /* in */
             IntPtr interp,             /* in */
@@ -2111,6 +2835,19 @@ namespace Eagle._Components.Private.Tcl
         // **** WARNING *****  BEGIN CODE DIRECTLY CALLED BY THE NATIVE WIN32 API  ***** WARNING **** /
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the callback invoked (directly by the native Win32 API
+        /// via an asynchronous procedure call, or directly by the worker thread)
+        /// to process a single queued event.  It rehydrates the event from the
+        /// supplied garbage collector handle, dispatches it according to its
+        /// type (interpreter creation/deletion, evaluation, substitution,
+        /// variable access, command bridging, cancellation, and so on), records
+        /// the result, and invokes the notification callback when applicable.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque pointer to the garbage collector handle referencing the
+        /// event to process.
+        /// </param>
         private void EventCallback(IntPtr data)
         {
             Interpreter interpreter;

@@ -14,16 +14,32 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides a marshal-by-reference bridge that adapts an
+    /// <see cref="INewHostCallback" /> implementation, allowing the new host
+    /// creation callback to be invoked across application domain boundaries.
+    /// </summary>
     [ObjectId("1538f714-6a43-4261-87b1-14111fca3a27")]
     public sealed class NewHostCallbackBridge : ScriptMarshalByRefObject
     {
         #region Private Data
+        /// <summary>
+        /// The wrapped new host creation callback that this bridge forwards
+        /// calls to.
+        /// </summary>
         private INewHostCallback callback;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a bridge that wraps the specified new host creation
+        /// callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The new host creation callback to wrap.
+        /// </param>
         private NewHostCallbackBridge(
             INewHostCallback callback
             )
@@ -35,6 +51,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method forwards a new host creation request to the wrapped new
+        /// host creation callback.
+        /// </summary>
+        /// <param name="hostData">
+        /// The data used to create the new host.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created host, or null if there is no wrapped callback.
+        /// </returns>
         public IHost NewHostCallback(
             IHostData hostData
             )
@@ -49,6 +75,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new bridge that wraps the specified new host
+        /// creation callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The new host creation callback to wrap.  This parameter may not be
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created bridge, or null if it could not be created.
+        /// </returns>
         public static NewHostCallbackBridge Create(
             INewHostCallback callback,
             ref Result error

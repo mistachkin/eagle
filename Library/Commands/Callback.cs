@@ -23,11 +23,26 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>callback</c> command, which manages
+    /// the interpreter callback queue, supporting the <c>clear</c>,
+    /// <c>count</c>, <c>dequeue</c>, <c>enqueue</c>, <c>execute</c>, and
+    /// <c>list</c> sub-commands for enqueuing, dequeuing, listing, and
+    /// executing queued callbacks.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("7a66999b-d92f-4884-bf28-1ee7d7aa52ea")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("event")]
     internal sealed class Callback : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>callback</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Callback(
             ICommandData commandData
             )
@@ -37,11 +52,18 @@ namespace Eagle._Commands
         }
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this command,
+        /// used to dispatch each invocation to the appropriate handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "clear", "count", "dequeue", "enqueue", "execute",
             "list"
         });
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -49,11 +71,44 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>callback</c> command.  It dispatches to
+        /// the requested sub-command in order to clear, count, dequeue,
+        /// enqueue, execute, or list entries in the interpreter callback
+        /// queue.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any remaining
+        /// elements are the arguments to that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command (for example, the callback count, the dequeued
+        /// callback value, or the list of callbacks).  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) when the wrong number of
+        /// arguments is supplied, the sub-command is unknown, the interpreter
+        /// is null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

@@ -39,6 +39,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to load, parse,
+    /// cache, format, and save the command syntax (help) data used by Eagle.
+    /// Syntax data is read from tab-separated resources and files (including
+    /// per-plugin resources), merged into an in-memory cache keyed by command
+    /// name, and formatted for display.  It also implements the lower-level
+    /// delimited-data parser, including optional value wrapping and escaping.
+    /// All members are static; the class is never instantiated.
+    /// </summary>
     [ObjectId("1ca735b8-15d2-465a-9439-42ed6a42b14a")]
     internal static class SyntaxOps
     {
@@ -46,8 +55,22 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The file name search pattern used when loading syntax data files
+        /// from a directory.
+        /// </summary>
         private static string ResourcePattern = "syntax*.tsv";
+
+        /// <summary>
+        /// The name of the embedded resource that contains the core command
+        /// syntax data.
+        /// </summary>
         private static string CoreResourceName = "syntax.tsv";
+
+        /// <summary>
+        /// The name of the per-plugin resource that contains plugin command
+        /// syntax data.
+        /// </summary>
         private static string PluginResourceName = "syntax.tsv";
 
         ///////////////////////////////////////////////////////////////////////
@@ -55,10 +78,30 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The characters that introduce a comment line in syntax data.
+        /// </summary>
         private static char[] CommentChars = { Characters.SemiColon };
+
+        /// <summary>
+        /// The characters that terminate a line in syntax data.
+        /// </summary>
         private static char[] LineChars = Characters.LineTerminatorChars;
+
+        /// <summary>
+        /// The characters that separate fields within a line of syntax data.
+        /// </summary>
         private static char[] FieldChars = { Characters.HorizontalTab };
+
+        /// <summary>
+        /// The characters used to wrap (quote) a field value in syntax data.
+        /// </summary>
         private static char[] WrapChars = { Characters.QuotationMark };
+
+        /// <summary>
+        /// The characters used to escape special characters within a wrapped
+        /// field value in syntax data.
+        /// </summary>
         private static char[] EscapeChars = { Characters.Backslash };
 
         ///////////////////////////////////////////////////////////////////////
@@ -71,6 +114,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The prefix that denotes a syntax entry consisting only of a list of
+        /// its sub-commands (for example, <c>[host screen]</c>).
+        /// </summary>
         private static string SubCommandsOnlyPrefix =
             Characters.Comment.ToString();
 #endif
@@ -80,6 +127,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The separator used between alternative values when formatting syntax
+        /// for display.
+        /// </summary>
         private static string ValueSeparator = String.Format(
             "{0}-OR-{0}", Characters.Space);
 
@@ -88,44 +139,158 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The metadata name under which the comment characters are reported to
+        /// the parse callback.
+        /// </summary>
         private static string CommentMetadataName = "comment";
+
+        /// <summary>
+        /// The metadata name under which the line characters are reported to the
+        /// parse callback.
+        /// </summary>
         private static string LineMetadataName = "line";
+
+        /// <summary>
+        /// The metadata name under which the field characters are reported to
+        /// the parse callback.
+        /// </summary>
         private static string FieldMetadataName = "field";
+
+        /// <summary>
+        /// The metadata name under which the wrap characters are reported to the
+        /// parse callback.
+        /// </summary>
         private static string WrapMetadataName = "wrap";
+
+        /// <summary>
+        /// The metadata name under which the escape characters are reported to
+        /// the parse callback.
+        /// </summary>
         private static string EscapeMetadataName = "escape";
+
+        /// <summary>
+        /// The metadata name under which the syntax data flags are reported to
+        /// the parse callback.
+        /// </summary>
         private static string FlagsMetadataName = "flags";
+
+        /// <summary>
+        /// The metadata name under which the remove-empty setting is reported to
+        /// the parse callback.
+        /// </summary>
         private static string RemoveEmptyMetadataName = "removeEmpty";
+
+        /// <summary>
+        /// The metadata name under which the current line index is reported to
+        /// the parse callback.
+        /// </summary>
         private static string IndexMetadataName = "index";
+
+        /// <summary>
+        /// The metadata name under which the current field count is reported to
+        /// the parse callback.
+        /// </summary>
         private static string CountMetadataName = "count";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the syntax data cache and
+        /// configuration.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, all syntax data initialization is disabled.
+        /// </summary>
         private static bool Disabled = false;
+
+        /// <summary>
+        /// When non-zero, the core embedded syntax resource is loaded during
+        /// initialization.
+        /// </summary>
         private static bool UseCore = true;
+
+        /// <summary>
+        /// The optional set of external file names from which to load syntax
+        /// data during initialization.  This may be null.
+        /// </summary>
         private static IEnumerable<string> UseFileNames = null;
+
+        /// <summary>
+        /// The optional text encoding used when reading external syntax data
+        /// files.  This may be null, meaning the default encoding.
+        /// </summary>
         private static Encoding UseEncoding = null;
+
+        /// <summary>
+        /// When non-zero, per-plugin syntax resources are loaded during
+        /// initialization.
+        /// </summary>
         private static bool UsePlugins = true;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, duplicate values loaded from the core syntax resource
+        /// are removed.
+        /// </summary>
         private static bool CoreUnique = false;
+
+        /// <summary>
+        /// When non-zero, duplicate values loaded from external syntax files are
+        /// removed.
+        /// </summary>
         private static bool FileUnique = true;
+
+        /// <summary>
+        /// When non-zero, duplicate values loaded from per-plugin syntax
+        /// resources are removed.
+        /// </summary>
         private static bool PluginUnique = true;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The in-memory cache of syntax data, keyed by command name.  This may
+        /// be null until initialization populates it.
+        /// </summary>
         private static SyntaxData cache;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method merges two collections of syntax data, combining the
+        /// value lists of any keys present in both, and optionally removing
+        /// duplicate values.
+        /// </summary>
+        /// <param name="oldData">
+        /// The existing syntax data to start from.  This parameter may be null.
+        /// </param>
+        /// <param name="newData">
+        /// The new syntax data to merge in.  This parameter may be null, in
+        /// which case the old data is returned unchanged.
+        /// </param>
+        /// <param name="unique">
+        /// Non-zero to remove duplicate values from each merged value list.
+        /// </param>
+        /// <param name="outData">
+        /// Upon success, this contains the merged syntax data.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         private static ReturnCode MergeData(
             SyntaxData oldData,     /* in: OPTIONAL */
             SyntaxData newData,     /* in: OPTIONAL */
@@ -185,6 +350,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the syntax data cache, loading the core
+        /// resource, any configured external files, and per-plugin resources, as
+        /// enabled by the current configuration.  If the cache is already
+        /// populated, it is only rebuilt when forced.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to enumerate plugins and resolve per-plugin
+        /// syntax resources.  This parameter may be null.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to clear and rebuild the cache even if it is already
+        /// populated.
+        /// </param>
         private static void Initialize(
             Interpreter interpreter, /* in */
             bool force               /* in */
@@ -390,6 +569,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets copies of the character sets used when loading and
+        /// parsing syntax data, validating that none of them are null or empty.
+        /// </summary>
+        /// <param name="commentChars">
+        /// Upon success, this contains a copy of the comment characters.
+        /// </param>
+        /// <param name="lineChars">
+        /// Upon success, this contains a copy of the line characters.
+        /// </param>
+        /// <param name="fieldChars">
+        /// Upon success, this contains a copy of the field characters.
+        /// </param>
+        /// <param name="wrapChars">
+        /// Upon success, this contains a copy of the wrap characters.
+        /// </param>
+        /// <param name="escapeChars">
+        /// Upon success, this contains a copy of the escape characters.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if all character sets were valid and copied; otherwise, false.
+        /// </returns>
         public static bool GetLoadChars(
             ref char[] commentChars, /* out */
             ref char[] lineChars,    /* out */
@@ -473,6 +677,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the single comment, line, and field characters (and
+        /// copies of the wrap and escape character sets) used when saving syntax
+        /// data.
+        /// </summary>
+        /// <param name="commentChar">
+        /// Upon success, this contains the comment character.
+        /// </param>
+        /// <param name="lineChar">
+        /// Upon success, this contains the line character.
+        /// </param>
+        /// <param name="fieldChar">
+        /// Upon success, this contains the field character.
+        /// </param>
+        /// <param name="wrapChars">
+        /// Upon success, this contains a copy of the wrap characters.
+        /// </param>
+        /// <param name="escapeChars">
+        /// Upon success, this contains a copy of the escape characters.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the characters were obtained successfully; otherwise, false.
+        /// </returns>
         private static bool GetSaveChars(
             ref char? commentChar,  /* out */
             ref char? lineChar,     /* out */
@@ -502,6 +732,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method serializes the specified syntax data into delimited text,
+        /// optionally wrapping the names and values, and sorting the resulting
+        /// lines.
+        /// </summary>
+        /// <param name="data">
+        /// The syntax data to serialize.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling serialization, such as whether values are
+        /// wrapped and escaped.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, this contains the serialized text.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode SaveData(
             SyntaxData data,       /* in */
             SyntaxDataFlags flags, /* in */
@@ -569,7 +821,7 @@ namespace Eagle._Components.Private
                 }
             }
 
-            lines.Sort(); /* O(N) */
+            lines.Sort(); /* O(N log N) */
 
             text = lines.ToRawString(lineChar.ToString());
             return ReturnCode.Ok;
@@ -578,6 +830,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method checks whether the specified syntax value denotes a
+        /// sub-commands-only entry and, if so, builds the syntax string for its
+        /// list of sub-commands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to split the value into a list.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="name">
+        /// The command name associated with the value.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="value">
+        /// The syntax value to check.  This parameter may be null.
+        /// </param>
+        /// <param name="noName">
+        /// Non-zero to omit the command name from the generated syntax string.
+        /// </param>
+        /// <returns>
+        /// The generated sub-command syntax string, or null if the value is not
+        /// a sub-commands-only entry.
+        /// </returns>
         private static string CheckForSubCommandsOnly(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -629,6 +904,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method appends a section of diagnostic information about the
+        /// syntax data subsystem (its cache and configuration) to the specified
+        /// list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the information is appended.  This parameter may be
+        /// null, in which case nothing is done.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail, including whether empty
+        /// values are included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -818,6 +1106,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method clears the in-memory syntax data cache.
+        /// </summary>
+        /// <returns>
+        /// The number of entries that were present in the cache before it was
+        /// cleared.
+        /// </returns>
         public static int ClearCache()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -838,6 +1133,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the formatted syntax string for the command
+        /// identified by the specified identifier name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null.
+        /// </param>
+        /// <param name="identifierName">
+        /// The identifier whose name selects the syntax entry.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="extra">
+        /// An optional extra value to append to the syntax values.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when no syntax is available.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The formatted syntax string, or <paramref name="default" /> when no
+        /// syntax is available.
+        /// </returns>
         public static string GetFormatted(
             Interpreter interpreter,        /* in */
             IIdentifierName identifierName, /* in */
@@ -856,6 +1174,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the formatted syntax string for the command with
+        /// the specified name, also reporting the kind of help that was found.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The command name that selects the syntax entry.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="extra">
+        /// An optional extra value to append to the syntax values.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when no syntax is available.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="type">
+        /// Upon return, this contains the kind of help that was located (for
+        /// example, a sub-command, a help topic, or a resolved entity type).
+        /// </param>
+        /// <returns>
+        /// The formatted syntax string, or <paramref name="default" /> when no
+        /// syntax is available.
+        /// </returns>
         public static string GetFormatted(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -913,6 +1258,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a list of syntax values for display, joining
+        /// them with the configured value separator and applying line breaks and
+        /// indentation as appropriate.
+        /// </summary>
+        /// <param name="values">
+        /// The syntax values to format.
+        /// </param>
+        /// <returns>
+        /// The formatted syntax string.
+        /// </returns>
         private static string GetFormatted(
             StringList values /*in */
             )
@@ -953,6 +1309,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of command names for which syntax data is
+        /// available, discarding any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to initialize the syntax data.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="names">
+        /// Upon success, this contains the list of available command names.
+        /// </param>
+        /// <returns>
+        /// True if the names were obtained successfully; otherwise, false.
+        /// </returns>
         public static bool GetNames(
             Interpreter interpreter, /* in */
             ref StringList names     /* out */
@@ -965,6 +1335,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of command names for which syntax data is
+        /// available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to initialize the syntax data.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="names">
+        /// Upon success, this contains the list of available command names.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the names were obtained successfully; otherwise, false.
+        /// </returns>
         public static bool GetNames(
             Interpreter interpreter, /* in */
             ref StringList names,    /* out */
@@ -988,6 +1375,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the syntax values associated with the specified
+        /// command name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to initialize the syntax data.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The command name whose values are requested.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="values">
+        /// Upon success, this contains a copy of the syntax values for the
+        /// command.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the values were obtained successfully; otherwise, false.
+        /// </returns>
         public static bool GetValues(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -1029,6 +1438,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a dictionary mapping each command name to its
+        /// formatted syntax string, discarding any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to initialize the syntax data.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to overwrite entries already present in the dictionary; zero
+        /// to leave existing entries unchanged.
+        /// </param>
+        /// <param name="dictionary">
+        /// Upon success, this contains the mapping of command names to formatted
+        /// syntax strings.
+        /// </param>
+        /// <returns>
+        /// True if the dictionary was populated successfully; otherwise, false.
+        /// </returns>
         public static bool GetFormattedNamesAndValues(
             Interpreter interpreter,        /* in */
             bool merge,                     /* in */
@@ -1043,6 +1471,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a dictionary mapping each command name to its
+        /// formatted syntax string.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to initialize the syntax data.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to overwrite entries already present in the dictionary; zero
+        /// to leave existing entries unchanged.
+        /// </param>
+        /// <param name="dictionary">
+        /// Upon success, this contains the mapping of command names to formatted
+        /// syntax strings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the dictionary was populated successfully; otherwise, false.
+        /// </returns>
         private static bool GetFormattedNamesAndValues(
             Interpreter interpreter,         /* in */
             bool merge,                      /* in */
@@ -1108,6 +1558,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is present in
+        /// the supplied set of characters.
+        /// </summary>
+        /// <param name="haveCharacter">
+        /// The character to look for.
+        /// </param>
+        /// <param name="wantCharacters">
+        /// The set of characters to search.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the character is present in the set; otherwise, false.
+        /// </returns>
         private static bool HaveCharacter(
             char haveCharacter,   /* in */
             char[] wantCharacters /* in */
@@ -1123,6 +1586,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the wrap prefix, wrap suffix, and escape
+        /// characters from the supplied wrap and escape character sets.
+        /// </summary>
+        /// <param name="wrapChars">
+        /// The wrap characters.  This parameter may be null.
+        /// </param>
+        /// <param name="escapeChars">
+        /// The escape characters.  This parameter may be null.
+        /// </param>
+        /// <param name="prefixChar">
+        /// Upon success, this contains the wrap prefix character.
+        /// </param>
+        /// <param name="suffixChar">
+        /// Upon success, this contains the wrap suffix character (the same as
+        /// the prefix when only one wrap character is supplied).
+        /// </param>
+        /// <param name="escapeChar">
+        /// Upon success, this contains the escape character.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the characters were determined successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool GetWrapChars(
             char[] wrapChars,     /* in */
             char[] escapeChars,   /* in */
@@ -1173,6 +1663,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified value in the configured wrap
+        /// characters, optionally escaping any embedded wrap and escape
+        /// characters first.
+        /// </summary>
+        /// <param name="value">
+        /// On input, the value to wrap; upon success, the wrapped (and possibly
+        /// escaped) value.  This parameter may be null, which is an error.
+        /// </param>
+        /// <param name="wrapChars">
+        /// The wrap characters.  This parameter may be null.
+        /// </param>
+        /// <param name="escapeChars">
+        /// The escape characters.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling wrapping, including whether values are escaped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was wrapped successfully; otherwise, false.
+        /// </returns>
         private static bool MaybeWrap(
             ref string value,      /* in, out */
             char[] wrapChars,      /* in */
@@ -1225,6 +1739,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unwraps the specified value, removing the configured wrap
+        /// characters and optionally unescaping any embedded wrap and escape
+        /// characters, when the value is actually wrapped.
+        /// </summary>
+        /// <param name="value">
+        /// On input, the value to unwrap; upon success, the unwrapped (and
+        /// possibly unescaped) value.  This parameter may be null, which is an
+        /// error.
+        /// </param>
+        /// <param name="wrapChars">
+        /// The wrap characters.  This parameter may be null.
+        /// </param>
+        /// <param name="escapeChars">
+        /// The escape characters.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling unwrapping, including whether values are
+        /// escaped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was unwrapped (or was not wrapped) successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool MaybeUnwrap(
             ref string value,      /* in, out */
             char[] wrapChars,      /* in */
@@ -1332,6 +1873,54 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses delimited (tab-separated) text into rows of
+        /// fields, invoking the specified callback for each non-comment data
+        /// line.  It honors the configured comment, line, field, wrap, and
+        /// escape character sets and the supplied flags, including optional
+        /// value unwrapping and removal of empty fields.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.  This parameter may not be null or empty.
+        /// </param>
+        /// <param name="callback">
+        /// The callback invoked for each data row.  This parameter may not be
+        /// null.
+        /// </param>
+        /// <param name="commentChars">
+        /// The characters that introduce a comment line.  This parameter may not
+        /// be null.
+        /// </param>
+        /// <param name="lineChars">
+        /// The characters that terminate a line.  This parameter may not be
+        /// null.
+        /// </param>
+        /// <param name="fieldChars">
+        /// The characters that separate fields within a line.  This parameter
+        /// may not be null.
+        /// </param>
+        /// <param name="wrapChars">
+        /// The characters used to wrap a field value.  This parameter may not be
+        /// null.
+        /// </param>
+        /// <param name="escapeChars">
+        /// The characters used to escape special characters within a wrapped
+        /// value.  This parameter may not be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling parsing behavior.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data passed to (and updated by) the callback.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Exception" /> if the callback threw an
+        /// exception; otherwise, an appropriate error return code.
+        /// </returns>
         public static ReturnCode ParseData(
             string text,                    /* in */
             StringDataRowCallback callback, /* in */
@@ -1566,6 +2155,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the parse callback used to load syntax data, adding
+        /// each parsed <c>name</c>/<c>value</c> row into the syntax data carried
+        /// by the client data, optionally splitting the value into a list and/or
+        /// removing duplicates.
+        /// </summary>
+        /// <param name="metadata">
+        /// The per-row metadata supplied by the parser.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="row">
+        /// The fields of the current row.  This parameter may be null, which is
+        /// an error.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data carrying the syntax data being built.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the row was processed successfully; otherwise, false.
+        /// </returns>
         private static bool LoadDataCallback(
             IEnumerable<IPair<string>> metadata, /* in: NOT USED */
             IEnumerable<string> row,             /* in */
@@ -1705,6 +2317,32 @@ namespace Eagle._Components.Private
         //       can be used to support loading lists of well-known mappings
         //       of assembly file names to plugin type names.
         //
+        /// <summary>
+        /// This method loads syntax data from the specified text, translating
+        /// the supplied boolean options into the corresponding syntax data
+        /// flags.
+        /// </summary>
+        /// <param name="text">
+        /// The text to load.
+        /// </param>
+        /// <param name="unique">
+        /// Non-zero to remove duplicate values.
+        /// </param>
+        /// <param name="listValues">
+        /// Non-zero to treat each value as a list to be split into individual
+        /// values.
+        /// </param>
+        /// <param name="data">
+        /// On input, the existing syntax data to merge into; upon success, the
+        /// merged syntax data.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadData(
             string text,         /* in */
             bool unique,         /* in */
@@ -1726,6 +2364,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads syntax data from the specified text by parsing it
+        /// and merging the result into the supplied syntax data.
+        /// </summary>
+        /// <param name="text">
+        /// The text to load.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the data is loaded and merged.
+        /// </param>
+        /// <param name="data">
+        /// On input, the existing syntax data to merge into; upon success, the
+        /// merged syntax data.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadData(
             string text,           /* in */
             SyntaxDataFlags flags, /* in */
@@ -1774,6 +2433,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads syntax data from the specified text and merges it
+        /// directly into the shared in-memory cache.
+        /// </summary>
+        /// <param name="text">
+        /// The text to load.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the data is loaded and merged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadAndCacheData(
             string text,           /* in */
             SyntaxDataFlags flags, /* in */
@@ -1789,6 +2465,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads syntax data from the specified file and merges it
+        /// into the supplied syntax data.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the file.  This parameter may
+        /// be null, meaning the default encoding.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the data is loaded and merged.
+        /// </param>
+        /// <param name="data">
+        /// On input, the existing syntax data to merge into; upon success, the
+        /// merged syntax data.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadDataFrom(
             string fileName,       /* in */
             Encoding encoding,     /* in */
@@ -1817,6 +2518,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads syntax data from all matching files in the
+        /// specified directory (optionally recursively) and merges them into the
+        /// supplied syntax data.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory to search for syntax data files.  This parameter may
+        /// not be null or empty.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the files.  This parameter may
+        /// be null, meaning the default encoding.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the data is loaded and merged, including
+        /// whether the search is recursive and how errors are handled.
+        /// </param>
+        /// <param name="data">
+        /// On input, the existing syntax data to merge into; upon success, the
+        /// merged syntax data.  This parameter may be null.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains the accumulated error messages.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadDataFrom(
             string directory,      /* in */
             Encoding encoding,     /* in */
@@ -1914,6 +2643,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads syntax data from all matching files in the
+        /// specified directory and merges them directly into the shared
+        /// in-memory cache.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory to search for syntax data files.
+        /// </param>
+        /// <param name="encoding">
+        /// The text encoding to use when reading the files.  This parameter may
+        /// be null, meaning the default encoding.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the data is loaded and merged.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains the accumulated error messages.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error return code.
+        /// </returns>
         public static ReturnCode LoadAndCacheDataFrom(
             string directory,      /* in */
             Encoding encoding,     /* in */

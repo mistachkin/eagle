@@ -18,6 +18,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class carries the data that describes the state of an interactive
+    /// loop, including the debugging mode, command-line arguments, return
+    /// code, active breakpoint, token and trace information, the various
+    /// engine and formatting flags, client data, arguments, and whether the
+    /// loop should exit.  It implements <see cref="IInteractiveLoopData" />.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -25,6 +32,62 @@ namespace Eagle._Components.Public
     public sealed class InteractiveLoopData : IInteractiveLoopData
     {
         #region Private Constructors
+        /// <summary>
+        /// Constructs interactive loop data from the fully specified set of
+        /// state parameters.  This is the most general constructor; the other
+        /// constructors delegate to it.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero if the interactive loop is in debugging mode.
+        /// </param>
+        /// <param name="args">
+        /// The command-line arguments associated with the interactive loop, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the interactive loop.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of the active breakpoint, if any.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the active breakpoint, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="exit">
+        /// Non-zero if the interactive loop should exit.
+        /// </param>
         private InteractiveLoopData(
             bool debug,
             IEnumerable<string> args,
@@ -64,6 +127,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data in a default, reset state.
+        /// </summary>
         private InteractiveLoopData()
             : this(false, null, ReturnCode.Ok, BreakpointType.None, null,
                    null, null, EngineFlags.None, SubstitutionFlags.None,
@@ -77,6 +143,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Copy Constructors
+        /// <summary>
+        /// Constructs interactive loop data as a copy of the specified
+        /// interactive loop data.
+        /// </summary>
+        /// <param name="loopData">
+        /// The interactive loop data to copy.  This parameter may be null.
+        /// </param>
         private InteractiveLoopData(
             IInteractiveLoopData loopData
             )
@@ -89,6 +162,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Copy Constructors
+        /// <summary>
+        /// Constructs interactive loop data as a copy of the specified
+        /// interactive loop data, overriding its debugging mode.
+        /// </summary>
+        /// <param name="loopData">
+        /// The interactive loop data to copy.  This parameter may be null.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero if the interactive loop is in debugging mode.
+        /// </param>
         //
         // NOTE: For Debugger class use only.
         //
@@ -103,6 +186,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data as a copy of the specified
+        /// interactive loop data, overriding its token, trace information, and
+        /// header flags.
+        /// </summary>
+        /// <param name="loopData">
+        /// The interactive loop data to copy.  This parameter may be null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
         //
         // NOTE: For Interpreter class use only.
         //
@@ -121,6 +223,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data as a copy of the specified
+        /// interactive loop data, overriding its return code, token, trace
+        /// information, and header flags.
+        /// </summary>
+        /// <param name="loopData">
+        /// The interactive loop data to copy.  This parameter may be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the interactive loop.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
         //
         // NOTE: For InteractiveOps.Commands.show() and
         //       _Tests.Default.TestDisposedWriteHeader() use only.
@@ -144,6 +268,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Constructors
+        /// <summary>
+        /// Constructs interactive loop data with the specified command-line
+        /// arguments and all other state left at its default values.
+        /// </summary>
+        /// <param name="args">
+        /// The command-line arguments associated with the interactive loop, if
+        /// any.  This parameter may be null.
+        /// </param>
         //
         // NOTE: For [debug shell], InteractiveLoop(), and ShellMainCore()
         //       use only.
@@ -158,6 +290,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data with the specified return code,
+        /// breakpoint, header flags, client data, and arguments.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the interactive loop.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of the active breakpoint, if any.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the active breakpoint, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
         //
         // NOTE: For [debug break] use only.
         //
@@ -181,6 +338,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data with the specified return code,
+        /// breakpoint, token, trace information, and engine, substitution,
+        /// event, expression, and header flags.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the interactive loop.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of the active breakpoint, if any.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the active breakpoint, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
         //
         // NOTE: For use by Engine.CheckWatchpoints() only.
         //
@@ -212,6 +407,52 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs interactive loop data with the specified return code,
+        /// breakpoint, token, trace information, engine, substitution, event,
+        /// expression, and header flags, client data, and arguments.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the interactive loop.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of the active breakpoint, if any.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the active breakpoint, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags in effect for the interactive loop.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags that control which header information is displayed.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the interactive loop, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list associated with the interactive loop, if any.
+        /// This parameter may be null.
+        /// </param>
         //
         // NOTE: For use by InteractiveOps.Commands._break() and
         //       Engine.CheckBreakpoints() only.
@@ -250,6 +491,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new interactive loop data instance in a
+        /// default, reset state.
+        /// </summary>
+        /// <returns>
+        /// The newly created interactive loop data instance.
+        /// </returns>
         //
         // WARNING: For use by the StatusFormOps.CreateInteractiveLoopThread
         //          method only.
@@ -263,7 +511,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// The name of this interactive loop data.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of this interactive loop data.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -274,7 +528,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// The kind of identifier represented by this interactive loop data.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the kind of identifier represented by this interactive
+        /// loop data.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { return kind; }
@@ -283,7 +544,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The unique identifier of this interactive loop data.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the unique identifier of this interactive loop data.
+        /// </summary>
         public Guid Id
         {
             get { return id; }
@@ -294,7 +561,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with the interactive loop, if any.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with the interactive loop,
+        /// if any.
+        /// </summary>
         public IClientData ClientData
         {
             get { return clientData; }
@@ -305,7 +579,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// The group of this interactive loop data.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group of this interactive loop data.
+        /// </summary>
         public string Group
         {
             get { return group; }
@@ -314,7 +594,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The description of this interactive loop data.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the description of this interactive loop data.
+        /// </summary>
         public string Description
         {
             get { return description; }
@@ -325,7 +611,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Non-zero if the interactive loop is in debugging mode.
+        /// </summary>
         private bool debug;
+        /// <summary>
+        /// Gets or sets a value indicating whether the interactive loop is in
+        /// debugging mode.
+        /// </summary>
         public bool Debug
         {
             get { return debug; }
@@ -334,7 +627,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The command-line arguments associated with the interactive loop, if
+        /// any.
+        /// </summary>
         private IEnumerable<string> args;
+        /// <summary>
+        /// Gets or sets the command-line arguments associated with the
+        /// interactive loop, if any.
+        /// </summary>
         public IEnumerable<string> Args
         {
             get { return args; }
@@ -343,7 +644,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The return code associated with the interactive loop.
+        /// </summary>
         private ReturnCode code;
+        /// <summary>
+        /// Gets or sets the return code associated with the interactive loop.
+        /// </summary>
         public ReturnCode Code
         {
             get { return code; }
@@ -352,7 +659,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The type of the active breakpoint, if any.
+        /// </summary>
         private BreakpointType breakpointType;
+        /// <summary>
+        /// Gets or sets the type of the active breakpoint, if any.
+        /// </summary>
         public BreakpointType BreakpointType
         {
             get { return breakpointType; }
@@ -361,7 +674,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the active breakpoint, if any.
+        /// </summary>
         private string breakpointName;
+        /// <summary>
+        /// Gets or sets the name of the active breakpoint, if any.
+        /// </summary>
         public string BreakpointName
         {
             get { return breakpointName; }
@@ -370,7 +689,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The token associated with the interactive loop, if any.
+        /// </summary>
         private IToken token;
+        /// <summary>
+        /// Gets or sets the token associated with the interactive loop, if any.
+        /// </summary>
         public IToken Token
         {
             get { return token; }
@@ -379,7 +704,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace information associated with the interactive loop, if any.
+        /// </summary>
         private ITraceInfo traceInfo;
+        /// <summary>
+        /// Gets or sets the trace information associated with the interactive
+        /// loop, if any.
+        /// </summary>
         public ITraceInfo TraceInfo
         {
             get { return traceInfo; }
@@ -388,7 +720,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The engine flags in effect for the interactive loop.
+        /// </summary>
         private EngineFlags engineFlags;
+        /// <summary>
+        /// Gets or sets the engine flags in effect for the interactive loop.
+        /// </summary>
         public EngineFlags EngineFlags
         {
             get { return engineFlags; }
@@ -397,7 +735,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The substitution flags in effect for the interactive loop.
+        /// </summary>
         private SubstitutionFlags substitutionFlags;
+        /// <summary>
+        /// Gets or sets the substitution flags in effect for the interactive
+        /// loop.
+        /// </summary>
         public SubstitutionFlags SubstitutionFlags
         {
             get { return substitutionFlags; }
@@ -406,7 +751,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The event flags in effect for the interactive loop.
+        /// </summary>
         private EventFlags eventFlags;
+        /// <summary>
+        /// Gets or sets the event flags in effect for the interactive loop.
+        /// </summary>
         public EventFlags EventFlags
         {
             get { return eventFlags; }
@@ -415,7 +766,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The expression flags in effect for the interactive loop.
+        /// </summary>
         private ExpressionFlags expressionFlags;
+        /// <summary>
+        /// Gets or sets the expression flags in effect for the interactive
+        /// loop.
+        /// </summary>
         public ExpressionFlags ExpressionFlags
         {
             get { return expressionFlags; }
@@ -424,7 +782,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The header flags that control which header information is displayed.
+        /// </summary>
         private HeaderFlags headerFlags;
+        /// <summary>
+        /// Gets or sets the header flags that control which header information
+        /// is displayed.
+        /// </summary>
         public HeaderFlags HeaderFlags
         {
             get { return headerFlags; }
@@ -433,7 +798,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The detail flags that control how much detail is displayed.
+        /// </summary>
         private DetailFlags detailFlags;
+        /// <summary>
+        /// Gets or sets the detail flags that control how much detail is
+        /// displayed.
+        /// </summary>
         public DetailFlags DetailFlags
         {
             get { return detailFlags; }
@@ -442,7 +814,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The argument list associated with the interactive loop, if any.
+        /// </summary>
         private ArgumentList arguments;
+        /// <summary>
+        /// Gets or sets the argument list associated with the interactive loop,
+        /// if any.
+        /// </summary>
         public ArgumentList Arguments
         {
             get { return arguments; }
@@ -451,7 +830,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the interactive loop should exit.
+        /// </summary>
         private bool exit;
+        /// <summary>
+        /// Gets or sets a value indicating whether the interactive loop should
+        /// exit.
+        /// </summary>
         public bool Exit
         {
             get { return exit; }
@@ -460,6 +846,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forces the interactive loop to exit, emitting a trace
+        /// message that records the change.
+        /// </summary>
         public void SetExit()
         {
             exit = true;
@@ -472,6 +862,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forces the return code of the interactive loop to the
+        /// specified value, emitting a trace message that records the change.
+        /// </summary>
+        /// <param name="code">
+        /// The new return code for the interactive loop.
+        /// </param>
         public void SetCode(
             ReturnCode code
             )
@@ -489,6 +886,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method copies the state from one interactive loop data
+        /// instance to another.
+        /// </summary>
+        /// <param name="sourceLoopData">
+        /// The interactive loop data to copy from.  This parameter may be
+        /// null, in which case nothing is copied.
+        /// </param>
+        /// <param name="targetLoopData">
+        /// The interactive loop data to copy to.  This parameter may be null,
+        /// in which case nothing is copied.
+        /// </param>
         private static void Copy(
             IInteractiveLoopData sourceLoopData,
             IInteractiveLoopData targetLoopData
@@ -519,6 +928,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Methods
+        /// <summary>
+        /// This method returns a detailed string representation of this
+        /// interactive loop data, suitable for use in trace output.
+        /// </summary>
+        /// <returns>
+        /// A string containing the name and value of each piece of interactive
+        /// loop state.
+        /// </returns>
         internal string ToTraceString()
         {
             IStringList list = new StringPairList();
@@ -556,6 +973,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this interactive
+        /// loop data.
+        /// </summary>
+        /// <returns>
+        /// The name of this interactive loop data, or an empty string if it
+        /// has no name.
+        /// </returns>
         public override string ToString()
         {
             return (name != null) ? name : String.Empty;

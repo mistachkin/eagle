@@ -29,6 +29,17 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class represents a script-based callback that bridges a managed
+    /// delegate (or direct invocation) to an Eagle script.  When the associated
+    /// delegate or event fires, this class evaluates the configured callback
+    /// arguments as a script in the target interpreter, optionally marshaling
+    /// the incoming arguments into opaque object handles, handling by-reference
+    /// (output) parameters, and converting the script result back into a return
+    /// value.  Instances may be reused for a given interpreter when the callback
+    /// script matches.  It implements <see cref="IGetInterpreter" />,
+    /// <see cref="ICallback" />, <see cref="IExecute" />, and is disposable.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -44,6 +55,10 @@ namespace Eagle._Components.Private
         // NOTE: An instance can only be reused, for a particular interpreter,
         //       if the callback script matches.
         //
+        /// <summary>
+        /// The total number of times an instance of this class was reused for
+        /// an interpreter in this application domain.
+        /// </summary>
         private static long fetchedCount;
 
         ///////////////////////////////////////////////////////////////////////
@@ -52,6 +67,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the total number of times an instance of this class
         //       was added to an interpreter in this AppDomain.
         //
+        /// <summary>
+        /// The total number of times an instance of this class was added to an
+        /// interpreter in this application domain.
+        /// </summary>
         private static long addedCount;
 
         ///////////////////////////////////////////////////////////////////////
@@ -61,6 +80,10 @@ namespace Eagle._Components.Private
         //       to be reused by the GetDelegate method before it checked the
         //       method signature.
         //
+        /// <summary>
+        /// The total number of times a delegate was able to be reused by the
+        /// GetDelegate method before it checked the method signature.
+        /// </summary>
         private static long reused1Count;
 
         ///////////////////////////////////////////////////////////////////////
@@ -70,6 +93,10 @@ namespace Eagle._Components.Private
         //       to be reused by the GetDelegate method after it checked the
         //       method signature.
         //
+        /// <summary>
+        /// The total number of times a delegate was able to be reused by the
+        /// GetDelegate method after it checked the method signature.
+        /// </summary>
         private static long reused2Count;
 
         ///////////////////////////////////////////////////////////////////////
@@ -78,6 +105,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the total number of times a System.Delegate needed to
         //       be created by the GetDelegate method.
         //
+        /// <summary>
+        /// The total number of times a delegate needed to be created by the
+        /// GetDelegate method.
+        /// </summary>
         private static long createdCount;
 
         ///////////////////////////////////////////////////////////////////////
@@ -86,6 +117,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is used to synchronize access to the MethodInfo.
         //
+        /// <summary>
+        /// This object is used to synchronize access to the dynamic invoke
+        /// method information (and the associated static data).
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -95,6 +130,10 @@ namespace Eagle._Components.Private
         //       make much sense to change it to another value (except perhaps
         //       null?) because it will be looked up relative to this class.
         //
+        /// <summary>
+        /// The name of the static method used as the "trampoline" target when
+        /// servicing dynamic delegate invocations.
+        /// </summary>
         private static string DynamicInvokeMethodName =
             "StaticFireDynamicInvokeCallback";
 
@@ -103,6 +142,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for use by GetDynamicInvokeMethodInfo() only.
         //
+        /// <summary>
+        /// The cached method information for the dynamic invoke "trampoline"
+        /// method; this is for use by the GetDynamicInvokeMethodInfo method
+        /// only.
+        /// </summary>
         private static MethodInfo dynamicInvokeMethodInfo;
         #endregion
         #endregion
@@ -110,6 +154,45 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a command callback from the specified identity, flags,
+        /// interpreter, and callback arguments.
+        /// </summary>
+        /// <param name="name">
+        /// The name of this callback.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of this callback.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of this callback.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with this callback.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how arguments and return values are
+        /// marshaled for this callback.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used to control the behavior of this callback.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The flags used when creating opaque object handles for the callback
+        /// arguments.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// The flags used to control the handling of by-reference (output)
+        /// arguments.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that will be used to evaluate the callback script.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments forming the callback script.  This parameter
+        /// may be null.
+        /// </param>
         private CommandCallback(
             string name,
             string group,
@@ -141,6 +224,50 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new command callback or returns an existing,
+        /// matching one for the specified interpreter.  When no matching
+        /// callback exists, a new instance is created, added to the interpreter,
+        /// and returned.
+        /// </summary>
+        /// <param name="marshalFlags">
+        /// The flags used to control how arguments and return values are
+        /// marshaled for the callback.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used to control the behavior of the callback.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The flags used when creating opaque object handles for the callback
+        /// arguments.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// The flags used to control the handling of by-reference (output)
+        /// arguments.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that will be used to evaluate the callback script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the callback.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="name">
+        /// The name of the callback.  When null, the string form of
+        /// <paramref name="arguments" /> is used.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments forming the callback script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created or fetched callback instance, or null if it could not be
+        /// created.
+        /// </returns>
         public static ICallback Create(
             MarshalFlags marshalFlags,
             CallbackFlags callbackFlags,
@@ -238,6 +365,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds diagnostic information about this class (e.g. the
+        /// various reuse and creation counts) to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to add the diagnostic information to.  If this parameter is
+        /// null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included in the
+        /// resulting information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -298,6 +437,22 @@ namespace Eagle._Components.Private
         //       MSIL instruction with this method as the destination).
         //
         /* [static --> this] System.Delegate.DynamicInvoke */
+        /// <summary>
+        /// This method is used as the static "trampoline" target for dynamic
+        /// delegate invocations; it forwards the call to the instance method on
+        /// the specified callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback instance whose dynamic invoke handler should be fired.
+        /// This parameter cannot be null.
+        /// </param>
+        /// <param name="args">
+        /// The arguments to be passed to the callback.  This parameter may also
+        /// receive modified values for any by-reference (output) arguments.
+        /// </param>
+        /// <returns>
+        /// The return value produced by the callback.
+        /// </returns>
         public static object StaticFireDynamicInvokeCallback(
             ICallback callback, /* in */
             object[] args       /* in, out */
@@ -316,6 +471,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for use by GetDynamicDelegate() only.
         //
+        /// <summary>
+        /// This method returns (and lazily resolves) the method information for
+        /// the static dynamic invoke "trampoline" method on this class.
+        /// </summary>
+        /// <returns>
+        /// The method information for the dynamic invoke method, or null if it
+        /// could not be resolved.
+        /// </returns>
         private static MethodInfo GetDynamicInvokeMethodInfo()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -338,6 +501,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the actual delegate type that should be used,
+        /// based on the requested type and whether dynamic or delegate-style
+        /// callbacks are in effect.
+        /// </summary>
+        /// <param name="delegateType">
+        /// The delegate type originally requested by the caller.
+        /// </param>
+        /// <param name="useDynamicCallback">
+        /// Non-zero if a dynamic callback is being used.
+        /// </param>
+        /// <param name="isDelegate">
+        /// Non-zero if the requested type is the base delegate type itself.
+        /// </param>
+        /// <param name="newDelegateType">
+        /// Upon return, receives the delegate type that should actually be used,
+        /// which may be null.
+        /// </param>
         private static void GetNewDelegateType(
             Type delegateType,       /* in */
             bool useDynamicCallback, /* in */
@@ -363,6 +544,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified interpreter is valid and may
+        /// currently be used for script evaluation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter is valid and usable; otherwise, false.
+        /// </returns>
         private static bool CheckInterpreter(
             Interpreter interpreter,
             ref Result error
@@ -385,6 +580,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified script thread is valid, not
+        /// disposed, and has an interpreter that may currently be used for
+        /// script evaluation.
+        /// </summary>
+        /// <param name="scriptThread">
+        /// The script thread to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the script thread is valid and usable; otherwise, false.
+        /// </returns>
         private static bool CheckScriptThread(
             IScriptThread scriptThread,
             ref Result error
@@ -407,6 +617,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the core scheduling-related boolean flags from
+        /// the specified callback flags.
+        /// </summary>
+        /// <param name="callbackFlags">
+        /// The callback flags to process.
+        /// </param>
+        /// <param name="useOwner">
+        /// Upon return, non-zero if the owner of the target interpreter should
+        /// handle the callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Upon return, non-zero if the script cancellation state should be
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Upon return, non-zero if the script cancellation state must be fully
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously when the target is busy.
+        /// </param>
         private static void ProcessCallbackFlags(
             CallbackFlags callbackFlags,
             out bool useOwner,
@@ -434,6 +671,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the core scheduling-related boolean flags as
+        /// well as the post-evaluation behavior flags from the specified
+        /// callback flags.
+        /// </summary>
+        /// <param name="callbackFlags">
+        /// The callback flags to process.
+        /// </param>
+        /// <param name="useOwner">
+        /// Upon return, non-zero if the owner of the target interpreter should
+        /// handle the callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Upon return, non-zero if the script cancellation state should be
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Upon return, non-zero if the script cancellation state must be fully
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously when the target is busy.
+        /// </param>
+        /// <param name="fireAndForget">
+        /// Upon return, non-zero if the callback should be removed from the
+        /// interpreter after it is fired.
+        /// </param>
+        /// <param name="complain">
+        /// Upon return, non-zero if failures should be reported via the complain
+        /// mechanism.
+        /// </param>
+        /// <param name="disposeThread">
+        /// Upon return, non-zero if thread-specific data should be disposed
+        /// after the callback completes.
+        /// </param>
+        /// <param name="throwOnError">
+        /// Upon return, non-zero if a script error should result in an exception
+        /// being thrown.
+        /// </param>
         private static void ProcessCallbackFlags(
             CallbackFlags callbackFlags,
             out bool useOwner,
@@ -469,6 +750,86 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the argument-marshaling, scheduling, and
+        /// post-evaluation behavior flags from the specified callback flags.
+        /// This overload omits the by-reference and return-value related flags.
+        /// </summary>
+        /// <param name="callbackFlags">
+        /// The callback flags to process.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// Upon return, receives the object option type used when creating
+        /// opaque object handles for the callback arguments.
+        /// </param>
+        /// <param name="needArguments">
+        /// Upon return, non-zero if opaque object handles should be created for
+        /// the callback arguments.
+        /// </param>
+        /// <param name="create">
+        /// Upon return, non-zero if opaque object handles should be created.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, non-zero if created objects should be disposed.
+        /// </param>
+        /// <param name="alias">
+        /// Upon return, non-zero if command aliases should be created for the
+        /// objects.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, non-zero if raw command aliases should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, non-zero if aliases for all members should be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, non-zero if an object reference should be added for each
+        /// created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Upon return, non-zero if the string form of each object should be
+        /// used.
+        /// </param>
+        /// <param name="useOwner">
+        /// Upon return, non-zero if the owner of the target interpreter should
+        /// handle the callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Upon return, non-zero if the script cancellation state should be
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Upon return, non-zero if the script cancellation state must be fully
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously when the target is busy.
+        /// </param>
+        /// <param name="fireAndForget">
+        /// Upon return, non-zero if the callback should be removed from the
+        /// interpreter after it is fired.
+        /// </param>
+        /// <param name="complain">
+        /// Upon return, non-zero if failures should be reported via the complain
+        /// mechanism.
+        /// </param>
+        /// <param name="disposeThread">
+        /// Upon return, non-zero if thread-specific data should be disposed
+        /// after the callback completes.
+        /// </param>
+        /// <param name="throwOnError">
+        /// Upon return, non-zero if a script error should result in an exception
+        /// being thrown.
+        /// </param>
+        /// <param name="useParameterNames">
+        /// Upon return, non-zero if parameter names should be used when adding
+        /// arguments to the callback script.
+        /// </param>
         private static void ProcessCallbackFlags(
             CallbackFlags callbackFlags,
             out ObjectOptionType objectOptionType,
@@ -511,6 +872,106 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the full set of argument-marshaling, by-
+        /// reference, return-value, scheduling, and post-evaluation behavior
+        /// flags from the specified callback flags.
+        /// </summary>
+        /// <param name="callbackFlags">
+        /// The callback flags to process.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// Upon return, receives the object option type used when creating
+        /// opaque object handles for the callback arguments.
+        /// </param>
+        /// <param name="needArguments">
+        /// Upon return, non-zero if opaque object handles should be created for
+        /// the callback arguments.
+        /// </param>
+        /// <param name="create">
+        /// Upon return, non-zero if opaque object handles should be created.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, non-zero if created objects should be disposed.
+        /// </param>
+        /// <param name="alias">
+        /// Upon return, non-zero if command aliases should be created for the
+        /// objects.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, non-zero if raw command aliases should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, non-zero if aliases for all members should be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, non-zero if an object reference should be added for each
+        /// created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Upon return, non-zero if the string form of each object should be
+        /// used.
+        /// </param>
+        /// <param name="useOwner">
+        /// Upon return, non-zero if the owner of the target interpreter should
+        /// handle the callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Upon return, non-zero if the script cancellation state should be
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Upon return, non-zero if the script cancellation state must be fully
+        /// reset prior to evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Upon return, non-zero if the callback script should be evaluated
+        /// asynchronously when the target is busy.
+        /// </param>
+        /// <param name="byRefStrict">
+        /// Upon return, non-zero if strict type checking should be applied to
+        /// by-reference (output) arguments.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon return, non-zero if the script result should be converted into a
+        /// return value.
+        /// </param>
+        /// <param name="defaultValue">
+        /// Upon return, non-zero if the default value for the return type should
+        /// be used.
+        /// </param>
+        /// <param name="addReference">
+        /// Upon return, non-zero if an object reference should be added for the
+        /// return value.
+        /// </param>
+        /// <param name="removeReference">
+        /// Upon return, non-zero if an object reference should be removed for the
+        /// return value.
+        /// </param>
+        /// <param name="fireAndForget">
+        /// Upon return, non-zero if the callback should be removed from the
+        /// interpreter after it is fired.
+        /// </param>
+        /// <param name="complain">
+        /// Upon return, non-zero if failures should be reported via the complain
+        /// mechanism.
+        /// </param>
+        /// <param name="disposeThread">
+        /// Upon return, non-zero if thread-specific data should be disposed
+        /// after the callback completes.
+        /// </param>
+        /// <param name="throwOnError">
+        /// Upon return, non-zero if a script error should result in an exception
+        /// being thrown.
+        /// </param>
+        /// <param name="useParameterNames">
+        /// Upon return, non-zero if parameter names should be used when adding
+        /// arguments to the callback script.
+        /// </param>
         private static void ProcessCallbackFlags(
             CallbackFlags callbackFlags,
             out ObjectOptionType objectOptionType,
@@ -609,6 +1070,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the various delegate-creation boolean flags from
+        /// the specified marshal flags.
+        /// </summary>
+        /// <param name="marshalFlags">
+        /// The marshal flags to process.
+        /// </param>
+        /// <param name="throwOnBindFailure">
+        /// Upon return, non-zero if delegate binding failures should throw an
+        /// exception.
+        /// </param>
+        /// <param name="forceNewCallback">
+        /// Upon return, non-zero if a new delegate should always be created even
+        /// when a matching one already exists.
+        /// </param>
+        /// <param name="useDelegateCallback">
+        /// Upon return, non-zero if the base delegate type callback handling is
+        /// permitted.
+        /// </param>
+        /// <param name="useGenericCallback">
+        /// Upon return, non-zero if generic callback handling is permitted.
+        /// </param>
+        /// <param name="useDynamicCallback">
+        /// Upon return, non-zero if dynamic callback handling should be used.
+        /// </param>
+        /// <param name="useCallbackParameterNames">
+        /// Upon return, non-zero if the parameter names from the callback method
+        /// should be used.
+        /// </param>
         private static void ProcessMarshalFlags(
             MarshalFlags marshalFlags,
             out bool throwOnBindFailure,
@@ -640,6 +1130,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether thread interrupt and abort exceptions
+        /// should be caught based on the specified callback flags.
+        /// </summary>
+        /// <param name="callbackFlags">
+        /// The callback flags to check.
+        /// </param>
+        /// <returns>
+        /// True if thread interrupts should be caught; otherwise, false.
+        /// </returns>
         private static bool ShouldCatchInterrupt(
             CallbackFlags callbackFlags
             )
@@ -650,6 +1150,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends an argument (optionally preceded by its parameter
+        /// name) to the specified local argument list, creating the list if
+        /// necessary.
+        /// </summary>
+        /// <param name="name">
+        /// The parameter name to add before the value, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="value">
+        /// The argument value to add.
+        /// </param>
+        /// <param name="localArguments">
+        /// The local argument list to add to; if null, a new list is created and
+        /// returned via this parameter.
+        /// </param>
         private static void AddArgument(
             string name,                  /* in */
             string value,                 /* in */
@@ -667,6 +1183,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends all of the specified arguments to the specified
+        /// local argument list.
+        /// </summary>
+        /// <param name="localArguments">
+        /// The local argument list to add to.  If this parameter is null, this
+        /// method does nothing.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to add.  If this parameter is null, this method does
+        /// nothing.
+        /// </param>
         private static void AddArguments(
             StringList localArguments, /* in, out */
             StringList arguments       /* in */
@@ -681,6 +1209,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends all of the specified arguments to the specified
+        /// local argument list, creating the list if necessary.
+        /// </summary>
+        /// <param name="arguments">
+        /// The arguments to add.  If this parameter is null, this method does
+        /// nothing.
+        /// </param>
+        /// <param name="localArguments">
+        /// The local argument list to add to; if null, a new list is created and
+        /// returned via this parameter.
+        /// </param>
         private static void AddArguments(
             StringList arguments,         /* in */
             ref StringList localArguments /* in, out */
@@ -697,6 +1237,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the owner object associated with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose owner should be returned.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The owner of the interpreter, or null if there is none (or the
+        /// interpreter is null).
+        /// </returns>
         private static object GetOwner(
             Interpreter interpreter
             )
@@ -709,6 +1261,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the owner of the specified script
+        /// thread is currently busy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  This parameter may be null.
+        /// </param>
+        /// <param name="scriptThread">
+        /// The script thread whose owner busy state should be checked.
+        /// </param>
+        /// <returns>
+        /// True if the owner is busy; otherwise, false.
+        /// </returns>
         private static bool IsScriptThreadOwnerBusy(
             Interpreter interpreter,
             IScriptThread scriptThread
@@ -722,6 +1287,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter is currently
+        /// busy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter is busy; otherwise, false.
+        /// </returns>
         private static bool IsInterpreterBusy(
             Interpreter interpreter
             )
@@ -734,6 +1309,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the cancel flags used when resetting the script
+        /// cancellation state for a callback.
+        /// </summary>
+        /// <param name="mustResetCancel">
+        /// Non-zero if the script cancellation state must be completely and
+        /// globally reset.
+        /// </param>
+        /// <returns>
+        /// The cancel flags to use.
+        /// </returns>
         private static CancelFlags GetCancelFlags(
             bool mustResetCancel
             )
@@ -758,6 +1344,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the callback script by sending or queuing it to
+        /// the owner of the target interpreter, expressed as a script thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the callback.
+        /// </param>
+        /// <param name="scriptThread">
+        /// The script thread to which the callback script should be sent or
+        /// queued.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments forming the callback script.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Non-zero if the script cancellation state should be reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Non-zero if the script cancellation state must be fully reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero if the callback script should be queued asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Non-zero if the callback script should be queued asynchronously when
+        /// the owner is busy.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be modified to contain the line
+        /// number associated with any script error (always zero for this
+        /// method).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode InvokeUsingScriptThread(
             Interpreter interpreter,    /* in */
             IScriptThread scriptThread, /* in */
@@ -841,6 +1469,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the callback script directly using the
+        /// specified interpreter, either synchronously or asynchronously.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for evaluating the callback script.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments forming the callback script.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Non-zero if the script cancellation state should be reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Non-zero if the script cancellation state must be fully reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero if the callback script should be evaluated asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Non-zero if the callback script should be evaluated asynchronously
+        /// when the interpreter is busy.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be modified to contain the line
+        /// number associated with any script error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode InvokeUsingInterpreter(
             Interpreter interpreter, /* in */
             StringList arguments,    /* in */
@@ -916,6 +1581,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method returns the interpreter associated with this callback.
+        /// </summary>
+        /// <returns>
+        /// The interpreter associated with this callback, which may be null.
+        /// </returns>
         private Interpreter GetInterpreter()
         {
             return interpreter;
@@ -923,6 +1594,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends an argument (optionally preceded by the parameter
+        /// name at the specified index) to the specified local argument list.
+        /// </summary>
+        /// <param name="index">
+        /// The index of the parameter name to add before the value, if any; a
+        /// negative or out-of-range value suppresses the name.
+        /// </param>
+        /// <param name="value">
+        /// The argument value to add.
+        /// </param>
+        /// <param name="localArguments">
+        /// The local argument list to add to; if null, a new list is created and
+        /// returned via this parameter.
+        /// </param>
         private void AddArgument(
             int index,                    /* in */
             string value,                 /* in */
@@ -942,6 +1628,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the instance (original) arguments of this
+        /// callback to the specified local argument list.
+        /// </summary>
+        /// <param name="localArguments">
+        /// The local argument list to add to.
+        /// </param>
         private void AddArguments(
             StringList localArguments /* in */
             )
@@ -951,6 +1644,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a new delegate needs to be created
+        /// based on whether the currently cached delegate matches the specified
+        /// type information.
+        /// </summary>
+        /// <param name="newDelegateType">
+        /// The delegate type required.  This parameter may be null.
+        /// </param>
+        /// <param name="returnType">
+        /// The return type required.  This parameter may be null.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The parameter types required.  This parameter may be null.
+        /// </param>
+        /// <param name="useOriginalDelegateType">
+        /// Non-zero to compare against the original delegate type; zero to
+        /// compare against the modified delegate type.
+        /// </param>
+        /// <returns>
+        /// True if a new delegate must be created; otherwise, false.
+        /// </returns>
         private bool NeedToCreateDelegate(
             Type newDelegateType,        /* in: OPTIONAL */
             Type returnType,             /* in: OPTIONAL */
@@ -978,6 +1692,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines and returns the method information that
+        /// matches the signature required to service the specified delegate
+        /// type, lazily creating the appropriate per-instance delegate handler.
+        /// </summary>
+        /// <param name="delegateType">
+        /// The delegate type that needs to be serviced.
+        /// </param>
+        /// <param name="useDelegateCallback">
+        /// Non-zero if the base delegate type should be treated as a parameter-
+        /// less, return-less callback.
+        /// </param>
+        /// <param name="useGenericCallback">
+        /// Non-zero if generic callback handling is permitted.
+        /// </param>
+        /// <param name="useDynamicCallback">
+        /// Non-zero if dynamic callback handling should be used.
+        /// </param>
+        /// <param name="isDelegate">
+        /// Non-zero if the specified type is the base delegate type itself.
+        /// </param>
+        /// <returns>
+        /// The method information matching the required signature, or null if the
+        /// delegate type is not supported.
+        /// </returns>
         private MethodInfo GetMethodInfo(
             Type delegateType,        /* in */
             bool useDelegateCallback, /* in */
@@ -1076,6 +1815,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the method information for the dynamic invoke
+        /// "trampoline" method to use when emitting a delegate wrapper, choosing
+        /// between this class and the public callback wrapper class based on
+        /// whether a managed delegate type is supplied.
+        /// </summary>
+        /// <param name="delegateType">
+        /// The delegate type being wrapped; when null, the public callback
+        /// wrapper class trampoline is used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The trampoline method information, or null on failure.
+        /// </returns>
         private static MethodInfo GetMethodInfo(
             Type delegateType, /* in */
             ref Result error   /* out */
@@ -1130,6 +1886,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT
+        /// <summary>
+        /// This method creates an instance of the specified (generated) type,
+        /// optionally setting its "first argument" static field so the generated
+        /// trampoline can locate this callback when invoked directly.
+        /// </summary>
+        /// <param name="type">
+        /// The type to create an instance of.
+        /// </param>
+        /// <param name="useFieldInfo">
+        /// Non-zero if the "first argument" static field on the created instance
+        /// should be populated.
+        /// </param>
+        /// <returns>
+        /// The newly created instance.
+        /// </returns>
         private static object CreateInstance(
             Type type,        /* in */
             bool useFieldInfo /* in */
@@ -1170,6 +1941,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a dynamic delegate that wraps this callback,
+        /// either by emitting a dynamic method for a known delegate type or by
+        /// creating a managed delegate type and wrapper method on the fly.
+        /// </summary>
+        /// <param name="name">
+        /// The name to use for the dynamic method.  When null, a name is
+        /// generated.
+        /// </param>
+        /// <param name="returnType">
+        /// The return type of the delegate.  This parameter cannot be null.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The parameter types of the delegate.  This parameter cannot be null.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The per-parameter marshal flags, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="throwOnBindFailure">
+        /// Non-zero if delegate binding failures should throw an exception.
+        /// </param>
+        /// <param name="delegateType">
+        /// The delegate type to create; when null, a new managed delegate type
+        /// is created and returned via this parameter.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created delegate, or null on failure.
+        /// </returns>
         private Delegate GetDynamicDelegate(
             string name,                            /* in */
             Type returnType,                        /* in */
@@ -1300,6 +2103,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the original delegate type for this
+        /// callback is one of the thread-oriented delegate types (i.e. a thread
+        /// start, parameterized thread start, or wait callback).
+        /// </summary>
+        /// <returns>
+        /// True if the original delegate type is thread-oriented; otherwise,
+        /// false.
+        /// </returns>
         private bool IsOriginalDelegateForThread()
         {
             Type delegateType = this.originalDelegateType;
@@ -1319,6 +2131,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT
+        /// <summary>
+        /// This method stores the original and generated method information for
+        /// this callback.
+        /// </summary>
+        /// <param name="oldMethod">
+        /// The original method being wrapped.
+        /// </param>
+        /// <param name="newMethod">
+        /// The generated wrapper method.
+        /// </param>
         private void SetMethods(
             MethodBase oldMethod, /* in */
             MethodBase newMethod  /* in */
@@ -1331,6 +2153,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the delegate type, parameter, and return type
+        /// information associated with the most recently created delegate for
+        /// this callback.
+        /// </summary>
+        /// <param name="oldDelegateType">
+        /// The original (requested) delegate type.
+        /// </param>
+        /// <param name="newDelegateType">
+        /// The actual (modified) delegate type that was created.
+        /// </param>
+        /// <param name="newParameterNames">
+        /// The parameter names associated with the delegate.
+        /// </param>
+        /// <param name="newReturnType">
+        /// The return type of the delegate.
+        /// </param>
+        /// <param name="newParameterTypes">
+        /// The parameter types of the delegate.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The per-parameter marshal flags, if any.  This parameter may be null.
+        /// </param>
         private void SetDelegate(
             Type oldDelegateType,                  /* in */
             Type newDelegateType,                  /* in */
@@ -1350,6 +2195,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines which callback parameters are by-reference
+        /// (output) parameters, sets up their temporary variable names, and
+        /// builds the supporting collections used during argument fixup.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the temporary by-reference variable names
+        /// should be set up.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// Upon return, this parameter will be modified to contain the list of
+        /// by-reference argument information, or remain null if none are by-
+        /// reference.
+        /// </param>
+        /// <param name="argumentInfoDictionary">
+        /// Upon return, this parameter will be modified to contain a dictionary
+        /// mapping parameter index to its by-reference argument information.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrepareByRefArguments(
             Interpreter interpreter,                              /* in */
             ref ArgumentInfoList argumentInfoList,                /* in, out */
@@ -1389,6 +2260,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the callback script using the specified
+        /// interpreter, deriving the scheduling behavior from the configured
+        /// callback flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for evaluating the callback script.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to append to the callback script.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode Invoke(
             Interpreter interpreter,
             StringList arguments,
@@ -1416,6 +2306,27 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method invokes the callback, using the configured callback
+        /// flags to determine its invocation behavior.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when invoking the callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to pass to the callback.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result produced by the callback; upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, receives the line number where the error occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode Invoke(
             Interpreter interpreter,
             StringList arguments,
@@ -1444,6 +2355,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the callback script using the specified
+        /// interpreter and explicit scheduling behavior, discarding any error
+        /// line information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for evaluating the callback script.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to append to the callback script.
+        /// </param>
+        /// <param name="useOwner">
+        /// Non-zero if the owner of the target interpreter should handle the
+        /// callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Non-zero if the script cancellation state should be reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Non-zero if the script cancellation state must be fully reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero if the callback script should be evaluated asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Non-zero if the callback script should be evaluated asynchronously
+        /// when the target is busy.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode Invoke(
             Interpreter interpreter,
             StringList arguments,
@@ -1465,6 +2414,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the callback script using the specified
+        /// interpreter and explicit scheduling behavior, dispatching either to
+        /// the interpreter's owner (a script thread or another interpreter) or
+        /// to the interpreter directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for evaluating the callback script.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to append to the callback script.
+        /// </param>
+        /// <param name="useOwner">
+        /// Non-zero if the owner of the target interpreter should handle the
+        /// callback.
+        /// </param>
+        /// <param name="resetCancel">
+        /// Non-zero if the script cancellation state should be reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="mustResetCancel">
+        /// Non-zero if the script cancellation state must be fully reset prior to
+        /// evaluation.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero if the callback script should be evaluated asynchronously.
+        /// </param>
+        /// <param name="asynchronousIfBusy">
+        /// Non-zero if the callback script should be evaluated asynchronously
+        /// when the target is busy.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be modified to contain the line
+        /// number associated with any script error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode Invoke(
             Interpreter interpreter,
             StringList arguments,
@@ -1547,6 +2539,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the type of a by-reference (output)
+        /// argument value matches the corresponding parameter type, when strict
+        /// checking is in effect.
+        /// </summary>
+        /// <param name="parameterIndex">
+        /// The index of the parameter being checked.
+        /// </param>
+        /// <param name="parameterName">
+        /// The name of the parameter being checked.
+        /// </param>
+        /// <param name="parameterType">
+        /// The declared type of the parameter.
+        /// </param>
+        /// <param name="argType">
+        /// The actual type of the argument value.
+        /// </param>
+        /// <param name="byRefStrict">
+        /// Non-zero if strict by-reference type checking should be applied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the types are compatible (or strict
+        /// checking is not in effect); otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode CheckByRefArgumentType(
             int parameterIndex,
             string parameterName,
@@ -1581,6 +2602,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the final values of any by-reference (output)
+        /// arguments from their temporary interpreter variables back into the
+        /// supplied argument array, then unsets those temporary variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter holding the temporary by-reference variables.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// The list of by-reference argument information to process.
+        /// </param>
+        /// <param name="args">
+        /// The argument array whose by-reference elements should be updated.
+        /// </param>
+        /// <param name="byRefStrict">
+        /// Non-zero if strict by-reference type checking should be applied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode FixupByRefArguments(
             Interpreter interpreter,
             ArgumentInfoList argumentInfoList,
@@ -1691,6 +2737,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the thread-specific data for the specified
+        /// interpreter (for the current thread) when requested, or when the
+        /// original delegate is one of the thread-oriented delegate types.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread-specific data may be disposed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="disposeThread">
+        /// Non-zero if the thread-specific data should be disposed regardless of
+        /// the original delegate type.
+        /// </param>
         private void MaybeDisposeThread(
             Interpreter interpreter, /* in */
             bool disposeThread       /* in */
@@ -1718,7 +2777,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// Stores the interpreter associated with this callback.  This object is
+        /// not owned by this callback.
+        /// </summary>
         private Interpreter interpreter; /* NOT OWNED */
+        /// <summary>
+        /// Gets the interpreter associated with this callback.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); return GetInterpreter(); }
@@ -1728,7 +2794,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of this callback.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of this callback.
+        /// </summary>
         public string Name
         {
             get { CheckDisposed(); return name; }
@@ -1739,7 +2811,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// Stores the identifier kind of this callback.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the identifier kind of this callback.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { CheckDisposed(); return kind; }
@@ -1748,7 +2826,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the globally unique identifier of this callback.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the globally unique identifier of this callback.
+        /// </summary>
         public Guid Id
         {
             get { CheckDisposed(); return id; }
@@ -1759,7 +2843,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the client data associated with this callback.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with this callback.
+        /// </summary>
         public IClientData ClientData
         {
             get { CheckDisposed(); return clientData; }
@@ -1770,7 +2860,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// Stores the group of this callback.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group of this callback.
+        /// </summary>
         public string Group
         {
             get { CheckDisposed(); return group; }
@@ -1779,7 +2875,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the description of this callback.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the description of this callback.
+        /// </summary>
         public string Description
         {
             get { CheckDisposed(); return description; }
@@ -1790,7 +2892,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveObjectFlags Members
+        /// <summary>
+        /// Stores the object flags used when creating opaque object handles for
+        /// the callback arguments.
+        /// </summary>
         private ObjectFlags objectFlags;
+        /// <summary>
+        /// Gets or sets the object flags used when creating opaque object handles
+        /// for the callback arguments.
+        /// </summary>
         public ObjectFlags ObjectFlags
         {
             get { CheckDisposed(); return objectFlags; }
@@ -1801,7 +2911,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ICallbackData Members
+        /// <summary>
+        /// Stores the flags used to control how arguments and return values are
+        /// marshaled for this callback.
+        /// </summary>
         private MarshalFlags marshalFlags;
+        /// <summary>
+        /// Gets the flags used to control how arguments and return values are
+        /// marshaled for this callback.
+        /// </summary>
         public MarshalFlags MarshalFlags
         {
             get { CheckDisposed(); return marshalFlags; }
@@ -1809,7 +2927,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags used to control the behavior of this callback.
+        /// </summary>
         private CallbackFlags callbackFlags;
+        /// <summary>
+        /// Gets or sets the flags used to control the behavior of this callback.
+        /// </summary>
         public CallbackFlags CallbackFlags
         {
             get { CheckDisposed(); return callbackFlags; }
@@ -1818,7 +2942,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags used to control the handling of by-reference
+        /// (output) arguments.
+        /// </summary>
         private ByRefArgumentFlags byRefArgumentFlags;
+        /// <summary>
+        /// Gets or sets the flags used to control the handling of by-reference
+        /// (output) arguments.
+        /// </summary>
         public ByRefArgumentFlags ByRefArgumentFlags
         {
             get { CheckDisposed(); return byRefArgumentFlags; }
@@ -1827,7 +2959,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the list of arguments forming the callback script.
+        /// </summary>
         private StringList arguments;
+        /// <summary>
+        /// Gets the list of arguments forming the callback script.
+        /// </summary>
         public StringList Arguments
         {
             get { CheckDisposed(); return arguments; }
@@ -1836,7 +2974,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT
+        /// <summary>
+        /// Stores the original method that is being wrapped by this callback.
+        /// </summary>
         private MethodBase oldMethod;
+        /// <summary>
+        /// Gets the original method that is being wrapped by this callback.
+        /// </summary>
         public MethodBase OldMethod
         {
             get { CheckDisposed(); return oldMethod; }
@@ -1844,7 +2988,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the generated wrapper method for this callback.
+        /// </summary>
         private MethodBase newMethod;
+        /// <summary>
+        /// Gets the generated wrapper method for this callback.
+        /// </summary>
         public MethodBase NewMethod
         {
             get { CheckDisposed(); return newMethod; }
@@ -1853,7 +3003,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the most recently created delegate that wraps this callback.
+        /// </summary>
         private Delegate @delegate;
+        /// <summary>
+        /// Gets the most recently created delegate that wraps this callback.
+        /// </summary>
         public Delegate Delegate
         {
             get { CheckDisposed(); return @delegate; }
@@ -1861,7 +3017,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the original (requested) delegate type for this callback.
+        /// </summary>
         private Type originalDelegateType;
+        /// <summary>
+        /// Gets the original (requested) delegate type for this callback.
+        /// </summary>
         public Type OriginalDelegateType
         {
             get { CheckDisposed(); return originalDelegateType; }
@@ -1869,7 +3031,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the actual (modified) delegate type for this callback.
+        /// </summary>
         private Type modifiedDelegateType;
+        /// <summary>
+        /// Gets the actual (modified) delegate type for this callback.
+        /// </summary>
         public Type ModifiedDelegateType
         {
             get { CheckDisposed(); return modifiedDelegateType; }
@@ -1877,7 +3045,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the parameter names associated with the delegate for this
+        /// callback.
+        /// </summary>
         private StringList parameterNames;
+        /// <summary>
+        /// Gets the parameter names associated with the delegate for this
+        /// callback.
+        /// </summary>
         public StringList ParameterNames
         {
             get { CheckDisposed(); return parameterNames; }
@@ -1885,7 +3061,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the return type of the delegate for this callback.
+        /// </summary>
         private Type returnType;
+        /// <summary>
+        /// Gets the return type of the delegate for this callback.
+        /// </summary>
         public Type ReturnType
         {
             get { CheckDisposed(); return returnType; }
@@ -1893,7 +3075,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the parameter types of the delegate for this callback.
+        /// </summary>
         private TypeList parameterTypes;
+        /// <summary>
+        /// Gets the parameter types of the delegate for this callback.
+        /// </summary>
         public TypeList ParameterTypes
         {
             get { CheckDisposed(); return parameterTypes; }
@@ -1901,7 +3089,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the per-parameter marshal flags for the delegate of this
+        /// callback.
+        /// </summary>
         private MarshalFlagsList parameterMarshalFlags;
+        /// <summary>
+        /// Gets the per-parameter marshal flags for the delegate of this
+        /// callback.
+        /// </summary>
         public MarshalFlagsList ParameterMarshalFlags
         {
             get { CheckDisposed(); return parameterMarshalFlags; }
@@ -1909,7 +3105,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached async callback delegate for this callback.
+        /// </summary>
         private AsyncCallback asyncCallback;
+        /// <summary>
+        /// Gets the cached async callback delegate for this callback.
+        /// </summary>
         public AsyncCallback AsyncCallback
         {
             get { CheckDisposed(); return asyncCallback; }
@@ -1917,7 +3119,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached event handler delegate for this callback.
+        /// </summary>
         private EventHandler eventHandler;
+        /// <summary>
+        /// Gets the cached event handler delegate for this callback.
+        /// </summary>
         public EventHandler EventHandler
         {
             get { CheckDisposed(); return eventHandler; }
@@ -1925,7 +3133,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached thread start delegate for this callback.
+        /// </summary>
         private ThreadStart threadStart;
+        /// <summary>
+        /// Gets the cached thread start delegate for this callback.
+        /// </summary>
         public ThreadStart ThreadStart
         {
             get { CheckDisposed(); return threadStart; }
@@ -1933,7 +3147,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached parameterized thread start delegate for this
+        /// callback.
+        /// </summary>
         private ParameterizedThreadStart parameterizedThreadStart;
+        /// <summary>
+        /// Gets the cached parameterized thread start delegate for this
+        /// callback.
+        /// </summary>
         public ParameterizedThreadStart ParameterizedThreadStart
         {
             get { CheckDisposed(); return parameterizedThreadStart; }
@@ -1941,7 +3163,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached wait callback delegate for this callback.
+        /// </summary>
         private WaitCallback waitCallback;
+        /// <summary>
+        /// Gets the cached wait callback delegate for this callback.
+        /// </summary>
         public WaitCallback WaitCallback
         {
             get { CheckDisposed(); return waitCallback; }
@@ -1949,7 +3177,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached generic callback delegate for this callback.
+        /// </summary>
         private GenericCallback genericCallback;
+        /// <summary>
+        /// Gets the cached generic callback delegate for this callback.
+        /// </summary>
         public GenericCallback GenericCallback
         {
             get { CheckDisposed(); return genericCallback; }
@@ -1957,7 +3191,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached dynamic invoke callback delegate for this callback.
+        /// </summary>
         private DynamicInvokeCallback dynamicInvokeCallback;
+        /// <summary>
+        /// Gets the cached dynamic invoke callback delegate for this callback.
+        /// </summary>
         public DynamicInvokeCallback DynamicInvokeCallback
         {
             get { CheckDisposed(); return dynamicInvokeCallback; }
@@ -1967,6 +3207,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ICallback Members
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the async callback
+        /// delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The async callback delegate for this callback.
+        /// </returns>
         public AsyncCallback GetAsyncCallback()
         {
             CheckDisposed();
@@ -1979,6 +3226,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the event handler
+        /// delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The event handler delegate for this callback.
+        /// </returns>
         public EventHandler GetEventHandler()
         {
             CheckDisposed();
@@ -1991,6 +3245,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the thread start
+        /// delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The thread start delegate for this callback.
+        /// </returns>
         public ThreadStart GetThreadStart()
         {
             CheckDisposed();
@@ -2003,6 +3264,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the parameterized
+        /// thread start delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The parameterized thread start delegate for this callback.
+        /// </returns>
         public ParameterizedThreadStart GetParameterizedThreadStart()
         {
             CheckDisposed();
@@ -2018,6 +3286,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the wait callback
+        /// delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The wait callback delegate for this callback.
+        /// </returns>
         public WaitCallback GetWaitCallback()
         {
             CheckDisposed();
@@ -2030,6 +3305,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the generic
+        /// callback delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The generic callback delegate for this callback.
+        /// </returns>
         public GenericCallback GetGenericCallback()
         {
             CheckDisposed();
@@ -2042,6 +3324,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns (lazily creating if necessary) the dynamic invoke
+        /// callback delegate that fires this callback.
+        /// </summary>
+        /// <returns>
+        /// The dynamic invoke callback delegate for this callback.
+        /// </returns>
         public DynamicInvokeCallback GetDynamicInvokeCallback()
         {
             CheckDisposed();
@@ -2058,6 +3347,39 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT
+        /// <summary>
+        /// This method generates a wrapper method that forwards calls of the
+        /// specified original method signature to this callback, and records the
+        /// original and generated methods.
+        /// </summary>
+        /// <param name="oldMethod">
+        /// The original method whose signature should be wrapped.  This
+        /// parameter cannot be null.
+        /// </param>
+        /// <param name="returnType">
+        /// The return type of the method.  This parameter cannot be null.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The parameter types of the method.  This parameter cannot be null.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The per-parameter marshal flags, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="firstArgument">
+        /// The object to use as the first (implicit) argument; when null, the
+        /// declaring type of <paramref name="oldMethod" /> is used.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how arguments and return values are
+        /// marshaled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The generated wrapper method, or null on failure.
+        /// </returns>
         public MethodBase GetMethod(
             MethodBase oldMethod,                   /* in */
             Type returnType,                        /* in */
@@ -2142,6 +3464,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a delegate of the specified type that fires this
+        /// callback, reusing a previously created delegate when the type
+        /// information matches and creating a new one otherwise.
+        /// </summary>
+        /// <param name="delegateType">
+        /// The delegate type required.
+        /// </param>
+        /// <param name="returnType">
+        /// The desired return type, which may override the inferred return type.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The desired parameter types, which may override the inferred parameter
+        /// types.  This parameter may be null.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The per-parameter marshal flags, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how the delegate is created and how
+        /// arguments and return values are marshaled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created or reused delegate, or null on failure.
+        /// </returns>
         public Delegate GetDelegate(
             Type delegateType,                      /* in */
             Type returnType,                        /* in */
@@ -2309,6 +3661,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to an async callback,
+        /// without supplying any extra arguments.
+        /// </summary>
+        /// <param name="ar">
+        /// The asynchronous result associated with the operation.
+        /// </param>
         public void FireAsyncCallback(
             IAsyncResult ar
             ) /* System.AsyncCallback */
@@ -2321,6 +3680,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to an async callback,
+        /// optionally creating an opaque object handle for the asynchronous
+        /// result and appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="ar">
+        /// The asynchronous result associated with the operation.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireAsyncCallback(
             IAsyncResult ar,
             StringList arguments
@@ -2462,6 +3833,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to an event, without
+        /// supplying any extra arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event data associated with the event.
+        /// </param>
         public void FireEventHandler(
             object sender,
             EventArgs e
@@ -2475,6 +3856,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to an event, optionally
+        /// creating opaque object handles for the sender and event data and
+        /// appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event data associated with the event.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireEventHandler(
             object sender,
             EventArgs e,
@@ -2639,6 +4035,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a thread start,
+        /// without supplying any extra arguments, catching thread interrupt and
+        /// abort exceptions as configured.
+        /// </summary>
         public void FireThreadStart() /* System.Threading.ThreadStart */
         {
             CheckDisposed();
@@ -2672,6 +4073,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a thread start,
+        /// appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireThreadStart(
             StringList arguments
             )
@@ -2684,6 +4093,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a parameterized thread
+        /// start, without supplying any extra arguments, catching thread
+        /// interrupt and abort exceptions as configured.
+        /// </summary>
+        /// <param name="obj">
+        /// The object passed to the parameterized thread start.
+        /// </param>
         public void FireParameterizedThreadStart(
             object obj
             ) /* System.Threading.ParameterizedThreadStart */
@@ -2719,6 +4136,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a parameterized thread
+        /// start, optionally creating an opaque object handle for the supplied
+        /// object and appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="obj">
+        /// The object passed to the parameterized thread start.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireParameterizedThreadStart(
             object obj,
             StringList arguments
@@ -2732,6 +4161,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a wait callback,
+        /// without supplying any extra arguments, catching thread interrupt and
+        /// abort exceptions as configured.
+        /// </summary>
+        /// <param name="state">
+        /// The state object passed to the wait callback.
+        /// </param>
         public void FireWaitCallback(
             object state
             ) /* System.Threading.WaitCallback */
@@ -2767,6 +4204,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a wait callback,
+        /// optionally creating an opaque object handle for the supplied state
+        /// object and appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="state">
+        /// The state object passed to the wait callback.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireWaitCallback(
             object state,
             StringList arguments
@@ -2781,6 +4230,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* Eagle._Components.Public.Delegates.GenericCallback */
+        /// <summary>
+        /// This method fires this callback in response to a generic callback,
+        /// without supplying any extra arguments, catching thread interrupt and
+        /// abort exceptions as configured.
+        /// </summary>
         public void FireGenericCallback()
         {
             CheckDisposed();
@@ -2814,6 +4268,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a generic callback,
+        /// appending the supplied extra arguments.
+        /// </summary>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         public void FireGenericCallback(
             StringList arguments
             )
@@ -2827,6 +4289,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* System.Delegate.DynamicInvoke */
+        /// <summary>
+        /// This method fires this callback in response to a dynamic invoke,
+        /// without supplying any extra arguments.
+        /// </summary>
+        /// <param name="args">
+        /// The arguments passed to the dynamic invoke.
+        /// </param>
+        /// <returns>
+        /// The return value produced by the callback.
+        /// </returns>
         public object FireDynamicInvokeCallback(
             params object[] args
             )
@@ -2838,6 +4310,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback in response to a dynamic invoke,
+        /// optionally creating opaque object handles for the arguments, handling
+        /// by-reference (output) parameters, and appending the supplied extra
+        /// arguments.
+        /// </summary>
+        /// <param name="args">
+        /// The arguments passed to the dynamic invoke; by-reference elements may
+        /// be updated upon return.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The return value produced by the callback.
+        /// </returns>
         public object FireDynamicInvokeCallback(
             object[] args,
             StringList arguments
@@ -2850,6 +4339,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes this callback (i.e. evaluates the callback
+        /// script) with the specified extra arguments, discarding any error line
+        /// information.
+        /// </summary>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Invoke(
             StringList arguments,
             ref Result result
@@ -2864,6 +4370,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes this callback (i.e. evaluates the callback
+        /// script) with the specified extra arguments, deriving the scheduling
+        /// behavior from the configured callback flags.
+        /// </summary>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon return, this parameter will be modified to contain the line
+        /// number associated with any script error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Invoke(
             StringList arguments,
             ref Result result,
@@ -2892,6 +4419,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes this callback as an executable entity, invoking
+        /// the callback script with the specified arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for evaluating the callback script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data supplied by the caller.  This parameter is not used.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to append to the callback script.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be modified to contain the script
+        /// result; upon failure, it will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData, /* NOT USED */
@@ -2909,6 +4458,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method fires this callback without marshaling any incoming
+        /// parameters, appending only the supplied extra arguments, then handles
+        /// post-evaluation behavior such as complaining and fire-and-forget
+        /// removal.
+        /// </summary>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         private void FireWithoutParameters(
             StringList arguments
             )
@@ -3008,6 +4567,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback with a single incoming parameter,
+        /// optionally creating an opaque object handle for it and appending the
+        /// supplied extra arguments, then handles post-evaluation behavior such
+        /// as complaining and fire-and-forget removal.
+        /// </summary>
+        /// <param name="obj">
+        /// The single incoming parameter value.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
         private void FireWithOneParameter(
             object obj,
             StringList arguments
@@ -3147,6 +4719,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fires this callback with an array of incoming parameters,
+        /// optionally creating opaque object handles for them, handling by-
+        /// reference (output) parameters, appending the supplied extra
+        /// arguments, and converting the script result into a return value, then
+        /// handles post-evaluation behavior such as complaining and fire-and-
+        /// forget removal.
+        /// </summary>
+        /// <param name="args">
+        /// The array of incoming parameter values; by-reference elements may be
+        /// updated upon return.
+        /// </param>
+        /// <param name="arguments">
+        /// The extra arguments to append to the callback script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The return value produced by the callback, which is either an object
+        /// extracted from the script result or the formatted script result.
+        /// </returns>
         private object FireWithParameters(
             object[] args,
             StringList arguments
@@ -3381,6 +4973,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns the string representation of this callback, which
+        /// is the string form of its argument list.
+        /// </summary>
+        /// <returns>
+        /// The string form of the callback argument list, or an empty string if
+        /// there are no arguments.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -3397,6 +4997,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this callback and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -3407,7 +5011,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this callback has been disposed and is no longer usable.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this callback has been disposed
+        /// and the interpreter is configured to throw on disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -3421,6 +5032,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this callback.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method (i.e. managed resources should be
+        /// released); zero if it is being called from the finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -3460,6 +5079,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this callback, releasing any unmanaged resources.
+        /// </summary>
         ~CommandCallback()
         {
             Dispose(false);

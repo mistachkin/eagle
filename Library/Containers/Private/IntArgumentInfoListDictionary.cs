@@ -23,9 +23,18 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps integer keys to lists of
+    /// argument information values.  It extends the underlying generic
+    /// dictionary of <see cref="ArgumentInfoList" /> objects so that it may be
+    /// referred to by a simple name throughout the library.
+    /// </summary>
     [ObjectId("996a0f63-6389-48d8-840a-3be0de5d3857")]
     internal sealed class IntArgumentInfoListDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty integer-to-argument-information-list dictionary.
+        /// </summary>
         public IntArgumentInfoListDictionary()
             : base()
         {

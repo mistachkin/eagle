@@ -19,6 +19,16 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>:=</c> (variable assignment)
+    /// expression operator, which evaluates its right-hand operand and stores
+    /// the resulting value into the variable named by its left-hand operand,
+    /// yielding the assigned value.  This is a non-standard, assignment operator
+    /// that derives from the <see cref="Core" /> base class and supplies its own
+    /// evaluation logic, selected by the <see cref="Lexeme.VariableAssignment" />
+    /// lexeme.  See <c>core_language.md</c> for expression and operator
+    /// semantics.
+    /// </summary>
     [ObjectId("e46b3b67-cae1-4142-8c4f-af6cd776ced6")]
     [OperatorFlags(
         OperatorFlags.NonStandard | OperatorFlags.Assignment)]
@@ -30,6 +40,11 @@ namespace Eagle._Operators
     internal sealed class VariableAssignment : Core
     {
         #region Private Constants
+        /// <summary>
+        /// The error message format used when a "safe" interpreter attempts to
+        /// use this operator.  The single format placeholder is replaced with
+        /// the name of the operator.
+        /// </summary>
         private const string SafeError =
             "permission denied: safe interpreter cannot use operator {0}";
         #endregion
@@ -37,6 +52,13 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>:=</c> variable assignment operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public VariableAssignment(
             IOperatorData operatorData /* in */
             )
@@ -49,6 +71,42 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>:=</c> variable assignment operator.  It
+        /// extracts its two operands from the argument list, treats the first
+        /// operand as a variable name and the second operand as the value to
+        /// assign, stores that value into the named variable, and returns the
+        /// assigned value.  Use of this operator is denied in a "safe"
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this operator is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, operator-specific data supplied when this operator was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation, containing the operator
+        /// name and its two operands: the target variable name and the value to
+        /// assign.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the value that was assigned to the
+        /// variable.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the assigned value
+        /// placed in <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the interpreter or argument list
+        /// is invalid, the interpreter is "safe", the operands cannot be
+        /// obtained, the variable cannot be set, or an exception occurs, with
+        /// details placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

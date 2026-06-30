@@ -16,6 +16,13 @@ using Eagle._Components.Private;
 
 namespace Eagle._Encodings
 {
+    /// <summary>
+    /// This class implements a simple, lossless text encoding that maps each
+    /// character to exactly two bytes (and vice versa) using little-endian
+    /// byte order.  It is primarily intended for use within the Eagle core
+    /// library where a fixed, deterministic two-byte representation of
+    /// character data is required.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -23,18 +30,27 @@ namespace Eagle._Encodings
     public class TwoByteEncoding : CoreEncoding
     {
         #region Public Constants
+        /// <summary>
+        /// A shared, pre-built instance of this encoding for general use.
+        /// </summary>
         public static readonly Encoding TwoByte = new TwoByteEncoding();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The registered, human-readable name of this encoding.
+        /// </summary>
         internal static readonly string webName = "TwoByte";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Text.Encoding Overrides
+        /// <summary>
+        /// Gets the registered, human-readable name of this encoding.
+        /// </summary>
         public override string WebName
         {
             get { return webName; }
@@ -42,6 +58,23 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of bytes that would be produced
+        /// by encoding the specified range of characters.
+        /// </summary>
+        /// <param name="chars">
+        /// The array of characters to encode.
+        /// </param>
+        /// <param name="index">
+        /// The index of the first character to encode.
+        /// </param>
+        /// <param name="count">
+        /// The number of characters to encode.
+        /// </param>
+        /// <returns>
+        /// The number of bytes that would be produced; this is always twice
+        /// the value of <paramref name="count" />.
+        /// </returns>
         public override int GetByteCount(
             char[] chars,
             int index,
@@ -56,6 +89,29 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method encodes a range of characters into bytes, writing each
+        /// character as two bytes in little-endian order into the destination
+        /// array.
+        /// </summary>
+        /// <param name="chars">
+        /// The array of characters to encode.
+        /// </param>
+        /// <param name="charIndex">
+        /// The index of the first character to encode.
+        /// </param>
+        /// <param name="charCount">
+        /// The number of characters to encode.
+        /// </param>
+        /// <param name="bytes">
+        /// The destination array that receives the encoded bytes.
+        /// </param>
+        /// <param name="byteIndex">
+        /// The index in the destination array at which to begin writing bytes.
+        /// </param>
+        /// <returns>
+        /// The number of bytes actually written to the destination array.
+        /// </returns>
         public override int GetBytes(
             char[] chars,
             int charIndex,
@@ -88,6 +144,24 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the number of characters that would be
+        /// produced by decoding the specified range of bytes.  An extra
+        /// character is included when an odd number of bytes is specified; the
+        /// final character is padded with a null byte in that case.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes to decode.
+        /// </param>
+        /// <param name="index">
+        /// The index of the first byte to decode.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to decode.
+        /// </param>
+        /// <returns>
+        /// The number of characters that would be produced.
+        /// </returns>
         public override int GetCharCount(
             byte[] bytes,
             int index,
@@ -104,6 +178,30 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes a range of bytes into characters, combining
+        /// each pair of bytes (in little-endian order) into a single character
+        /// in the destination array.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes to decode.
+        /// </param>
+        /// <param name="byteIndex">
+        /// The index of the first byte to decode.
+        /// </param>
+        /// <param name="byteCount">
+        /// The number of bytes to decode.
+        /// </param>
+        /// <param name="chars">
+        /// The destination array that receives the decoded characters.
+        /// </param>
+        /// <param name="charIndex">
+        /// The index in the destination array at which to begin writing
+        /// characters.
+        /// </param>
+        /// <returns>
+        /// The number of characters actually written to the destination array.
+        /// </returns>
         public override int GetChars(
             byte[] bytes,
             int byteIndex,
@@ -133,6 +231,17 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the maximum number of bytes that could be
+        /// produced by encoding the specified number of characters.
+        /// </summary>
+        /// <param name="charCount">
+        /// The number of characters to encode.
+        /// </param>
+        /// <returns>
+        /// The maximum number of bytes that could be produced; this is always
+        /// twice the value of <paramref name="charCount" />.
+        /// </returns>
         public override int GetMaxByteCount(
             int charCount
             )
@@ -145,6 +254,17 @@ namespace Eagle._Encodings
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the maximum number of characters that could
+        /// be produced by decoding the specified number of bytes.  An extra
+        /// character is included when an odd number of bytes is specified.
+        /// </summary>
+        /// <param name="byteCount">
+        /// The number of bytes to decode.
+        /// </param>
+        /// <returns>
+        /// The maximum number of characters that could be produced.
+        /// </returns>
         public override int GetMaxCharCount(
             int byteCount
             )

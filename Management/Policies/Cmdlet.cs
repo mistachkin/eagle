@@ -19,17 +19,37 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Policies
 {
+    /// <summary>
+    /// This class implements the command policy used by the Eagle PowerShell
+    /// cmdlets, allowing command execution to be confirmed (or denied) via the
+    /// standard PowerShell "ShouldProcess" and "ShouldContinue" confirmation
+    /// mechanisms.
+    /// </summary>
     [ObjectId("adbeaf2d-744d-479f-8e80-eb53b06b5457")]
     internal static class _Cmdlet
     {
         #region Private Data
+        /// <summary>
+        /// When non-zero, the user has chosen to confirm all subsequent
+        /// commands without further prompting.
+        /// </summary>
         private static bool yesToAll = false;
+
+        /// <summary>
+        /// When non-zero, the user has chosen to deny all subsequent commands
+        /// without further prompting.
+        /// </summary>
         private static bool noToAll = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method resets the cached "yes to all" and "no to all"
+        /// confirmation choices so that they do not persist between
+        /// interpreters.
+        /// </summary>
         public static void Reset()
         {
             //
@@ -44,6 +64,25 @@ namespace Eagle._Policies
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method retrieves the cmdlet script object associated with the
+        /// specified interpreter, either via the prearranged opaque object
+        /// handle or via the interpreter policy object.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to retrieve the cmdlet script object from.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="script">
+        /// Upon success, this contains the cmdlet script object.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCmdlet(
             Interpreter interpreter,
             ref _Cmdlets.Script script,
@@ -92,6 +131,29 @@ namespace Eagle._Policies
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method confirms, via the specified cmdlet, whether the
+        /// operation it describes should be performed, catching and suppressing
+        /// any exceptions.
+        /// </summary>
+        /// <param name="cmdlet">
+        /// The cmdlet used to prompt for confirmation.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="verboseDescription">
+        /// The textual description of the operation, used in "What-If" and
+        /// "Verbose" modes.
+        /// </param>
+        /// <param name="verboseWarning">
+        /// The warning message presented to the user as part of the
+        /// confirmation prompt.
+        /// </param>
+        /// <param name="caption">
+        /// The caption displayed with the confirmation prompt.
+        /// </param>
+        /// <returns>
+        /// True if the operation should be performed; otherwise, false.
+        /// </returns>
         private static bool ShouldProcess(
             Cmdlet cmdlet,
             string verboseDescription,
@@ -121,6 +183,32 @@ namespace Eagle._Policies
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method asks the user, via the specified cmdlet, whether the
+        /// operation should continue, defaulting to allowing the operation when
+        /// the host is not interactive and catching and suppressing any other
+        /// exceptions.
+        /// </summary>
+        /// <param name="cmdlet">
+        /// The cmdlet used to prompt the user.  This parameter may be null.
+        /// </param>
+        /// <param name="query">
+        /// The query presented to the user.
+        /// </param>
+        /// <param name="caption">
+        /// The caption displayed with the query.
+        /// </param>
+        /// <param name="yesToAll">
+        /// On input and output, whether the user has chosen to confirm all
+        /// subsequent operations without further prompting.
+        /// </param>
+        /// <param name="noToAll">
+        /// On input and output, whether the user has chosen to deny all
+        /// subsequent operations without further prompting.
+        /// </param>
+        /// <returns>
+        /// True if the operation should continue; otherwise, false.
+        /// </returns>
         private static bool ShouldContinue(
             Cmdlet cmdlet,
             string query,
@@ -161,6 +249,30 @@ namespace Eagle._Policies
         ///////////////////////////////////////////////////////////////////////
 
         #region Policy
+        /// <summary>
+        /// This method implements the command policy callback used by the
+        /// cmdlets.  It confirms command execution with the user (via the
+        /// "ShouldProcess" and "ShouldContinue" mechanisms) and approves or
+        /// denies the command accordingly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this policy is executing in.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, policy-specific data supplied to this callback, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for the command being checked; element zero is
+        /// the command name.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the policy was checked successfully
+        /// (which does not necessarily mean the command is allowed to execute);
+        /// otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         [MethodFlags(MethodFlags.CommandPolicy)]
         public static ReturnCode PolicyCallback( /* POLICY */
             Interpreter interpreter,

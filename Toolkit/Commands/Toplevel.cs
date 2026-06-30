@@ -27,6 +27,11 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>toplevel</c> command, which creates a new
+    /// top-level window on its own thread.  It is a proof-of-concept only and
+    /// is not production ready.
+    /// </summary>
     [ObjectId("c7aff90a-1599-4694-9034-667717b1bdcf")]
     [CommandFlags(CommandFlags.Unsafe)]
     [ObjectGroup("managedEnvironment")]
@@ -36,6 +41,13 @@ namespace Eagle._Commands
     internal sealed class _Toplevel : Default
 #endif
     {
+        /// <summary>
+        /// Constructs a new instance of this class.
+        /// </summary>
+        /// <param name="commandData">
+        /// An object instance containing the data necessary to create this
+        /// command.
+        /// </param>
         public _Toplevel(
             ICommandData commandData
             )
@@ -47,6 +59,27 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the command, creating a new top-level window on
+        /// its own thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for the command execution.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with this command, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments supplied to the command.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the name of the newly created top-level
+        /// window; upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

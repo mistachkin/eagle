@@ -25,6 +25,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>interp</c> command, which creates,
+    /// configures, and manipulates Eagle interpreters and their child
+    /// interpreters, dispatching to a large ensemble of sub-commands that
+    /// query and modify interpreter state.  See <c>core_language.md</c> for
+    /// the command syntax and semantics.
+    /// </summary>
     [ObjectId("f83b2063-cf1f-428f-9cb9-7a1862a69960")]
     //
     // TODO: Make this command "safe".  The main thing that needs to be done is
@@ -37,6 +44,13 @@ namespace Eagle._Commands
     [ObjectGroup("scriptEnvironment")]
     internal sealed class Interp : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>interp</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Interp(
             ICommandData commandData
             )
@@ -48,6 +62,10 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-command names supported by the <c>interp</c> command
+        /// ensemble.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "addcommands",
             "alias", "aliases", "bgerror", "callbacklimit", "cancel", "childlimit", "children",
@@ -64,6 +82,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the dictionary of sub-command names supported by the
+        /// <c>interp</c> command ensemble.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -73,11 +95,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedInterpSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -87,6 +118,37 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>interp</c> command.  It dispatches to
+        /// one of the ensemble sub-commands (for example <c>create</c>,
+        /// <c>delete</c>, <c>eval</c>, <c>alias</c>, <c>children</c>,
+        /// <c>exists</c>, or <c>cancel</c>) that query or modify the state of
+        /// the current interpreter or one of its child interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the arguments for the selected sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

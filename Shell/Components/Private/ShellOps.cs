@@ -33,6 +33,11 @@ using Eagle._Constants;
 
 namespace Eagle._Shell
 {
+    /// <summary>
+    /// This class provides static helper methods used by the Eagle shell,
+    /// including debugger-attach support during startup and, when built
+    /// dynamically, retrieval of the executing assembly public key token.
+    /// </summary>
 #if STATIC
     [ObjectId("34dddef4-def9-483c-a299-6ee2bd92a739")]
 #else
@@ -41,6 +46,10 @@ namespace Eagle._Shell
     internal static class ShellOps
     {
         #region Private Constants
+        /// <summary>
+        /// The name of the environment variable that, when present, causes the
+        /// shell to pause for a debugger to be attached during startup.
+        /// </summary>
         private static readonly string breakVariable =
 #if STATIC
             //
@@ -59,6 +68,11 @@ namespace Eagle._Shell
         ///////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+        /// <summary>
+        /// The prompt format string displayed, when console support is
+        /// available, instructing the user to attach a debugger to the
+        /// current process and press a key to continue.
+        /// </summary>
         private static readonly string debuggerPrompt =
 #if STATIC
             //
@@ -79,6 +93,13 @@ namespace Eagle._Shell
         ///////////////////////////////////////////////////////////////////////
 
         #region Debugging Support Methods
+        /// <summary>
+        /// This method gets the process identifier of the current process.
+        /// </summary>
+        /// <returns>
+        /// The process identifier of the current process, or zero if it could
+        /// not be determined.
+        /// </returns>
         private static long GetProcessId()
         {
             Process process = Process.GetCurrentProcess();
@@ -91,6 +112,15 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for the presence of the configured break
+        /// environment variable and, if it is set, pauses (optionally prompting
+        /// at the console) so a debugger can be attached, then breaks into the
+        /// debugger.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments; this parameter is ignored.
+        /// </param>
         public static void CheckBreak(
             IEnumerable<string> args /* IGNORED */
             )
@@ -134,6 +164,14 @@ namespace Eagle._Shell
 
         #region Dynamic Support Methods
 #if DYNAMIC
+        /// <summary>
+        /// This method gets the public key token of the executing assembly,
+        /// formatted as a lower-case hexadecimal string.
+        /// </summary>
+        /// <returns>
+        /// The public key token as a hexadecimal string, or null if the
+        /// assembly is not strong-named or the token could not be obtained.
+        /// </returns>
         public static string GetPublicKeyTokenAsString()
         {
             Assembly assembly = Assembly.GetExecutingAssembly();

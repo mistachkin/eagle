@@ -28,6 +28,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a centralized set of factory methods that
+    /// create the option dictionaries describing the options accepted by
+    /// the various core script commands and sub-commands.
+    /// </summary>
     [ObjectId("affc5b7f-3ff3-4297-a3b6-0e8969e02766")]
     internal static class CommandOptions
     {
@@ -36,6 +41,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [after idle] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [after idle] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetAfterIdleOptions()
         {
             return new OptionDictionary(
@@ -62,6 +75,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [after <milliseconds>] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [after] command (millisecond delay form).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetAfterInfoOptions()
         {
             return new OptionDictionary(
@@ -90,6 +111,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [array copy] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [array copy] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetArrayCopyOptions()
         {
             return new OptionDictionary(
@@ -107,6 +136,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [array random] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [array random] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetArrayRandomOptions()
         {
             return new OptionDictionary(
@@ -132,6 +169,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [base64 decode] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [base64 decode] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetBase64DecodeOptions()
         {
             return new OptionDictionary(
@@ -148,6 +193,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [base64 encode] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [base64 encode] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetBase64EncodeOptions()
         {
             return new OptionDictionary(
@@ -166,6 +219,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock days] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock days] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockDaysOptions()
         {
             return new OptionDictionary(
@@ -185,6 +246,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock clicks] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock clicks] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockClicksOptions()
         {
             return new OptionDictionary(
@@ -201,6 +270,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock duration] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock duration] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockDurationOptions()
         {
             return new OptionDictionary(
@@ -218,6 +295,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock filetime] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock filetime] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockFileTimeOptions()
         {
             return new OptionDictionary(
@@ -236,6 +321,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock format] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock format] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockFormatOptions()
         {
             return new OptionDictionary(
@@ -265,6 +358,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock now] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock now] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockNowOptions()
         {
             return new OptionDictionary(
@@ -279,6 +380,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [clock scan] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [clock scan] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetClockScanOptions()
         {
             return new OptionDictionary(
@@ -299,6 +408,14 @@ namespace Eagle._Components.Private
 
         #region [debug] Command Options
 #if DEBUGGER
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug break] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugBreakOptions()
         {
             return new OptionDictionary(
@@ -321,6 +438,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug emergency] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugEmergencyOptions()
         {
             return new OptionDictionary(
@@ -342,6 +467,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug hook] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugHookOptions()
         {
             return new OptionDictionary(
@@ -359,6 +492,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug iqueue] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugIqueueOptions()
         {
             return new OptionDictionary(
@@ -373,6 +514,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug log] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugLogOptions()
         {
             return new OptionDictionary(
@@ -387,6 +536,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug secureeval] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugSecureEvalOptions()
         {
             return new OptionDictionary(
@@ -422,6 +579,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug set] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugSetOptions()
         {
             return new OptionDictionary(
@@ -438,6 +603,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug shell] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugShellOptions()
         {
             return new OptionDictionary(
@@ -461,6 +634,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug subst] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugSubstOptions()
         {
             return new OptionDictionary(
@@ -477,6 +658,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug trace] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugTraceOptions()
         {
             return new OptionDictionary(
@@ -565,6 +754,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [debug variable] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebugVariableOptions()
         {
             return new OptionDictionary(
@@ -590,6 +787,14 @@ namespace Eagle._Components.Private
         // NOTE: This is for the debugger "dsubst" command
         //       (from InteractiveOps).
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the debugger "dsubst" command (from InteractiveOps).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebuggerDsubstOptions()
         {
             return new OptionDictionary(
@@ -610,6 +815,14 @@ namespace Eagle._Components.Private
         // NOTE: This is for the debugger "overr" command
         //       (from InteractiveOps).
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the debugger "overr" command (from InteractiveOps).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetDebuggerOverrOptions()
         {
             return new OptionDictionary(
@@ -629,6 +842,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [exit] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [exit] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetExitOptions()
         {
             return new OptionDictionary(
@@ -662,6 +883,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [fconfigure] command (set mode).
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [fconfigure] command (set mode).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFconfigureSetOptions()
         {
             return new OptionDictionary(
@@ -683,6 +912,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [fconfigure] command (query mode).
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [fconfigure] command (query mode).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFconfigureQueryOptions()
         {
             return new OptionDictionary(
@@ -703,6 +940,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [fcopy] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [fcopy] command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFcopyOptions(
             Interpreter interpreter /* in */
             )
@@ -728,6 +977,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [file] Command Options
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file cleanup] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileCleanupOptions()
         {
             return new OptionDictionary(
@@ -754,6 +1011,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file copy] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileCopyOptions()
         {
             return new OptionDictionary(
@@ -766,6 +1031,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file delete] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileDeleteOptions()
         {
             return new OptionDictionary(
@@ -782,6 +1055,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file glob] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileGlobOptions()
         {
             return new OptionDictionary(
@@ -809,6 +1090,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file information] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileInformationOptions()
         {
             return new OptionDictionary(
@@ -824,6 +1113,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file normalize] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileNormalizeOptions()
         {
             return new OptionDictionary(
@@ -836,6 +1133,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file objectid] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileObjectIdOptions()
         {
             return new OptionDictionary(
@@ -851,6 +1156,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file rename] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileRenameOptions()
         {
             return new OptionDictionary(
@@ -864,6 +1177,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && !MONO
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file sddl] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileSddlOptions()
         {
             return new OptionDictionary(
@@ -879,6 +1200,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file under] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileUnderOptions()
         {
             return new OptionDictionary(
@@ -905,6 +1234,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [file version] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetFileVersionOptions()
         {
             return new OptionDictionary(
@@ -924,6 +1261,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [gets] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [gets] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetGetsOptions()
         {
             return new OptionDictionary(
@@ -952,6 +1297,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [glob] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [glob] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetGlobOptions()
         {
             return new OptionDictionary(
@@ -981,6 +1334,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [hash keyed] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [hash keyed] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHashKeyedOptions()
         {
             return new OptionDictionary(
@@ -1003,6 +1364,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [hash mac] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [hash mac] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHashMacOptions()
         {
             return new OptionDictionary(
@@ -1025,6 +1394,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [hash normal] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [hash normal] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHashNormalOptions()
         {
             return new OptionDictionary(
@@ -1046,6 +1423,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [host] Command Options
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host beep] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostBeepOptions()
         {
             return new OptionDictionary(
@@ -1062,6 +1447,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host color] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostColorOptions()
         {
             return new OptionDictionary(
@@ -1085,6 +1478,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CONSOLE && NATIVE && WINDOWS
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host font] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostFontOptions()
         {
             return new OptionDictionary(
@@ -1107,6 +1508,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host namedcolor] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostNamedColorOptions()
         {
             return new OptionDictionary(
@@ -1133,6 +1542,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host position] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostPositionOptions()
         {
             return new OptionDictionary(
@@ -1151,6 +1568,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host reset] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostResetOptions()
         {
             return new OptionDictionary(
@@ -1186,6 +1611,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host size] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostSizeOptions()
         {
             return new OptionDictionary(
@@ -1211,6 +1644,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [host writebox] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetHostWriteBoxOptions()
         {
             return new OptionDictionary(
@@ -1277,6 +1718,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [info] Command Options
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info commands] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoCommandsOptions()
         {
             return new OptionDictionary(
@@ -1328,6 +1777,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info functions] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoFunctionsOptions()
         {
             return new OptionDictionary(
@@ -1351,6 +1808,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info loaded] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoLoadedOptions()
         {
             return new OptionDictionary(
@@ -1363,6 +1828,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info operators] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoOperatorsOptions()
         {
             return new OptionDictionary(
@@ -1382,6 +1855,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info subcommands] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoSubCommandsOptions()
         {
             return new OptionDictionary(
@@ -1395,6 +1876,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [info vars] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInfoVarsOptions()
         {
             return new OptionDictionary(
@@ -1413,6 +1902,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp addcommands] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp addcommands] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpAddCommandsOptions()
         {
             return new OptionDictionary(
@@ -1441,6 +1938,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp cancel] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp cancel] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpCancelOptions()
         {
             return new OptionDictionary(
@@ -1460,6 +1965,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp create] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp create] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpCreateOptions()
         {
             return new OptionDictionary(
@@ -1544,6 +2057,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp invokehidden] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp invokehidden] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpInvokeHiddenOptions()
         {
             return new OptionDictionary(
@@ -1563,6 +2084,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp policy] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp policy] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpPolicyOptions()
         {
             return new OptionDictionary(
@@ -1589,6 +2118,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp queue] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp queue] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpQueueOptions()
         {
             return new OptionDictionary(
@@ -1605,6 +2142,22 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [interp readorgetscriptfile]
         //       sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp readorgetscriptfile] sub-command.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The optional script flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The optional engine flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpReadOrGetScriptFileOptions(
             ScriptFlags? scriptFlags, /* in */
             EngineFlags? engineFlags  /* in */
@@ -1639,6 +2192,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp rename] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp rename] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpRenameOptions()
         {
             return new OptionDictionary(
@@ -1667,6 +2228,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp resetcancel] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp resetcancel] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpResetCancelOptions()
         {
             return new OptionDictionary(
@@ -1686,6 +2255,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp service] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp service] sub-command.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The optional event flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpServiceOptions(
             EventFlags? eventFlags /* in */
             )
@@ -1727,6 +2308,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp source] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp source] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpSourceOptions()
         {
             return new OptionDictionary(
@@ -1740,6 +2329,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp stub] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp stub] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpStubOptions()
         {
             return new OptionDictionary(
@@ -1757,6 +2354,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp subcommand] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp subcommand] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpSubCommandOptions()
         {
             return new OptionDictionary(
@@ -1774,6 +2379,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [interp subst] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [interp subst] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetInterpSubstOptions()
         {
             return new OptionDictionary(
@@ -1795,6 +2408,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [kill] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [kill] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetKillOptions()
         {
             return new OptionDictionary(
@@ -1819,6 +2440,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [library declare] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [library declare] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLibraryDeclareOptions()
         {
             return new OptionDictionary(
@@ -1874,6 +2503,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [library load] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [library load] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLibraryLoadOptions()
         {
             return new OptionDictionary(
@@ -1900,6 +2537,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [library resolve] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [library resolve] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLibraryResolveOptions()
         {
             return new OptionDictionary(
@@ -1918,6 +2563,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [library unresolve] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [library unresolve] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLibraryUnresolveOptions()
         {
             return new OptionDictionary(
@@ -1934,6 +2587,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [load] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [load] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLoadOptions()
         {
             return new OptionDictionary(
@@ -2036,6 +2697,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [lsearch] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [lsearch] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLsearchOptions()
         {
             return new OptionDictionary(
@@ -2091,6 +2760,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [lsort] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [lsort] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetLsortOptions()
         {
             return new OptionDictionary(
@@ -2128,6 +2805,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace1 export] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace export] sub-command (first variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace1ExportOptions()
         {
             return new OptionDictionary(
@@ -2143,6 +2828,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace1 import] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace import] sub-command (first variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace1ImportOptions()
         {
             return new OptionDictionary(
@@ -2158,6 +2851,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace1 which] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace which] sub-command (first variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace1WhichOptions()
         {
             return new OptionDictionary(
@@ -2175,6 +2876,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace2 export] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace export] sub-command (second variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace2ExportOptions()
         {
             return new OptionDictionary(
@@ -2190,6 +2899,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace2 import] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace import] sub-command (second variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace2ImportOptions()
         {
             return new OptionDictionary(
@@ -2205,6 +2922,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [namespace2 which] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [namespace which] sub-command (second variant).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetNamespace2WhichOptions()
         {
             return new OptionDictionary(
@@ -2224,6 +2949,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object verifyall] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [object verifyall] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetObjectVerifyAllOptions()
         {
             return new OptionDictionary(
@@ -2242,6 +2975,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [open] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [open] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetOpenOptions()
         {
             return new OptionDictionary(
@@ -2292,6 +3033,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [package] Command Options
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package absent] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackageAbsentOptions()
         {
             return new OptionDictionary(
@@ -2304,6 +3053,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package alias] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackageAliasOptions()
         {
             return new OptionDictionary(
@@ -2320,6 +3077,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package present] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackagePresentOptions()
         {
             return new OptionDictionary(
@@ -2332,6 +3097,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package require] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackageRequireOptions()
         {
             return new OptionDictionary(
@@ -2347,6 +3120,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package scan] sub-command (pre-options phase).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackageScanPreOptionsMethod()
         {
             return new OptionDictionary(
@@ -2359,6 +3140,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [package scan] sub-command.
+        /// </summary>
+        /// <param name="packageIndexFlags">
+        /// The optional package index flags used to supply the default
+        /// value for the corresponding option, or null if not available.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPackageScanOptions(
             PackageIndexFlags? packageIndexFlags /* in */
             )
@@ -2447,6 +3240,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [parse command] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [parse command] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetParseCommandOptions(
             Interpreter interpreter /* in */
             )
@@ -2490,6 +3295,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [parse expression] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [parse expression] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetParseExpressionOptions(
             Interpreter interpreter /* in */
             )
@@ -2530,6 +3347,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [parse options] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [parse options] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetParseOptionsOptions()
         {
             return new OptionDictionary(
@@ -2568,6 +3393,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [parse script] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [parse script] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetParseScriptOptions(
             Interpreter interpreter /* in */
             )
@@ -2630,6 +3467,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [puts] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [puts] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetPutsOptions()
         {
             return new OptionDictionary(
@@ -2653,6 +3498,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [regexp] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [regexp] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetRegexpOptions()
         {
             return new OptionDictionary(
@@ -2716,6 +3569,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [regsub] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [regsub] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetRegsubOptions()
         {
             return new OptionDictionary(
@@ -2775,6 +3636,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [rename] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [rename] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetRenameOptions()
         {
             return new OptionDictionary(
@@ -2804,6 +3673,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [return] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [return] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetReturnOptions()
         {
             return new OptionDictionary(
@@ -2825,6 +3702,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope close] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope close] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeCloseOptions()
         {
             return new OptionDictionary(
@@ -2840,6 +3725,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope create] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope create] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeCreateOptions()
         {
             return new OptionDictionary(
@@ -2871,6 +3764,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope eval] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope eval] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeEvalOptions(
             Interpreter interpreter /* in */
             )
@@ -2898,6 +3803,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope global] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope global] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeGlobalOptions()
         {
             return new OptionDictionary(
@@ -2915,6 +3828,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope lock] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope lock] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeLockOptions()
         {
             return new OptionDictionary(
@@ -2930,6 +3851,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope open] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope open] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeOpenOptions()
         {
             return new OptionDictionary(
@@ -2949,6 +3878,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope unlock] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope unlock] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeUnlockOptions()
         {
             return new OptionDictionary(
@@ -2964,6 +3901,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [scope update] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [scope update] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetScopeUpdateOptions()
         {
             return new OptionDictionary(
@@ -2981,6 +3926,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [socket] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [socket] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSocketOptions()
         {
             return new OptionDictionary(
@@ -3043,6 +3996,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [source] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [source] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSourceOptions()
         {
             return new OptionDictionary(
@@ -3084,6 +4045,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [split] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [split] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSplitOptions()
         {
             return new OptionDictionary(
@@ -3103,6 +4072,14 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [sql open] sub-command
         //       (pre-options phase).
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [sql open] sub-command (pre-options phase).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSqlOpenPreOptionsMethod()
         {
             return new OptionDictionary(
@@ -3122,6 +4099,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql open] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [sql open] sub-command.
+        /// </summary>
+        /// <param name="valueFlags">
+        /// The optional value flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSqlOpenOptions(
             ValueFlags? valueFlags /* in */
             )
@@ -3176,6 +4165,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql transaction] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [sql transaction] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSqlTransactionOptions()
         {
             return new OptionDictionary(
@@ -3194,6 +4191,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region [string] Command Options
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string equal] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringEqualOptions()
         {
             return new OptionDictionary(
@@ -3230,6 +4235,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string ends] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringEndsOptions()
         {
             return new OptionDictionary(
@@ -3255,6 +4268,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string first] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringFirstOptions()
         {
             return new OptionDictionary(
@@ -3270,6 +4291,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string format] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringFormatOptions(
             Interpreter interpreter /* in */
             )
@@ -3305,6 +4338,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string is] sub-command.
+        /// </summary>
+        /// <param name="not">
+        /// The optional default value for the <c>-not</c> option, or null
+        /// if not available.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringIsOptions(
             bool? not /* in */
             )
@@ -3337,6 +4382,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string last] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringLastOptions()
         {
             return new OptionDictionary(
@@ -3352,6 +4405,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string map] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringMapOptions()
         {
             return new OptionDictionary(
@@ -3384,6 +4445,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string match] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringMatchOptions()
         {
             return new OptionDictionary(
@@ -3399,6 +4468,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string starts] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetStringStartsOptions()
         {
             return new OptionDictionary(
@@ -3424,7 +4501,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
-        private static OptionDictionary GetStringToUpperOptions()
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [string tolower], [string totitle], and [string toupper] sub-commands.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
+        private static OptionDictionary GetStringToCaseOptions()
         {
             return new OptionDictionary(
                 new IOption[] {
@@ -3438,6 +4523,10 @@ namespace Eagle._Components.Private
                     OptionFlags.Unsupported, Index.Invalid,
                     Index.Invalid, "-culture", null),
 #endif
+                new Option(null,
+                    OptionFlags.MustHaveBooleanValue |
+                    OptionFlags.Nullable, Index.Invalid,
+                    Index.Invalid, "-invariant", null),
                 Option.CreateEndOfOptions()
             });
         }
@@ -3449,6 +4538,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [subst] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [subst] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSubstOptions()
         {
             return new OptionDictionary(
@@ -3470,6 +4567,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [switch] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [switch] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetSwitchOptions()
         {
             return new OptionDictionary(
@@ -3499,6 +4604,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [test2] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [test2] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTest2Options()
         {
             return new OptionDictionary(
@@ -3779,6 +4892,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl cancel] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl cancel] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclCancelOptions()
         {
             return new OptionDictionary(
@@ -3794,6 +4915,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl create] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl create] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclCreateOptions()
         {
             return new OptionDictionary(
@@ -3828,6 +4957,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl expr] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl expr] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclExprOptions()
         {
             return new OptionDictionary(
@@ -3847,6 +4984,18 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [tcl find] (and [tcl available])
         //       sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl find] (and [tcl available]) sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclFindOptions(
             Interpreter interpreter /* in */
             )
@@ -3899,6 +5048,14 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [tcl command create] (a.k.a.
         //       [tcl interp create]) sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl command create] (a.k.a. [tcl interp create]) sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclInterpCreateOptions()
         {
             return new OptionDictionary(
@@ -3916,6 +5073,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl load] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl load] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclLoadOptions(
             Interpreter interpreter /* in */
             )
@@ -3971,6 +5140,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl queue] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl queue] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclQueueOptions()
         {
             return new OptionDictionary(
@@ -4001,6 +5178,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl recordandeval] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl recordandeval] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclRecordAndEvalOptions()
         {
             return new OptionDictionary(
@@ -4019,6 +5204,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl resetcancel] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl resetcancel] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclResetCancelOptions()
         {
             return new OptionDictionary(
@@ -4036,6 +5229,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl select] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl select] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclSelectOptions(
             Interpreter interpreter /* in */
             )
@@ -4087,6 +5292,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl source] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl source] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclSourceOptions()
         {
             return new OptionDictionary(
@@ -4105,6 +5318,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl subst] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl subst] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclSubstOptions()
         {
             return new OptionDictionary(
@@ -4129,6 +5350,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl update] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl update] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclUpdateOptions()
         {
             return new OptionDictionary(
@@ -4151,6 +5380,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl versionrange] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [tcl versionrange] sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTclVersionRangeOptions(
             Interpreter interpreter /* in */
             )
@@ -4208,6 +5449,15 @@ namespace Eagle._Components.Private
         // NOTE: This is for the TestCreateWithRulesCommandCallback
         //       in Default.cs.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the TestCreateWithRulesCommandCallback
+        /// method (from Default.cs).
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTestCreateWithRulesOptions()
         {
             return new OptionDictionary(
@@ -4240,6 +5490,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [time] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [time] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetTimeOptions()
         {
             return new OptionDictionary(
@@ -4289,6 +5547,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [unload] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [unload] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUnloadOptions()
         {
             return new OptionDictionary(
@@ -4318,6 +5584,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [unset] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [unset] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUnsetOptions()
         {
             return new OptionDictionary(
@@ -4356,6 +5630,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [uri compare] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [uri compare] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUriCompareOptions()
         {
             return new OptionDictionary(
@@ -4384,6 +5666,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [uri create] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [uri create] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUriCreateOptions()
         {
             return new OptionDictionary(
@@ -4410,6 +5700,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [uri get] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [uri get] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUriGetOptions()
         {
             return new OptionDictionary(
@@ -4475,6 +5773,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [uri post] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [uri post] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetUriPostOptions()
         {
             return new OptionDictionary(
@@ -4550,6 +5856,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [vwait] command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [vwait] command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetVwaitOptions(
             Interpreter interpreter /* in */
             )
@@ -4613,6 +5931,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [xml foreach] sub-command.
         //
+        /// <summary>
+        /// This method creates the option dictionary that describes the
+        /// options supported by the [xml foreach] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary that describes the
+        /// supported options.
+        /// </returns>
         private static OptionDictionary GetXmlForEachOptions()
         {
             return new OptionDictionary(
@@ -4633,6 +5959,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Option Dispatch Methods
+        /// <summary>
+        /// This method determines the appropriate command option type from
+        /// the specified list of arguments and then returns the associated
+        /// option dictionary.
+        /// </summary>
+        /// <param name="arguments">
+        /// The list of arguments used to derive the associated command
+        /// option type; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The option dictionary associated with the command option type
+        /// derived from the specified arguments, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static OptionDictionary GetCommandOptions(
             ArgumentList arguments /* in */
             )
@@ -4665,6 +6005,83 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the appropriate command option type from
+        /// the specified command and sub-command names and then returns the
+        /// associated option dictionary.
+        /// </summary>
+        /// <param name="commandName">
+        /// The name of the command.
+        /// </param>
+        /// <param name="subCommandName">
+        /// The name of the sub-command, if any.
+        /// </param>
+        /// <returns>
+        /// The option dictionary associated with the specified command and
+        /// sub-command names, or null if it cannot be determined.
+        /// </returns>
+        public static OptionDictionary GetCommandOptions(
+            string commandName,   /* in */
+            string subCommandName /* in */
+            )
+        {
+            StringBuilder builder = StringBuilderFactory.Create();
+
+            if (!String.IsNullOrEmpty(commandName))
+            {
+                if (builder.Length > 0) /* IMPOSSIBLE */
+                    builder.Append(Characters.Underscore);
+
+                builder.Append(commandName);
+            }
+
+            if (!String.IsNullOrEmpty(subCommandName))
+            {
+                if (builder.Length > 0)
+                    builder.Append(Characters.Underscore);
+
+                builder.Append(subCommandName);
+            }
+
+            object enumValue;
+            Result error = null;
+
+            enumValue = EnumOps.TryParse(
+                typeof(CommandOptionType),
+                StringBuilderCache.GetStringAndRelease(
+                ref builder), false, true, ref error);
+
+            if (!(enumValue is CommandOptionType))
+            {
+                TraceOps.DebugTrace(String.Format(
+                    "GetCommandOptions: commandName = {0}, " +
+                    "subCommandName = {1}, error = {2}",
+                    FormatOps.WrapOrNull(commandName),
+                    FormatOps.WrapOrNull(subCommandName),
+                    FormatOps.WrapOrNull(error)),
+                    typeof(CommandOptions).Name,
+                    TracePriority.OptionError);
+
+                return null;
+            }
+
+            return GetCommandOptions((CommandOptionType)enumValue);
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method returns the option dictionary associated with the
+        /// specified command option type.
+        /// </summary>
+        /// <param name="commandOptionType">
+        /// The command option type that identifies which set of
+        /// command options should be returned.
+        /// </param>
+        /// <returns>
+        /// The option dictionary associated with the specified command
+        /// option type, or null if there is no associated set of options.
+        /// </returns>
         public static OptionDictionary GetCommandOptions(
             CommandOptionType commandOptionType /* in */
             )
@@ -4675,6 +6092,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the option dictionary associated with the
+        /// specified command option type, using the specified interpreter to
+        /// supply default option values.
+        /// </summary>
+        /// <param name="commandOptionType">
+        /// The command option type that identifies which set of
+        /// command options should be returned.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The option dictionary associated with the specified command
+        /// option type, or null if there is no associated set of options.
+        /// </returns>
         public static OptionDictionary GetCommandOptions(
             CommandOptionType commandOptionType, /* in */
             Interpreter interpreter              /* in */
@@ -4687,6 +6121,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the option dictionary associated with the
+        /// specified command option type, using the specified interpreter and
+        /// flag values to supply default option values.
+        /// </summary>
+        /// <param name="commandOptionType">
+        /// The command option type that identifies which set of
+        /// command options should be returned.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context whose settings are used to supply the
+        /// default values for some options; this value may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The optional engine flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The optional script flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The optional value flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The optional package index flags used to supply the default
+        /// value for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The optional event flags used to supply the default value
+        /// for the corresponding option, or null if not available.
+        /// </param>
+        /// <param name="not">
+        /// The optional default value for the <c>-not</c> option, or null
+        /// if not available.
+        /// </param>
+        /// <returns>
+        /// The option dictionary associated with the specified command
+        /// option type, or null if there is no associated set of options.
+        /// </returns>
         public static OptionDictionary GetCommandOptions(
             CommandOptionType commandOptionType,  /* in */
             Interpreter interpreter,              /* in */
@@ -5080,8 +6555,10 @@ namespace Eagle._Components.Private
                     return GetStringMatchOptions();
                 case CommandOptionType.String_Starts:
                     return GetStringStartsOptions();
+                case CommandOptionType.String_ToLower:
+                case CommandOptionType.String_ToTitle:
                 case CommandOptionType.String_ToUpper:
-                    return GetStringToUpperOptions();
+                    return GetStringToCaseOptions();
                 case CommandOptionType.Subst:
                     return GetSubstOptions();
                 case CommandOptionType.Switch:

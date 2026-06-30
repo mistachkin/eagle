@@ -22,10 +22,18 @@ using Eagle._Components.Shared;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides helper methods for emitting diagnostic trace output
+    /// and for displaying message boxes to the user during the update process.
+    /// </summary>
     [Guid("84055eb4-6bac-4471-880a-6f9da34c5a5b")]
     internal static class TraceOps
     {
         #region Private Constants
+        /// <summary>
+        /// The format string used to render a date and time value as an ISO-8601
+        /// style timestamp.
+        /// </summary>
         private const string Iso8601DateTimeOutputFormat =
             "yyyy.MM.ddTHH:mm:ss.fffffff";
         #endregion
@@ -33,11 +41,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the shared state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
+        /// <summary>
+        /// The most recently issued trace identifier, used as a counter by
+        /// <see cref="NextId" />.
+        /// </summary>
         private static long nextId;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of method names that should be skipped when searching the
+        /// call stack for the originating method name.
+        /// </summary>
         private static readonly IDictionary<string, bool> skipNames =
             DictionaryFromPairs<string, bool>(new AnyPair<string, bool>[] {
                 new AnyPair<string, bool>("QueueStatus", false),
@@ -51,6 +71,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Miscellaneous Support Methods
+        /// <summary>
+        /// This method builds a dictionary from a sequence of key/value pairs.
+        /// </summary>
+        /// <typeparam name="T1">
+        /// The type of the keys in the resulting dictionary.
+        /// </typeparam>
+        /// <typeparam name="T2">
+        /// The type of the values in the resulting dictionary.
+        /// </typeparam>
+        /// <param name="enumerable">
+        /// The sequence of key/value pairs to add to the dictionary.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="unique">
+        /// Non-zero to require that every key is unique (adding each pair and
+        /// throwing on a duplicate); zero to allow later pairs to overwrite
+        /// earlier ones.
+        /// </param>
+        /// <returns>
+        /// The newly created dictionary, or null if <paramref name="enumerable" />
+        /// is null.
+        /// </returns>
         private static IDictionary<T1, T2> DictionaryFromPairs<T1, T2>(
             IEnumerable<AnyPair<T1, T2>> enumerable,
             bool unique
@@ -76,6 +118,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interactive Support Methods
+        /// <summary>
+        /// This method traces a message and, when appropriate, displays it to
+        /// the user in a message box.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration that controls tracing and prompting behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly used to derive the message box title.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="message">
+        /// The message text to trace and optionally display.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
+        /// <param name="buttons">
+        /// The set of buttons to display in the message box.
+        /// </param>
+        /// <param name="icon">
+        /// The icon to display in the message box.
+        /// </param>
+        /// <returns>
+        /// The dialog result indicating the user's choice, or the default
+        /// result when the message box is not displayed.
+        /// </returns>
         public static DialogResult ShowMessage(
             Configuration configuration,
             Assembly assembly,
@@ -92,6 +162,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method traces a message and, when appropriate, displays it to
+        /// the user in a message box, using the specified default dialog result.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration that controls tracing and prompting behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly used to derive the message box title.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="message">
+        /// The message text to trace and optionally display.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
+        /// <param name="buttons">
+        /// The set of buttons to display in the message box.
+        /// </param>
+        /// <param name="icon">
+        /// The icon to display in the message box.
+        /// </param>
+        /// <param name="dialogResult">
+        /// The default dialog result to return when the message box is not
+        /// displayed.  This parameter may be null, in which case a result of OK
+        /// is assumed.
+        /// </param>
+        /// <returns>
+        /// The dialog result indicating the user's choice, or the default
+        /// result when the message box is not displayed.
+        /// </returns>
         public static DialogResult ShowMessage(
             Configuration configuration,
             Assembly assembly,
@@ -132,6 +235,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Tracing Support Methods
+        /// <summary>
+        /// This method gets the current date and time, in Coordinated Universal
+        /// Time (UTC).
+        /// </summary>
+        /// <returns>
+        /// The current UTC date and time.
+        /// </returns>
         public static DateTime GetNow()
         {
             return DateTime.UtcNow;
@@ -139,6 +249,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically increments and returns the next trace
+        /// identifier.
+        /// </summary>
+        /// <returns>
+        /// The next trace identifier.
+        /// </returns>
         public static long NextId()
         {
             return Interlocked.Increment(ref nextId);
@@ -146,6 +263,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time value as an ISO-8601
+        /// style timestamp string.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time value to format.
+        /// </param>
+        /// <returns>
+        /// The formatted timestamp string.
+        /// </returns>
         public static string TimeStamp(DateTime dateTime)
         {
             return dateTime.ToString(Iso8601DateTimeOutputFormat);
@@ -153,6 +280,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches a call stack for the first eligible (non-trace)
+        /// stack frame and returns its formatted type and method name.
+        /// </summary>
+        /// <param name="stackTrace">
+        /// The stack trace to search.  This parameter may be null, in which case
+        /// the current execution stack is captured and used.
+        /// </param>
+        /// <param name="level">
+        /// The number of stack frames, from the top, to skip before beginning
+        /// the search.
+        /// </param>
+        /// <returns>
+        /// The formatted type and method name of the originating method, or null
+        /// if one could not be determined.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string GetMethodName(
             StackTrace stackTrace,
@@ -252,6 +395,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a message directly to the diagnostic trace
+        /// listeners and flushes them.  It is the default trace callback.
+        /// </summary>
+        /// <param name="message">
+        /// The message text to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
         public static void TraceCore(
             string message,
             string category
@@ -266,6 +419,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method traces the string representation of an exception, along
+        /// with the stack trace captured from the exception.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration that controls tracing behavior.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to trace.  This parameter may be null, in which case
+        /// nothing is traced.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
+        /// <returns>
+        /// The traced message, or null if <paramref name="exception" /> is null.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string Trace(
             Configuration configuration,
@@ -283,6 +454,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method traces a message, prefixing it with the name of the
+        /// calling method.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration that controls tracing behavior.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="message">
+        /// The message text to trace.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
+        /// <returns>
+        /// The traced message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string Trace(
             Configuration configuration,
@@ -295,6 +483,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method traces a message, prefixing it with the name of the
+        /// originating method derived from the supplied or captured stack trace,
+        /// using the configured trace callback when available.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration that controls tracing behavior, including the trace
+        /// callback.  This parameter may be null.
+        /// </param>
+        /// <param name="stackTrace">
+        /// The stack trace used to determine the originating method name.  This
+        /// parameter may be null, in which case the current execution stack is
+        /// captured and used.
+        /// </param>
+        /// <param name="level">
+        /// The number of stack frames, from the top, to skip when determining
+        /// the originating method name.
+        /// </param>
+        /// <param name="message">
+        /// The message text to trace.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.
+        /// </param>
+        /// <returns>
+        /// The traced message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string Trace(
             Configuration configuration,

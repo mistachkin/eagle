@@ -18,11 +18,25 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>catch</c> command, which evaluates a
+    /// script while trapping any error (or other non-Ok return code) it raises
+    /// so that the failure does not propagate, optionally capturing the script
+    /// result and its return options into caller-supplied variables.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("382b9037-4351-47c7-a9a6-e66bcbfe284d")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("control")]
     internal sealed class Catch : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>catch</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Catch(
             ICommandData commandData
             )
@@ -34,11 +48,49 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>catch</c> command.  It evaluates the
+        /// supplied script in a dedicated catch call frame, masking any error
+        /// or other non-Ok return code so that it is not propagated to the
+        /// caller, and optionally stores the script result and its return
+        /// options into the named result and options variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the script to evaluate; an optional
+        /// element two names the variable that receives the script result;
+        /// and an optional element three names the variable that receives the
+        /// return options dictionary.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the integer return code of the
+        /// evaluated script (its <see cref="Result.ReturnCode" /> property
+        /// also reflecting that code).  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the script was evaluated and any
+        /// requested variables were saved successfully, regardless of the
+        /// outcome of the evaluated script; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, or the argument list is null,
+        /// or the return code produced when a requested result or options
+        /// variable could not be saved, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

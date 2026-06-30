@@ -17,11 +17,24 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>incr</c> command, which increments
+    /// the integer value stored in a variable by an optional amount (one by
+    /// default) and returns the new value.  See <c>core_language.md</c> for
+    /// the command syntax and semantics.
+    /// </summary>
     [ObjectId("e620e38f-fe66-42ca-8889-3bcb0db3d62c")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("expression")]
     internal sealed class Incr : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>incr</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Incr(
             ICommandData commandData
             )
@@ -31,11 +44,44 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>incr</c> command.  It reads the integer
+        /// value of the named variable, adds the increment (one by default, or
+        /// the optional amount supplied), stores the resulting value back into
+        /// the variable, and returns that new value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the name of the variable to increment;
+        /// an optional element two supplies the integer increment amount.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the new integer value of the variable.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the new value of the
+        /// variable placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the increment or current value cannot be converted to
+        /// an integer, the variable cannot be read or written, the interpreter
+        /// is null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

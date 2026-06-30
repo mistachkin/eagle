@@ -18,10 +18,56 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class holds the per-thread variable scoping state for an Eagle
+    /// interpreter.  It tracks the call stack together with the special call
+    /// frames (global, global scope, current, procedure, and uplevel) that
+    /// define which variables are visible during evaluation, along with the
+    /// owning interpreter, the thread identifier it belongs to, and the trace
+    /// information used while resolving variables.  It implements
+    /// <see cref="IVariableContext" /> and is disposable; disposing or freeing
+    /// a context releases the call frames it manages.
+    /// </summary>
     [ObjectId("ab2f80d9-1157-4211-87ea-828e4be68626")]
     internal sealed class VariableContext : IVariableContext, IDisposable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs a variable context from the owning interpreter, the
+        /// thread it belongs to, the call stack, and the set of special call
+        /// frames that establish variable scoping for that thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns this variable context.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread this variable context belongs to.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack associated with this variable context.
+        /// </param>
+        /// <param name="globalFrame">
+        /// The global call frame for this variable context.
+        /// </param>
+        /// <param name="globalScopeFrame">
+        /// The global scope call frame for this variable context, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="currentFrame">
+        /// The current call frame for this variable context.
+        /// </param>
+        /// <param name="procedureFrame">
+        /// The procedure call frame for this variable context, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="uplevelFrame">
+        /// The uplevel call frame for this variable context, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information associated with this variable context, if any.
+        /// This parameter may be null.
+        /// </param>
         public VariableContext(
             Interpreter interpreter,
             long threadId,
@@ -52,6 +98,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this variable context has been
+        /// disposed.  True if it has been disposed; otherwise, false.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -64,6 +114,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this variable context is in the
+        /// process of being disposed.  True if it is being disposed; otherwise,
+        /// false.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -78,7 +133,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// The interpreter that owns this variable context.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets the interpreter that owns this variable context.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); return interpreter; }
@@ -88,7 +149,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IThreadContext Members
+        /// <summary>
+        /// The identifier of the thread this variable context belongs to.
+        /// </summary>
         private long threadId;
+        /// <summary>
+        /// Gets the identifier of the thread this variable context belongs to.
+        /// </summary>
         public long ThreadId
         {
             get
@@ -106,7 +173,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IVariableContext Members
+        /// <summary>
+        /// The call stack associated with this variable context.
+        /// </summary>
         private CallStack callStack;
+        /// <summary>
+        /// Gets or sets the call stack associated with this variable context.
+        /// </summary>
         public CallStack CallStack
         {
             get { CheckDisposed(); return callStack; }
@@ -115,7 +188,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The global call frame for this variable context.
+        /// </summary>
         private ICallFrame globalFrame;
+        /// <summary>
+        /// Gets or sets the global call frame for this variable context.
+        /// </summary>
         public ICallFrame GlobalFrame
         {
             get { CheckDisposed(); return globalFrame; }
@@ -124,7 +203,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The global scope call frame for this variable context, if any.
+        /// </summary>
         private ICallFrame globalScopeFrame;
+        /// <summary>
+        /// Gets or sets the global scope call frame for this variable context.
+        /// </summary>
         public ICallFrame GlobalScopeFrame
         {
             get { CheckDisposed(); return globalScopeFrame; }
@@ -133,7 +218,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The current call frame for this variable context.
+        /// </summary>
         private ICallFrame currentFrame;
+        /// <summary>
+        /// Gets or sets the current call frame for this variable context.
+        /// </summary>
         public ICallFrame CurrentFrame
         {
             get { CheckDisposed(); return currentFrame; }
@@ -142,7 +233,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The procedure call frame for this variable context, if any.
+        /// </summary>
         private ICallFrame procedureFrame;
+        /// <summary>
+        /// Gets or sets the procedure call frame for this variable context.
+        /// </summary>
         public ICallFrame ProcedureFrame
         {
             get { CheckDisposed(); return procedureFrame; }
@@ -151,7 +248,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The uplevel call frame for this variable context, if any.
+        /// </summary>
         private ICallFrame uplevelFrame;
+        /// <summary>
+        /// Gets or sets the uplevel call frame for this variable context.
+        /// </summary>
         public ICallFrame UplevelFrame
         {
             get { CheckDisposed(); return uplevelFrame; }
@@ -160,6 +263,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the effective current global call frame for this variable
+        /// context.  This is the global scope call frame when one is present;
+        /// otherwise, it is the global call frame.
+        /// </summary>
         public ICallFrame CurrentGlobalFrame
         {
             get
@@ -175,7 +283,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace information associated with this variable context, if any.
+        /// </summary>
         private ITraceInfo traceInfo;
+        /// <summary>
+        /// Gets or sets the trace information associated with this variable
+        /// context.
+        /// </summary>
         public ITraceInfo TraceInfo
         {
             get { CheckDisposed(); return traceInfo; }
@@ -184,6 +299,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the call frames and other resources managed by
+        /// this variable context without disposing of the interpreter that owns
+        /// it.  The contained call stack and call frames are freed (rather than
+        /// disposed) so the global call frame is handled correctly based on the
+        /// <paramref name="global" /> parameter.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the global call frame should also be freed; this should
+        /// only be done when the interpreter itself is being disposed.
+        /// </param>
         public void Free(
             bool global
             )
@@ -287,7 +413,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this variable context has been disposed and is no longer
+        /// usable.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an <see cref="InterpreterDisposedException" /> if
+        /// this variable context has been disposed and the owning interpreter
+        /// is configured to throw on disposed access.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -298,6 +433,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the resources used by this variable context,
+        /// freeing the managed call frames and call stack when disposing.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -330,6 +474,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method disposes of all resources used by this variable context.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -340,6 +487,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this variable context, releasing any resources that were
+        /// not explicitly disposed.
+        /// </summary>
         ~VariableContext()
         {
             Dispose(false);

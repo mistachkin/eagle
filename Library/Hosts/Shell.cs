@@ -28,21 +28,52 @@ using SharedAttributeOps = Eagle._Components.Shared.AttributeOps;
 
 namespace Eagle._Hosts
 {
+    /// <summary>
+    /// This class is the abstract base class for interactive shell hosts.  It
+    /// is derived from <see cref="Profile" /> and adds the support common to
+    /// shell-style hosts, namely prompt generation (via the configured prompt
+    /// variables), construction of the default window or console title from
+    /// the package and assembly information, and reflection-based lookup and
+    /// assignment of the named foreground and background colors used by the
+    /// host.  Concrete hosts (for example, the console host) derive from this
+    /// class to provide the actual interactive input and output.
+    /// </summary>
     [ObjectId("7c8dc9cc-9e23-4a5d-a0c6-00fe61846e0d")]
     public abstract class Shell : Profile, IDisposable
     {
         #region Private Constants
+        /// <summary>
+        /// The default image runtime version string used when a more specific
+        /// value is not available.
+        /// </summary>
         private const string DefaultImageRuntimeVersion = "v4.0.30319";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The suffix appended to a color name to form the name of the property
+        /// that holds the corresponding foreground color.
+        /// </summary>
         private const string ForegroundColorSuffix = "ForegroundColor";
+        /// <summary>
+        /// The suffix appended to a color name to form the name of the property
+        /// that holds the corresponding background color.
+        /// </summary>
         private const string BackgroundColorSuffix = "BackgroundColor";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Constructors
+        /// <summary>
+        /// Constructs a new instance of this host using the specified host
+        /// data.
+        /// </summary>
+        /// <param name="hostData">
+        /// The data used to initialize this host, including its name,
+        /// associated interpreter, and creation flags.  This parameter may be
+        /// null.
+        /// </param>
         protected Shell(
             IHostData hostData
             )
@@ -55,6 +86,21 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Prompt Support
+        /// <summary>
+        /// This method determines the name of the script variable that holds
+        /// the prompt for the specified prompt type and flags.
+        /// </summary>
+        /// <param name="type">
+        /// The type of prompt (for example, normal or continuation) whose
+        /// variable name is to be returned.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that further select the prompt variable (for example,
+        /// whether the debug or queue prompt is wanted).
+        /// </param>
+        /// <returns>
+        /// The name of the script variable that holds the requested prompt.
+        /// </returns>
         protected virtual string GetPromptVariableName(
             PromptType type,
             PromptFlags flags
@@ -95,6 +141,22 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Title Support
+        /// <summary>
+        /// This method builds the default window or console title from the
+        /// supplied package name and the version, release, date, configuration,
+        /// and runtime information of the supplied assembly.
+        /// </summary>
+        /// <param name="packageName">
+        /// The package name to include at the start of the title.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose version and related attributes are included in
+        /// the title.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed title string.
+        /// </returns>
         protected virtual string BuildCoreTitle(
             string packageName,
             Assembly assembly
@@ -149,6 +211,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Flags Support
+        /// <summary>
+        /// This method invalidates the cached host flags so that they will be
+        /// recomputed the next time they are requested.
+        /// </summary>
         private void PrivateResetHostFlagsOnly()
         {
             hostFlags = HostFlags.Invalid;
@@ -156,6 +222,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invalidates the cached host flags and then resets the
+        /// remaining host flag state via the base class.
+        /// </summary>
+        /// <returns>
+        /// True if the host flags were reset; otherwise, false.
+        /// </returns>
         private bool PrivateResetHostFlags()
         {
             PrivateResetHostFlagsOnly();
@@ -164,6 +237,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes and caches the flags describing the
+        /// capabilities of this host, combining the shell-specific flags with
+        /// those supplied by the base class.
+        /// </summary>
+        /// <returns>
+        /// The flags describing the capabilities of this host.
+        /// </returns>
         protected override HostFlags MaybeInitializeHostFlags()
         {
             if (hostFlags == HostFlags.Invalid)
@@ -181,6 +262,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records whether the most recent read operation raised an
+        /// exception and invalidates the cached host flags so that they reflect
+        /// the change.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if the most recent read operation raised an exception.
+        /// </param>
         protected override void SetReadException(
             bool exception
             )
@@ -191,6 +280,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records whether the most recent write operation raised
+        /// an exception and invalidates the cached host flags so that they
+        /// reflect the change.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if the most recent write operation raised an exception.
+        /// </param>
         protected override void SetWriteException(
             bool exception
             )
@@ -203,6 +300,29 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInteractiveHost Members
+        /// <summary>
+        /// This method displays the interactive prompt of the specified type.
+        /// It first attempts to evaluate the configured prompt script; if no
+        /// such script is configured (or it requests the default behavior), it
+        /// falls back to writing the default prompt for the type.
+        /// </summary>
+        /// <param name="type">
+        /// The type of prompt to display (for example, normal or
+        /// continuation).
+        /// </param>
+        /// <param name="flags">
+        /// On input, the flags controlling how the prompt is displayed; on
+        /// return, this is updated to reflect what was done (for example,
+        /// whether the prompt was completely or partially displayed).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Prompt(
             PromptType type,
             ref PromptFlags flags,
@@ -371,7 +491,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cached flags describing the capabilities of this host, or
+        /// <see cref="HostFlags.Invalid" /> when they have not yet been
+        /// computed.
+        /// </summary>
         private HostFlags hostFlags = HostFlags.Invalid;
+        /// <summary>
+        /// This method returns the flags describing the capabilities of this
+        /// host, computing them if necessary.
+        /// </summary>
+        /// <returns>
+        /// The flags describing the capabilities of this host.
+        /// </returns>
         public override HostFlags GetHostFlags()
         {
             CheckDisposed();
@@ -383,6 +515,43 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IColorHost Members
+        /// <summary>
+        /// This method retrieves a named foreground and/or background color by
+        /// reflecting over the color properties of this host.  Only the
+        /// "default" theme (a null or empty theme name) is supported.
+        /// </summary>
+        /// <param name="theme">
+        /// The name of the theme to query; only a null or empty value (the
+        /// default theme) is supported.  This parameter is reserved.
+        /// </param>
+        /// <param name="name">
+        /// The base name of the color to retrieve.  This parameter should not
+        /// be null or empty.
+        /// </param>
+        /// <param name="foreground">
+        /// Non-zero to retrieve the foreground color associated with
+        /// <paramref name="name" />.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to retrieve the background color associated with
+        /// <paramref name="name" />.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// Upon success, this contains the requested foreground color when
+        /// <paramref name="foreground" /> is non-zero.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon success, this contains the requested background color when
+        /// <paramref name="background" /> is non-zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode GetColors(
             string theme, /* RESERVED */
             string name,
@@ -515,6 +684,43 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method assigns a named foreground and/or background color by
+        /// reflecting over the color properties of this host.  Only the
+        /// "default" theme (a null or empty theme name) is supported.
+        /// </summary>
+        /// <param name="theme">
+        /// The name of the theme to modify; only a null or empty value (the
+        /// default theme) is supported.  This parameter is reserved.
+        /// </param>
+        /// <param name="name">
+        /// The base name of the color to assign.  This parameter should not be
+        /// null or empty.
+        /// </param>
+        /// <param name="foreground">
+        /// Non-zero to assign the foreground color associated with
+        /// <paramref name="name" />.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to assign the background color associated with
+        /// <paramref name="name" />.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to assign when <paramref name="foreground" /> is
+        /// non-zero.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to assign when <paramref name="background" /> is
+        /// non-zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode SetColors(
             string theme, /* RESERVED */
             string name,
@@ -634,6 +840,11 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IHost Members
+        /// <summary>
+        /// Gets the default window or console title used by this host,
+        /// constructing and caching it from the package name and assembly the
+        /// first time it is requested.
+        /// </summary>
         public override string DefaultTitle
         {
             get
@@ -670,6 +881,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the configuration flags of this host to their
+        /// default values.
+        /// </summary>
+        /// <returns>
+        /// True if the flags were reset; otherwise, false.
+        /// </returns>
         public override bool ResetHostFlags()
         {
             CheckDisposed();
@@ -679,6 +897,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets this host to its initial state, also resetting
+        /// its host flags.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Reset(
             ref Result error
             )
@@ -703,6 +933,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this host has been disposed.
+        /// </summary>
         public override bool Disposed
         {
             get { return disposed; }
@@ -712,7 +945,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this host has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this host has already been
+        /// disposed.  It is called at the start of most members to guard
+        /// against use after disposal.
+        /// </summary>
+        /// <exception cref="InterpreterDisposedException">
+        /// Thrown when this host has been disposed and the engine is configured
+        /// to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -726,6 +971,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this host.  It implements
+        /// the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from <c>Dispose()</c>
+        /// (i.e. deterministically); zero if it is being called from the
+        /// finalizer.  When non-zero, managed resources are released.
+        /// </param>
         protected override void Dispose(bool disposing)
         {
             try

@@ -23,9 +23,16 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to
+    /// application domain instances.
+    /// </summary>
     [ObjectId("e595f3de-cab4-4a0d-a4d5-b84d55087fd0")]
     internal sealed class AppDomainDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public AppDomainDictionary()
             : base()
         {

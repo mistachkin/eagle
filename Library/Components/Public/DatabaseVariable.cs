@@ -26,6 +26,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents an array variable whose elements are backed by
+    /// the rows of a table in a SQL database.  It is attached to an Eagle
+    /// array variable as a variable trace callback; element get, set, and
+    /// unset operations on the array are translated into SELECT, INSERT,
+    /// UPDATE, and DELETE statements executed against the configured
+    /// database connection.  The supported operations are governed by the
+    /// associated <see cref="DbVariableFlags" /> and
+    /// <see cref="BreakpointType" /> permissions.
+    /// </summary>
     [ObjectId("3d4f0e30-9aaf-485e-8d5a-c2e2325ecfef")]
     public sealed class DatabaseVariable :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -35,8 +45,22 @@ namespace Eagle._Components.Public
     {
         #region Private Constants
         #region IDbDataParameter Names
+        /// <summary>
+        /// The bound parameter name used for the row identifier value in
+        /// generated SQL command text.
+        /// </summary>
         private static readonly string RowIdParameterName = "@rowId";
+
+        /// <summary>
+        /// The bound parameter name used for the variable name (element name)
+        /// value in generated SQL command text.
+        /// </summary>
         private static readonly string NameParameterName = "@name";
+
+        /// <summary>
+        /// The bound parameter name used for the variable value (element
+        /// value) in generated SQL command text.
+        /// </summary>
         private static readonly string ValueParameterName = "@value";
         #endregion
 
@@ -47,6 +71,9 @@ namespace Eagle._Components.Public
         // NOTE: This is the primary column name for the row identifier used
         //       by Oracle.
         //
+        /// <summary>
+        /// The column name for the row identifier used by Oracle.
+        /// </summary>
         private static readonly string OracleRowIdColumnName = "ROWID";
 
         ///////////////////////////////////////////////////////////////////////
@@ -55,6 +82,9 @@ namespace Eagle._Components.Public
         // NOTE: This is the column name for the row identifier used by SQL
         //       Server.
         //
+        /// <summary>
+        /// The column name for the row identifier used by SQL Server.
+        /// </summary>
         private static readonly string SqlRowIdColumnName = "$IDENTITY";
 
         ///////////////////////////////////////////////////////////////////////
@@ -63,6 +93,9 @@ namespace Eagle._Components.Public
         // NOTE: This is the primary column name for the row identifier used
         //       by SQLite.
         //
+        /// <summary>
+        /// The column name for the row identifier used by SQLite.
+        /// </summary>
         private static readonly string SQLiteRowIdColumnName = "rowid";
         #endregion
 
@@ -73,6 +106,10 @@ namespace Eagle._Components.Public
         // NOTE: This is used to return a count of variables.  It must work
         //       with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to return a count of variables.
+        /// It must work with any SQL database.
+        /// </summary>
         private static readonly string SelectCountCommandText =
             "SELECT COUNT(*) FROM {0};";
 
@@ -82,6 +119,11 @@ namespace Eagle._Components.Public
         // NOTE: This is used to return a list of variable names.  It must
         //       work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to return a single column (the
+        /// list of variable names) for all rows.  It must work with any SQL
+        /// database.
+        /// </summary>
         private static readonly string SelectOneForAllCommandText =
             "SELECT {1} FROM {0};";
 
@@ -91,6 +133,11 @@ namespace Eagle._Components.Public
         // NOTE: This is used to return a list of variable names and their
         //       values.  It must work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to return two columns (the list
+        /// of variable names and their values) for all rows.  It must work
+        /// with any SQL database.
+        /// </summary>
         private static readonly string SelectTwoForAllCommandText =
             "SELECT {1}, {2} FROM {0};";
 
@@ -100,6 +147,10 @@ namespace Eagle._Components.Public
         // NOTE: This is used to return a single column value for a matching
         //       row.  It must work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to return a single column value
+        /// for a matching row.  It must work with any SQL database.
+        /// </summary>
         private static readonly string SelectCommandText =
             "SELECT {0} FROM {1} WHERE {2} = {3};";
 
@@ -109,6 +160,11 @@ namespace Eagle._Components.Public
         // NOTE: This is used to return a single column value for a matching
         //       row.  It must work with SQLite.
         //
+        /// <summary>
+        /// The SQL command text template used to return a single column value
+        /// for a matching row, casting the matched column to text.  It must
+        /// work with SQLite.
+        /// </summary>
         private static readonly string SelectWhereCastCommandText =
             "SELECT {0} FROM {1} WHERE CAST({2} AS TEXT) = {3};";
 
@@ -118,6 +174,10 @@ namespace Eagle._Components.Public
         // NOTE: This is used to check if a single matching row exists.  It
         //       must work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to check whether a single
+        /// matching row exists.  It must work with any SQL database.
+        /// </summary>
         private static readonly string SelectExistCommandText =
             "SELECT 1 FROM {0} WHERE {1} = {2};";
 
@@ -127,6 +187,11 @@ namespace Eagle._Components.Public
         // NOTE: This is used to check if a single matching row exists.  It
         //       must work with SQLite.
         //
+        /// <summary>
+        /// The SQL command text template used to check whether a single
+        /// matching row exists, casting the matched column to text.  It must
+        /// work with SQLite.
+        /// </summary>
         private static readonly string SelectExistWhereCastCommandText =
             "SELECT 1 FROM {0} WHERE CAST({1} AS TEXT) = {2};";
 
@@ -137,6 +202,11 @@ namespace Eagle._Components.Public
         //       for the new variable name and one for the new variable value.
         //       It must work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to insert a single row with two
+        /// columns, one for the new variable name and one for the new variable
+        /// value.  It must work with any SQL database.
+        /// </summary>
         private static readonly string InsertCommandText =
             "INSERT INTO {0} ({1}, {2}) VALUES ({3}, {4});";
 
@@ -147,6 +217,11 @@ namespace Eagle._Components.Public
         //       for the new variable name and one for the new variable value.
         //       It must work with SQLite.
         //
+        /// <summary>
+        /// The SQL command text template used to insert a single row with two
+        /// columns, one for the new variable name and one for the new variable
+        /// value (cast to text).  It must work with SQLite.
+        /// </summary>
         private static readonly string InsertWhereCastCommandText =
             "INSERT INTO {0} ({1}, {2}) VALUES ({3}, CAST({4} AS TEXT));";
 
@@ -157,6 +232,11 @@ namespace Eagle._Components.Public
         //       for the existing variable name and one for the new variable
         //       value.  It must work with any SQL database.
         //
+        /// <summary>
+        /// The SQL command text template used to update a single row with two
+        /// columns, one for the existing variable name and one for the new
+        /// variable value.  It must work with any SQL database.
+        /// </summary>
         private static readonly string UpdateCommandText =
             "UPDATE {0} SET {1} = {3} WHERE {2} = {4};";
 
@@ -167,6 +247,11 @@ namespace Eagle._Components.Public
         //       for the existing variable name and one for the new variable
         //       value.  It must work with SQLite.
         //
+        /// <summary>
+        /// The SQL command text template used to update a single row with two
+        /// columns, one for the existing variable name (matched as text) and
+        /// one for the new variable value.  It must work with SQLite.
+        /// </summary>
         private static readonly string UpdateWhereCastCommandText =
             "UPDATE {0} SET {1} = {3} WHERE CAST({2} AS TEXT) = {4};";
 
@@ -177,6 +262,10 @@ namespace Eagle._Components.Public
         //       the existing variable name.  It must work with any SQL
         //       database.
         //
+        /// <summary>
+        /// The SQL command text template used to delete a single row matched
+        /// by the existing variable name.  It must work with any SQL database.
+        /// </summary>
         private static readonly string DeleteCommandText =
             "DELETE FROM {0} WHERE {1} = {2};";
 
@@ -187,6 +276,11 @@ namespace Eagle._Components.Public
         //       the existing variable name [to be matched against].  It must
         //       work with SQLite.
         //
+        /// <summary>
+        /// The SQL command text template used to delete a single row matched
+        /// by the existing variable name (matched as text).  It must work with
+        /// SQLite.
+        /// </summary>
         private static readonly string DeleteWhereCastCommandText =
             "DELETE FROM {0} WHERE CAST({1} AS TEXT) = {2};";
         #endregion
@@ -195,6 +289,54 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a database-backed array variable from the fully
+        /// specified set of database, connection, and column parameters.
+        /// </summary>
+        /// <param name="dbVariableFlags">
+        /// The flags that control which database operations (SELECT, INSERT,
+        /// UPDATE, DELETE) are permitted on this variable.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The type of database connection to create when accessing the
+        /// backing table.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The optional public key token used to locate the database provider
+        /// assembly.  This parameter may be null.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The optional file name of the assembly that contains the database
+        /// provider type.  This parameter may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The optional type name of the database connection type to create.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The optional database connection type to create.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string used to open the database connection.
+        /// </param>
+        /// <param name="tableName">
+        /// The name of the database table that backs the array variable.
+        /// </param>
+        /// <param name="nameColumnName">
+        /// The name of the column that holds the variable (element) names.
+        /// </param>
+        /// <param name="valueColumnName">
+        /// The name of the column that holds the variable (element) values.
+        /// </param>
+        /// <param name="permissions">
+        /// The breakpoint-based permissions that control which variable trace
+        /// operations are allowed.
+        /// </param>
+        /// <param name="useRowId">
+        /// Non-zero to match rows using the database-specific row identifier
+        /// column when possible; otherwise, the name column is used.
+        /// </param>
         private DatabaseVariable(
             DbVariableFlags dbVariableFlags,
             DbConnectionType dbConnectionType,
@@ -228,6 +370,57 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new database-backed array variable from the
+        /// fully specified set of database, connection, and column parameters.
+        /// </summary>
+        /// <param name="dbVariableFlags">
+        /// The flags that control which database operations (SELECT, INSERT,
+        /// UPDATE, DELETE) are permitted on this variable.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The type of database connection to create when accessing the
+        /// backing table.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The optional public key token used to locate the database provider
+        /// assembly.  This parameter may be null.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The optional file name of the assembly that contains the database
+        /// provider type.  This parameter may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The optional type name of the database connection type to create.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The optional database connection type to create.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string used to open the database connection.
+        /// </param>
+        /// <param name="tableName">
+        /// The name of the database table that backs the array variable.
+        /// </param>
+        /// <param name="nameColumnName">
+        /// The name of the column that holds the variable (element) names.
+        /// </param>
+        /// <param name="valueColumnName">
+        /// The name of the column that holds the variable (element) values.
+        /// </param>
+        /// <param name="permissions">
+        /// The breakpoint-based permissions that control which variable trace
+        /// operations are allowed.
+        /// </param>
+        /// <param name="useRowId">
+        /// Non-zero to match rows using the database-specific row identifier
+        /// column when possible; otherwise, the name column is used.
+        /// </param>
+        /// <returns>
+        /// The newly created <see cref="DatabaseVariable" /> instance.
+        /// </returns>
         public static DatabaseVariable Create(
             DbVariableFlags dbVariableFlags,
             DbConnectionType dbConnectionType,
@@ -255,7 +448,16 @@ namespace Eagle._Components.Public
 
         #region Public Members
         #region Public Properties
+        /// <summary>
+        /// The flags that control which database operations are permitted on
+        /// this variable.
+        /// </summary>
         private DbVariableFlags dbVariableFlags;
+
+        /// <summary>
+        /// Gets the flags that control which database operations are permitted
+        /// on this variable.
+        /// </summary>
         public DbVariableFlags DbVariableFlags
         {
             get { CheckDisposed(); return dbVariableFlags; }
@@ -263,7 +465,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The type of database connection to create when accessing the
+        /// backing table.
+        /// </summary>
         private DbConnectionType dbConnectionType;
+
+        /// <summary>
+        /// Gets the type of database connection to create when accessing the
+        /// backing table.
+        /// </summary>
         public DbConnectionType DbConnectionType
         {
             get { CheckDisposed(); return dbConnectionType; }
@@ -271,7 +482,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The optional public key token used to locate the database provider
+        /// assembly.
+        /// </summary>
         private byte[] publicKeyToken;
+
+        /// <summary>
+        /// Gets the optional public key token used to locate the database
+        /// provider assembly.
+        /// </summary>
         public byte[] PublicKeyToken
         {
             get { CheckDisposed(); return publicKeyToken; }
@@ -279,7 +499,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The optional file name of the assembly that contains the database
+        /// provider type.
+        /// </summary>
         private string assemblyFileName;
+
+        /// <summary>
+        /// Gets the optional file name of the assembly that contains the
+        /// database provider type.
+        /// </summary>
         public string AssemblyFileName
         {
             get { CheckDisposed(); return assemblyFileName; }
@@ -287,7 +516,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The connection string used to open the database connection.
+        /// </summary>
         private string connectionString;
+
+        /// <summary>
+        /// Gets the connection string used to open the database connection.
+        /// </summary>
         public string ConnectionString
         {
             get { CheckDisposed(); return connectionString; }
@@ -295,7 +531,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the database table that backs the array variable.
+        /// </summary>
         private string tableName;
+
+        /// <summary>
+        /// Gets the name of the database table that backs the array variable.
+        /// </summary>
         public string TableName
         {
             get { CheckDisposed(); return tableName; }
@@ -303,7 +546,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the column that holds the variable (element) names.
+        /// </summary>
         private string nameColumnName;
+
+        /// <summary>
+        /// Gets the name of the column that holds the variable (element)
+        /// names.
+        /// </summary>
         public string NameColumnName
         {
             get { CheckDisposed(); return nameColumnName; }
@@ -311,7 +562,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the column that holds the variable (element) values.
+        /// </summary>
         private string valueColumnName;
+
+        /// <summary>
+        /// Gets the name of the column that holds the variable (element)
+        /// values.
+        /// </summary>
         public string ValueColumnName
         {
             get { CheckDisposed(); return valueColumnName; }
@@ -319,7 +578,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The breakpoint-based permissions that control which variable trace
+        /// operations are allowed.
+        /// </summary>
         private BreakpointType permissions;
+
+        /// <summary>
+        /// Gets the breakpoint-based permissions that control which variable
+        /// trace operations are allowed.
+        /// </summary>
         public BreakpointType Permissions
         {
             get { CheckDisposed(); return permissions; }
@@ -327,7 +595,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero to match rows using the database-specific row identifier
+        /// column when possible; otherwise, the name column is used.
+        /// </summary>
         private bool useRowId;
+
+        /// <summary>
+        /// Gets a value indicating whether rows are matched using the
+        /// database-specific row identifier column when possible.
+        /// </summary>
         public bool UseRowId
         {
             get { CheckDisposed(); return useRowId; }
@@ -335,7 +612,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached database-specific row identifier column name, determined
+        /// lazily based on the connection type.
+        /// </summary>
         private string rowIdColumnName;
+
+        /// <summary>
+        /// Gets the database-specific row identifier column name, if it has
+        /// been determined.
+        /// </summary>
         public string RowIdColumnName
         {
             get { CheckDisposed(); return rowIdColumnName; }
@@ -345,6 +631,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Script Helper Methods
+        /// <summary>
+        /// This method adds an array variable to the specified interpreter and
+        /// attaches this object as its variable trace callback so that element
+        /// access is routed to the backing database table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to which the array variable will be added.
+        /// </param>
+        /// <param name="name">
+        /// The name of the array variable to add.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         public ReturnCode AddVariable(
             Interpreter interpreter,
             string name,
@@ -368,6 +672,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Helper Methods
+        /// <summary>
+        /// This method produces a list of name/value pairs that describe the
+        /// configuration of this object, suitable for introspection.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="StringPairList" /> containing the configuration of
+        /// this object.
+        /// </returns>
         public StringPairList ToList()
         {
             CheckDisposed();
@@ -409,7 +721,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ITypeAndName Members
+        /// <summary>
+        /// The optional type name of the database connection type to create.
+        /// </summary>
         private string typeName;
+
+        /// <summary>
+        /// Gets the optional type name of the database connection type to
+        /// create.  Setting this property is not supported and always throws
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
         public string TypeName
         {
             get { CheckDisposed(); return typeName; }
@@ -418,7 +739,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The optional database connection type to create.
+        /// </summary>
         private Type type;
+
+        /// <summary>
+        /// Gets the optional database connection type to create.  Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
         public Type Type
         {
             get { CheckDisposed(); return type; }
@@ -429,6 +759,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISupportVariable Members
+        /// <summary>
+        /// This method determines whether a variable (element) with the
+        /// specified name exists in the backing database table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable (element) to check for.
+        /// </param>
+        /// <returns>
+        /// True if a matching row exists; otherwise, false.
+        /// </returns>
         public bool DoesExist(
             Interpreter interpreter,
             string name
@@ -441,6 +784,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of variables (elements) stored in
+        /// the backing database table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The count of variables, or null if the count could not be obtained.
+        /// </returns>
         public long? GetCount(
             Interpreter interpreter,
             ref Result error
@@ -461,6 +818,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a dictionary of the variables (elements) stored
+        /// in the backing database table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the variable names in the resulting dictionary.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the variable values in the resulting
+        /// dictionary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// An <see cref="ObjectDictionary" /> of the requested variables, or
+        /// null if the list could not be obtained.
+        /// </returns>
         public ObjectDictionary GetList(
             Interpreter interpreter,
             bool names,
@@ -484,6 +863,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a dictionary of the variables (elements) stored
+        /// in the backing database table.  The pattern matching parameters are
+        /// accepted for interface compatibility but are not used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="pattern">
+        /// The match pattern.  This parameter is not used.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero for case-insensitive matching.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the variable names in the resulting dictionary.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the variable values in the resulting
+        /// dictionary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// An <see cref="ObjectDictionary" /> of the requested variables, or
+        /// null if the list could not be obtained.
+        /// </returns>
         public ObjectDictionary GetList(
             Interpreter interpreter, /* in */
             string pattern,          /* in: NOT USED */
@@ -509,6 +918,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string containing the variable (element)
+        /// names stored in the backing database table, optionally filtered by
+        /// the specified match criteria.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when filtering the names.
+        /// </param>
+        /// <param name="pattern">
+        /// The match pattern to use when filtering the names.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero for case-insensitive matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is
+        /// regular-expression based.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// A string containing the matching variable names, or null if the
+        /// names could not be obtained.
+        /// </returns>
         public string KeysToString(
             Interpreter interpreter,
             MatchMode mode,
@@ -540,6 +979,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string containing the variable (element)
+        /// names and their values stored in the backing database table,
+        /// optionally filtered by the specified match criteria.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="pattern">
+        /// The match pattern to use when filtering the names.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero for case-insensitive matching.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// A string containing the matching variable names and values, or null
+        /// if they could not be obtained.
+        /// </returns>
         public string KeysAndValuesToString(
             Interpreter interpreter,
             string pattern,
@@ -572,6 +1034,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this object.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this object.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -584,6 +1052,16 @@ namespace Eagle._Components.Public
 
         #region Private Members
         #region Connection Helper Methods
+        /// <summary>
+        /// This method creates and returns a database connection using the
+        /// configured connection settings, discarding any error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <returns>
+        /// The new database connection, or null if it could not be created.
+        /// </returns>
         private IDbConnection CreateDbConnection(
             Interpreter interpreter
             )
@@ -595,6 +1073,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and returns a database connection using the
+        /// configured connection settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The new database connection, or null if it could not be created.
+        /// </returns>
         private IDbConnection CreateDbConnection(
             Interpreter interpreter,
             ref Result error
@@ -619,6 +1111,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Column Name Helper Methods
+        /// <summary>
+        /// This method determines and caches the database-specific row
+        /// identifier column name based on the configured connection type.
+        /// </summary>
         private void GetRowIdColumnName()
         {
             //
@@ -653,6 +1149,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static Command Text Helper Methods
+        /// <summary>
+        /// This method returns the SQL command text template used to count the
+        /// variables in the backing table.
+        /// </summary>
+        /// <returns>
+        /// The SQL command text template used to count variables.
+        /// </returns>
         private static string GetVariableCountCommandText()
         {
             return SelectCountCommandText;
@@ -660,6 +1163,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the SQL command text template used to list the
+        /// variables in the backing table, based on whether names and/or
+        /// values are requested.
+        /// </summary>
+        /// <param name="names">
+        /// Non-zero if the variable names are requested.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero if the variable values are requested.
+        /// </param>
+        /// <returns>
+        /// The SQL command text template used to list variables, or null if
+        /// neither names nor values are requested.
+        /// </returns>
         private static string GetVariableListCommandText(
             bool names,
             bool values
@@ -680,6 +1198,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Text Helper Methods
+        /// <summary>
+        /// This method returns the SQL command text template used to select a
+        /// single column value for a matching row, choosing the appropriate
+        /// template for the configured connection type.
+        /// </summary>
+        /// <returns>
+        /// The SQL command text template used to select a single value.
+        /// </returns>
         private string GetSelectCommandText()
         {
             //
@@ -698,6 +1224,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the SQL command text template used to check
+        /// whether a matching row exists, choosing the appropriate template
+        /// for the configured connection type.
+        /// </summary>
+        /// <returns>
+        /// The SQL command text template used to check for existence.
+        /// </returns>
         private string GetVariableExistCommandText()
         {
             //
@@ -716,6 +1250,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the SQL command text template used to get the
+        /// value of a single variable.
+        /// </summary>
+        /// <returns>
+        /// The SQL command text template used to get a variable value.
+        /// </returns>
         private string GetVariableGetCommandText()
         {
             return GetSelectCommandText();
@@ -723,6 +1264,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the SQL command text template used to set the
+        /// value of a single variable, choosing an UPDATE or INSERT template
+        /// (and the appropriate variant for the connection type) based on
+        /// whether the variable already exists.
+        /// </summary>
+        /// <param name="exists">
+        /// Non-zero if the variable already exists (an UPDATE is required);
+        /// otherwise, an INSERT is required.
+        /// </param>
+        /// <returns>
+        /// The SQL command text template used to set a variable value.
+        /// </returns>
         private string GetVariableSetCommandText(
             bool exists
             )
@@ -744,6 +1298,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the SQL command text template used to unset
+        /// (delete) a single variable, choosing the appropriate template for
+        /// the configured connection type.
+        /// </summary>
+        /// <returns>
+        /// The SQL command text template used to unset a variable.
+        /// </returns>
         private string GetVariableUnsetCommandText()
         {
             //
@@ -768,6 +1330,20 @@ namespace Eagle._Components.Public
         // TODO: This method is not allowed to "fail"?  This seems like a
         //       design flaw.
         //
+        /// <summary>
+        /// This method determines whether a variable (element) with the
+        /// specified name exists by executing a SELECT statement against the
+        /// backing table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable (element) to check for.
+        /// </param>
+        /// <returns>
+        /// True if a matching row exists; otherwise, false.
+        /// </returns>
         private bool DoesExistViaSelect(
             Interpreter interpreter,
             string name
@@ -858,6 +1434,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the database-specific row identifier for the
+        /// variable (element) with the specified name by executing a SELECT
+        /// statement against the backing table.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="rowIdColumnName">
+        /// The name of the row identifier column to select.  This parameter
+        /// may be null, in which case no lookup is performed.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable (element) whose row identifier is sought.
+        /// </param>
+        /// <param name="rowId">
+        /// Upon success, this parameter will be modified to contain the row
+        /// identifier of the matching row.
+        /// </param>
+        /// <returns>
+        /// True if a matching row was found; otherwise, false.
+        /// </returns>
         private bool GetRowIdViaSelect(
             Interpreter interpreter,
             string rowIdColumnName,
@@ -920,6 +1518,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the number of variables (elements) in the
+        /// backing table by executing a SELECT COUNT statement.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this parameter will be modified to contain the count
+        /// of variables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private ReturnCode GetCountViaSelect(
             Interpreter interpreter,
             ref long count,
@@ -976,6 +1592,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the variables (elements) in the backing table
+        /// by executing a SELECT statement, populating a dictionary with the
+        /// requested names and/or values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the variable names in the resulting dictionary.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the variable values in the resulting
+        /// dictionary.
+        /// </param>
+        /// <param name="dictionary">
+        /// Upon success, this parameter will be modified to contain the
+        /// requested variables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private ReturnCode GetListViaSelect(
             Interpreter interpreter,
             bool names,
@@ -1059,6 +1701,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Callback Static Helper Methods
+        /// <summary>
+        /// This method validates that the specified property value is a legal
+        /// SQL identifier, throwing an exception when it is not.
+        /// </summary>
+        /// <param name="propertyName">
+        /// The name of the property being validated, used in any resulting
+        /// error message.
+        /// </param>
+        /// <param name="propertyValue">
+        /// The property value to validate as a SQL identifier.
+        /// </param>
         private static void CheckIdentifier(
             string propertyName,
             string propertyValue
@@ -1069,6 +1722,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates that the specified property value is a legal
+        /// SQL identifier (or a well-known parameter name), throwing an
+        /// exception when it is not.
+        /// </summary>
+        /// <param name="propertyName">
+        /// The name of the property being validated, used in any resulting
+        /// error message.
+        /// </param>
+        /// <param name="propertyValue">
+        /// The property value to validate as a SQL identifier.
+        /// </param>
+        /// <param name="isParameterName">
+        /// Non-zero if the value is a bound parameter name; in that case, a
+        /// value matching one of the well-known parameter names is exempt from
+        /// the regular expression check.
+        /// </param>
         private static void CheckIdentifier(
             string propertyName,
             string propertyValue,
@@ -1102,6 +1772,20 @@ namespace Eagle._Components.Public
 
         #region Trace Callback Helper Methods
         #region Flags Helper Methods
+        /// <summary>
+        /// This method determines whether the configured database variable
+        /// flags include the specified flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified flags are present;
+        /// zero to require that any of them are present.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         private bool HasFlags(
             DbVariableFlags hasFlags,
             bool all
@@ -1112,6 +1796,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the configured permissions include
+        /// the specified breakpoint flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The breakpoint flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified flags are present;
+        /// zero to require that any of them are present.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         private bool HasFlags(
             BreakpointType hasFlags,
             bool all
@@ -1123,6 +1821,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the database variable flags permit the
+        /// operation associated with the specified breakpoint type, throwing
+        /// an exception when the operation is forbidden.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type identifying the operation being attempted.
+        /// </param>
         private void CheckTraceAccess(
             BreakpointType breakpointType
             ) /* throw */
@@ -1132,6 +1838,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the database variable flags permit the
+        /// operation associated with the specified breakpoint type, throwing
+        /// an exception when the operation is forbidden.  For set operations,
+        /// the existence of the row determines whether INSERT or UPDATE
+        /// permission is required.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type identifying the operation being attempted.
+        /// </param>
+        /// <param name="exists">
+        /// For set operations, indicates whether the row already exists (an
+        /// UPDATE) or not (an INSERT).  This parameter may be null when the
+        /// existence is unknown, in which case both permissions are checked.
+        /// </param>
         private void CheckTraceAccess(
             BreakpointType breakpointType,
             bool? exists
@@ -1174,6 +1895,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the SQL command text and the WHERE clause
+        /// column, parameter type, parameter name, and parameter value to use
+        /// for the operation associated with the specified breakpoint type.
+        /// It also enforces the relevant access permissions.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The breakpoint type identifying the operation being attempted.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable (element) being operated upon.
+        /// </param>
+        /// <param name="commandText">
+        /// Upon return, this parameter will be modified to contain the SQL
+        /// command text template to use.
+        /// </param>
+        /// <param name="whereColumnName">
+        /// Upon return, this parameter will be modified to contain the name of
+        /// the column used in the WHERE clause.
+        /// </param>
+        /// <param name="whereParameterDbType">
+        /// Upon return, this parameter will be modified to contain the
+        /// database type of the WHERE clause parameter, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="whereParameterName">
+        /// Upon return, this parameter will be modified to contain the bound
+        /// parameter name used in the WHERE clause.
+        /// </param>
+        /// <param name="whereParameterValue">
+        /// Upon return, this parameter will be modified to contain the value
+        /// of the WHERE clause parameter.
+        /// </param>
         private void GetCommandTextAndValues(
             Interpreter interpreter,
             BreakpointType breakpointType,
@@ -1322,6 +2079,31 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Callback Method
+        /// <summary>
+        /// This method is the variable trace callback that routes array
+        /// element get, set, and unset operations to the backing database
+        /// table.  Operations on the entire array (when no element index is
+        /// present) other than unset are not supported.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type identifying the variable operation being
+        /// performed.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information describing the variable, element index, and
+        /// value involved in the operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter will be modified to contain the value
+        /// produced by the operation, or an appropriate error message on
+        /// failure.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.VariableTrace | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -1654,7 +2436,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws <see cref="ObjectDisposedException" /> if this
+        /// object has been disposed and the engine is configured to throw on
+        /// access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -1668,6 +2459,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this object.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method (and managed resources should be
+        /// released); zero if it is being called from the finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -1693,6 +2492,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -1703,6 +2505,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object, releasing any unmanaged resources.
+        /// </summary>
         ~DatabaseVariable()
         {
             Dispose(false);

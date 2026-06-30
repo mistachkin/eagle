@@ -45,6 +45,17 @@ namespace Eagle._Containers.Public
     // TODO: Centralize ALL options using ArgumentListOptionDictionary
     //       from a ranged ArgumentList to OptionDictionary.
     //
+    /// <summary>
+    /// This class represents an ordered collection of command options keyed by
+    /// name.  It extends the dictionary used to map option names to their
+    /// <see cref="IOption" /> definitions and provides the higher-level support
+    /// used when parsing, resolving, querying, and formatting the options
+    /// accepted by Eagle commands.  In addition to the usual add and lookup
+    /// methods, it offers prefix-based (possibly case-insensitive) option
+    /// resolution, presence and value tracking, category-based filtering, and
+    /// the construction of human-readable error messages for bad or ambiguous
+    /// options.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -55,14 +66,33 @@ namespace Eagle._Containers.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether verbose error messages (i.e. those
+        /// that list the available options) should be produced.
+        /// </summary>
         private static bool DefaultVerbose = false;
+        /// <summary>
+        /// The default value indicating whether option name matching should be
+        /// case-insensitive.
+        /// </summary>
         private static bool DefaultNoCase = false;
+        /// <summary>
+        /// The default value indicating whether a missing or unknown option should
+        /// be treated as an error.
+        /// </summary>
         private static bool DefaultStrict = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class.
+        /// </summary>
+        /// <param name="system">
+        /// Non-zero to add the built-in (system) options to the newly created
+        /// dictionary.
+        /// </param>
         private OptionDictionary(
             bool system
             )
@@ -74,6 +104,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// copying the options from an existing dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The existing dictionary whose options are to be copied into the newly
+        /// created dictionary.
+        /// </param>
+        /// <param name="system">
+        /// Non-zero to add the built-in (system) options to the newly created
+        /// dictionary.
+        /// </param>
         private OptionDictionary(
             OptionDictionary options,
             bool system
@@ -88,6 +130,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// including the built-in (system) options.
+        /// </summary>
         public OptionDictionary()
             : this(true)
         {
@@ -96,6 +142,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// adding the options from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of options to add to the newly created dictionary.
+        /// </param>
         public OptionDictionary(
             IEnumerable<IOption> collection
             )
@@ -107,6 +160,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// adding the options from the two specified collections.
+        /// </summary>
+        /// <param name="collection1">
+        /// The first collection of options to add to the newly created dictionary.
+        /// </param>
+        /// <param name="collection2">
+        /// The second collection of options to add to the newly created dictionary.
+        /// </param>
         public OptionDictionary(
             IEnumerable<IOption> collection1,
             IEnumerable<IOption> collection2
@@ -121,6 +184,18 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// adding the options from the specified collection of options followed by
+        /// those from the specified collection of name and option pairs.
+        /// </summary>
+        /// <param name="collection1">
+        /// The collection of options to add to the newly created dictionary.
+        /// </param>
+        /// <param name="collection2">
+        /// The collection of name and option pairs to add to the newly created
+        /// dictionary.
+        /// </param>
         internal OptionDictionary(
             IEnumerable<IOption> collection1,
             IEnumerable<KeyValuePair<string, IOption>> collection2
@@ -133,6 +208,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class,
+        /// including the built-in (system) options and adding the options from the
+        /// two specified collections of name and option pairs.
+        /// </summary>
+        /// <param name="collection1">
+        /// The first collection of name and option pairs to add to the newly created
+        /// dictionary.
+        /// </param>
+        /// <param name="collection2">
+        /// The second collection of name and option pairs to add to the newly
+        /// created dictionary.
+        /// </param>
         internal OptionDictionary(
             IEnumerable<KeyValuePair<string, IOption>> collection1,
             IEnumerable<KeyValuePair<string, IOption>> collection2
@@ -151,6 +239,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a new instance of the <see cref="OptionDictionary" /> class
+        /// from previously serialized data (i.e. via the .NET Framework
+        /// serialization subsystem).
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized data.
+        /// </param>
         private OptionDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -165,6 +264,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// Creates the set of built-in (system) options that should be present in
+        /// every option dictionary.
+        /// </summary>
+        /// <returns>
+        /// The collection of newly created built-in (system) options.
+        /// </returns>
         private static IEnumerable<IOption> CreateSystemOptions(
             )
         {
@@ -173,6 +279,44 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new option dictionary by parsing the specified string as a
+        /// list, interpreting each element as an option definition.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to parse, in list form, where each element describes an option
+        /// to be added to the new dictionary.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when resolving types referenced by the
+        /// parsed options, if any.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit integer values to be used where an enumerated value is
+        /// otherwise expected.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat any parsing or validation problem as an error.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform string comparisons in a case-insensitive manner.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for parsing and comparisons, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary, or null if it could not be created.
+        /// </returns>
         public static OptionDictionary FromString(
             Interpreter interpreter,
             string text,
@@ -223,6 +367,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new option dictionary by parsing the specified string as a
+        /// list, interpreting each element as an option definition.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to parse, in list form, where each element describes an option
+        /// to be added to the new dictionary.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when resolving types referenced by the
+        /// parsed options, if any.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags used to control how the option values are parsed and
+        /// interpreted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for parsing and comparisons, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary, or null if it could not be created.
+        /// </returns>
         public static OptionDictionary FromString(
             Interpreter interpreter,
             string text,
@@ -271,6 +444,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option Add Methods
+        /// <summary>
+        /// Adds the specified option to the dictionary, using its name as the key.
+        /// </summary>
+        /// <param name="item">
+        /// The option to add to the dictionary.
+        /// </param>
         public void Add(
             IOption item
             )
@@ -280,6 +459,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the specified option to the dictionary unless an option with the
+        /// same name is already present.
+        /// </summary>
+        /// <param name="item">
+        /// The option to add to the dictionary.
+        /// </param>
         public void MaybeAdd(
             IOption item
             )
@@ -289,6 +475,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the specified option to the dictionary, using the specified key,
+        /// unless an option with the same name is already present.
+        /// </summary>
+        /// <param name="name">
+        /// The key (option name) to associate with the option.
+        /// </param>
+        /// <param name="item">
+        /// The option to add to the dictionary.
+        /// </param>
         public void MaybeAdd(
             string name,
             IOption item
@@ -299,6 +495,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the built-in (system) options to the dictionary.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to forcibly replace any existing option that has the same name
+        /// as a built-in (system) option.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require that each built-in (system) option be added without
+        /// already being present; otherwise, an existing option with the same name
+        /// is left unchanged.
+        /// </param>
         private void AddSystemOptions(
             bool force,
             bool strict
@@ -327,6 +535,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option Replace Methods
+        /// <summary>
+        /// Adds the specified option to the dictionary, replacing any existing
+        /// option that has the same name.
+        /// </summary>
+        /// <param name="item">
+        /// The option to add to (or replace within) the dictionary.
+        /// </param>
         public void Replace(
             IOption item
             )
@@ -338,6 +553,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option Has (Is Available) Methods
+        /// <summary>
+        /// Determines whether an option with the same name as the specified
+        /// identifier is present in the dictionary.
+        /// </summary>
+        /// <param name="item">
+        /// The identifier whose name is to be looked up.
+        /// </param>
+        /// <returns>
+        /// True if a matching option is present; otherwise, false.
+        /// </returns>
         public bool Has(
             IIdentifierBase item
             )
@@ -347,6 +572,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether an option with the specified name is present in the
+        /// dictionary.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to look up.
+        /// </param>
+        /// <returns>
+        /// True if a matching option is present; otherwise, false.
+        /// </returns>
         public bool Has(
             string name
             )
@@ -356,6 +591,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether an option with the specified name is present in the
+        /// dictionary, returning the matching option.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to look up.
+        /// </param>
+        /// <param name="option">
+        /// Upon success, this parameter will be modified to contain the matching
+        /// option.
+        /// </param>
+        /// <returns>
+        /// True if a matching option is present; otherwise, false.
+        /// </returns>
         public bool Has(
             string name,
             ref IOption option
@@ -366,6 +615,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether an option with the specified name is present in the
+        /// specified dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to look up.
+        /// </param>
+        /// <returns>
+        /// True if a matching option is present; otherwise, false.
+        /// </returns>
         public static bool Has(
             OptionDictionary options,
             string name
@@ -378,6 +640,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether an option with the specified name is present in the
+        /// specified dictionary, returning the matching option.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to look up.
+        /// </param>
+        /// <param name="option">
+        /// Upon success, this parameter will be modified to contain the matching
+        /// option.
+        /// </param>
+        /// <returns>
+        /// True if a matching option is present; otherwise, false.
+        /// </returns>
         public static bool Has(
             OptionDictionary options,
             string name,
@@ -394,6 +673,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option CanBePresent (Is Usable) Methods
+        /// <summary>
+        /// Determines whether the option with the specified name is available and
+        /// may legally be present (e.g. it is not mutually exclusive with another
+        /// option that is already present).
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// True if the option may legally be present; otherwise, false.
+        /// </returns>
         public bool CanBePresent(
             string name,
             ref Result error
@@ -404,6 +698,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name, in the specified
+        /// dictionary, is available and may legally be present (e.g. it is not
+        /// mutually exclusive with another option that is already present).
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// True if the option may legally be present; otherwise, false.
+        /// </returns>
         public static bool CanBePresent(
             OptionDictionary options,
             string name,
@@ -425,6 +737,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option IsPresent (Is Set) Methods
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set).
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name
             )
@@ -439,6 +761,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), returning its associated value.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name,
             ref IVariant value
@@ -453,6 +789,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), returning its associated value and argument index.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, this parameter will be modified to contain the argument
+        /// index at which the option was seen.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name,
             ref IVariant value,
@@ -466,6 +820,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set).
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name,
             bool noCase
@@ -481,6 +848,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), returning its associated value.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name,
             bool noCase,
@@ -496,6 +880,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), returning its associated value and argument index.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, this parameter will be modified to contain the argument
+        /// index at which the option was seen.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public bool IsPresent(
             string name,
             bool noCase,
@@ -510,6 +915,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name, in the specified
+        /// dictionary, is present (i.e. has been set).
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public static bool IsPresent(
             OptionDictionary options,
             string name,
@@ -526,6 +947,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name, in the specified
+        /// dictionary, is present (i.e. has been set), returning its associated
+        /// value.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public static bool IsPresent(
             OptionDictionary options,
             string name,
@@ -542,6 +984,31 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name, in the specified
+        /// dictionary, is present (i.e. has been set), returning its associated
+        /// value and argument index.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, this parameter will be modified to contain the argument
+        /// index at which the option was seen.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         public static bool IsPresent(
             OptionDictionary options,
             string name,
@@ -558,6 +1025,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), without treating a missing option as an error.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         internal bool CheckPresent(
             string name
             )
@@ -572,6 +1049,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the option with the specified name is present (i.e.
+        /// has been set), without treating a missing option as an error, returning
+        /// its associated value.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         internal bool CheckPresent(
             string name,
             ref IVariant value
@@ -588,6 +1080,40 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private
+        /// <summary>
+        /// Determines whether the option with the specified name, in the specified
+        /// dictionary, is present (i.e. has been set), returning its associated
+        /// value and argument index.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to check.
+        /// </param>
+        /// <param name="withValue">
+        /// Non-zero if the caller intends to use the value associated with the
+        /// option; otherwise, a diagnostic trace is emitted when a value would be
+        /// discarded.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to emit a diagnostic trace when the named option cannot be
+        /// found.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the value
+        /// associated with the option.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, this parameter will be modified to contain the argument
+        /// index at which the option was seen.
+        /// </param>
+        /// <returns>
+        /// True if the option is present; otherwise, false.
+        /// </returns>
         private static bool IsPresent(
             OptionDictionary options,
             string name,
@@ -701,6 +1227,25 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option Setting Methods
+        /// <summary>
+        /// Sets the presence, argument index, and value of the option with the
+        /// specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the option to modify.
+        /// </param>
+        /// <param name="present">
+        /// Non-zero if the option should be marked as present (i.e. set).
+        /// </param>
+        /// <param name="index">
+        /// The argument index to associate with the option.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option was found and modified; otherwise, false.
+        /// </returns>
         public bool SetPresent(
             string name,
             bool present,
@@ -713,6 +1258,28 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the presence, argument index, and value of the option with the
+        /// specified name, in the specified dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name of the option to modify.
+        /// </param>
+        /// <param name="present">
+        /// Non-zero if the option should be marked as present (i.e. set).
+        /// </param>
+        /// <param name="index">
+        /// The argument index to associate with the option.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with the option.
+        /// </param>
+        /// <returns>
+        /// True if the option was found and modified; otherwise, false.
+        /// </returns>
         public static bool SetPresent(
             OptionDictionary options,
             string name,
@@ -746,6 +1313,31 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Option Lookup Methods
+        /// <summary>
+        /// Attempts to resolve an option by its exact name within the specified
+        /// dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The exact name of the option to resolve.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include the list of available options in any error message
+        /// that is produced.
+        /// </param>
+        /// <param name="option">
+        /// Upon success, this parameter will be modified to contain the resolved
+        /// option.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// True if the option was resolved; otherwise, false.
+        /// </returns>
         private static bool TryResolveSimple(
             OptionDictionary options,
             string name,
@@ -783,6 +1375,39 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to resolve an option by name, supporting unambiguous prefix
+        /// matching.
+        /// </summary>
+        /// <param name="name">
+        /// The name (or unambiguous prefix) of the option to resolve.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a non-existent option as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe when building any error
+        /// message that is produced.
+        /// </param>
+        /// <param name="ambiguous">
+        /// Upon failure, this parameter will be modified to non-zero if the
+        /// specified name matched more than one option.
+        /// </param>
+        /// <param name="option">
+        /// Upon success, this parameter will be modified to contain the resolved
+        /// option.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         public ReturnCode TryResolve(
             string name,
             bool strict,
@@ -800,6 +1425,42 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to resolve an option by name, within the specified dictionary,
+        /// supporting unambiguous prefix matching.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to search.
+        /// </param>
+        /// <param name="name">
+        /// The name (or unambiguous prefix) of the option to resolve.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a non-existent option as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform option name matching in a case-insensitive manner.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe when building any error
+        /// message that is produced.
+        /// </param>
+        /// <param name="ambiguous">
+        /// Upon failure, this parameter will be modified to non-zero if the
+        /// specified name matched more than one option.
+        /// </param>
+        /// <param name="option">
+        /// Upon success, this parameter will be modified to contain the resolved
+        /// option.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         public static ReturnCode TryResolve(
             OptionDictionary options,
             string name,
@@ -941,6 +1602,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new option dictionary containing only the options that belong
+        /// to the specified categories.
+        /// </summary>
+        /// <param name="categories">
+        /// The categories to include, or null to include all options.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that an option belong to all of the specified
+        /// categories; otherwise, belonging to any one of them is sufficient.
+        /// </param>
+        /// <param name="system">
+        /// Non-zero to include the built-in (system) options in the resulting
+        /// dictionary.
+        /// </param>
+        /// <returns>
+        /// The newly created, filtered option dictionary.
+        /// </returns>
         public OptionDictionary Filter(
             OptionCategory? categories,
             bool all,
@@ -952,6 +1631,28 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new option dictionary containing only the options, from the
+        /// specified dictionary, that belong to the specified categories.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to filter.
+        /// </param>
+        /// <param name="categories">
+        /// The categories to include, or null to include all options.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that an option belong to all of the specified
+        /// categories; otherwise, belonging to any one of them is sufficient.
+        /// </param>
+        /// <param name="system">
+        /// Non-zero to include the built-in (system) options in the resulting
+        /// dictionary.
+        /// </param>
+        /// <returns>
+        /// The newly created, filtered option dictionary, or null if the specified
+        /// dictionary was null.
+        /// </returns>
         public static OptionDictionary Filter(
             OptionDictionary options,
             OptionCategory? categories,
@@ -988,6 +1689,22 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ArgumentList Building Methods
+        /// <summary>
+        /// Builds an argument list that represents the options, and their values,
+        /// that are currently present (i.e. set).
+        /// </summary>
+        /// <param name="arguments">
+        /// Upon success, this parameter will be modified to contain (or have
+        /// appended to it) the arguments representing the present options.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         public ReturnCode ToArgumentList(
             ref ArgumentList arguments,
             ref Result error
@@ -998,6 +1715,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds an argument list that represents the options, and their values,
+        /// from the specified dictionary that are currently present (i.e. set).
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to process.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon success, this parameter will be modified to contain (or have
+        /// appended to it) the arguments representing the present options.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         public static ReturnCode ToArgumentList(
             OptionDictionary options,
             ref ArgumentList arguments,
@@ -1088,6 +1824,20 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Error Message Methods
+        /// <summary>
+        /// Builds a sorted list of the option names in the specified dictionary,
+        /// optionally excluding those marked as unsafe.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to process.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe.
+        /// </param>
+        /// <returns>
+        /// The sorted list of option names, or null if the specified dictionary was
+        /// null.
+        /// </returns>
         private static StringSortedList FilterOptions(
             OptionDictionary options,
             bool allowUnsafe
@@ -1127,6 +1877,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a sorted list from the specified collection of option names,
+        /// optionally excluding those that name an option marked as unsafe in the
+        /// specified dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options used to validate the option names.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of option names to process.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe.
+        /// </param>
+        /// <returns>
+        /// The sorted list of option names, or null if the specified dictionary or
+        /// collection was null.
+        /// </returns>
         private static StringSortedList FilterOptions(
             OptionDictionary options,
             IEnumerable<string> collection,
@@ -1168,6 +1936,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a human-readable, English representation of the keys in the
+        /// specified dictionary (e.g. a comma-separated list terminated with the
+        /// word "or").
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose keys are to be formatted.
+        /// </param>
+        /// <returns>
+        /// The human-readable, English representation of the dictionary keys.
+        /// </returns>
         public static string ToEnglish(
             IDictionary<string, string> dictionary
             )
@@ -1178,6 +1957,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a message that lists the available options in the specified
+        /// dictionary.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options to list.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe.
+        /// </param>
+        /// <returns>
+        /// The message listing the available options.
+        /// </returns>
         public static Result ListOptions(
             OptionDictionary options,
             bool allowUnsafe
@@ -1195,6 +1987,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds an error message indicating that the specified option name was
+        /// ambiguous, listing the options it matched.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options being searched.
+        /// </param>
+        /// <param name="name">
+        /// The ambiguous option name.
+        /// </param>
+        /// <param name="list">
+        /// The list of option names that the specified name matched.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe.
+        /// </param>
+        /// <returns>
+        /// The error message describing the ambiguous option.
+        /// </returns>
         public static Result AmbiguousOption(
             OptionDictionary options,
             string name,
@@ -1218,6 +2029,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds an error message indicating that the specified option name was
+        /// invalid, listing the available options.
+        /// </summary>
+        /// <param name="options">
+        /// The dictionary of options being searched.
+        /// </param>
+        /// <param name="name">
+        /// The invalid option name.
+        /// </param>
+        /// <param name="allowUnsafe">
+        /// Non-zero to include options marked as unsafe.
+        /// </param>
+        /// <returns>
+        /// The error message describing the invalid option.
+        /// </returns>
         public static Result BadOption(
             OptionDictionary options,
             string name,
@@ -1242,6 +2069,20 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// Builds a string representation of the option names in the dictionary that
+        /// match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each option name must match in order to be included, or
+        /// null to include all option names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform pattern matching in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of the matching option names.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -1258,6 +2099,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Builds a string representation of all the option names in the dictionary.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the option names.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

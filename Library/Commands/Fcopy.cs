@@ -26,15 +26,34 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>fcopy</c> command, which copies
+    /// data from one open channel to another, optionally limited to a
+    /// specified number of bytes, translating between the input and output
+    /// channel encodings as it goes.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("172e9e19-c6c3-44ee-9ff7-df5b72c0decd")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("channel")]
     internal sealed class Fcopy : Core
     {
+        /// <summary>
+        /// The maximum number of bytes to read from the input channel during
+        /// a single iteration of the copy loop, based on the platform memory
+        /// page size.
+        /// </summary>
         private static readonly int MaximumReadSize = (int)PlatformOps.GetPageSize();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>fcopy</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Fcopy(
             ICommandData commandData
             )
@@ -46,11 +65,45 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>fcopy</c> command.  It reads data from
+        /// the input channel and writes it to the output channel, honoring the
+        /// optional <c>-size</c> byte limit and the input and output channel
+        /// encodings, servicing any pending interpreter events between reads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the input channel identifier; element
+        /// two is the output channel identifier; any remaining elements supply
+        /// the optional <c>-size</c>, <c>-command</c>, and <c>-eventflags</c>
+        /// options.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the total number of bytes written to
+        /// the output channel.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an option is invalid, a channel cannot be found or has
+        /// the wrong access mode, an encoding cannot be obtained, or an
+        /// exception occurs during the copy, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

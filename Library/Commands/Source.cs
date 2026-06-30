@@ -26,6 +26,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>source</c> command, which reads a
+    /// file and evaluates its contents as a script in the current interpreter.
+    /// It supports options that control the text encoding, optional timing,
+    /// library/package handling, and (when compiled with data support) the
+    /// evaluation of encrypted script bundles.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("076f3c98-c556-4145-aba5-5aa440040581")]
     /*
      * POLICY: We allow files in the script library directory to be sourced.
@@ -34,6 +42,13 @@ namespace Eagle._Commands
     [ObjectGroup("engine")]
     internal sealed class Source : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>source</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Source(
             ICommandData commandData
             )
@@ -45,11 +60,46 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>source</c> command.  It parses any
+        /// supplied options, opens the named file, and evaluates its contents
+        /// as a script within a freshly pushed call frame, optionally honoring
+        /// a specific text encoding, profiling the evaluation, entering the
+        /// package level, and (when data support is compiled in) treating the
+        /// file as an encrypted script bundle.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; an optional run of leading elements supplies command
+        /// options, and the final element supplies the name of the file to be
+        /// sourced.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by evaluating the
+        /// sourced file.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the file is sourced and evaluated
+        /// successfully; otherwise, a non-Ok value (e.g.
+        /// <see cref="ReturnCode.Error" />) when the interpreter is null, the
+        /// argument list is null, the wrong number of arguments is supplied,
+        /// option parsing fails, or evaluation of the file fails, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

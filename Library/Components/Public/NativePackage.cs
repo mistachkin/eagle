@@ -31,6 +31,14 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides the entry points and supporting infrastructure used
+    /// to bridge native Tcl interpreters to managed Eagle interpreters (and
+    /// vice versa).  Its public methods are designed to be invoked from native
+    /// code (e.g. the "Garuda" package) in order to start up, control, detach,
+    /// and shut down the integration between a native Tcl interpreter and the
+    /// Eagle interpreter(s) hosting the Tcl integration components.
+    /// </summary>
     [ObjectId("2e8eae65-3e12-4eb9-8695-c871cc23a57a")]
     public static class NativePackage
     {
@@ -42,6 +50,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the native command in the Tcl interpreter that will be
+        /// bridged to the Eagle interpreter (i.e. the native endpoint).
+        /// </summary>
         private static string nativeCommandName =
             GlobalState.GetPackageNameNoCase();
 
@@ -52,6 +64,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the managed command in the Eagle interpreter that will
+        /// be bridged to the Tcl interpreter (i.e. the managed endpoint).
+        /// </summary>
         private static string managedCommandName =
             ScriptOps.TypeNameToEntityName(typeof(_Commands.Eval));
 
@@ -61,9 +77,25 @@ namespace Eagle._Components.Public
         //       the constants tclParentInterpPrefix, tclSafeInterpPrefix, and
         //       tclInterpPrefix in the Interpreter class.
         //
+        /// <summary>
+        /// The name prefix used when building the script-visible name for a
+        /// parent (unsafe) native Tcl interpreter used by this class.
+        /// </summary>
         private const string tclNativeParentInterpPrefix = "nativeParentInterp";
+        /// <summary>
+        /// The name prefix used when building the script-visible name for a
+        /// "safe" parent native Tcl interpreter used by this class.
+        /// </summary>
         private const string tclNativeSafeParentInterpPrefix = "nativeSafeParentInterp";
+        /// <summary>
+        /// The name prefix used when building the script-visible name for a
+        /// (non-parent, unsafe) native Tcl interpreter used by this class.
+        /// </summary>
         private const string tclNativeInterpPrefix = "nativeInterp";
+        /// <summary>
+        /// The name prefix used when building the script-visible name for a
+        /// "safe" (non-parent) native Tcl interpreter used by this class.
+        /// </summary>
         private const string tclNativeSafeInterpPrefix = "nativeSafeInterp";
 
         //
@@ -71,7 +103,19 @@ namespace Eagle._Components.Public
         //       least the module handle, the Tcl interpreter pointer, and the
         //       Tcl interpreter safety indicator.
         //
+        /// <summary>
+        /// The minimum number of arguments required in the argument string
+        /// passed from native code when using the original (revision one)
+        /// protocol (i.e. the protocol identifier, the module handle, the Tcl
+        /// interpreter pointer, and the Tcl interpreter safety indicator).
+        /// </summary>
         private const int MinimumArgumentCountV1R1 = 4;
+        /// <summary>
+        /// The minimum number of arguments required in the argument string
+        /// passed from native code when using the revision two protocol (i.e.
+        /// the revision one arguments plus the Tcl C API stubs structure
+        /// pointer and the Eagle isolated interpreter indicator).
+        /// </summary>
         private const int MinimumArgumentCountV1R2 = MinimumArgumentCountV1R1 + 2;
 
         //
@@ -80,8 +124,20 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The legacy protocol identifier string expected in the argument
+        /// string passed from native code.
+        /// </summary>
         private static string ProtocolIdV1R0 = "Garuda_v1.0"; /* LEGACY */
+        /// <summary>
+        /// The revision one protocol identifier string expected in the argument
+        /// string passed from native code.
+        /// </summary>
         private static string ProtocolIdV1R1 = "Garuda_v1.0_r1.0";
+        /// <summary>
+        /// The revision two protocol identifier string expected in the argument
+        /// string passed from native code.
+        /// </summary>
         private static string ProtocolIdV1R2 = "Garuda_v1.0_r2.0";
 
         //
@@ -89,10 +145,18 @@ namespace Eagle._Components.Public
         //       cannot be parsed properly according to the selected protocol
         //       version (i.e. not a list, not enough sub-arguments, etc).
         //
+        /// <summary>
+        /// The error message format string returned when the string argument
+        /// cannot be parsed properly according to the revision one protocol.
+        /// </summary>
         private const string ParseArgumentErrorV1R1 = "could not parse raw " +
             "argument string \"{0}\" ({1}), expected at least [{2} <IntPtr> " +
             "<IntPtr> <Boolean>]: {3}";
 
+        /// <summary>
+        /// The error message format string returned when the string argument
+        /// cannot be parsed properly according to the revision two protocol.
+        /// </summary>
         private const string ParseArgumentErrorV1R2 = "could not parse raw " +
             "argument string \"{0}\" ({1}), expected at least [{2} <IntPtr> " +
             "<IntPtr> <IntPtr> <Boolean> <Boolean>]: {3}";
@@ -102,6 +166,11 @@ namespace Eagle._Components.Public
         //       Eagle interpreter is unsuitable for the "safe" mode of the Tcl
         //       interpreter.
         //
+        /// <summary>
+        /// The error message format string returned when the "safe" mode of
+        /// the Eagle interpreter is unsuitable for the "safe" mode of the Tcl
+        /// interpreter.
+        /// </summary>
         private const string SafeUnsafeError = "cannot use safe Tcl " +
             "interpreter {0} with unsafe Eagle interpreter {1}";
 
@@ -109,6 +178,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error message returned when the Tcl interpreter
         //       has already been attached to the bridge.
         //
+        /// <summary>
+        /// The error message format string returned when the Tcl interpreter
+        /// has already been attached to the bridge.
+        /// </summary>
         private const string AlreadyAttachedError = "cannot attach Tcl " +
             "interpreter {0} to Eagle interpreter {1}, already attached";
 
@@ -116,6 +189,10 @@ namespace Eagle._Components.Public
         // NOTE: This is the error message returned when the Tcl interpreter
         //       cannot be detached from the bridge.
         //
+        /// <summary>
+        /// The error message format string returned when the Tcl interpreter
+        /// cannot be detached from the bridge.
+        /// </summary>
         private const string CouldNotDetachError = "could not detach Tcl " +
             "interpreter {0} from Eagle interpreter {1}";
         #endregion
@@ -127,6 +204,10 @@ namespace Eagle._Components.Public
         // NOTE: This object is used with the lock statement to protect
         //       access to the other static fields.
         //
+        /// <summary>
+        /// The object used with the lock statement to protect access to the
+        /// other static fields of this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         //
@@ -134,12 +215,22 @@ namespace Eagle._Components.Public
         //       that are called from native code (e.g. "Startup", "Control",
         //       "Detach", and "Shutdown").  All of these methods are public.
         //
+        /// <summary>
+        /// The number of outstanding method calls into the methods of this
+        /// class that are called from native code (e.g. "Startup", "Control",
+        /// "Detach", and "Shutdown").
+        /// </summary>
         private static int activeCount;
 
         //
         // NOTE: The Eagle interpreters holding the Tcl integration components
         //       created and used by this class.
         //
+        /// <summary>
+        /// The Eagle interpreters holding the Tcl integration components created
+        /// and used by this class, keyed by the associated native Tcl
+        /// interpreter pointer.
+        /// </summary>
         private static IntPtrInterpreterDictionary interpreters;
 
         //
@@ -147,6 +238,11 @@ namespace Eagle._Components.Public
         //       direct control of Eagle (i.e. we should not try to delete
         //       them).
         //
+        /// <summary>
+        /// The native Tcl interpreters known to have originated outside the
+        /// direct control of Eagle (i.e. those that should not be deleted),
+        /// keyed by their script-visible names.
+        /// </summary>
         private static IntPtrDictionary tclInterps = null;
         #endregion
 
@@ -154,6 +250,20 @@ namespace Eagle._Components.Public
 
         #region Non-Public Methods
         #region Private Tcl Interpreter Management Methods
+        /// <summary>
+        /// This method returns the name prefix to use when building the
+        /// script-visible name for a native Tcl interpreter.
+        /// </summary>
+        /// <param name="parent">
+        /// Non-zero if the prefix is for a parent native Tcl interpreter.
+        /// </param>
+        /// <param name="safe">
+        /// Non-zero if the prefix is for a "safe" native Tcl interpreter.
+        /// </param>
+        /// <returns>
+        /// The name prefix appropriate for the specified kind of native Tcl
+        /// interpreter.
+        /// </returns>
         private static string GetTclInterpreterPrefix(
             bool parent,
             bool safe
@@ -173,6 +283,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a unique script-visible name for a native Tcl
+        /// interpreter.
+        /// </summary>
+        /// <param name="isolated">
+        /// Non-zero if the native Tcl interpreter is using an isolated Eagle
+        /// interpreter.
+        /// </param>
+        /// <param name="safe">
+        /// Non-zero if the native Tcl interpreter is "safe".
+        /// </param>
+        /// <returns>
+        /// The newly built, unique name for the native Tcl interpreter.
+        /// </returns>
         private static string GetTclInterpreterName(
             bool isolated,
             bool safe
@@ -189,6 +313,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the name used to track the Tcl bridge associated
+        /// with a native Tcl interpreter and command.
+        /// </summary>
+        /// <param name="interpName">
+        /// The script-visible name of the native Tcl interpreter.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the bridged native command.
+        /// </param>
+        /// <returns>
+        /// The name to use for the Tcl bridge.
+        /// </returns>
         private static string GetTclBridgeName(
             string interpName,
             string commandName
@@ -199,6 +336,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there are any native Tcl interpreters
+        /// being tracked by this class.
+        /// </summary>
+        /// <param name="validate">
+        /// Non-zero to also verify that at least one tracked native Tcl
+        /// interpreter is valid.
+        /// </param>
+        /// <returns>
+        /// True if there are (valid) native Tcl interpreters available;
+        /// otherwise, false.
+        /// </returns>
         private static bool HasTclInterpreters(
             bool validate
             )
@@ -210,6 +359,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there are any native Tcl interpreters
+        /// being tracked by this class.
+        /// </summary>
+        /// <param name="validate">
+        /// Non-zero to also verify that at least one tracked native Tcl
+        /// interpreter is valid.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if there are (valid) native Tcl interpreters available;
+        /// otherwise, false.
+        /// </returns>
         private static bool HasTclInterpreters(
             bool validate,
             ref Result error
@@ -248,6 +413,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there are any Eagle interpreters
+        /// being tracked by this class.
+        /// </summary>
+        /// <param name="validate">
+        /// Non-zero to also verify that at least one tracked Eagle interpreter
+        /// is valid.
+        /// </param>
+        /// <returns>
+        /// True if there are (valid) Eagle interpreters available; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasInterpreters(
             bool validate
             )
@@ -259,6 +436,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there are any Eagle interpreters
+        /// being tracked by this class.
+        /// </summary>
+        /// <param name="validate">
+        /// Non-zero to also verify that at least one tracked Eagle interpreter
+        /// is valid.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if there are (valid) Eagle interpreters available; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasInterpreters(
             bool validate,
             ref Result error
@@ -300,6 +493,29 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by the DebugTclInterpreters method only.
         //
+        /// <summary>
+        /// This method searches the supplied collection of Eagle interpreters
+        /// for the one that owns the specified native Tcl interpreter.
+        /// </summary>
+        /// <param name="interpreters">
+        /// The collection of Eagle interpreters to search.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to search for.
+        /// </param>
+        /// <param name="parentInterp">
+        /// Upon success, this parameter will be modified to contain the parent
+        /// native Tcl interpreter pointer associated with the owning Eagle
+        /// interpreter.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon success, this parameter will be modified to contain the Eagle
+        /// interpreter that owns the specified native Tcl interpreter.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the owning Eagle interpreter was
+        /// found; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetInterpreter(
             IntPtrInterpreterDictionary interpreters,
             IntPtr interp,
@@ -346,6 +562,18 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by the DebugTclInterpreters method only.
         //
+        /// <summary>
+        /// This method takes a snapshot of the native Tcl interpreters and
+        /// Eagle interpreters currently being tracked by this class.
+        /// </summary>
+        /// <param name="tclInterps">
+        /// Upon return, this parameter will be modified to contain a copy of
+        /// the tracked native Tcl interpreters, or null if there are none.
+        /// </param>
+        /// <param name="interpreters">
+        /// Upon return, this parameter will be modified to contain a copy of
+        /// the tracked Eagle interpreters, or null if there are none.
+        /// </param>
         private static void SnapshotAllInterpreters(
             out IntPtrDictionary tclInterps,
             out IntPtrInterpreterDictionary interpreters
@@ -376,6 +604,25 @@ namespace Eagle._Components.Public
         //
         // TODO: Promote to RuntimeOps?
         //
+        /// <summary>
+        /// This method builds a display string representing the number of
+        /// elements in a collection, with an optional prefix.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose element count is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix to prepend to the formatted count.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The string to return when the collection is null.
+        /// </param>
+        /// <returns>
+        /// The formatted count string, or the default value when the
+        /// collection is null.
+        /// </returns>
         private static string GetCountString(
             ICollection collection,
             string prefix,
@@ -396,6 +643,30 @@ namespace Eagle._Components.Public
         //
         // TODO: Promote to RuntimeOps?
         //
+        /// <summary>
+        /// This method emits a diagnostic message either by writing it to the
+        /// debug output of the specified interpreter or by adding it to the
+        /// trace log.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when writing the message, if applicable.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="message">
+        /// The diagnostic message to emit.
+        /// </param>
+        /// <param name="category">
+        /// The category to associate with the message when adding it to the
+        /// trace log.
+        /// </param>
+        /// <param name="priority">
+        /// The priority to associate with the message when adding it to the
+        /// trace log.
+        /// </param>
+        /// <param name="write">
+        /// Non-zero to write the message to the debug output of the
+        /// interpreter; zero to add it to the trace log instead.
+        /// </param>
         private static void DebugWriteOrTrace(
             Interpreter interpreter,
             string message,
@@ -412,6 +683,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits diagnostic information about all the native Tcl
+        /// interpreters and Eagle interpreters currently being tracked by this
+        /// class.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when writing the messages, if applicable.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix to include in each emitted message; a non-null
+        /// value also indicates that the call originated from one of the entry
+        /// point methods.  This parameter may be null.
+        /// </param>
+        /// <param name="write">
+        /// Non-zero to write the messages to the debug output of the
+        /// interpreter; zero to add them to the trace log instead.
+        /// </param>
         public static void DebugTclInterpreters(
             Interpreter interpreter,
             string prefix,
@@ -501,6 +790,21 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the CheckInterp method of the TclApi class.
         //
+        /// <summary>
+        /// This method attempts to determine the managed thread identifier
+        /// associated with the Eagle interpreter that owns the specified native
+        /// Tcl interpreter.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter to look up.
+        /// </param>
+        /// <param name="threadId">
+        /// Upon success, this parameter will be modified to contain the thread
+        /// identifier associated with the owning Eagle interpreter.
+        /// </param>
+        /// <returns>
+        /// True if a valid thread identifier was found; otherwise, false.
+        /// </returns>
         internal static bool FindTclInterpreterThreadId(
             IntPtr interp,
             ref long threadId
@@ -556,6 +860,15 @@ namespace Eagle._Components.Public
         // NOTE: Used by the DoOneEvent method of the TclWrapper class and by
         //       the DisposeTcl method of the Interpreter class.
         //
+        /// <summary>
+        /// This method determines whether any native Tcl interpreter is
+        /// currently active, either because there are outstanding public method
+        /// calls into this class or because both native Tcl interpreters and
+        /// Eagle interpreters are being tracked.
+        /// </summary>
+        /// <returns>
+        /// True if a native Tcl interpreter is active; otherwise, false.
+        /// </returns>
         internal static bool IsTclInterpreterActive()
         {
             //
@@ -577,6 +890,30 @@ namespace Eagle._Components.Public
         // NOTE: Used indirectly by the Execute method of the _Commands.Tcl
         //       class to help implement the [tcl primary] sub-command.
         //
+        /// <summary>
+        /// This method locates the parent native Tcl interpreter associated
+        /// with the specified Eagle interpreter, if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter whose parent native Tcl interpreter is to be
+        /// located.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, this parameter will be modified to contain the
+        /// script-visible name of the parent native Tcl interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// Upon success, this parameter will be modified to contain the parent
+        /// native Tcl interpreter pointer.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the parent native Tcl interpreter
+        /// was found; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetParentTclInterpreter(
             Interpreter interpreter,
             ref string name,
@@ -683,6 +1020,21 @@ namespace Eagle._Components.Public
         // NOTE: Used by the DeleteTclInterpreter and DisposeTcl methods of
         //       the Interpreter class.
         //
+        /// <summary>
+        /// This method determines whether the specified native Tcl interpreter
+        /// should be deleted by Eagle.  A native Tcl interpreter that is being
+        /// tracked by this class is owned externally and must not be deleted.
+        /// </summary>
+        /// <param name="interpName">
+        /// The script-visible name of the native Tcl interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to check.
+        /// </param>
+        /// <returns>
+        /// True if the native Tcl interpreter should be deleted; otherwise,
+        /// false.
+        /// </returns>
         internal static bool ShouldDeleteTclInterpreter(
             string interpName,
             IntPtr interp
@@ -709,6 +1061,16 @@ namespace Eagle._Components.Public
         //          All exceptions to this rule should be marked in the
         //          neighboring source code comments.
         //
+        /// <summary>
+        /// This method looks up the Eagle interpreter associated with the
+        /// specified native Tcl interpreter pointer.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer to look up.
+        /// </param>
+        /// <returns>
+        /// The associated Eagle interpreter, or null if none was found.
+        /// </returns>
         private static Interpreter GetInterpreter(
             IntPtr interp
             )
@@ -742,6 +1104,13 @@ namespace Eagle._Components.Public
         //          All exceptions to this rule *MUST* be marked in the
         //          neighboring source code comments.
         //
+        /// <summary>
+        /// This method returns the "primary" Eagle interpreter, which is the
+        /// one shared by all non-isolated native Tcl interpreters.
+        /// </summary>
+        /// <returns>
+        /// The primary Eagle interpreter, or null if none is available.
+        /// </returns>
         private static Interpreter GetPrimaryInterpreter()
         {
             //
@@ -754,6 +1123,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the Eagle interpreter to use for the specified
+        /// native Tcl interpreter, taking into account whether isolated mode is
+        /// in effect.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer used to look up the isolated
+        /// Eagle interpreter, when applicable.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero to return the isolated Eagle interpreter associated with
+        /// the native Tcl interpreter; zero to return the primary Eagle
+        /// interpreter.
+        /// </param>
+        /// <returns>
+        /// The appropriate Eagle interpreter, or null if none is available.
+        /// </returns>
         private static Interpreter GetPrimaryOrIsolatedInterpreter(
             IntPtr interp,
             bool isolated
@@ -772,6 +1158,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new Eagle interpreter for use as a host for
+        /// the native Tcl integration components, applying the default
+        /// pre-initialize script when none is supplied.
+        /// </summary>
+        /// <param name="args">
+        /// The arguments to pass to the new interpreter.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="createFlags">
+        /// The flags that control how the interpreter is created.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The flags that control how the interpreter host is created.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The flags that control how the interpreter is initialized.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The flags that control how scripts are located during interpreter
+        /// initialization.
+        /// </param>
+        /// <param name="findFlags">
+        /// The flags that control how files are located during interpreter
+        /// initialization.
+        /// </param>
+        /// <param name="loadFlags">
+        /// The flags that control how the script library is loaded during
+        /// interpreter initialization.
+        /// </param>
+        /// <param name="text">
+        /// The pre-initialize script to evaluate; when null, the configured
+        /// default pre-initialize script is used.  This parameter may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to use.  This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created Eagle interpreter, or null on failure.
+        /// </returns>
         private static Interpreter CreateInterpreter(
             IEnumerable<string> args,
             CreateFlags createFlags,
@@ -800,6 +1230,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an Eagle interpreter to the collection tracked by
+        /// this class, keyed by the associated native Tcl interpreter pointer.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer to use as the key.
+        /// </param>
+        /// <param name="interpreter">
+        /// The Eagle interpreter to add.
+        /// </param>
+        /// <returns>
+        /// True if the Eagle interpreter was added; false if an interpreter
+        /// with the same key already exists.
+        /// </returns>
         private static bool AddInterpreter(
             IntPtr interp,
             Interpreter interpreter
@@ -829,6 +1273,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes an Eagle interpreter from the collection tracked
+        /// by this class.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer used as the key.
+        /// </param>
+        /// <param name="interpreter">
+        /// The Eagle interpreter expected to be associated with the key; this
+        /// is verified in debug or trace builds.
+        /// </param>
+        /// <returns>
+        /// True if the Eagle interpreter was removed; otherwise, false.
+        /// </returns>
         private static bool RemoveInterpreter(
             IntPtr interp,
             Interpreter interpreter
@@ -874,6 +1332,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of an Eagle interpreter and removes it from the
+        /// collection tracked by this class.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer used as the key.
+        /// </param>
+        /// <param name="interpreter">
+        /// The Eagle interpreter to dispose.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the Eagle interpreter was disposed and removed; otherwise,
+        /// false.
+        /// </returns>
         private static bool DisposeInterpreter(
             IntPtr interp,
             Interpreter interpreter
@@ -921,6 +1393,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of all the Eagle interpreters tracked by this
+        /// class.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer associated with the operation,
+        /// used for diagnostic purposes.
+        /// </param>
+        /// <returns>
+        /// The number of Eagle interpreters that were successfully disposed.
+        /// </returns>
         private static int DisposeInterpreters(
             IntPtr interp
             )
@@ -982,6 +1465,18 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method appends diagnostic information about the native package
+        /// state (e.g. the tracked native Tcl interpreters and Eagle
+        /// interpreters) to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the diagnostic information is appended.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included.
+        /// </param>
         internal static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -1033,6 +1528,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method attempts to acquire the lock that protects the static
+        /// data of this class, without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be modified to indicate whether the
+        /// lock was successfully acquired.
+        /// </param>
         private static void TryLock(
             ref bool locked
             )
@@ -1045,6 +1548,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the lock that protects the static data of this
+        /// class, if it is currently held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, indicates whether the lock is held; upon return, this
+        /// parameter will be modified to indicate that the lock is no longer
+        /// held.
+        /// </param>
         private static void ExitLock(
             ref bool locked
             )
@@ -1061,6 +1573,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failure that cannot be communicated back to
+        /// native code by routing it through the standard complaint mechanism
+        /// of the appropriate Eagle interpreter.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter pointer used to look up the Eagle
+        /// interpreter, when applicable.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero to use the isolated Eagle interpreter associated with the
+        /// native Tcl interpreter; zero to use the primary Eagle interpreter.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the failure.
+        /// </param>
+        /// <param name="result">
+        /// The result or error message associated with the failure.
+        /// </param>
         private static void Complain(
             IntPtr interp,
             bool isolated,
@@ -1078,6 +1609,27 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Argument Handling Methods
+        /// <summary>
+        /// This method verifies that the supplied protocol identifier
+        /// represents a supported protocol version and determines whether
+        /// additional arguments should be expected.
+        /// </summary>
+        /// <param name="protocolId">
+        /// The protocol identifier string to check.
+        /// </param>
+        /// <param name="haveExtra">
+        /// Upon success, this parameter will be modified to indicate whether
+        /// the selected protocol version expects an additional Tcl C API stubs
+        /// structure pointer argument.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the protocol identifier is
+        /// supported; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CheckProtocolId(
             string protocolId,
             ref bool haveExtra,
@@ -1114,6 +1666,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a string containing a wide integer into a
+        /// native pointer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="nonZero">
+        /// Non-zero to require that the resulting pointer value be non-zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The converted pointer value, or IntPtr.Zero on failure (or when the
+        /// converted value is zero and a non-zero value was required).
+        /// </returns>
         private static IntPtr StringToIntPtr(
             string text,
             bool nonZero,
@@ -1143,6 +1713,51 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the raw argument string passed from native code
+        /// into its component parts (e.g. the protocol identifier, module
+        /// handle, interpreter pointers, and mode indicators) according to the
+        /// selected protocol version.
+        /// </summary>
+        /// <param name="arg">
+        /// The raw argument string to parse.
+        /// </param>
+        /// <param name="protocolId">
+        /// Upon success, this parameter will be modified to contain the parsed
+        /// protocol identifier.
+        /// </param>
+        /// <param name="module">
+        /// Upon success, this parameter will be modified to contain the parsed
+        /// Tcl library module handle.
+        /// </param>
+        /// <param name="stubs">
+        /// Upon success, this parameter will be modified to contain the parsed
+        /// Tcl C API stubs structure pointer, or IntPtr.Zero when not supplied.
+        /// </param>
+        /// <param name="interp">
+        /// Upon success, this parameter will be modified to contain the parsed
+        /// native Tcl interpreter pointer.
+        /// </param>
+        /// <param name="isolated">
+        /// Upon success, this parameter will be modified to indicate whether an
+        /// isolated Eagle interpreter should be used.
+        /// </param>
+        /// <param name="safe">
+        /// Upon success, this parameter will be modified to indicate whether
+        /// the native Tcl interpreter is "safe".
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this parameter will be modified to contain the
+        /// remaining (optional) arguments, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ParseArgument(
             string arg,
             ref string protocolId,
@@ -1358,6 +1973,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the package control type requested by the
+        /// "control" sub-command, based on the supplied argument list.
+        /// </summary>
+        /// <param name="list">
+        /// The argument list for the "control" sub-command.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The parsed package control type, or null when there are no arguments
+        /// (indicating that no action should be taken) or upon failure.
+        /// </returns>
         private static PackageControlType? GetControlType(
             StringList list,
             ref Result error
@@ -1392,6 +2023,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts and validates the arguments used by the
+        /// "control" sub-command (e.g. the package name, version, and target
+        /// interpreter).
+        /// </summary>
+        /// <param name="list">
+        /// The argument list for the "control" sub-command.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon success, this parameter will be modified to contain the target
+        /// Eagle interpreter.
+        /// </param>
+        /// <param name="packageName">
+        /// Upon success, this parameter will be modified to contain the package
+        /// name.
+        /// </param>
+        /// <param name="version">
+        /// Upon success, this parameter will be modified to contain the
+        /// requested package version, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetControlArgs(
             StringList list,
             ref Interpreter interpreter,
@@ -1451,6 +2111,20 @@ namespace Eagle._Components.Public
 
         #region Private CoreCLR Native API Support Methods
 #if NET_STANDARD_20
+        /// <summary>
+        /// This method marshals the native argument buffer passed via the
+        /// CoreCLR native API into a managed string, accounting for the
+        /// platform-specific width of the native wide character type.
+        /// </summary>
+        /// <param name="ptr">
+        /// The pointer to the native argument buffer.
+        /// </param>
+        /// <param name="count">
+        /// The size, in bytes, of the native argument buffer.
+        /// </param>
+        /// <returns>
+        /// The marshaled managed string.
+        /// </returns>
         internal static string MarshalArgument(
             IntPtr ptr, /* in */
             int count   /* in */
@@ -1506,6 +2180,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CoreCLR API.
         //
+        /// <summary>
+        /// This method is the CoreCLR native API entry point used to start up
+        /// the native Tcl integration for a native Tcl interpreter.
+        /// </summary>
+        /// <param name="arg">
+        /// The pointer to the native argument buffer.
+        /// </param>
+        /// <param name="arg_size_in_bytes">
+        /// The size, in bytes, of the native argument buffer.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
 #if NET_CORE_50
         [UnmanagedCallersOnly(EntryPoint = "StartupCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1533,6 +2221,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CoreCLR API.
         //
+        /// <summary>
+        /// This method is the CoreCLR native API entry point used to perform a
+        /// control operation (e.g. "require") on a native Tcl interpreter.
+        /// </summary>
+        /// <param name="arg">
+        /// The pointer to the native argument buffer.
+        /// </param>
+        /// <param name="arg_size_in_bytes">
+        /// The size, in bytes, of the native argument buffer.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
 #if NET_CORE_50
         [UnmanagedCallersOnly(EntryPoint = "ControlCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1560,6 +2262,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CoreCLR API.
         //
+        /// <summary>
+        /// This method is the CoreCLR native API entry point used to detach the
+        /// native Tcl integration from a native Tcl interpreter.
+        /// </summary>
+        /// <param name="arg">
+        /// The pointer to the native argument buffer.
+        /// </param>
+        /// <param name="arg_size_in_bytes">
+        /// The size, in bytes, of the native argument buffer.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
 #if NET_CORE_50
         [UnmanagedCallersOnly(EntryPoint = "DetachCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1587,6 +2303,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CoreCLR API.
         //
+        /// <summary>
+        /// This method is the CoreCLR native API entry point used to shut down
+        /// the native Tcl integration for the entire process.
+        /// </summary>
+        /// <param name="arg">
+        /// The pointer to the native argument buffer.
+        /// </param>
+        /// <param name="arg_size_in_bytes">
+        /// The size, in bytes, of the native argument buffer.
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
 #if NET_CORE_50
         [UnmanagedCallersOnly(EntryPoint = "ShutdownCoreClr",
             CallConvs = new[] { typeof(CallConvCdecl) })]
@@ -1622,6 +2352,21 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
+        /// <summary>
+        /// This method is the CLR native API entry point used to start up the
+        /// native Tcl integration for a native Tcl interpreter.  It creates or
+        /// reuses an Eagle interpreter, sets up the Tcl API and Tcl bridge
+        /// objects, and registers the native Tcl interpreter with this class.
+        /// </summary>
+        /// <param name="argument">
+        /// The raw argument string passed from native code (i.e. the value of
+        /// the "pwzArgument" argument passed to the native CLR API method
+        /// ICLRRuntimeHost.ExecuteInDefaultAppDomain).
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
         public static int StartupClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
@@ -2240,6 +2985,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
+        /// <summary>
+        /// This method is the CLR native API entry point used to perform a
+        /// control operation (e.g. "require" a package) on the Eagle
+        /// interpreter associated with a native Tcl interpreter.
+        /// </summary>
+        /// <param name="argument">
+        /// The raw argument string passed from native code (i.e. the value of
+        /// the "pwzArgument" argument passed to the native CLR API method
+        /// ICLRRuntimeHost.ExecuteInDefaultAppDomain).
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
         public static int ControlClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
@@ -2361,6 +3120,22 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
+        /// <summary>
+        /// This method is the CLR native API entry point used to detach the
+        /// native Tcl integration from a native Tcl interpreter.  For an
+        /// isolated Eagle interpreter, the interpreter is disposed; for a
+        /// shared Eagle interpreter, only its associated bridged Tcl commands
+        /// are disposed.
+        /// </summary>
+        /// <param name="argument">
+        /// The raw argument string passed from native code (i.e. the value of
+        /// the "pwzArgument" argument passed to the native CLR API method
+        /// ICLRRuntimeHost.ExecuteInDefaultAppDomain).
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
         public static int DetachClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method
@@ -2554,6 +3329,20 @@ namespace Eagle._Components.Public
         // WARNING: This method is used to integrate with native code via the
         //          native CLR API.
         //
+        /// <summary>
+        /// This method is the CLR native API entry point used to shut down the
+        /// native Tcl integration for the entire process, disposing of all the
+        /// Eagle interpreters tracked by this class.
+        /// </summary>
+        /// <param name="argument">
+        /// The raw argument string passed from native code (i.e. the value of
+        /// the "pwzArgument" argument passed to the native CLR API method
+        /// ICLRRuntimeHost.ExecuteInDefaultAppDomain).
+        /// </param>
+        /// <returns>
+        /// The integer value of the resulting return code (zero indicates
+        /// success).
+        /// </returns>
         public static int ShutdownClr(
             string argument /* This is the value of the "pwzArgument" argument
                              * as it was passed to native CLR API method

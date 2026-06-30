@@ -46,6 +46,12 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the helper methods used to read, write, and
+    /// otherwise manage the application settings (i.e. the "appSettings")
+    /// used by the Eagle core library, including support for loading and
+    /// saving those settings via external XML configuration files.
+    /// </summary>
     [ObjectId("df98c383-ae1f-46b5-a3ab-a3902d186498")]
     internal static class ConfigurationOps
     {
@@ -55,6 +61,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the name of the XML element that contains settings
         //       for the application.
         //
+        /// <summary>
+        /// This is the name of the XML element that contains the settings for
+        /// the application.
+        /// </summary>
         private static readonly string AppSettingsName = "appSettings";
 #endif
 
@@ -65,6 +75,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the name of the XML element that contains the
         //       whole configuration for the application.
         //
+        /// <summary>
+        /// This is the name of the XML element that contains the whole
+        /// configuration for the application.
+        /// </summary>
         private static readonly string ConfigurationName = "configuration";
 
         ///////////////////////////////////////////////////////////////////////
@@ -73,6 +87,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the namespace name for application configuration
         //       files, at the <configuration> element level.
         //
+        /// <summary>
+        /// This is the namespace name for application configuration files, at
+        /// the <c>configuration</c> element level.
+        /// </summary>
         private static readonly string NamespaceName = "dnfcfg";
 
         ///////////////////////////////////////////////////////////////////////
@@ -81,6 +99,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the namespace URI for application configuration
         //       files, at the <configuration> element level.
         //
+        /// <summary>
+        /// This is the namespace URI for application configuration files, at
+        /// the <c>configuration</c> element level.
+        /// </summary>
         private static readonly Uri NamespaceUri = new Uri(
             "http://schemas.microsoft.com/.NetConfiguration/v2.0",
             UriKind.Absolute);
@@ -92,6 +114,11 @@ namespace Eagle._Components.Private
         //       from an XML document.  The first query that returns some
         //       nodes wins.
         //
+        /// <summary>
+        /// This is the list of candidate XPath queries used to extract the
+        /// appSettings from an XML document.  The first query that returns
+        /// one or more nodes is used.
+        /// </summary>
         private static readonly StringList ReadXPathList = new StringList(
             new string[] {
             //
@@ -134,6 +161,11 @@ namespace Eagle._Components.Private
         //       to an XML document.  The first query that returns exactly
         //       one node wins.
         //
+        /// <summary>
+        /// This is the list of candidate XPath queries used to locate where
+        /// the appSettings should be added within an XML document.  The first
+        /// query that returns exactly one node is used.
+        /// </summary>
         private static readonly StringList WriteXPathList = new StringList(
             new string[] {
             //
@@ -174,6 +206,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// This is the XML template used to create a new, empty application
+        /// configuration document.
+        /// </summary>
         private static string TemplateXml =
             "<?xml version=\"1.0\" encoding=\"UTF-8\" ?>\r\n" +
             "<" + ConfigurationName + "><" + AppSettingsName +
@@ -184,9 +220,25 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// This is the name of the XML element used to clear all of the
+        /// application settings.
+        /// </summary>
         private static string ClearElementName = "clear";
+        /// <summary>
+        /// This is the name of the XML element used to add an application
+        /// setting.
+        /// </summary>
         private static string AddElementName = "add";
+        /// <summary>
+        /// This is the name of the XML element used to remove an application
+        /// setting.
+        /// </summary>
         private static string RemoveElementName = "remove";
+        /// <summary>
+        /// This is the name of the XML element used to set the value of an
+        /// application setting.
+        /// </summary>
         private static string SetElementName = "set";
 
         ///////////////////////////////////////////////////////////////////////
@@ -194,9 +246,25 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// This is the name of the XML element used to reset the cached XML
+        /// application settings.
+        /// </summary>
         private static string ResetCacheElementName = "resetCache";
+        /// <summary>
+        /// This is the name of the XML element used to replace the cached XML
+        /// application settings.
+        /// </summary>
         private static string ReplaceCacheElementName = "replaceCache";
+        /// <summary>
+        /// This is the name of the XML element used to reset the overridden
+        /// application settings.
+        /// </summary>
         private static string ResetOverrideElementName = "resetOverride";
+        /// <summary>
+        /// This is the name of the XML element used to replace the overridden
+        /// application settings.
+        /// </summary>
         private static string ReplaceOverrideElementName = "replaceOverride";
 
         ///////////////////////////////////////////////////////////////////////
@@ -204,7 +272,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// This is the name of the XML attribute that contains the name (key)
+        /// of an application setting.
+        /// </summary>
         private static string KeyAttributeName = "key";
+        /// <summary>
+        /// This is the name of the XML attribute that contains the value of an
+        /// application setting.
+        /// </summary>
         private static string ValueAttributeName = "value";
 #endif
         #endregion
@@ -212,48 +288,104 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// This object is used to synchronize access to the static state of
+        /// this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// When greater than zero, application settings may be read from
+        /// external XML configuration files.  This value defaults to enabled
+        /// when running on .NET Core.
+        /// </summary>
         private static int useXmlFiles = CommonOps.Runtime.IsDotNetCore() ?
             1 : 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When greater than zero, web-style XML configuration files are also
+        /// considered when reading application settings.  This value defaults
+        /// to enabled when running on .NET Core.
+        /// </summary>
         private static int useWebFiles = CommonOps.Runtime.IsDotNetCore() ?
             1 : 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When true, application settings read from multiple XML
+        /// configuration files are merged together instead of using only the
+        /// first file found.
+        /// </summary>
         private static bool mergeXmlAppSettings = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When true, application settings read from the XML configuration
+        /// files are merged with those provided by the configuration manager.
+        /// </summary>
         private static bool mergeAllAppSettings = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This is the cached collection of application settings that were
+        /// read from the XML configuration files, if any.
+        /// </summary>
         private static NameValueCollection xmlAppSettings;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This is the cached collection of application settings produced by
+        /// merging the XML and configuration manager settings, if any.
+        /// </summary>
         private static NameValueCollection mergedAppSettings;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-null, this indicates whether errors encountered while
+        /// getting (reading) an application setting should be suppressed
+        /// instead of reported.
+        /// </summary>
         private static bool? noComplainGet;
+        /// <summary>
+        /// When non-null, this indicates whether errors encountered while
+        /// setting (writing) an application setting should be suppressed
+        /// instead of reported.
+        /// </summary>
         private static bool? noComplainSet;
+        /// <summary>
+        /// When non-null, this indicates whether errors encountered while
+        /// unsetting (removing) an application setting should be suppressed
+        /// instead of reported.
+        /// </summary>
         private static bool? noComplainUnset;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This is the cached reflection information for the protected
+        /// IsReadOnly property of the NameValueCollection class, used to
+        /// determine whether a settings collection is read-only.
+        /// </summary>
         private static PropertyInfo isReadOnlyPropertyInfo;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This is the collection of application settings that has been
+        /// explicitly set to override those normally provided by the
+        /// configuration manager or XML files, if any.
+        /// </summary>
         private static NameValueCollection overriddenAppSettings;
         #endregion
 
@@ -263,6 +395,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds rows of diagnostic information about the
+        /// configuration subsystem to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// Upon return, the rows of diagnostic information are added to this
+        /// list.  If this value is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included in the
+        /// diagnostic information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -363,6 +507,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Diagnostic Support Methods
+        /// <summary>
+        /// This method adds a diagnostic trace message related to the
+        /// configuration subsystem.
+        /// </summary>
+        /// <param name="message">
+        /// The diagnostic message to be added to the trace log.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the diagnostic message.
+        /// </param>
         private static void DebugTrace(
             string message,        /* in */
             TracePriority priority /* in */
@@ -377,6 +531,11 @@ namespace Eagle._Components.Private
 
         #region Xml Support Methods
 #if XML
+        /// <summary>
+        /// This method initializes the various XML configuration file related
+        /// settings based on the presence of their associated environment
+        /// variables.
+        /// </summary>
         private static void InitializeXmlFiles()
         {
             if (!ShouldUseXmlFiles())
@@ -413,6 +572,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether application settings should be read
+        /// from external XML configuration files.
+        /// </summary>
+        /// <returns>
+        /// True if XML configuration files should be used; otherwise, false.
+        /// </returns>
         private static bool ShouldUseXmlFiles()
         {
             return Interlocked.CompareExchange(ref useXmlFiles, 0, 0) > 0;
@@ -420,6 +586,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables reading application settings from
+        /// external XML configuration files.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable use of XML configuration files; zero to disable
+        /// it.
+        /// </param>
         private static void EnableUseXmlFiles(
             bool enable /* in */
             )
@@ -432,6 +606,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether web-style XML configuration files
+        /// should be considered when reading application settings.
+        /// </summary>
+        /// <returns>
+        /// True if web-style XML configuration files should be used;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldUseWebFiles()
         {
             return Interlocked.CompareExchange(ref useWebFiles, 0, 0) > 0;
@@ -439,6 +621,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables considering web-style XML
+        /// configuration files when reading application settings.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable use of web-style XML configuration files; zero
+        /// to disable it.
+        /// </param>
         private static void EnableUseWebFiles(
             bool enable /* in */
             )
@@ -451,6 +641,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the cached collection of application settings read
+        /// from the XML configuration files.
+        /// </summary>
+        /// <param name="appSettings">
+        /// The collection of application settings to be cached.
+        /// </param>
         private static void SetXmlAppSettings(
             NameValueCollection appSettings /* in */
             )
@@ -463,6 +660,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and resets the cached collection of application
+        /// settings read from the XML configuration files.
+        /// </summary>
         private static void ResetXmlAppSettings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -477,6 +678,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the cached collection of merged application
+        /// settings.
+        /// </summary>
+        /// <param name="appSettings">
+        /// The collection of merged application settings to be cached.
+        /// </param>
         private static void SetMergedAppSettings(
             NameValueCollection appSettings /* in */
             )
@@ -489,6 +697,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and resets the cached collection of merged
+        /// application settings.
+        /// </summary>
         private static void ResetMergedAppSettings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -503,6 +715,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether application settings read from
+        /// multiple XML configuration files should be merged together.
+        /// </summary>
+        /// <returns>
+        /// True if the XML application settings should be merged; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldMergeXmlAppSettings()
         {
             lock (syncRoot)
@@ -513,6 +733,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables merging of application settings
+        /// read from multiple XML configuration files.
+        /// </summary>
+        /// <param name="enable">
+        /// True to enable merging of the XML application settings; false to
+        /// disable it.
+        /// </param>
         private static void EnableMergeXmlAppSettings(
             bool enable /* in */
             )
@@ -525,6 +753,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the XML application settings should
+        /// be merged with those provided by the configuration manager.
+        /// </summary>
+        /// <returns>
+        /// True if all of the application settings should be merged;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldMergeAllAppSettings()
         {
             lock (syncRoot)
@@ -535,6 +771,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables merging of the XML application
+        /// settings with those provided by the configuration manager.
+        /// </summary>
+        /// <param name="enable">
+        /// True to enable merging of all of the application settings; false to
+        /// disable it.
+        /// </param>
         private static void EnableMergeAllAppSettings(
             bool enable /* in */
             )
@@ -547,6 +791,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the set of file system locations that should be
+        /// searched for XML configuration files.
+        /// </summary>
+        /// <returns>
+        /// The set of candidate locations to be searched.
+        /// </returns>
         private static IEnumerable<string> GetAppSettingsLocations()
         {
             return new string[] {
@@ -558,6 +809,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the fallback file system location that should
+        /// be searched for XML configuration files.
+        /// </summary>
+        /// <returns>
+        /// The fallback location to be searched.
+        /// </returns>
         private static string GetAppSettingsFallbackLocation()
         {
             return PathOps.GetManagedExecutableName();
@@ -565,6 +823,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the list of unique XML configuration file names
+        /// to be searched, based on the specified candidate locations.
+        /// </summary>
+        /// <param name="locations">
+        /// The candidate file system locations to be searched.  If this value
+        /// is null, no file names are returned.
+        /// </param>
+        /// <param name="fallbackLocation">
+        /// The fallback file system location to be searched.
+        /// </param>
+        /// <param name="includeFallback">
+        /// Non-zero to always include configuration file names derived from
+        /// the fallback location.
+        /// </param>
+        /// <param name="includeWeb">
+        /// Non-zero to include web-style configuration file names.
+        /// </param>
+        /// <returns>
+        /// The list of unique XML configuration file names, or null if there
+        /// are none.
+        /// </returns>
         private static IEnumerable<string> GetXmlFileNames(
             IEnumerable<string> locations, /* in */
             string fallbackLocation,       /* in */
@@ -623,6 +903,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads application settings from the specified XML
+        /// configuration file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the XML configuration file to be read.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The collection of application settings read from the file, or null
+        /// if they could not be read.
+        /// </returns>
         public static NameValueCollection ReadFromXmlFile(
             string fileName, /* in */
             ref Result error /* out */
@@ -723,6 +1017,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified application settings to an XML
+        /// configuration file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the XML configuration file to be written.
+        /// </param>
+        /// <param name="appSettings">
+        /// The collection of application settings to be written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode WriteToXmlFile(
             string fileName,                 /* in */
             NameValueCollection appSettings, /* in */
@@ -794,6 +1105,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges the application settings from one collection
+        /// into another.
+        /// </summary>
+        /// <param name="appSettings1">
+        /// Upon success, this contains the merged application settings.  If
+        /// this value is null, a new collection is created.
+        /// </param>
+        /// <param name="appSettings2">
+        /// The collection of application settings to be merged into the first
+        /// collection.  If this value is null, this method does nothing.
+        /// </param>
+        /// <param name="unique">
+        /// Non-zero to skip settings whose name already exists in the
+        /// destination collection.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to add the merged settings (allowing duplicates); zero to
+        /// set them (replacing any existing value).
+        /// </param>
         public static void MergeAppSettings(
             ref NameValueCollection appSettings1, /* in, out */
             NameValueCollection appSettings2,     /* in */
@@ -825,6 +1156,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads application settings from the available XML
+        /// configuration files, optionally merging the settings from multiple
+        /// files together.
+        /// </summary>
+        /// <param name="locations">
+        /// The candidate file system locations to be searched.
+        /// </param>
+        /// <param name="fallbackLocation">
+        /// The fallback file system location to be searched.
+        /// </param>
+        /// <param name="includeFallback">
+        /// Non-zero to always include configuration file names derived from
+        /// the fallback location.
+        /// </param>
+        /// <param name="includeWeb">
+        /// Non-zero to include web-style configuration file names.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the settings read from all of the files together;
+        /// zero to use only the first file successfully read.
+        /// </param>
+        /// <returns>
+        /// The collection of application settings read from the XML
+        /// configuration files, or null if there are none.
+        /// </returns>
         private static NameValueCollection GetAppSettingsViaXmlFiles(
             IEnumerable<string> locations, /* in */
             string fallbackLocation,       /* in */
@@ -960,6 +1317,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method returns the application settings provided by the
+        /// configuration manager.
+        /// </summary>
+        /// <returns>
+        /// The collection of application settings provided by the
+        /// configuration manager, or null if they are unavailable.
+        /// </returns>
         private static NameValueCollection GetAppSettingsViaManager()
         {
 #if CONFIGURATION
@@ -1000,6 +1365,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a human-readable description of the specified
+        /// collection of application settings, suitable for use in a
+        /// diagnostic trace message.
+        /// </summary>
+        /// <param name="appSettings">
+        /// The collection of application settings to be described.
+        /// </param>
+        /// <returns>
+        /// The description of the collection of application settings.  This
+        /// method will never return null.
+        /// </returns>
         private static string GetTraceDescription(
             NameValueCollection appSettings
             ) /* CANNOT RETURN NULL */
@@ -1012,6 +1389,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the static state of this class, including
+        /// the default values used to control whether errors are reported.
+        /// </summary>
         private static void Initialize()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1074,6 +1455,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the effective application settings, preferring
+        /// the overridden settings, then those read from the XML configuration
+        /// files, and finally those provided by the configuration manager.
+        /// </summary>
+        /// <returns>
+        /// The effective collection of application settings, or null if none
+        /// are available.
+        /// </returns>
         private static NameValueCollection GetAppSettingsViaAny()
         {
 #if DEBUG && VERBOSE
@@ -1167,6 +1557,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the collection of overridden application
+        /// settings has been created.
+        /// </summary>
         private static void InitializeAppSettings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1180,6 +1574,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the collection of overridden
+        /// application settings has been created.
+        /// </summary>
+        /// <returns>
+        /// True if the overridden application settings exist; otherwise,
+        /// false.
+        /// </returns>
         private static bool HaveAppSettings()
         {
             lock (syncRoot)
@@ -1190,6 +1592,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the collection of overridden application
+        /// settings.
+        /// </summary>
+        /// <returns>
+        /// The collection of overridden application settings, or null if there
+        /// is none.
+        /// </returns>
         public static NameValueCollection GetAppSettings()
         {
             lock (syncRoot)
@@ -1200,6 +1610,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the collection of overridden application settings.
+        /// </summary>
+        /// <param name="appSettings">
+        /// The collection of application settings to be used to override the
+        /// normal application settings.
+        /// </param>
         public static void SetAppSettings(
             NameValueCollection appSettings /* in */
             )
@@ -1212,6 +1629,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and resets the collection of overridden
+        /// application settings.
+        /// </summary>
         private static void ResetAppSettings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1226,6 +1647,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads application settings from the specified XML
+        /// configuration file, optionally merging them with any existing
+        /// overridden settings.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the XML configuration file to be loaded.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings with any existing overridden
+        /// settings; zero to require that no settings have been loaded yet.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode LoadAppSettings(
             string fileName, /* in */
             bool merge,      /* in */
@@ -1267,6 +1707,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the overridden application settings to the
+        /// specified XML configuration file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the XML configuration file to be written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode SaveAppSettings(
             string fileName, /* in */
             ref Result error /* out */
@@ -1286,6 +1740,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified collection of
+        /// application settings is read-only.
+        /// </summary>
+        /// <param name="appSettings">
+        /// The collection of application settings to be checked.
+        /// </param>
+        /// <returns>
+        /// True if the collection of application settings is read-only;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsReadOnly(
             NameValueCollection appSettings /* in */
             )
@@ -1317,6 +1782,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the lock is already held.
         //
+        /// <summary>
+        /// This method determines whether any application settings are
+        /// available.  This method assumes the lock is already held.
+        /// </summary>
+        /// <param name="moreThanZero">
+        /// Non-zero to require that at least one application setting is
+        /// present; zero to require only that a settings collection is
+        /// available.
+        /// </param>
+        /// <returns>
+        /// True if the required application settings are available; otherwise,
+        /// false.
+        /// </returns>
         private static bool PrivateHaveAppSettings(
             bool moreThanZero /* in */
             )
@@ -1331,6 +1809,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether errors encountered during the
+        /// specified configuration operation should be suppressed instead of
+        /// reported.
+        /// </summary>
+        /// <param name="operation">
+        /// The configuration operation being performed.
+        /// </param>
+        /// <returns>
+        /// True if errors for the specified operation should be suppressed;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetNoComplain(
             ConfigurationOperation operation /* in */
             )
@@ -1386,6 +1876,19 @@ namespace Eagle._Components.Private
 
         #region Public Methods
         #region Getting (Read) Values
+        /// <summary>
+        /// This method determines whether any application settings are
+        /// available.
+        /// </summary>
+        /// <param name="moreThanZero">
+        /// Non-zero to require that at least one application setting is
+        /// present; zero to require only that a settings collection is
+        /// available.
+        /// </param>
+        /// <returns>
+        /// True if the required application settings are available; otherwise,
+        /// false.
+        /// </returns>
         public static bool HaveAppSettings(
             bool moreThanZero /* in */
             )
@@ -1400,6 +1903,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the value of the named application setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to return.
+        /// </param>
+        /// <returns>
+        /// The value of the named application setting, or null if it does not
+        /// exist.
+        /// </returns>
         public static string GetAppSetting(
             string name /* in */
             )
@@ -1409,6 +1922,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the value of the named application setting,
+        /// returning a default value if it does not exist.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to return.
+        /// </param>
+        /// <param name="default">
+        /// The value to return if the named application setting does not
+        /// exist.
+        /// </param>
+        /// <returns>
+        /// The value of the named application setting, or the specified
+        /// default value if it does not exist.
+        /// </returns>
         public static string GetAppSetting(
             string name,    /* in */
             string @default /* in */
@@ -1432,6 +1960,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the value of the named application
+        /// setting.  Upon failure, this is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found; otherwise, false.
+        /// </returns>
         public static bool TryGetAppSetting(
             string name,      /* in */
             out string value, /* out */
@@ -1476,6 +2021,22 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as an integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the integer value of the named
+        /// application setting.  Upon failure, this is the default integer
+        /// value.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// converted to an integer; otherwise, false.
+        /// </returns>
         public static bool TryGetIntegerAppSetting(
             string name,  /* in */
             out int value /* out */
@@ -1491,6 +2052,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as an integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the integer value of the named
+        /// application setting.  Upon failure, this is the default integer
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// converted to an integer; otherwise, false.
+        /// </returns>
         public static bool TryGetIntegerAppSetting(
             string name,     /* in */
             out int value,   /* out */
@@ -1526,6 +2106,24 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as a list.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the list value of the named application
+        /// setting.  Upon failure, this is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// parsed as a list; otherwise, false.
+        /// </returns>
         private static bool TryGetListAppSetting(
             string name,          /* in */
             out StringList value, /* out */
@@ -1559,6 +2157,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as a boolean.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the boolean value of the named
+        /// application setting.  Upon failure, this is the default boolean
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// converted to a boolean; otherwise, false.
+        /// </returns>
         private static bool TryGetBooleanAppSetting(
             string name,     /* in */
             out bool value,  /* out */
@@ -1592,6 +2209,32 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as a value of the specified enumerated type.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type that the application setting value should be
+        /// converted to.
+        /// </param>
+        /// <param name="oldValue">
+        /// The existing enumerated value to combine with the parsed value, used
+        /// when the enumerated type has the flags attribute.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the enumerated value of the named
+        /// application setting.  Upon failure, this is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// converted to the enumerated type; otherwise, false.
+        /// </returns>
         private static bool TryGetEnumAppSetting(
             string name,      /* in */
             Type enumType,    /* in */
@@ -1638,6 +2281,31 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not use this method from the GlobalConfiguration class.
         //
+        /// <summary>
+        /// This method attempts to get the value of the named application
+        /// setting as an opaque object value, resolving the setting value as an
+        /// object handle within the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve the object handle.
+        /// </param>
+        /// <param name="name">
+        /// The name of the application setting to get.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags used to control how the object handle is resolved.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the object value associated with the
+        /// named application setting.  Upon failure, this is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was found and successfully
+        /// resolved to an object value; otherwise, false.
+        /// </returns>
         private static bool TryGetObjectAppSetting(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -1683,6 +2351,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Setting (Write) Values
+        /// <summary>
+        /// This method sets the value of the named application setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to be assigned to the named application setting.
+        /// </param>
         public static void SetAppSetting(
             string name, /* in */
             string value /* in */
@@ -1701,6 +2378,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to set the value of the named application
+        /// setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to be assigned to the named application setting.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was successfully set;
+        /// otherwise, false.
+        /// </returns>
         public static bool TrySetAppSetting(
             string name,     /* in */
             string value,    /* in */
@@ -1734,6 +2428,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Unsetting (Write) Values
+        /// <summary>
+        /// This method unsets (removes) the named application setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to unset.
+        /// </param>
         public static void UnsetAppSetting(
             string name /* in */
             )
@@ -1751,6 +2451,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to unset (remove) the named application
+        /// setting.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the application setting to unset.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the named application setting was successfully unset;
+        /// otherwise, false.
+        /// </returns>
         public static bool TryUnsetAppSetting(
             string name,     /* in */
             ref Result error /* out */
@@ -1782,6 +2496,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the cached and overridden application
+        /// settings, returning the total number of settings that were
+        /// released.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to also release the overridden application settings; zero
+        /// to release only the cached settings.
+        /// </param>
+        /// <returns>
+        /// The total number of application settings that were released.
+        /// </returns>
         public static int Cleanup(
             bool full /* in */
             )

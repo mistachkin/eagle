@@ -10,6 +10,7 @@
  */
 
 using System;
+using System.Globalization;
 using Eagle._Attributes;
 using Eagle._Components.Private;
 using Eagle._Components.Public;
@@ -24,6 +25,17 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>clock</c> command, which provides
+    /// access to the current system time and to a family of sub-commands for
+    /// obtaining, scanning, formatting, and measuring date and time values.
+    /// It is an ensemble command; the available sub-commands include
+    /// <c>buildnumber</c>, <c>clicks</c>, <c>days</c>, <c>duration</c>,
+    /// <c>filetime</c>, <c>format</c>, <c>isvalid</c>, <c>microseconds</c>,
+    /// <c>milliseconds</c>, <c>monthdays</c>, <c>now</c>, <c>scan</c>,
+    /// <c>seconds</c>, <c>start</c>, and <c>stop</c>.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("6715457a-62f1-4865-a00f-b3dd4aeb1d9c")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard
 #if NATIVE && WINDOWS
@@ -37,6 +49,13 @@ namespace Eagle._Commands
     [ObjectGroup("time")]
     internal sealed class Clock : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>clock</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Clock(
             ICommandData commandData
             )
@@ -48,6 +67,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "buildnumber", "clicks", "days", "duration", "filetime",
@@ -57,6 +81,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -66,11 +94,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedClockSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -80,11 +117,44 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>clock</c> command.  It dispatches to the
+        /// requested sub-command (e.g. <c>now</c>, <c>scan</c>, <c>format</c>,
+        /// <c>seconds</c>) to obtain, scan, format, or measure a date and time
+        /// value, placing the produced value into <paramref name="result" />.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any remaining
+        /// elements are the arguments and options for that sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the selected
+        /// sub-command (for example, a time value, formatted string, or
+        /// boolean).  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an unknown sub-command is requested, the interpreter is
+        /// null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;
@@ -821,16 +891,13 @@ namespace Eagle._Commands
                                                     if (options.IsPresent("-format", ref value))
                                                         format = value.ToString();
 
-#if MONO_BUILD
-#pragma warning disable 219
-#endif
-                                                    long clockValue = 0; // NOTE: Flagged by the Mono C# compiler.
-#if MONO_BUILD
-#pragma warning restore 219
-#endif
+                                                    long clockValue = 0;
 
-                                                    if (options.IsPresent("-base", ref value))
-                                                        clockValue = (long)value.Value; /* NOT USED, COMPAT ONLY */
+                                                    bool basePresent = options.IsPresent(
+                                                        "-base", ref value);
+
+                                                    if (basePresent)
+                                                        clockValue = (long)value.Value;
 
                                                     bool utc = false;
 
@@ -844,16 +911,57 @@ namespace Eagle._Commands
 
                                                     DateTime dateTime = DateTime.MinValue;
 
+                                                    DateTimeKind kind = utc ?
+                                                        DateTimeKind.Utc : DateTimeKind.Local;
+
+                                                    DateTimeStyles styles =
+                                                        interpreter.DateTimeStyles;
+
+                                                    //
+                                                    // NOTE: When a base clock value is supplied, parse so
+                                                    //       that date components absent from the input are
+                                                    //       detectable (they default to the minimum date
+                                                    //       instead of "now"), allowing them to be filled
+                                                    //       from the base below.
+                                                    //
+                                                    if (basePresent)
+                                                        styles |= DateTimeStyles.NoCurrentDateDefault;
+
                                                     code = Value.GetDateTime2(
                                                         arguments[2], format,
-                                                        ValueFlags.AnyDateTime, utc ?
-                                                            DateTimeKind.Utc : DateTimeKind.Local,
-                                                        interpreter.DateTimeStyles,
+                                                        ValueFlags.AnyDateTime, kind,
+                                                        styles,
                                                         interpreter.InternalCultureInfo,
                                                         ref dateTime, ref result);
 
                                                     if (code == ReturnCode.Ok)
                                                     {
+                                                        //
+                                                        // NOTE: Fill any date components missing from the
+                                                        //       input with those from the base clock value.
+                                                        //       Time components are left as parsed (an absent
+                                                        //       time defaults to midnight, as in Tcl) and are
+                                                        //       never taken from the base.
+                                                        //
+                                                        if (basePresent)
+                                                        {
+                                                            DateTime baseDateTime = DateTime.MinValue;
+
+                                                            if (TimeOps.SecondsToDateTime(
+                                                                    clockValue, ref baseDateTime, epoch))
+                                                            {
+                                                                if (!utc)
+                                                                {
+                                                                    baseDateTime = DateTime.SpecifyKind(
+                                                                        baseDateTime,
+                                                                        DateTimeKind.Utc).ToLocalTime();
+                                                                }
+
+                                                                dateTime = TimeOps.ApplyBaseDate(
+                                                                    dateTime, baseDateTime, kind, format);
+                                                            }
+                                                        }
+
                                                         if (!utc)
                                                             dateTime = dateTime.ToUniversalTime();
 

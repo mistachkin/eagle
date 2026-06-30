@@ -17,6 +17,11 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents a triplet of values, each of an arbitrary object
+    /// type.  It is a convenience specialization of <see cref="Triplet{T}" />
+    /// in which all three elements are of type <see cref="object" />.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -26,6 +31,9 @@ namespace Eagle._Components.Public
         //
         // WARNING: This constructor produces an immutable null triplet object.
         //
+        /// <summary>
+        /// Constructs an immutable triplet with all three values set to null.
+        /// </summary>
         public ObjectTriplet()
             : base()
         {
@@ -34,6 +42,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an immutable triplet with the first value set to the
+        /// specified value and the remaining values set to null.
+        /// </summary>
+        /// <param name="x">
+        /// The first value of the triplet.
+        /// </param>
         public ObjectTriplet(object x)
             : base(x)
         {
@@ -42,6 +57,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an immutable triplet with the first two values set to the
+        /// specified values and the third value set to null.
+        /// </summary>
+        /// <param name="x">
+        /// The first value of the triplet.
+        /// </param>
+        /// <param name="y">
+        /// The second value of the triplet.
+        /// </param>
         public ObjectTriplet(object x, object y)
             : base(x, y)
         {
@@ -50,6 +75,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an immutable triplet with all three values set to the
+        /// specified values.
+        /// </summary>
+        /// <param name="x">
+        /// The first value of the triplet.
+        /// </param>
+        /// <param name="y">
+        /// The second value of the triplet.
+        /// </param>
+        /// <param name="z">
+        /// The third value of the triplet.
+        /// </param>
         public ObjectTriplet(object x, object y, object z)
             : base(x, y, z)
         {

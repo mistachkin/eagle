@@ -20,6 +20,13 @@ using Eagle._Components.Public;
 
 namespace Eagle._Services
 {
+    /// <summary>
+    /// This class implements the Eagle ASP.NET web service.  It exposes the
+    /// <see cref="IEagle" /> contract over the web, allowing remote callers to
+    /// evaluate expressions, scripts, and files, perform string and file
+    /// substitution, and format the results, each within a freshly created and
+    /// configured Eagle interpreter.
+    /// </summary>
     [WebService(
         Name = Eagle.Name,
         Description = Eagle.Description,
@@ -28,16 +35,29 @@ namespace Eagle._Services
     public sealed class Eagle : IEagle
     {
         #region Private Constants
+        /// <summary>
+        /// The display name of this web service.
+        /// </summary>
         private const string Name = "Eagle Web Service";
 
+        /// <summary>
+        /// The human-readable description of this web service.
+        /// </summary>
         private const string Description =
             "This service is used to handle dynamic content (i.e. expressions, " +
             "scripts, and/or text blocks) for the Tcl and/or Eagle languages.";
 
+        /// <summary>
+        /// The XML namespace used to identify this web service.
+        /// </summary>
         private const string Namespace = "https://urn.to/r/eagle";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The currently executing assembly, used when detecting the script
+        /// library path.
+        /// </summary>
         private static readonly Assembly assembly =
             Assembly.GetExecutingAssembly();
         #endregion
@@ -48,6 +68,10 @@ namespace Eagle._Services
         //
         // NOTE: By default, no console.
         //
+        /// <summary>
+        /// The default setting indicating whether a console-based interpreter
+        /// host is needed.  By default, no console is used.
+        /// </summary>
         private static readonly bool DefaultConsole = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,6 +86,11 @@ namespace Eagle._Services
         //          the auto-path.
         //       4. We want to provide a "safe" subset of commands.
         //
+        /// <summary>
+        /// The default flags used when creating an interpreter.  By default,
+        /// this requests a "safe" subset of commands suitable for embedded
+        /// use, without throwing an exception on error.
+        /// </summary>
         private static readonly CreateFlags DefaultCreateFlags =
             CreateFlags.SafeEmbeddedUse & ~CreateFlags.ThrowOnError;
 
@@ -74,6 +103,11 @@ namespace Eagle._Services
         //       2. We do not want to change the console icon.
         //       3. We do not want to intercept the Ctrl-C keypress.
         //
+        /// <summary>
+        /// The default flags used when creating an interpreter host.  By
+        /// default, the console title and icon are left unchanged and the
+        /// Ctrl-C keypress is not intercepted.
+        /// </summary>
         private static readonly HostCreateFlags DefaultHostCreateFlags =
             HostCreateFlags.SafeEmbeddedUse;
 
@@ -84,6 +118,10 @@ namespace Eagle._Services
         //
         //       1. We want no special engine flags.
         //
+        /// <summary>
+        /// The default engine flags used when evaluating expressions, scripts,
+        /// and files.  By default, no special engine flags are used.
+        /// </summary>
         private static readonly EngineFlags DefaultEngineFlags =
             EngineFlags.None;
 
@@ -94,6 +132,10 @@ namespace Eagle._Services
         //
         //       1. We want all substitution types to be performed.
         //
+        /// <summary>
+        /// The default substitution flags used when evaluating or
+        /// substituting.  By default, all substitution types are performed.
+        /// </summary>
         private static readonly SubstitutionFlags DefaultSubstitutionFlags =
             SubstitutionFlags.Default;
 
@@ -104,6 +146,10 @@ namespace Eagle._Services
         //
         //       1. We want to handle events targeted to the engine.
         //
+        /// <summary>
+        /// The default event flags used when evaluating or substituting.  By
+        /// default, events targeted to the engine are handled.
+        /// </summary>
         private static readonly EventFlags DefaultEventFlags =
             EventFlags.Default;
 
@@ -114,6 +160,10 @@ namespace Eagle._Services
         //
         //       1. We want all expression types to be performed.
         //
+        /// <summary>
+        /// The default expression flags used when evaluating or substituting.
+        /// By default, all expression types are performed.
+        /// </summary>
         private static readonly ExpressionFlags DefaultExpressionFlags =
             ExpressionFlags.Default;
         #endregion
@@ -121,6 +171,9 @@ namespace Eagle._Services
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <see cref="Eagle" /> web service.
+        /// </summary>
         public Eagle()
         {
             // do nothing.
@@ -130,25 +183,88 @@ namespace Eagle._Services
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Settings Management Class
+        /// <summary>
+        /// This class manages the configuration settings used by the web
+        /// service, reading them from the environment variables and/or the
+        /// application configuration settings, and falling back to the
+        /// built-in defaults when they are not otherwise specified.
+        /// </summary>
         [ObjectId("1fca91ae-46dd-4e13-98d6-c21815c8131c")]
         private static class Settings
         {
             #region Setting Names
+            /// <summary>
+            /// The name of the setting that specifies the Eagle script library
+            /// path.
+            /// </summary>
             public static readonly string EagleLibrary = EnvVars.EagleLibrary;
+
+            /// <summary>
+            /// The name of the setting that specifies the setup script to
+            /// evaluate within each newly created interpreter.
+            /// </summary>
             public static readonly string SetupScript = "SetupScript";
+
+            /// <summary>
+            /// The name of the setting that specifies the script library path.
+            /// </summary>
             public static readonly string LibraryPath = "LibraryPath";
+
+            /// <summary>
+            /// The name of the setting that specifies the interpreter creation
+            /// flags.
+            /// </summary>
             public static readonly string CreateFlags = "CreateFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies the interpreter host
+            /// creation flags.
+            /// </summary>
             public static readonly string HostCreateFlags = "HostCreateFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies the engine flags.
+            /// </summary>
             public static readonly string EngineFlags = "EngineFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies the substitution flags.
+            /// </summary>
             public static readonly string SubstitutionFlags = "SubstitutionFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies the event flags.
+            /// </summary>
             public static readonly string EventFlags = "EventFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies the expression flags.
+            /// </summary>
             public static readonly string ExpressionFlags = "ExpressionFlags";
+
+            /// <summary>
+            /// The name of the setting that specifies whether the setup script
+            /// should be considered trusted.
+            /// </summary>
             public static readonly string TrustedSetup = "TrustedSetup";
+
+            /// <summary>
+            /// The name of the setting that specifies whether a console-based
+            /// interpreter host is needed.
+            /// </summary>
             public static readonly string NeedConsole = "NeedConsole";
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether the setup script should be
+            /// considered trusted, based on the configured settings.
+            /// </summary>
+            /// <returns>
+            /// True if the setup script is configured to be trusted;
+            /// otherwise, false.
+            /// </returns>
             public static bool GetTrustedSetup()
             {
                 try
@@ -180,6 +296,15 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether a console-based interpreter host
+            /// is needed, based on the configured settings, using the built-in
+            /// default value as the starting point.
+            /// </summary>
+            /// <returns>
+            /// True if a console-based interpreter host is needed; otherwise,
+            /// false.
+            /// </returns>
             public static bool GetNeedConsole()
             {
                 return GetNeedConsole(DefaultConsole);
@@ -187,6 +312,19 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether a console-based interpreter host
+            /// is needed, based on the configured settings, falling back to the
+            /// specified default value.
+            /// </summary>
+            /// <param name="default">
+            /// The default value to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// True if a console-based interpreter host is needed; otherwise,
+            /// false.
+            /// </returns>
             private static bool GetNeedConsole(
                 bool @default
                 )
@@ -240,6 +378,14 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the interpreter creation flags from the
+            /// configured settings, using the built-in default value as the
+            /// starting point.
+            /// </summary>
+            /// <returns>
+            /// The interpreter creation flags to use.
+            /// </returns>
             public static CreateFlags GetCreateFlags()
             {
                 return GetCreateFlags(DefaultCreateFlags);
@@ -247,6 +393,18 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the interpreter creation flags from the
+            /// configured settings, falling back to the specified default
+            /// value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The interpreter creation flags to use.
+            /// </returns>
             private static CreateFlags GetCreateFlags(
                 CreateFlags @default
                 )
@@ -284,6 +442,14 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the interpreter host creation flags from the
+            /// configured settings, using the built-in default value as the
+            /// starting point.
+            /// </summary>
+            /// <returns>
+            /// The interpreter host creation flags to use.
+            /// </returns>
             public static HostCreateFlags GetHostCreateFlags()
             {
                 return GetHostCreateFlags(DefaultHostCreateFlags);
@@ -291,6 +457,18 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the interpreter host creation flags from the
+            /// configured settings, falling back to the specified default
+            /// value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The interpreter host creation flags to use.
+            /// </returns>
             private static HostCreateFlags GetHostCreateFlags(
                 HostCreateFlags @default
                 )
@@ -328,6 +506,13 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the engine flags from the configured settings,
+            /// using the built-in default value as the starting point.
+            /// </summary>
+            /// <returns>
+            /// The engine flags to use.
+            /// </returns>
             public static EngineFlags GetEngineFlags()
             {
                 return GetEngineFlags(DefaultEngineFlags);
@@ -335,6 +520,17 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the engine flags from the configured settings,
+            /// falling back to the specified default value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The engine flags to use.
+            /// </returns>
             private static EngineFlags GetEngineFlags(
                 EngineFlags @default
                 )
@@ -372,6 +568,14 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the substitution flags from the configured
+            /// settings, using the built-in default value as the starting
+            /// point.
+            /// </summary>
+            /// <returns>
+            /// The substitution flags to use.
+            /// </returns>
             public static SubstitutionFlags GetSubstitutionFlags()
             {
                 return GetSubstitutionFlags(DefaultSubstitutionFlags);
@@ -379,6 +583,17 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the substitution flags from the configured
+            /// settings, falling back to the specified default value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The substitution flags to use.
+            /// </returns>
             private static SubstitutionFlags GetSubstitutionFlags(
                 SubstitutionFlags @default
                 )
@@ -417,6 +632,13 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the event flags from the configured settings,
+            /// using the built-in default value as the starting point.
+            /// </summary>
+            /// <returns>
+            /// The event flags to use.
+            /// </returns>
             public static EventFlags GetEventFlags()
             {
                 return GetEventFlags(DefaultEventFlags);
@@ -424,6 +646,17 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the event flags from the configured settings,
+            /// falling back to the specified default value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The event flags to use.
+            /// </returns>
             private static EventFlags GetEventFlags(
                 EventFlags @default
                 )
@@ -461,6 +694,14 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the expression flags from the configured
+            /// settings, using the built-in default value as the starting
+            /// point.
+            /// </summary>
+            /// <returns>
+            /// The expression flags to use.
+            /// </returns>
             public static ExpressionFlags GetExpressionFlags()
             {
                 return GetExpressionFlags(DefaultExpressionFlags);
@@ -468,6 +709,17 @@ namespace Eagle._Services
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the expression flags from the configured
+            /// settings, falling back to the specified default value.
+            /// </summary>
+            /// <param name="default">
+            /// The default flags to return if the setting is not otherwise
+            /// specified.
+            /// </param>
+            /// <returns>
+            /// The expression flags to use.
+            /// </returns>
             private static ExpressionFlags GetExpressionFlags(
                 ExpressionFlags @default
                 )
@@ -508,6 +760,19 @@ namespace Eagle._Services
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Interpreter Creation & Setup Methods
+        /// <summary>
+        /// This method configures the Eagle script library path so that newly
+        /// created interpreters can be initialized, using the configured
+        /// settings when available and otherwise attempting to automatically
+        /// detect it based on the executing assembly location.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the library path was successfully configured; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetupLibraryPath(
             ref Result error
             )
@@ -582,6 +847,24 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the configured setup script, if any, within
+        /// the specified interpreter.  If the setup script is considered
+        /// trusted, the normal safe interpreter behavior is overridden so that
+        /// hidden commands are ignored.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which to evaluate the setup script.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain the result of evaluating the setup
+        /// script.  Upon failure, this will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         private static ReturnCode SetupInterpreter(
             Interpreter interpreter,
             ref Result result
@@ -641,6 +924,24 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and configures a new interpreter, including
+        /// setting up the script library path, applying the configured
+        /// creation flags, processing any startup options, and evaluating the
+        /// configured setup script.  If any step fails, the interpreter is
+        /// disposed before returning.
+        /// </summary>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created and configured interpreter, or null if it could
+        /// not be created.
+        /// </returns>
         private static Interpreter CreateInterpreter(
             IEnumerable<string> args,
             ref Result result
@@ -727,6 +1028,17 @@ namespace Eagle._Services
         ///////////////////////////////////////////////////////////////////////
 
         #region IEagle Members
+        /// <summary>
+        /// This method evaluates the specified expression within a newly
+        /// created interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The expression to evaluate.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of evaluating the expression.
+        /// </returns>
         public MethodResult EvaluateExpression(
             string text
             )
@@ -736,6 +1048,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified expression within a newly
+        /// created interpreter, using the specified extra arguments when
+        /// creating the interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The expression to evaluate.
+        /// </param>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of evaluating the expression.
+        /// </returns>
         public MethodResult EvaluateExpressionWithArgs(
             string text,
             Collection<string> args
@@ -768,6 +1096,17 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script within a newly created
+        /// interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code, result,
+        /// and error line of evaluating the script.
+        /// </returns>
         public MethodResult EvaluateScript(
             string text
             )
@@ -777,6 +1116,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script within a newly created
+        /// interpreter, using the specified extra arguments when creating the
+        /// interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate.
+        /// </param>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code, result,
+        /// and error line of evaluating the script.
+        /// </returns>
         public MethodResult EvaluateScriptWithArgs(
             string text,
             Collection<string> args
@@ -810,6 +1165,17 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file
+        /// within a newly created interpreter.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code, result,
+        /// and error line of evaluating the file.
+        /// </returns>
         public MethodResult EvaluateFile(
             string fileName
             )
@@ -819,6 +1185,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the specified file
+        /// within a newly created interpreter, using the specified extra
+        /// arguments when creating the interpreter.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file containing the script to evaluate.
+        /// </param>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code, result,
+        /// and error line of evaluating the file.
+        /// </returns>
         public MethodResult EvaluateFileWithArgs(
             string fileName,
             Collection<string> args
@@ -852,6 +1234,17 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the specified string within a
+        /// newly created interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of the substitution.
+        /// </returns>
         public MethodResult SubstituteString(
             string text
             )
@@ -861,6 +1254,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the specified string within a
+        /// newly created interpreter, using the specified extra arguments when
+        /// creating the interpreter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to perform substitution on.
+        /// </param>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of the substitution.
+        /// </returns>
         public MethodResult SubstituteStringWithArgs(
             string text,
             Collection<string> args
@@ -893,6 +1302,17 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file within a newly created interpreter.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to perform substitution on.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of the substitution.
+        /// </returns>
         public MethodResult SubstituteFile(
             string fileName
             )
@@ -902,6 +1322,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the contents of the specified
+        /// file within a newly created interpreter, using the specified extra
+        /// arguments when creating the interpreter.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to perform substitution on.
+        /// </param>
+        /// <param name="args">
+        /// The extra arguments to use when creating the interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="MethodResult" /> containing the return code and result
+        /// of the substitution.
+        /// </returns>
         public MethodResult SubstituteFileWithArgs(
             string fileName,
             Collection<string> args
@@ -934,6 +1370,21 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified return code represents
+        /// a successful outcome.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to check.
+        /// </param>
+        /// <param name="exceptions">
+        /// Non-zero if return codes representing exceptions should be treated
+        /// as successful.
+        /// </param>
+        /// <returns>
+        /// True if the return code represents a successful outcome; otherwise,
+        /// false.
+        /// </returns>
         public bool IsSuccess(
             ReturnCode code,
             bool exceptions
@@ -944,6 +1395,22 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified return code, result, and error
+        /// line into a single human-readable string.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to format.
+        /// </param>
+        /// <param name="result">
+        /// The result string to format.
+        /// </param>
+        /// <param name="errorLine">
+        /// The error line number to format, or zero if there is none.
+        /// </param>
+        /// <returns>
+        /// The formatted result string.
+        /// </returns>
         public string FormatResult(
             ReturnCode code,
             string result,
@@ -955,6 +1422,18 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the return code, result, and error line
+        /// contained in the specified <see cref="MethodResult" /> into a single
+        /// human-readable string.
+        /// </summary>
+        /// <param name="result">
+        /// The method result to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted result string, or null if <paramref name="result" />
+        /// is null.
+        /// </returns>
         public string FormatMethodResult(MethodResult result)
         {
             return (result != null) ? FormatResult(

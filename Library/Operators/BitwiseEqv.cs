@@ -16,6 +16,15 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>&lt;-&gt;</c> bitwise equivalence
+    /// expression operator, which computes the bitwise equivalence (the bitwise
+    /// complement of the exclusive-or, i.e. <c>~(a ^ b)</c>) of its two
+    /// integral operands.  The evaluation itself is provided by the
+    /// <see cref="Math" /> base class, selected by the
+    /// <see cref="Lexeme.BitwiseEqv" /> lexeme.  See <c>core_language.md</c>
+    /// for expression and operator semantics.
+    /// </summary>
     [ObjectId("c76c4a7b-1190-497c-b0a1-001c77f49e99")]
     [OperatorFlags(
         OperatorFlags.NonStandard | OperatorFlags.Bitwise)]
@@ -27,6 +36,14 @@ namespace Eagle._Operators
     internal sealed class BitwiseEqv : Math
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>&lt;-&gt;</c> bitwise equivalence
+        /// operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public BitwiseEqv(
             IOperatorData operatorData /* in */
             )

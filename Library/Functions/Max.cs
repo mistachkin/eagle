@@ -23,6 +23,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>max</c> expression function, which
+    /// returns the largest of its two or more numeric arguments.  The
+    /// comparison is performed using the widest common numeric type of the
+    /// arguments.  See <c>core_language.md</c> for expression and function
+    /// semantics.
+    /// </summary>
     [ObjectId("44e2cc2a-f2a8-445f-83d6-cb4c4ec60cd8")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Any)]
@@ -31,6 +38,13 @@ namespace Eagle._Functions
     internal sealed class Max : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>max</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Max(
             IFunctionData functionData /* in */
             )
@@ -43,6 +57,39 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>max</c> function.  It validates the
+        /// arguments using the base implementation, fixes up the arguments to a
+        /// common numeric type, and returns the largest of them.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; the remaining elements are the values to compare.
+        /// At least two values are required.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the largest of the argument values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when fewer than two arguments are
+        /// supplied, an argument is not numeric or of an unsupported type, or a
+        /// math exception occurs, with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

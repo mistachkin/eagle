@@ -28,6 +28,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string keys to string
+    /// values while preserving the original insertion order of the keys.  Each
+    /// string key is internally paired with a monotonically increasing sequence
+    /// number so that duplicate string keys can coexist and the entries remain
+    /// ordered as they were added.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -36,6 +43,11 @@ namespace Eagle._Containers.Private
             SortedDictionary<IAnyPair<string, long>, string>
     {
         #region StringLongPair Class
+        /// <summary>
+        /// This class represents a key that pairs a string with a long integer
+        /// sequence number, ordering entries by their sequence number so that
+        /// the original insertion order of the string keys is maintained.
+        /// </summary>
 #if SERIALIZATION
         [Serializable()]
 #endif
@@ -43,6 +55,16 @@ namespace Eagle._Containers.Private
         private sealed class StringLongPair : AnyPair<string, long>
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs a string and sequence number pair using the specified
+            /// string key and sequence number.
+            /// </summary>
+            /// <param name="x">
+            /// The string key for this pair.
+            /// </param>
+            /// <param name="y">
+            /// The long integer sequence number for this pair.
+            /// </param>
             public StringLongPair(
                 string x, /* in */
                 long y    /* in */
@@ -56,6 +78,22 @@ namespace Eagle._Containers.Private
             ///////////////////////////////////////////////////////////////////
 
             #region IComparer<IAnyPair<string, long>> Overrides
+            /// <summary>
+            /// This method compares two pairs, ordering them first by their
+            /// sequence numbers and then by their string keys.  Null pairs are
+            /// ordered before non-null pairs.
+            /// </summary>
+            /// <param name="x">
+            /// The first pair to compare.
+            /// </param>
+            /// <param name="y">
+            /// The second pair to compare.
+            /// </param>
+            /// <returns>
+            /// Zero if the pairs are equal, a negative value if the first pair
+            /// is less than the second, or a positive value if the first pair
+            /// is greater than the second.
+            /// </returns>
             public override int Compare(
                 IAnyPair<string, long> x, /* in */
                 IAnyPair<string, long> y  /* in */
@@ -93,6 +131,13 @@ namespace Eagle._Containers.Private
             ///////////////////////////////////////////////////////////////////
 
             #region System.Object Overrides
+            /// <summary>
+            /// This method returns the string representation of this pair, which
+            /// is the string key only.
+            /// </summary>
+            /// <returns>
+            /// The string key of this pair.
+            /// </returns>
             public override string ToString()
             {
                 //
@@ -108,18 +153,34 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// The most recently assigned sequence number; this is incremented to
+        /// produce the next sequence number used to order string keys.
+        /// </summary>
         private static long nextId = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The comparer used to compare the string portion of the keys.
+        /// </summary>
         private IComparer<string> stringComparer = Comparer<string>.Default;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty dictionary, optionally using a key type that
+        /// reports only its string portion when converted to a string.
+        /// </summary>
+        /// <param name="useStringKeyOnly">
+        /// Non-zero to use keys that report only their string portion when
+        /// converted to a string; otherwise, the default pair representation is
+        /// used.
+        /// </param>
         public StringLongPairStringDictionary(
             bool useStringKeyOnly
             )
@@ -132,6 +193,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method atomically produces the next sequence number used to
+        /// order string keys.
+        /// </summary>
+        /// <returns>
+        /// The next sequence number.
+        /// </returns>
         private static long NextId()
         {
             return Interlocked.Increment(ref nextId);
@@ -141,6 +209,16 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method creates a new key that pairs the specified string with a
+        /// freshly allocated sequence number.
+        /// </summary>
+        /// <param name="key">
+        /// The string key to pair with a sequence number.
+        /// </param>
+        /// <returns>
+        /// The newly created key pair.
+        /// </returns>
         private IAnyPair<string, long> GetAnyPairForStringKey(
             string key /* in */
             )
@@ -153,6 +231,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compares two string keys using the configured string
+        /// comparer.
+        /// </summary>
+        /// <param name="x">
+        /// The first string key to compare.
+        /// </param>
+        /// <param name="y">
+        /// The second string key to compare.
+        /// </param>
+        /// <returns>
+        /// Zero if the keys are equal, a negative value if the first key is less
+        /// than the second, or a positive value if the first key is greater than
+        /// the second.
+        /// </returns>
         private int CompareStringKey(
             string x, /* in */
             string y  /* in */
@@ -170,7 +263,14 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// The backing field for the <see cref="UseStringKeyOnly" /> property.
+        /// </summary>
         private bool useStringKeyOnly;
+        /// <summary>
+        /// Gets a value indicating whether keys that report only their string
+        /// portion when converted to a string are used by this dictionary.
+        /// </summary>
         public bool UseStringKeyOnly
         {
             get { return useStringKeyOnly; }
@@ -180,6 +280,18 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods (Dictionary<string, string>)
+        /// <summary>
+        /// This method adds the specified string key and value to the
+        /// dictionary.  The key is paired with a fresh sequence number, so this
+        /// method cannot fail even when the same string key is added more than
+        /// once.
+        /// </summary>
+        /// <param name="key">
+        /// The string key of the entry to add.
+        /// </param>
+        /// <param name="value">
+        /// The string value to associate with the specified key.
+        /// </param>
         public void Add( /* O(1) */
             string key,  /* in */
             string value /* in */
@@ -194,6 +306,17 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the dictionary contains an entry with
+        /// the specified string key.
+        /// </summary>
+        /// <param name="key">
+        /// The string key to locate in the dictionary.
+        /// </param>
+        /// <returns>
+        /// True if an entry with the specified string key is present;
+        /// otherwise, false.
+        /// </returns>
         public bool ContainsKey( /* O(N) */
             string key /* in */
             )
@@ -216,6 +339,16 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all entries whose string key matches the
+        /// specified string key.
+        /// </summary>
+        /// <param name="key">
+        /// The string key of the entries to remove.
+        /// </param>
+        /// <returns>
+        /// True if at least one entry was removed; otherwise, false.
+        /// </returns>
         public bool Remove( /* O(N) */
             string key /* in */
             )
@@ -265,6 +398,17 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods (Other)
+        /// <summary>
+        /// This method adds an entry for each item in the specified collection,
+        /// using the string form of each item as the key and the specified
+        /// value for every entry.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of items whose string forms are added as keys.
+        /// </param>
+        /// <param name="value">
+        /// The string value to associate with each added key.
+        /// </param>
         public void AddKeys(
             IEnumerable collection, /* in */
             string value            /* in */
@@ -276,6 +420,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary whose keys match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern, /* in */
             bool noCase     /* in */

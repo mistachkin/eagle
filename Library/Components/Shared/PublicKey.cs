@@ -32,6 +32,11 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Components.Shared
 {
+    /// <summary>
+    /// This class holds the RSA public keys that every build of the Eagle core
+    /// library trusts when verifying signed software updates and release
+    /// builds.
+    /// </summary>
 #if EAGLE
     [ObjectId("792c2824-1549-4ad2-919f-f58c7c4455ae")]
 #else
@@ -47,6 +52,10 @@ namespace Eagle._Components.Shared
         //       This key is 2048 bits and MAY also be used to sign
         //       release builds.
         //
+        /// <summary>
+        /// The 2048-bit RSA public key trusted for update checking and
+        /// installation, which may also be used to sign release builds.
+        /// </summary>
         public static readonly byte[] SoftwareUpdate1 = {
             0x30, 0x82, 0x01, 0x0a, 0x02, 0x82, 0x01, 0x01,
             0x00, 0xd1, 0x21, 0x9f, 0xbe, 0x43, 0x9d, 0xb6,
@@ -94,6 +103,11 @@ namespace Eagle._Components.Shared
         //       This key is 4096 bits and MAY also be used to sign
         //       release builds.
         //
+        /// <summary>
+        /// The 4096-bit RSA public key trusted, in "Beta 32" and later, for
+        /// update checking and installation, which may also be used to sign
+        /// release builds.
+        /// </summary>
         public static readonly byte[] SoftwareUpdate2 = {
             0x30, 0x82, 0x02, 0x0a, 0x02, 0x82, 0x02, 0x01,
             0x00, 0xd4, 0x58, 0x34, 0x98, 0x7f, 0x9a, 0xe1,
@@ -173,6 +187,11 @@ namespace Eagle._Components.Shared
         //       This key is 8192 bits and MAY also be used to sign
         //       release builds.
         //
+        /// <summary>
+        /// The 8192-bit RSA public key trusted, in "Beta 32" and later, for
+        /// update checking and installation, which may also be used to sign
+        /// release builds.
+        /// </summary>
         public static readonly byte[] SoftwareUpdate3 = {
             0x30, 0x82, 0x04, 0x0a, 0x02, 0x82, 0x04, 0x01,
             0x00, 0xf3, 0x19, 0x06, 0x7c, 0xf2, 0xe7, 0xb1,
@@ -316,6 +335,11 @@ namespace Eagle._Components.Shared
         //       This key is 16384 bits and MAY also be used to sign
         //       release builds.
         //
+        /// <summary>
+        /// The 16384-bit RSA public key trusted, in "Beta 32" and later, for
+        /// update checking and installation, which may also be used to sign
+        /// release builds.
+        /// </summary>
         public static readonly byte[] SoftwareUpdate4 = {
             0x30, 0x82, 0x08, 0x0a, 0x02, 0x82, 0x08, 0x01,
             0x00, 0xac, 0xaa, 0x19, 0x1a, 0x66, 0xd2, 0x0f,

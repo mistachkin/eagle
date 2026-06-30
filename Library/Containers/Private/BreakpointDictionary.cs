@@ -33,6 +33,12 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps script file names to the
+    /// breakpoints defined within them.  Each value is a dictionary that maps
+    /// script locations to integer breakpoint identifiers.  Lookups support
+    /// matching file names in a manner that accounts for path normalization.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -42,6 +48,9 @@ namespace Eagle._Containers.Private
             IDictionary<string, ScriptLocationIntDictionary>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public BreakpointDictionary()
             : base()
         {
@@ -52,6 +61,13 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// Constructs an empty instance of this class that uses the specified
+        /// equality comparer for its keys.
+        /// </summary>
+        /// <param name="comparer">
+        /// The equality comparer used to compare keys.
+        /// </param>
         public BreakpointDictionary(
             IEqualityComparer<string> comparer
             )
@@ -67,6 +83,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.  This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source of the serialized
+        /// data.
+        /// </param>
         private BreakpointDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -83,6 +110,20 @@ namespace Eagle._Containers.Private
         #region Public Methods
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method attempts to get the value associated with the specified
+        /// key.  This is the explicit interface implementation.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose associated value is to be retrieved.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value associated with the specified key;
+        /// otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the key was found; otherwise, false.
+        /// </returns>
         bool IDictionary<string, ScriptLocationIntDictionary>.TryGetValue( /* NOT USED */
             string key,
             out ScriptLocationIntDictionary value
@@ -97,6 +138,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the value associated with the specified
+        /// key, hiding the base class method of the same name.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose associated value is to be retrieved.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value associated with the specified key;
+        /// otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the key was found; otherwise, false.
+        /// </returns>
         public new bool TryGetValue( /* NOT USED */
             string key,
             out ScriptLocationIntDictionary value
@@ -113,6 +168,25 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to get the value associated with the specified
+        /// key, matching the key against the stored file names in a manner that
+        /// accounts for path normalization.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when matching file names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="key">
+        /// The file name whose associated value is to be retrieved.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value associated with the matching key;
+        /// otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if a matching key was found; otherwise, false.
+        /// </returns>
         public bool TryGetValue(
             Interpreter interpreter,
             string key,
@@ -139,6 +213,22 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the entries that are included in the
+        /// result.  This parameter may be null, in which case all entries are
+        /// included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -156,6 +246,22 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary whose keys match the specified regular expression
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to filter the entries that are
+        /// included in the result.  This parameter may be null, in which case
+        /// all entries are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used when performing the regular expression matching.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -173,6 +279,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs describing the
+        /// entries of the dictionary whose keys match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included.  This
+        /// parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The list of name/value pairs describing the matching entries.
+        /// </returns>
         public IStringList ToList(
             string pattern,
             bool noCase
@@ -209,6 +330,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys and values
+        /// of the dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys and values of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return KeysAndValuesToString(null, false);

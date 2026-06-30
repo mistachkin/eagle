@@ -16,6 +16,14 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>eq</c> (string equality) expression
+    /// operator, which compares its two operands as strings and yields a
+    /// boolean result that is true when they are equal.  The evaluation itself
+    /// is provided by the <see cref="_String" /> base class, selected by the
+    /// <see cref="Lexeme.StringEqual" /> lexeme.  See <c>core_language.md</c>
+    /// for expression and operator semantics.
+    /// </summary>
     [ObjectId("b1b8bfdd-28ad-4d6b-9228-5dfaabac3790")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.String)]
@@ -27,6 +35,13 @@ namespace Eagle._Operators
     internal sealed class StringEqual : _String
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>eq</c> string equality operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public StringEqual(
             IOperatorData operatorData /* in */
             )

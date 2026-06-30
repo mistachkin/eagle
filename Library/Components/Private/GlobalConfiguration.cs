@@ -17,6 +17,13 @@ using Eagle._Constants;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides centralized access to the package-wide global
+    /// configuration values, which may be backed by environment variables
+    /// and/or application settings.  It supports querying, setting, and
+    /// removing these values, optionally using a package name prefix, and
+    /// emits diagnostic trace messages describing each operation.
+    /// </summary>
     [ObjectId("ec7e7b01-b6c3-40fb-87a0-4a9eefc6f192")]
     internal static class GlobalConfiguration
     {
@@ -25,6 +32,10 @@ namespace Eagle._Components.Private
         // NOTE: This format string is used when building the package
         //       prefixed environment variable names (e.g. Eagle_Foo).
         //
+        /// <summary>
+        /// The format string used when building the package-prefixed
+        /// environment variable names (e.g. <c>Eagle_Foo</c>).
+        /// </summary>
         private static readonly string EnvVarFormat = "{0}_{1}";
 
         ///////////////////////////////////////////////////////////////////////
@@ -39,6 +50,10 @@ namespace Eagle._Components.Private
         //          here because using the package name would require using
         //          the GlobalState class, which relies upon this class.
         //
+        /// <summary>
+        /// The prefix, not including the trailing underscore, used when
+        /// handling environment variables that are package-specific.
+        /// </summary>
         private static readonly string EnvVarPrefix = "Eagle";
         #endregion
 
@@ -52,6 +67,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When this value is non-zero, trace messages will be written
+        /// whenever a global configuration value is read, modified, or
+        /// removed.
+        /// </summary>
         private static bool DefaultVerbose = ShouldBeVerbose();
 
         ///////////////////////////////////////////////////////////////////////
@@ -63,13 +83,29 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// These flags will be added to every call into this class that uses
+        /// the <see cref="GetFlags" /> helper method.
+        /// </summary>
         private static ConfigurationFlags enableFlags = ConfigurationFlags.None;
+        /// <summary>
+        /// These flags will be removed from every call into this class that
+        /// uses the <see cref="GetFlags" /> helper method.
+        /// </summary>
         private static ConfigurationFlags disableFlags = ConfigurationFlags.None;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method determines whether verbose diagnostic tracing should be
+        /// enabled by default for global configuration operations.
+        /// </summary>
+        /// <returns>
+        /// True if verbose tracing should be enabled by default; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldBeVerbose() /* THREAD-SAFE */
         {
             if (!Build.Debug)
@@ -83,6 +119,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a diagnostic fragment indicating whether the
+        /// specified configuration value was found.
+        /// </summary>
+        /// <param name="value">
+        /// The configuration value that was looked up, or null if it was not
+        /// found.
+        /// </param>
+        /// <returns>
+        /// A string indicating whether the value exists.
+        /// </returns>
         private static string FormatDoesExist(
             string value /* in */
             ) /* THREAD-SAFE */
@@ -93,6 +140,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally transforms a configuration value based on
+        /// the specified flags, optionally expanding embedded variables,
+        /// splitting it into a list, and/or normalizing path components to
+        /// their native form.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags that control how the value should be mutated.
+        /// </param>
+        /// <param name="value">
+        /// The configuration value to be mutated, in place.  Upon failure,
+        /// this is set to null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully mutated (or required no
+        /// mutation); otherwise, false.
+        /// </returns>
         private static bool MaybeMutateValue(
             ConfigurationFlags flags, /* in */
             ref string value,         /* in, out */
@@ -146,6 +213,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Configuration Value Management Methods
+        /// <summary>
+        /// This method retrieves a global configuration value from the
+        /// environment variables and/or application settings, optionally using
+        /// the package name prefix, and mutating the value as directed by the
+        /// specified flags.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to retrieve.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is looked up and mutated.
+        /// </param>
+        /// <param name="prefixedVariable">
+        /// Upon return, this will contain the variable name with the package
+        /// name prefix applied, if requested.
+        /// </param>
+        /// <returns>
+        /// The configuration value, or null if it does not exist.
+        /// </returns>
         private static string GetValue(
             string variable,            /* in */
             ConfigurationFlags flags,   /* in */
@@ -273,6 +359,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores a global configuration value into the
+        /// environment variables and/or application settings, optionally using
+        /// the package name prefix, and mutating the value as directed by the
+        /// specified flags.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to set.
+        /// </param>
+        /// <param name="value">
+        /// The configuration value to set.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is stored and mutated.
+        /// </param>
+        /// <param name="prefixedVariable">
+        /// Upon return, this will contain the variable name with the package
+        /// name prefix applied, if requested.
+        /// </param>
         private static void SetValue(
             string variable,            /* in */
             string value,               /* in */
@@ -391,6 +496,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a global configuration value from the
+        /// environment variables and/or application settings, optionally using
+        /// the package name prefix.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to remove.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is removed.
+        /// </param>
+        /// <param name="prefixedVariable">
+        /// Upon return, this will contain the variable name with the package
+        /// name prefix applied, if requested.
+        /// </param>
         private static void UnsetValue(
             string variable,            /* in */
             ConfigurationFlags flags,   /* in */
@@ -490,6 +610,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Configuration Value Management Methods
+        /// <summary>
+        /// This method combines the specified configuration flags with the
+        /// flags that are globally enabled and/or disabled for this class,
+        /// optionally adding the verbose flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The base configuration flags to start from.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to add the verbose flag to the resulting flags.
+        /// </param>
+        /// <returns>
+        /// The resulting configuration flags.
+        /// </returns>
         public static ConfigurationFlags GetFlags(
             ConfigurationFlags flags, /* in */
             bool verbose              /* in */
@@ -515,6 +649,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified global configuration
+        /// value exists.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to check.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is looked up.
+        /// </param>
+        /// <returns>
+        /// True if the configuration value exists; otherwise, false.
+        /// </returns>
         public static bool DoesValueExist(
             string variable,         /* in */
             ConfigurationFlags flags /* in */
@@ -535,6 +682,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified global configuration
+        /// value exists, also returning its value.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to check.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is looked up.
+        /// </param>
+        /// <param name="value">
+        /// Upon return, this will contain the configuration value, or null if
+        /// it does not exist.
+        /// </param>
+        /// <returns>
+        /// True if the configuration value exists; otherwise, false.
+        /// </returns>
         public static bool DoesValueExist(
             string variable,          /* in */
             ConfigurationFlags flags, /* in */
@@ -587,6 +751,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the specified global configuration value.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to retrieve.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is looked up and mutated.
+        /// </param>
+        /// <returns>
+        /// The configuration value, or null if it does not exist.
+        /// </returns>
         public static string GetValue(
             string variable,         /* in */
             ConfigurationFlags flags /* in */
@@ -608,6 +784,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the specified global configuration value.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to set.
+        /// </param>
+        /// <param name="value">
+        /// The configuration value to set.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is stored and mutated.
+        /// </param>
         public static void SetValue(
             string variable,         /* in */
             string value,            /* in */
@@ -626,6 +814,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified global configuration value.
+        /// </summary>
+        /// <param name="variable">
+        /// The name of the configuration value to remove.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is removed.
+        /// </param>
         public static void UnsetValue(
             string variable,         /* in */
             ConfigurationFlags flags /* in */

@@ -39,6 +39,11 @@ using Eagle._Components.Public;
 namespace Eagle._Messages
 {
     #region SourceLineNumberCollection Class (WiX Compatibility Mock)
+    /// <summary>
+    /// This class represents a collection of source line number information
+    /// associated with a generated script message; it is provided for WiX
+    /// message compatibility.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -63,6 +68,10 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptError Class
+    /// <summary>
+    /// This class represents a generated script error message, including its
+    /// source line information, identifier, and message arguments.
+    /// </summary>
     [ObjectId("1a58048e-be6a-43b0-8b7d-4aaf1dcb5f4c")]
     public sealed class ScriptError : MessageEventArgs
     {
@@ -71,6 +80,22 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a script error message with the given source line
+        /// information, identifier, resource name, and message arguments.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="id">
+        /// The numeric identifier for this message.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the resource string used to format this message.
+        /// </param>
+        /// <param name="messageArgs">
+        /// The arguments used when formatting the message text.
+        /// </param>
         public ScriptError(
             SourceLineNumberCollection sourceLineNumbers,
             int id,
@@ -84,6 +109,10 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the resource manager used to look up the localized strings for
+        /// script error messages.
+        /// </summary>
         public override ResourceManager ResourceManager
         {
             get { return resourceManager; }
@@ -94,6 +123,10 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptErrors Class
+    /// <summary>
+    /// This class represents the generated collection of script error
+    /// message factory methods.
+    /// </summary>
     [ObjectId("c4999ea9-098f-44fb-8db4-92fa65e9dc8a")]
     public sealed class ScriptErrors
     {
@@ -104,6 +137,19 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a generic script error message using the
+        /// specified source line information and message text.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="message">
+        /// The text of the generic error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script error message.
+        /// </returns>
         public static ScriptError GenericError(
             SourceLineNumberCollection sourceLineNumbers,
             string message
@@ -118,6 +164,10 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptWarning Class
+    /// <summary>
+    /// This class represents a generated script warning message, including
+    /// its source line information, identifier, and message arguments.
+    /// </summary>
     [ObjectId("a045811a-7008-45e4-b0c7-357ef909529e")]
     public sealed class ScriptWarning : MessageEventArgs
     {
@@ -126,6 +176,22 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a script warning message with the given source line
+        /// information, identifier, resource name, and message arguments.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="id">
+        /// The numeric identifier for this message.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the resource string used to format this message.
+        /// </param>
+        /// <param name="messageArgs">
+        /// The arguments used when formatting the message text.
+        /// </param>
         public ScriptWarning(
             SourceLineNumberCollection sourceLineNumbers,
             int id,
@@ -139,6 +205,10 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the resource manager used to look up the localized strings for
+        /// script warning messages.
+        /// </summary>
         public override ResourceManager ResourceManager
         {
             get { return resourceManager; }
@@ -149,6 +219,10 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptWarnings Class
+    /// <summary>
+    /// This class represents the generated collection of script warning
+    /// message factory methods.
+    /// </summary>
     [ObjectId("b73a735c-9f1a-4a87-95be-b45115b45244")]
     public sealed class ScriptWarnings
     {
@@ -159,6 +233,19 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a generic script warning message using the
+        /// specified source line information and message text.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="message">
+        /// The text of the generic warning message.
+        /// </param>
+        /// <returns>
+        /// The newly created script warning message.
+        /// </returns>
         public static ScriptWarning GenericWarning(
             SourceLineNumberCollection sourceLineNumbers,
             string message
@@ -173,6 +260,11 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptInformational Class
+    /// <summary>
+    /// This class represents a generated script informational message,
+    /// including its source line information, identifier, and message
+    /// arguments.
+    /// </summary>
     [ObjectId("aa2f305e-fdfb-43bb-af74-0c45417c99b2")]
     public sealed class ScriptInformational : MessageEventArgs
     {
@@ -181,6 +273,22 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a script informational message with the given source line
+        /// information, identifier, resource name, and message arguments.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="id">
+        /// The numeric identifier for this message.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the resource string used to format this message.
+        /// </param>
+        /// <param name="messageArgs">
+        /// The arguments used when formatting the message text.
+        /// </param>
         public ScriptInformational(
             SourceLineNumberCollection sourceLineNumbers,
             int id,
@@ -194,6 +302,10 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the resource manager used to look up the localized strings for
+        /// script informational messages.
+        /// </summary>
         public override ResourceManager ResourceManager
         {
             get { return resourceManager; }
@@ -204,6 +316,10 @@ namespace Eagle._Messages
     ////////////////////////////////////////////////////////////////////////////
 
     #region ScriptInformationals Class
+    /// <summary>
+    /// This class represents the generated collection of script
+    /// informational message factory methods.
+    /// </summary>
     [ObjectId("82bca8ce-c952-49d6-83c3-9cf5fa645b83")]
     public sealed class ScriptInformationals
     {
@@ -214,6 +330,19 @@ namespace Eagle._Messages
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a generic script informational message using the
+        /// specified source line information and message text.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with this message.
+        /// </param>
+        /// <param name="message">
+        /// The text of the generic informational message.
+        /// </param>
+        /// <returns>
+        /// The newly created script informational message.
+        /// </returns>
         public static ScriptInformational GenericInformation(
             SourceLineNumberCollection sourceLineNumbers,
             string message

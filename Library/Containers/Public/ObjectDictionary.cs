@@ -39,6 +39,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents an ordered, string-keyed dictionary of arbitrary
+    /// object values.  It extends the underlying dictionary implementation
+    /// (either <c>FastDictionary</c> or the standard generic dictionary,
+    /// depending on the build) with support for read-only enforcement, nested
+    /// dictionary traversal and creation, interpreter-enforced pair and
+    /// nesting limits, and conversion to and from the Eagle string list
+    /// representation.  It is the object-valued counterpart to
+    /// <see cref="StringDictionary" />.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -50,6 +60,10 @@ namespace Eagle._Containers.Public
         // NOTE: When this field is non-zero, the overridden ToString method
         //       will include all the keys and values, not just the keys.
         //
+        /// <summary>
+        /// When non-zero, the overridden <see cref="ToString()" /> method will
+        /// include all the keys and values, not just the keys.
+        /// </summary>
         private readonly bool isViaScript = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -60,12 +74,20 @@ namespace Eagle._Containers.Public
         //       to modify read-only dictionary instances will result in an
         //       exception being thrown.
         //
+        /// <summary>
+        /// When non-zero, the entire dictionary instance is read-only and
+        /// cannot be modified in any way.  Any attempt to modify a read-only
+        /// dictionary instance will result in an exception being thrown.
+        /// </summary>
         private bool isReadOnly;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty dictionary instance.
+        /// </summary>
         public ObjectDictionary()
             : base()
         {
@@ -74,6 +96,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty dictionary instance with the specified initial
+        /// capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The initial number of pairs the dictionary can contain before its
+        /// internal storage must be resized.
+        /// </param>
         public ObjectDictionary(
             int capacity
             )
@@ -84,6 +114,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary instance containing copies of the pairs from
+        /// the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose pairs are copied into the new instance.
+        /// </param>
         public ObjectDictionary(
             IDictionary<string, object> dictionary
             )
@@ -94,6 +131,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty dictionary instance that uses the specified key
+        /// equality comparer.
+        /// </summary>
+        /// <param name="comparer">
+        /// The equality comparer used to compare keys, or null to use the
+        /// default comparer for the key type.
+        /// </param>
         public ObjectDictionary(
             IEqualityComparer<string> comparer
             )
@@ -104,6 +149,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary instance containing copies of the pairs from
+        /// the specified dictionary, using the specified key equality
+        /// comparer.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose pairs are copied into the new instance.
+        /// </param>
+        /// <param name="comparer">
+        /// The equality comparer used to compare keys, or null to use the
+        /// default comparer for the key type.
+        /// </param>
         public ObjectDictionary(
             IDictionary<string, object> dictionary,
             IEqualityComparer<string> comparer
@@ -115,6 +172,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary instance from the specified collection of
+        /// values, using the one-based ordinal position of each value (as a
+        /// string) for its key.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of values to add to the new instance.
+        /// </param>
         public ObjectDictionary(
             IEnumerable<object> collection
             )
@@ -126,6 +191,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary instance containing copies of the entries
+        /// from the specified non-generic dictionary, converting each key to
+        /// its string representation.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The non-generic dictionary whose entries are copied into the new
+        /// instance.
+        /// </param>
         public ObjectDictionary(
             IDictionary dictionary
             )
@@ -139,6 +213,15 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty dictionary instance, recording whether it
+        /// originated from a script.
+        /// </summary>
+        /// <param name="isViaScript">
+        /// Non-zero if this dictionary originated from a script; this controls
+        /// whether the overridden <see cref="ToString()" /> method includes
+        /// values in addition to keys.
+        /// </param>
         internal ObjectDictionary(
             bool isViaScript /* in */
             )
@@ -149,6 +232,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary instance containing copies of the pairs from
+        /// the specified dictionary, recording whether it originated from a
+        /// script.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose pairs are copied into the new instance.
+        /// </param>
+        /// <param name="isViaScript">
+        /// Non-zero if this dictionary originated from a script; this controls
+        /// whether the overridden <see cref="ToString()" /> method includes
+        /// values in addition to keys.
+        /// </param>
         internal ObjectDictionary(
             IDictionary<string, object> dictionary,
             bool isViaScript
@@ -162,6 +258,29 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Wrapper Methods
+        /// <summary>
+        /// This method adds the value obtained from the specified value
+        /// container to the dictionary under the specified key, enforcing the
+        /// interpreter dictionary pair limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container providing the value to add, or null to add a
+        /// null value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the value was added; otherwise, false.
+        /// </returns>
         private bool InternalAdd(
             Interpreter interpreter, /* in */
             string key,              /* in */
@@ -179,6 +298,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified value to the dictionary under the
+        /// specified key, enforcing the interpreter dictionary pair limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the value was added; otherwise, false.
+        /// </returns>
         private bool InternalAdd(
             Interpreter interpreter, /* in */
             string key,              /* in */
@@ -202,6 +342,30 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the value obtained from the specified value
+        /// container to the dictionary under the specified key, or changes the
+        /// existing value if the key is already present, enforcing the
+        /// interpreter dictionary pair limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the value is added or changed.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container providing the value to add or change, or null to
+        /// use a null value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the value was added or changed; otherwise, false.
+        /// </returns>
         internal bool InternalAddOrChange(
             Interpreter interpreter, /* in */
             string key,              /* in */
@@ -220,6 +384,28 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified value to the dictionary under the
+        /// specified key, or changes the existing value if the key is already
+        /// present, enforcing the interpreter dictionary pair limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the value is added or changed.
+        /// </param>
+        /// <param name="value">
+        /// The value to add or change.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the value was added or changed; otherwise, false.
+        /// </returns>
         internal bool InternalAddOrChange(
             Interpreter interpreter, /* in */
             string key,              /* in */
@@ -243,6 +429,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, bypassing the read-only check.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         internal bool InternalRemove(
             Interpreter interpreter, /* in: NOT USED */
             string key               /* in */
@@ -253,6 +453,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all pairs from the dictionary, bypassing the
+        /// read-only check.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.  This parameter is
+        /// not used.
+        /// </param>
         private void InternalClear(
             Interpreter interpreter /* in: NOT USED */
             )
@@ -263,6 +471,29 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_STANDARD_21
+        /// <summary>
+        /// This method attempts to add the specified value to the dictionary
+        /// under the specified key, enforcing the interpreter dictionary pair
+        /// limit and failing if the key is already present.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.  This parameter is not used by the underlying
+        /// add operation.
+        /// </param>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the value was added; otherwise, false.
+        /// </returns>
         private bool InternalTryAdd(
             Interpreter interpreter, /* in: NOT USED */
             string key,              /* in */
@@ -285,6 +516,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, returning its value, bypassing the read-only check.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value that was removed; otherwise,
+        /// receives the default value.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         private bool InternalRemove(
             Interpreter interpreter, /* in: NOT USED */
             string key,              /* in */
@@ -297,6 +546,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified value to the dictionary under the
+        /// specified key, bypassing all limit and read-only checks.
+        /// </summary>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
         private void PrivateAdd(
             string key,  /* in */
             object value /* in */
@@ -307,6 +566,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified value to the dictionary under the
+        /// specified key, or changes the existing value if the key is already
+        /// present, bypassing all limit and read-only checks.
+        /// </summary>
+        /// <param name="key">
+        /// The key under which the value is added or changed.
+        /// </param>
+        /// <param name="value">
+        /// The value to add or change.  This parameter may be null.
+        /// </param>
         private void PrivateAddOrChange(
             string key,  /* in */
             object value /* in */
@@ -317,6 +587,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, bypassing the read-only check.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         private bool PrivateRemove(
             string key /* in */
             )
@@ -326,6 +606,10 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all pairs from the dictionary, bypassing the
+        /// read-only check.
+        /// </summary>
         private void PrivateClear()
         {
             base.Clear();
@@ -334,6 +618,20 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_STANDARD_21
+        /// <summary>
+        /// This method attempts to add the specified value to the dictionary
+        /// under the specified key, failing if the key is already present,
+        /// bypassing all limit and read-only checks.
+        /// </summary>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value was added; otherwise, false.
+        /// </returns>
         private bool PrivateTryAdd(
             string key,  /* in */
             object value /* in */
@@ -344,6 +642,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, returning its value, bypassing the read-only check.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value that was removed; otherwise,
+        /// receives the default value.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         private bool PrivateRemove(
             string key,      /* in */
             out object value /* in */
@@ -357,6 +669,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method throws a <see cref="ScriptException" /> if this
+        /// dictionary instance is read-only; otherwise, it does nothing.
+        /// </summary>
         private void CheckReadOnly()
         {
             if (isReadOnly)
@@ -365,6 +681,10 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this dictionary instance as read-only, preventing
+        /// any further modification.
+        /// </summary>
         private void MakeReadOnly()
         {
             isReadOnly = true;
@@ -372,6 +692,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether adding a pair with the specified key
+        /// would exceed the interpreter dictionary pair limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is checked, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="key">
+        /// The key to be added.  If this key is already present in the
+        /// dictionary, the limit cannot be exceeded.
+        /// </param>
+        /// <param name="limit">
+        /// Receives the dictionary pair limit that would be exceeded, if any.
+        /// </param>
+        /// <returns>
+        /// True if adding the pair would exceed the limit; otherwise, false.
+        /// </returns>
         private bool WouldExceedPairLimit(
             Interpreter interpreter, /* in */
             string key,              /* in */
@@ -399,6 +737,29 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether traversing the inclusive range of
+        /// keys between the specified start and stop indexes would exceed the
+        /// interpreter dictionary nesting limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary nesting limit is checked, or null
+        /// to skip the limit check.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting key index of the range to be traversed.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The ending key index of the range to be traversed.
+        /// </param>
+        /// <param name="limit">
+        /// Receives the dictionary nesting limit that would be exceeded, if
+        /// any.
+        /// </param>
+        /// <returns>
+        /// True if traversing the range would exceed the limit; otherwise,
+        /// false.
+        /// </returns>
         private bool WouldExceedNestLimit(
             Interpreter interpreter, /* in */
             int startIndex,          /* in */
@@ -424,6 +785,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new dictionary instance from the Eagle string
+        /// list representation contained in the specified value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The Eagle string list representation to parse into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the value contains only keys, with no associated values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         private static ObjectDictionary PrivateFromString(
             Interpreter interpreter, /* in */
             string value,            /* in */
@@ -457,6 +847,32 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method obtains a dictionary instance from the specified value
+        /// container, reusing or caching the dictionary where possible.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container providing the value to convert.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The dictionary instance upon success; otherwise, null.
+        /// </returns>
         internal static ObjectDictionary FromValue(
             Interpreter interpreter,
             IGetValue getValue,
@@ -472,6 +888,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a dictionary instance from the specified value
+        /// container, reusing or caching the dictionary where possible.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container providing the value to convert.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the value contains only keys, with no associated values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The dictionary instance upon success; otherwise, null.
+        /// </returns>
         private static ObjectDictionary FromValue(
             Interpreter interpreter,
             IGetValue getValue,
@@ -537,6 +982,32 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a dictionary instance from the string
+        /// representation of the specified object value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The object value whose string representation is parsed into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         public static ObjectDictionary FromObject(
             Interpreter interpreter,
             object value,
@@ -551,6 +1022,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a dictionary instance from the string
+        /// representation of the specified object value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The object value whose string representation is parsed into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the value contains only keys, with no associated values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         public static ObjectDictionary FromObject(
             Interpreter interpreter,
             object value,
@@ -574,6 +1074,29 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new dictionary instance from the Eagle string
+        /// list representation contained in the specified value, discarding any
+        /// error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The Eagle string list representation to parse into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         private static ObjectDictionary FromString(
             Interpreter interpreter,
             string value,
@@ -589,6 +1112,32 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new dictionary instance from the Eagle string
+        /// list representation contained in the specified value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The Eagle string list representation to parse into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         public static ObjectDictionary FromString(
             Interpreter interpreter,
             string value,
@@ -603,6 +1152,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new dictionary instance from the Eagle string
+        /// list representation contained in the specified value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="value">
+        /// The Eagle string list representation to parse into pairs.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if the resulting dictionary should be flagged as having
+        /// originated from a script.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero to treat duplicate keys as an error; otherwise, later
+        /// values for a key replace earlier ones.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the value contains only keys, with no associated values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The new dictionary instance upon success; otherwise, null.
+        /// </returns>
         public static ObjectDictionary FromString(
             Interpreter interpreter,
             string value,
@@ -621,6 +1199,16 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a dictionary instance from previously serialized data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context describing the source and destination of the
+        /// serialized data.
+        /// </param>
         private ObjectDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -635,6 +1223,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method adds all the pairs from the specified dictionary to this
+        /// dictionary instance.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose pairs are added to this instance.
+        /// </param>
         public void Add(
             IDictionary<string, object> dictionary /* in */
             )
@@ -645,6 +1240,26 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified sequence of nested
+        /// dictionary keys can be traversed starting from this dictionary
+        /// instance.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="keys">
+        /// The ordered sequence of keys identifying the nested path to
+        /// traverse.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if any dictionaries materialized during traversal should be
+        /// flagged as having originated from a script.
+        /// </param>
+        /// <returns>
+        /// True if the path can be fully traversed; otherwise, false.
+        /// </returns>
         public bool CanTraverse(
             Interpreter interpreter, /* in */
             IEnumerable keys,        /* in */
@@ -660,6 +1275,36 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively traverses this dictionary instance and its
+        /// nested dictionaries, counting the keys that match the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used for string matching and nested dictionary
+        /// parsing, or null.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="matchAll">
+        /// Non-zero if the pattern should be applied at every nesting level;
+        /// otherwise, it is applied only at the top level.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if any dictionaries materialized during traversal should be
+        /// flagged as having originated from a script.
+        /// </param>
+        /// <param name="aggressive">
+        /// Non-zero to attempt to parse non-dictionary values into nested
+        /// dictionaries during traversal.
+        /// </param>
+        /// <returns>
+        /// The number of matching keys found across all nesting levels.
+        /// </returns>
         public long TraverseAndCount(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -676,6 +1321,40 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively traverses this dictionary instance and its
+        /// nested dictionaries, counting the keys that match the specified
+        /// pattern, tracking the current nesting level.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used for string matching and nested dictionary
+        /// parsing, or null.
+        /// </param>
+        /// <param name="level">
+        /// The current nesting level, where zero indicates the top level.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="matchAll">
+        /// Non-zero if the pattern should be applied at every nesting level;
+        /// otherwise, it is applied only at the top level.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if any dictionaries materialized during traversal should be
+        /// flagged as having originated from a script.
+        /// </param>
+        /// <param name="aggressive">
+        /// Non-zero to attempt to parse non-dictionary values into nested
+        /// dictionaries during traversal.
+        /// </param>
+        /// <returns>
+        /// The number of matching keys found across all nesting levels at or
+        /// below the specified level.
+        /// </returns>
         private long TraverseAndCount(
             Interpreter interpreter, /* in */
             int level,               /* in */
@@ -730,6 +1409,47 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method traverses the specified range of nested dictionary keys
+        /// starting from this dictionary instance, creating intermediate nested
+        /// dictionaries as needed, and returns the innermost dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair and nesting limits are
+        /// enforced, or null to skip the limit checks.
+        /// </param>
+        /// <param name="keys">
+        /// The ordered sequence of keys identifying the nested path to
+        /// traverse and create.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first key in the range to traverse.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last key in the range to traverse, or a negative
+        /// value to traverse through the final key.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if any dictionaries materialized during traversal should be
+        /// flagged as having originated from a script.
+        /// </param>
+        /// <param name="changeCount">
+        /// Receives the running count of intermediate dictionaries created or
+        /// changed during traversal, incremented from its incoming value.
+        /// </param>
+        /// <param name="stopOnNotFound">
+        /// On input, non-zero to stop and return null (without setting an
+        /// error) upon encountering a missing key; upon such a stop, this is
+        /// set to false so the caller can distinguish that case from an error.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// The innermost traversed (or created) dictionary upon success;
+        /// otherwise, null.
+        /// </returns>
         public ObjectDictionary TraverseAndCreate(
             Interpreter interpreter, /* in */
             IEnumerable keys,        /* in */
@@ -895,6 +1615,35 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to traverse the specified sequence of nested
+        /// dictionary keys starting from this dictionary instance, returning
+        /// the value reached at the end of the path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose dictionary pair limit is enforced, or null to
+        /// skip the limit check.
+        /// </param>
+        /// <param name="keys">
+        /// The ordered sequence of keys identifying the nested path to
+        /// traverse.
+        /// </param>
+        /// <param name="viaScript">
+        /// Non-zero if any dictionaries materialized during traversal should be
+        /// flagged as having originated from a script.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value reached at the end of the path,
+        /// which may be this dictionary instance when the key sequence is empty
+        /// or ends with a null key.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the reason for
+        /// the failure.
+        /// </param>
+        /// <returns>
+        /// True if the path was fully traversed; otherwise, false.
+        /// </returns>
         public bool TryTraverse(
             Interpreter interpreter, /* in */
             IEnumerable keys,        /* in */
@@ -987,6 +1736,27 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys that match the specified pattern using the specified
+        /// match mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The match mode used to compare keys against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when the match mode is regular
+        /// expression based.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys.
+        /// </returns>
         public string KeysToString(
             MatchMode mode,
             string pattern,
@@ -1005,6 +1775,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a list-formatted string of all the dictionary
+        /// keys, joined using the specified separator.
+        /// </summary>
+        /// <param name="separator">
+        /// The string used to separate adjacent keys in the result.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of all keys.
+        /// </returns>
         public string KeysToString(
             string separator
             )
@@ -1018,6 +1798,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys.
+        /// </returns>
         public string KeysToString(
             string pattern,
             bool noCase
@@ -1032,6 +1825,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys that match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to match keys, or null to match
+        /// all keys.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when matching keys.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys.
+        /// </returns>
         public string KeysToString(
             string pattern,
             RegexOptions regExOptions
@@ -1046,6 +1853,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary values whose keys match the specified pattern using the
+        /// specified match mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The match mode used to compare values against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match values, or null to match all values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when the match mode is regular
+        /// expression based.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching values.
+        /// </returns>
         public string ValuesToString(
             MatchMode mode,
             string pattern,
@@ -1064,6 +1892,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary values that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to match values, or null to match all values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching values.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             bool noCase
@@ -1078,6 +1919,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary values that match the specified regular expression
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to match values, or null to
+        /// match all values.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when matching values.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching values.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -1092,6 +1948,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys and their associated values, for keys that match the
+        /// specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys and their values.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -1108,6 +1978,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys and their associated values, for keys that match the
+        /// specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to match keys, or null to match
+        /// all keys.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when matching keys.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys and their values.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -1124,6 +2009,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a space-separated, list-formatted string of the
+        /// dictionary keys that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to match keys, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list-formatted string of matching keys.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -1140,6 +2038,11 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IReadOnly Members
+        /// <summary>
+        /// Gets a value indicating whether this dictionary instance is
+        /// read-only.  When non-zero, any attempt to modify the dictionary will
+        /// result in an exception being thrown.
+        /// </summary>
 #if FAST_DICTIONARY
         public new bool IsReadOnly
 #else
@@ -1157,6 +2060,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IViaScript Members
+        /// <summary>
+        /// Gets a value indicating whether this dictionary instance originated
+        /// from a script.  When non-zero, the overridden
+        /// <see cref="ToString()" /> method includes values in addition to
+        /// keys.
+        /// </summary>
         public bool IsViaScript
         {
             get { return isViaScript; }
@@ -1166,6 +2075,14 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns the string representation of this dictionary
+        /// instance.  When the dictionary originated from a script, both keys
+        /// and values are included; otherwise, only the keys are included.
+        /// </summary>
+        /// <returns>
+        /// The list-formatted string representation of the dictionary.
+        /// </returns>
         public override string ToString()
         {
             return isViaScript ?
@@ -1177,6 +2094,18 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Dictionary<TKey, TValue> Overrides
+        /// <summary>
+        /// This method adds the specified value to the dictionary under the
+        /// specified key, throwing if the dictionary is read-only.  When the
+        /// value implements the value container interface, the container itself
+        /// is stored rather than its wrapped value.
+        /// </summary>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
         public new void Add(
             string key,
             object value
@@ -1194,6 +2123,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, throwing if the dictionary is read-only.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         public new bool Remove(
             string key
             )
@@ -1205,6 +2144,10 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all pairs from the dictionary, throwing if the
+        /// dictionary is read-only.
+        /// </summary>
         public new void Clear()
         {
             CheckReadOnly();
@@ -1214,6 +2157,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the value associated with the specified key.  Setting a
+        /// value throws if the dictionary is read-only.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose associated value is obtained or modified.
+        /// </param>
+        /// <returns>
+        /// The value associated with the specified key.
+        /// </returns>
         public new object this[string key]
         {
             get { return base[key]; }
@@ -1228,6 +2181,20 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_STANDARD_21
+        /// <summary>
+        /// This method attempts to add the specified value to the dictionary
+        /// under the specified key, failing if the key is already present and
+        /// throwing if the dictionary is read-only.
+        /// </summary>
+        /// <param name="key">
+        /// The key under which the value is added.
+        /// </param>
+        /// <param name="value">
+        /// The value to add.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value was added; otherwise, false.
+        /// </returns>
         public new bool TryAdd(
             string key,
             object value
@@ -1240,6 +2207,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pair with the specified key from the
+        /// dictionary, returning its value, throwing if the dictionary is
+        /// read-only.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the pair to remove.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value that was removed; otherwise,
+        /// receives the default value.
+        /// </param>
+        /// <returns>
+        /// True if the pair was found and removed; otherwise, false.
+        /// </returns>
         public new bool Remove(
             string key,
             out object value

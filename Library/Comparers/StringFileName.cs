@@ -20,12 +20,28 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class compares and tests file name strings for equality, optionally
+    /// splitting each path into its components and ordering them according to
+    /// the configured <see cref="PathComparisonType" /> (for example, deepest
+    /// path first).  Instances are cached on the basis of the chosen comparison
+    /// type.
+    /// </summary>
     [ObjectId("7300d32f-8c23-49fc-9234-8812ad5813b9")]
     internal sealed class StringFileName :
         IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
+        /// <summary>
+        /// The encoding used to convert file name strings to bytes when
+        /// computing hash codes.
+        /// </summary>
         private Encoding encoding;
+
+        /// <summary>
+        /// The path comparison strategy that determines how file name strings
+        /// are ordered.
+        /// </summary>
         private PathComparisonType pathComparisonType;
         #endregion
 
@@ -36,6 +52,9 @@ namespace Eagle._Comparers
         // NOTE: This is used to synchronize access to the cache dictionary,
         //       below.
         //
+        /// <summary>
+        /// The object used to synchronize access to the instance cache.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -44,12 +63,29 @@ namespace Eagle._Comparers
         // NOTE: This is a cache for instances of this class, stored on the
         //       basis of the chosen path comparison type.
         //
+        /// <summary>
+        /// The cache of instances of this class, keyed by the path comparison
+        /// type each instance was created with.
+        /// </summary>
         private static Dictionary<PathComparisonType, StringFileName> cache;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// Returns an instance of this class configured for the specified path
+        /// comparison type, creating and caching a new instance if one does not
+        /// already exist for that type.
+        /// </summary>
+        /// <param name="pathComparisonType">
+        /// The path comparison strategy that determines how file name strings
+        /// are ordered.
+        /// </param>
+        /// <returns>
+        /// A cached or newly created instance of this class for the specified
+        /// path comparison type.
+        /// </returns>
         public static StringFileName Create(
             PathComparisonType pathComparisonType
             )
@@ -79,6 +115,13 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// Clears the cache of instances of this class.
+        /// </summary>
+        /// <returns>
+        /// The number of cached instances that were removed, or an invalid
+        /// count if the cache had not yet been created.
+        /// </returns>
         public static int ClearCache()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -99,6 +142,14 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class for the specified path
+        /// comparison type, using the UTF-8 encoding.
+        /// </summary>
+        /// <param name="pathComparisonType">
+        /// The path comparison strategy that determines how file name strings
+        /// are ordered.
+        /// </param>
         private StringFileName(
             PathComparisonType pathComparisonType
             )
@@ -109,6 +160,18 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class for the specified encoding and
+        /// path comparison type.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding used to convert file name strings to bytes when
+        /// computing hash codes.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The path comparison strategy that determines how file name strings
+        /// are ordered.
+        /// </param>
         private StringFileName(
             Encoding encoding,
             PathComparisonType pathComparisonType
@@ -122,6 +185,13 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// Determines whether file names should be compared as plain strings,
+        /// without splitting them into path components.
+        /// </summary>
+        /// <returns>
+        /// True if a plain string comparison should be used; otherwise, false.
+        /// </returns>
         private bool UseStringCompare()
         {
             return ((pathComparisonType == PathComparisonType.None) ||
@@ -130,6 +200,13 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether deeper (longer) paths should sort before
+        /// shallower (shorter) ones.
+        /// </summary>
+        /// <returns>
+        /// True if deeper paths should sort first; otherwise, false.
+        /// </returns>
         private bool UseDeepestFirst()
         {
             return pathComparisonType == PathComparisonType.DeepestFirst;
@@ -137,6 +214,16 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Splits the specified file name into its path components.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to split, or null.
+        /// </param>
+        /// <returns>
+        /// An array of the path components of the file name, or null if the
+        /// file name is null.
+        /// </returns>
         private static string[] SplitFileName(
             string fileName
             )
@@ -151,6 +238,21 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<string> Members
+        /// <summary>
+        /// Compares two file name strings and returns a value indicating their
+        /// relative order according to the configured path comparison strategy.
+        /// </summary>
+        /// <param name="x">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="y">
+        /// The second file name to compare.
+        /// </param>
+        /// <returns>
+        /// Less than zero if <paramref name="x" /> is less than
+        /// <paramref name="y" />, zero if they are equal, and greater than zero
+        /// if <paramref name="x" /> is greater than <paramref name="y" />.
+        /// </returns>
         public int Compare(
             string x,
             string y
@@ -222,6 +324,19 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<string> Members
+        /// <summary>
+        /// Determines whether two file name strings are equal according to this
+        /// comparer's ordering.
+        /// </summary>
+        /// <param name="x">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="y">
+        /// The second file name to compare.
+        /// </param>
+        /// <returns>
+        /// True if the file names are considered equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             string x,
             string y
@@ -232,6 +347,16 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Returns a hash code for the specified file name string that is
+        /// consistent with this comparer's notion of equality.
+        /// </summary>
+        /// <param name="obj">
+        /// The file name for which a hash code is to be computed.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified file name.
+        /// </returns>
         public int GetHashCode(string obj)
         {
             int result = 0;

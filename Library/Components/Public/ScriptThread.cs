@@ -21,16 +21,41 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents a dedicated managed thread that hosts an Eagle
+    /// interpreter, allowing scripts to be created, evaluated, and managed on a
+    /// thread separate from the one that created it.  It can either create and
+    /// own a new interpreter running on its thread or attach to an existing
+    /// one, and it provides methods to queue work asynchronously, send scripts
+    /// synchronously, signal and wake the thread, cancel running scripts, and
+    /// wait for various thread and event conditions.  It implements
+    /// <see cref="IScriptThread" /> and is disposable; disposing it attempts a
+    /// graceful shutdown of the thread and its interpreter.
+    /// </summary>
     [ObjectId("f3bd8b05-282c-4ec8-8c46-c02790fbbb7d")]
     // [ObjectFlags(ObjectFlags.AutoDispose)]
     public sealed class ScriptThread :
             IMaybeDisposed, IScriptThread, IDisposable
     {
         #region Event Input Pair Class (Input-Only)
+        /// <summary>
+        /// This class represents an immutable, input-only pair of strings used
+        /// to convey a script and its associated event name to an event
+        /// callback.
+        /// </summary>
         [ObjectId("72a69e6c-515a-4567-9d07-874e05b2cf6b")]
         private sealed class EventInputPair :
             AnyPair<string, string>
         {
+            /// <summary>
+            /// Constructs an event input pair from the specified string values.
+            /// </summary>
+            /// <param name="x">
+            /// The first string value of the pair.
+            /// </param>
+            /// <param name="y">
+            /// The second string value of the pair.
+            /// </param>
             public EventInputPair(
                 string x,
                 string y
@@ -45,10 +70,23 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Output Pair Class (Input-Output)
+        /// <summary>
+        /// This class represents a mutable, input-output pair used to convey
+        /// the return code and result produced by evaluating a script back to a
+        /// waiting caller.
+        /// </summary>
         [ObjectId("25757691-b599-40c1-a485-90b1a3ab87a7")]
         private sealed class EventOutputPair :
             MutableAnyPair<ReturnCode, Result>
         {
+            /// <summary>
+            /// Constructs an event output pair, optionally allowing its values
+            /// to be modified after construction.
+            /// </summary>
+            /// <param name="mutable">
+            /// Non-zero if the values of this pair may be modified after
+            /// construction; otherwise, zero.
+            /// </param>
             public EventOutputPair(
                 bool mutable
                 )
@@ -62,8 +100,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The default name used when adding this script thread object into its
+        /// interpreter.
+        /// </summary>
         private const string scriptThreadObjectName = "thread";
 
+        /// <summary>
+        /// The prefix used when constructing the event name for a synchronous
+        /// send operation.
+        /// </summary>
         private const string scriptThreadSendEventPrefix = "threadSend";
 
         ///////////////////////////////////////////////////////////////////////
@@ -71,33 +117,72 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default object option type used when adding CLR objects into the
+        /// interpreter.
+        /// </summary>
         private static ObjectOptionType DefaultObjectOptionType =
             ObjectOps.GetDefaultObjectOptionType();
 
+        /// <summary>
+        /// The default object flags used when adding CLR objects into the
+        /// interpreter.
+        /// </summary>
         private static ObjectFlags DefaultObjectFlags =
             ObjectOps.GetDefaultObjectFlags();
 
+        /// <summary>
+        /// The default thread flags used when creating or attaching a script
+        /// thread.
+        /// </summary>
         private static ThreadFlags DefaultThreadFlags =
             ThreadFlags.Default;
 
+        /// <summary>
+        /// The default interpreter creation flags used when creating a new
+        /// interpreter for the script thread.
+        /// </summary>
         private static CreateFlags DefaultCreateFlags =
             CreateFlags.ScriptThreadUse;
 
+        /// <summary>
+        /// The default host creation flags used when creating a new interpreter
+        /// for the script thread.
+        /// </summary>
         private static HostCreateFlags DefaultHostCreateFlags =
             HostCreateFlags.ScriptThreadUse;
 
+        /// <summary>
+        /// The default initialization flags used when creating a new
+        /// interpreter for the script thread.
+        /// </summary>
         private static InitializeFlags DefaultInitializeFlags =
             Defaults.InitializeFlags;
 
+        /// <summary>
+        /// The default script flags used when creating a new interpreter for
+        /// the script thread.
+        /// </summary>
         private static ScriptFlags DefaultScriptFlags =
             Defaults.ScriptFlags;
 
+        /// <summary>
+        /// The default interpreter flags used when creating a new interpreter
+        /// for the script thread.
+        /// </summary>
         private static InterpreterFlags DefaultInterpreterFlags =
             Defaults.InterpreterFlags;
 
+        /// <summary>
+        /// The default variable flags used when waiting on the event variable.
+        /// </summary>
         private static VariableFlags DefaultEventVariableFlags =
             VariableFlags.None;
 
+        /// <summary>
+        /// The default event wait flags used when waiting on the event
+        /// variable.
+        /// </summary>
         private static EventWaitFlags DefaultEventWaitFlags =
             EventWaitFlags.Default;
 
@@ -106,30 +191,63 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default maximum stack size, in bytes, used when creating the
+        /// physical thread; zero means the process default is used.
+        /// </summary>
         private static int DefaultStackSize = 0;
 
+        /// <summary>
+        /// The default timeout, in milliseconds, used during thread creation
+        /// and startup; zero means the default join timeout is used.
+        /// </summary>
         private static int DefaultTimeout = 0;
 
+        /// <summary>
+        /// The default value indicating whether the engine (instead of an event
+        /// callback) should be used to evaluate a synchronously sent script.
+        /// </summary>
         private static bool DefaultUseEngine = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// The number of script thread instances that are currently running
+        /// their thread-start method.
+        /// </summary>
         private static int activeCount = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the instance data of this
+        /// script thread.
+        /// </summary>
         private object syncRoot = new object();
+
+        /// <summary>
+        /// The event signaled when the script thread has finished starting up.
+        /// </summary>
         private EventWaitHandle startEvent;
+
+        /// <summary>
+        /// The event used to wake up the script thread while it is waiting on
+        /// its event variable.
+        /// </summary>
         private EventWaitHandle wakeUpEvent;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a script thread, assigning it the next available script
+        /// thread identifier.
+        /// </summary>
         private ScriptThread()
         {
             id = GlobalState.NextScriptThreadId();
@@ -137,6 +255,107 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a script thread from the fully specified set of
+        /// interpreter, thread, and behavior parameters.  This is the most
+        /// general constructor; it is used internally by the static factory
+        /// methods.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach to, or null if a new interpreter
+        /// should be created on the script thread.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter.
+        /// </param>
+        /// <param name="eventVariableFlags">
+        /// The variable flags used when waiting on the event variable.
+        /// </param>
+        /// <param name="eventWaitFlags">
+        /// The event wait flags used when waiting on the event variable.
+        /// </param>
+        /// <param name="args">
+        /// The arguments used when creating a new interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host used when creating a new interpreter.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="script">
+        /// The startup script to evaluate on the script thread, or null for no
+        /// startup script.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// shutdown.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the thread should be configured for user-interface use.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero if the thread should be a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero if the created interpreter should be pushed onto the active
+        /// interpreter stack while the script thread runs.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero if the interpreter should suppress certain error reporting.
+        /// </param>
+        /// <param name="noBackgroundError">
+        /// Non-zero to disable background error processing for the interpreter.
+        /// </param>
+        /// <param name="useSelf">
+        /// Non-zero if this script thread object should be added into its own
+        /// interpreter.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress complaints (i.e. emit a trace instead) when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic tracing.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to enable debug behavior.
+        /// </param>
+        /// <param name="usePool">
+        /// Non-zero to run the script thread using the thread pool instead of a
+        /// dedicated physical thread.
+        /// </param>
+        /// <param name="purgeGlobal">
+        /// Non-zero to also purge global context information when the thread
+        /// exits.
+        /// </param>
+        /// <param name="noAbort">
+        /// Non-zero to prevent the thread from ever being forcibly aborted.
+        /// </param>
         private ScriptThread(
             Interpreter interpreter,
             string name,
@@ -203,6 +422,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a script thread that attaches to the specified,
+        /// existing interpreter, using the default stack size.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string varName,
@@ -215,6 +450,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script thread that attaches to the specified,
+        /// existing interpreter, using the specified stack size.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string varName,
@@ -229,6 +484,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script thread that attaches to the specified,
+        /// existing interpreter, using the specified stack size and timeout.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string varName,
@@ -244,6 +523,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that attaches to the
+        /// specified, existing interpreter, using the specified thread flags and
+        /// stack size.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string name,
@@ -260,6 +567,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that attaches to the
+        /// specified, existing interpreter, using the specified thread flags,
+        /// stack size, and timeout.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string name,
@@ -277,6 +616,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that attaches to the
+        /// specified, existing interpreter, optionally evaluating a startup
+        /// script, using the specified thread flags, stack size, and timeout.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach the script thread to.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="script">
+        /// The startup script to evaluate on the script thread, or null for no
+        /// startup script.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Attach(
             Interpreter interpreter,
             string name,
@@ -296,6 +671,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script thread that owns a newly created
+        /// interpreter, using the default stack size for the process.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string varName,
             ref Result error
@@ -310,6 +698,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script thread that owns a newly created
+        /// interpreter, using the specified stack size.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string varName,
             int maxStackSize,
@@ -323,6 +728,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script thread that owns a newly created
+        /// interpreter, using the specified stack size and timeout.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string varName,
             int maxStackSize,
@@ -337,6 +763,50 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that owns a newly created
+        /// interpreter, using the specified creation flags and stack size.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter,
+        /// or null to use the default flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter, or
+        /// null to use the default flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter, or null to use
+        /// the default flags.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string name,
             ThreadFlags? threadFlags,
@@ -358,6 +828,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that owns a newly created
+        /// interpreter, using the specified creation flags, stack size, and
+        /// timeout.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter,
+        /// or null to use the default flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter, or
+        /// null to use the default flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter, or null to use
+        /// the default flags.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string name,
             ThreadFlags? threadFlags,
@@ -381,6 +900,67 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that owns a newly created
+        /// interpreter, using the specified creation flags, arguments, host,
+        /// startup script, stack size, and timeout.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter,
+        /// or null to use the default flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter, or
+        /// null to use the default flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter, or null to use
+        /// the default flags.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="args">
+        /// The arguments used when creating a new interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host used when creating a new interpreter.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="script">
+        /// The startup script to evaluate on the script thread, or null for no
+        /// startup script.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             string name,
             ThreadFlags? threadFlags,
@@ -407,6 +987,72 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a named script thread that either attaches to
+        /// the specified, existing interpreter or, if none is supplied, owns a
+        /// newly created one, using the specified creation flags, arguments,
+        /// host, startup script, stack size, and timeout.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach to, or null if a new interpreter
+        /// should be created on the script thread.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter,
+        /// or null to use the default flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter, or
+        /// null to use the default flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter, or null to use
+        /// the default flags.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="args">
+        /// The arguments used when creating a new interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host used when creating a new interpreter.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="script">
+        /// The startup script to evaluate on the script thread, or null for no
+        /// startup script.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         public static IScriptThread Create(
             Interpreter interpreter,
             string name,
@@ -433,6 +1079,77 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the core logic for creating a script thread,
+        /// either creating a new interpreter or attaching to an existing one,
+        /// optionally starting the thread (or queuing it to the thread pool) and
+        /// waiting for it to start.  All of the other static factory methods
+        /// ultimately delegate to this method.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The existing interpreter to attach to, or null if a new interpreter
+        /// should be created on the script thread.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script thread.  This parameter may be null.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The flags controlling the behavior of the script thread, or null to
+        /// use the default flags.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used when creating a new interpreter,
+        /// or null to use the default flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The initialization flags used when creating a new interpreter, or
+        /// null to use the default flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags used when creating a new interpreter, or null to use
+        /// the default flags.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags used when creating a new interpreter, or null
+        /// to use the default flags.
+        /// </param>
+        /// <param name="args">
+        /// The arguments used when creating a new interpreter.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host used when creating a new interpreter.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="script">
+        /// The startup script to evaluate on the script thread, or null for no
+        /// startup script.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on, or null for no wait.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, used during thread creation and
+        /// startup.
+        /// </param>
+        /// <param name="viaAttach">
+        /// Non-zero if the script thread is being created in order to attach to
+        /// an existing interpreter rather than create a new one.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created script thread, or null if it could not be created.
+        /// </returns>
         private static IScriptThread Create(
             Interpreter interpreter,
             string name,
@@ -701,6 +1418,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this script thread has been disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -714,6 +1434,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this script thread is currently in
+        /// the process of being disposed.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -729,7 +1453,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// The interpreter hosted by this script thread.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// Gets the interpreter hosted by this script thread.
+        /// </summary>
         public Interpreter Interpreter
         {
             get
@@ -750,7 +1481,14 @@ namespace Eagle._Components.Public
         #region IScriptThread Members
         #region Public Properties
         #region Owned Resource Properties
+        /// <summary>
+        /// The physical thread on which this script thread runs.
+        /// </summary>
         private Thread thread;
+
+        /// <summary>
+        /// Gets the physical thread on which this script thread runs.
+        /// </summary>
         public Thread Thread
         {
             get
@@ -769,7 +1507,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Identity & Affinity Properties
+        /// <summary>
+        /// The unique identifier of this script thread.
+        /// </summary>
         private long id;
+
+        /// <summary>
+        /// Gets the unique identifier of this script thread.
+        /// </summary>
         public long Id
         {
             get
@@ -783,7 +1528,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of this script thread.
+        /// </summary>
         private string name;
+
+        /// <summary>
+        /// Gets the name of this script thread.
+        /// </summary>
         public string Name
         {
             get
@@ -801,6 +1553,10 @@ namespace Eagle._Components.Public
         // HACK: This defines an instance property in order to read a static
         //       field.
         //
+        /// <summary>
+        /// Gets the number of script thread instances that are currently running
+        /// their thread-start method.
+        /// </summary>
         public int ActiveCount
         {
             get
@@ -816,7 +1572,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Thread Creation & Startup Properties
+        /// <summary>
+        /// The flags controlling the behavior of this script thread.
+        /// </summary>
         private ThreadFlags threadFlags;
+
+        /// <summary>
+        /// Gets the flags controlling the behavior of this script thread.
+        /// </summary>
         public ThreadFlags ThreadFlags
         {
             get
@@ -833,7 +1596,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The maximum stack size, in bytes, used when creating the physical
+        /// thread.
+        /// </summary>
         private int maxStackSize;
+
+        /// <summary>
+        /// Gets the maximum stack size, in bytes, used when creating the
+        /// physical thread.
+        /// </summary>
         public int MaxStackSize
         {
             get
@@ -850,7 +1622,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The timeout, in milliseconds, used during thread creation and
+        /// shutdown.
+        /// </summary>
         private int timeout;
+
+        /// <summary>
+        /// Gets the timeout, in milliseconds, used during thread creation and
+        /// shutdown.
+        /// </summary>
         public int Timeout
         {
             get
@@ -866,7 +1647,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Thread Creation Properties
+        /// <summary>
+        /// When non-zero, the thread is configured for user-interface use.
+        /// </summary>
         private bool userInterface;
+
+        /// <summary>
+        /// Gets a value indicating whether the thread is configured for
+        /// user-interface use.
+        /// </summary>
         public bool UserInterface
         {
             get
@@ -883,7 +1672,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the thread runs as a background thread.
+        /// </summary>
         private bool isBackground;
+
+        /// <summary>
+        /// Gets a value indicating whether the thread runs as a background
+        /// thread.
+        /// </summary>
         public bool IsBackground
         {
             get
@@ -902,7 +1699,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Creation & Startup Properties
+        /// <summary>
+        /// The arguments used when creating the interpreter for this script
+        /// thread.
+        /// </summary>
         private IEnumerable<string> args;
+
+        /// <summary>
+        /// Gets the arguments used when creating the interpreter for this script
+        /// thread.
+        /// </summary>
         public IEnumerable<string> Args
         {
             get
@@ -919,7 +1725,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The host used when creating the interpreter for this script thread.
+        /// </summary>
         private IHost host;
+
+        /// <summary>
+        /// Gets the host used when creating the interpreter for this script
+        /// thread.
+        /// </summary>
         public IHost Host
         {
             get
@@ -936,7 +1750,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter creation flags used when creating the interpreter for
+        /// this script thread.
+        /// </summary>
         private CreateFlags createFlags;
+
+        /// <summary>
+        /// Gets the interpreter creation flags used when creating the
+        /// interpreter for this script thread.
+        /// </summary>
         public CreateFlags CreateFlags
         {
             get
@@ -953,7 +1776,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The host creation flags used when creating the interpreter for this
+        /// script thread.
+        /// </summary>
         private HostCreateFlags hostCreateFlags;
+
+        /// <summary>
+        /// Gets the host creation flags used when creating the interpreter for
+        /// this script thread.
+        /// </summary>
         public HostCreateFlags HostCreateFlags
         {
             get
@@ -970,7 +1802,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The initialization flags used when creating the interpreter for this
+        /// script thread.
+        /// </summary>
         private InitializeFlags initializeFlags;
+
+        /// <summary>
+        /// Gets the initialization flags used when creating the interpreter for
+        /// this script thread.
+        /// </summary>
         public InitializeFlags InitializeFlags
         {
             get
@@ -987,7 +1828,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The script flags used when creating the interpreter for this script
+        /// thread.
+        /// </summary>
         private ScriptFlags scriptFlags;
+
+        /// <summary>
+        /// Gets the script flags used when creating the interpreter for this
+        /// script thread.
+        /// </summary>
         public ScriptFlags ScriptFlags
         {
             get
@@ -1004,7 +1854,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter flags used when creating the interpreter for this
+        /// script thread.
+        /// </summary>
         private InterpreterFlags interpreterFlags;
+
+        /// <summary>
+        /// Gets the interpreter flags used when creating the interpreter for
+        /// this script thread.
+        /// </summary>
         public InterpreterFlags InterpreterFlags
         {
             get
@@ -1023,7 +1882,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Handling Properties
+        /// <summary>
+        /// When non-zero, this script thread object is added into its own
+        /// interpreter.
+        /// </summary>
         private bool useSelf;
+
+        /// <summary>
+        /// Gets a value indicating whether this script thread object is added
+        /// into its own interpreter.
+        /// </summary>
         public bool UseSelf
         {
             get
@@ -1040,7 +1908,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the created interpreter is pushed onto the active
+        /// interpreter stack while the script thread runs.
+        /// </summary>
         private bool useActiveStack;
+
+        /// <summary>
+        /// Gets a value indicating whether the created interpreter is pushed
+        /// onto the active interpreter stack while the script thread runs.
+        /// </summary>
         public bool UseActiveStack
         {
             get
@@ -1059,7 +1936,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Error Handling Properties
+        /// <summary>
+        /// When non-zero, the interpreter suppresses certain error reporting.
+        /// </summary>
         private bool quiet;
+
+        /// <summary>
+        /// Gets a value indicating whether the interpreter suppresses certain
+        /// error reporting.
+        /// </summary>
         public bool Quiet
         {
             get
@@ -1076,7 +1961,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, background error processing is disabled for the
+        /// interpreter.
+        /// </summary>
         private bool noBackgroundError;
+
+        /// <summary>
+        /// Gets a value indicating whether background error processing is
+        /// disabled for the interpreter.
+        /// </summary>
         public bool NoBackgroundError
         {
             get
@@ -1095,7 +1989,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Handling Properties
+        /// <summary>
+        /// The startup script evaluated on this script thread, or null for no
+        /// startup script.
+        /// </summary>
         private IScript script;
+
+        /// <summary>
+        /// Gets the startup script evaluated on this script thread, or null for
+        /// no startup script.
+        /// </summary>
         public IScript Script // NOTE: For no startup script, use null.
         {
             get
@@ -1112,7 +2015,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the variable this script thread waits on, or null for no
+        /// wait.
+        /// </summary>
         private string varName;
+
+        /// <summary>
+        /// Gets the name of the variable this script thread waits on, or null
+        /// for no wait.
+        /// </summary>
         public string VarName // NOTE: For no wait, use null.
         {
             get
@@ -1129,7 +2041,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The event wait flags used when waiting on the event variable.
+        /// </summary>
         private EventWaitFlags eventWaitFlags;
+
+        /// <summary>
+        /// Gets the event wait flags used when waiting on the event variable.
+        /// </summary>
         public EventWaitFlags EventWaitFlags
         {
             get
@@ -1146,7 +2065,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The variable flags used when waiting on the event variable.
+        /// </summary>
         private VariableFlags eventVariableFlags;
+
+        /// <summary>
+        /// Gets the variable flags used when waiting on the event variable.
+        /// </summary>
         public VariableFlags EventVariableFlags
         {
             get
@@ -1163,7 +2089,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, complaints are suppressed (and emitted as traces
+        /// instead) when an error is encountered.
+        /// </summary>
         private bool noComplain;
+
+        /// <summary>
+        /// Gets a value indicating whether complaints are suppressed (and
+        /// emitted as traces instead) when an error is encountered.
+        /// </summary>
         public bool NoComplain
         {
             get
@@ -1182,7 +2117,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Diagnostic Read-Write Properties
+        /// <summary>
+        /// When non-zero, verbose diagnostic tracing is enabled.
+        /// </summary>
         private bool verbose;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether verbose diagnostic tracing is
+        /// enabled.
+        /// </summary>
         public bool Verbose
         {
             get
@@ -1209,7 +2152,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, debug behavior is enabled.
+        /// </summary>
         private bool debug;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether debug behavior is enabled.
+        /// </summary>
         public bool Debug
         {
             get
@@ -1236,7 +2186,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The return code most recently associated with this script thread.
+        /// </summary>
         private ReturnCode returnCode;
+
+        /// <summary>
+        /// Gets or sets the return code most recently associated with this
+        /// script thread.
+        /// </summary>
         public ReturnCode ReturnCode
         {
             get
@@ -1263,7 +2221,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The result most recently associated with this script thread.
+        /// </summary>
         private Result result;
+
+        /// <summary>
+        /// Gets or sets the result most recently associated with this script
+        /// thread.
+        /// </summary>
         public Result Result
         {
             get
@@ -1292,6 +2258,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Thread State Properties
+        /// <summary>
+        /// Gets a value indicating whether the underlying physical thread is
+        /// currently alive.
+        /// </summary>
         public bool IsAlive
         {
             get
@@ -1305,6 +2275,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the hosted interpreter is currently
+        /// busy.
+        /// </summary>
         public bool IsBusy
         {
             get
@@ -1318,6 +2292,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this script thread has been disposed.
+        /// </summary>
         public bool IsDisposed
         {
             get
@@ -1333,7 +2310,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Disposal & Purging Properties
+        /// <summary>
+        /// When non-zero, the script thread runs using the thread pool instead
+        /// of a dedicated physical thread.
+        /// </summary>
         private bool usePool;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the script thread runs using
+        /// the thread pool instead of a dedicated physical thread.
+        /// </summary>
         public bool UsePool
         {
             get
@@ -1360,7 +2346,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, global context information is also purged when the
+        /// thread exits.
+        /// </summary>
         private bool purgeGlobal;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether global context information is
+        /// also purged when the thread exits.
+        /// </summary>
         public bool PurgeGlobal
         {
             get
@@ -1387,7 +2382,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the thread is never forcibly aborted.
+        /// </summary>
         private bool noAbort;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the thread is never forcibly
+        /// aborted.
+        /// </summary>
         public bool NoAbort
         {
             get
@@ -1418,6 +2421,14 @@ namespace Eagle._Components.Public
 
         #region Public Methods
         #region Thread State Methods
+        /// <summary>
+        /// This method attempts to start the underlying physical thread for this
+        /// script thread.
+        /// </summary>
+        /// <returns>
+        /// True if the thread was started (or is already alive); otherwise,
+        /// false.
+        /// </returns>
         public bool Start()
         {
             CheckDisposed();
@@ -1451,6 +2462,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to stop this script thread by interrupting it.
+        /// </summary>
+        /// <returns>
+        /// True if the thread was stopped (or is not alive); otherwise, false.
+        /// </returns>
         public bool Stop()
         {
             CheckDisposed();
@@ -1461,6 +2478,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to stop this script thread, optionally aborting
+        /// it forcibly.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to forcibly abort the thread (unless aborting is disabled);
+        /// zero to merely interrupt it.
+        /// </param>
+        /// <returns>
+        /// True if the thread was stopped (or is not alive); otherwise, false.
+        /// </returns>
         public bool Stop(
             bool force
             )
@@ -1510,6 +2538,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region CLR Object Integration Methods
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the default object option type and
+        /// flags.  Any failure is reported as a complaint.
+        /// </summary>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (which is also reported as a complaint).
+        /// </returns>
         public ReturnCode AddObject(
             object value
             )
@@ -1530,6 +2570,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the default object option type and
+        /// flags.
+        /// </summary>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             object value,
             ref Result result
@@ -1543,6 +2599,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, optionally creating a command alias for it.
+        /// </summary>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the added object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             object value,
             bool alias,
@@ -1558,6 +2632,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the specified object option type and
+        /// optionally creating a command alias for it.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type used when adding the object.
+        /// </param>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the added object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             ObjectOptionType objectOptionType,
             object value,
@@ -1575,6 +2671,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the specified object option type and
+        /// optionally creating a command alias (and alias reference) for it.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type used when adding the object.
+        /// </param>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the added object.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add a reference to the alias for the added object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             ObjectOptionType objectOptionType,
             object value,
@@ -1593,6 +2714,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the specified object option type and
+        /// object flags and optionally creating a command alias (and alias
+        /// reference) for it.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type used when adding the object.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when adding the object.
+        /// </param>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the added object.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add a reference to the alias for the added object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             ObjectOptionType objectOptionType,
             ObjectFlags objectFlags,
@@ -1612,6 +2762,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified CLR object into the interpreter hosted
+        /// by this script thread, using the specified object option type, object
+        /// name, and object flags and optionally creating a command alias (and
+        /// alias reference) for it.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type used when adding the object.
+        /// </param>
+        /// <param name="objectName">
+        /// The name to use for the added object, or null to generate one
+        /// automatically.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when adding the object.
+        /// </param>
+        /// <param name="value">
+        /// The CLR object to add into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the added object.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add a reference to the alias for the added object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the added
+        /// object; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode AddObject(
             ObjectOptionType objectOptionType,
             string objectName,
@@ -1635,6 +2818,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Synchronous Wait Methods
+        /// <summary>
+        /// This method waits indefinitely for this script thread to finish
+        /// starting up.
+        /// </summary>
+        /// <returns>
+        /// True if the thread started; otherwise, false.
+        /// </returns>
         public bool WaitForStart()
         {
             CheckDisposed();
@@ -1645,6 +2835,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to finish starting up.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the thread started; otherwise, false.
+        /// </returns>
         public bool WaitForStart(
             int timeout
             )
@@ -1657,6 +2857,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to finish starting up, optionally treating a missing start
+        /// event as a failure.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of a start event as a failure; zero to
+        /// treat it as success.
+        /// </param>
+        /// <returns>
+        /// True if the thread started; otherwise, false.
+        /// </returns>
         public bool WaitForStart(
             int timeout,
             bool strict
@@ -1670,6 +2885,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits indefinitely for this script thread to end.
+        /// </summary>
+        /// <returns>
+        /// True if the thread ended; otherwise, false.
+        /// </returns>
         public bool WaitForEnd()
         {
             CheckDisposed();
@@ -1680,6 +2901,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to end.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the thread ended; otherwise, false.
+        /// </returns>
         public bool WaitForEnd(
             int timeout
             )
@@ -1692,6 +2923,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to end, optionally treating a missing thread as a failure.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of a running thread as a failure; zero
+        /// to treat it as success.
+        /// </param>
+        /// <returns>
+        /// True if the thread ended; otherwise, false.
+        /// </returns>
         public bool WaitForEnd(
             int timeout,
             bool strict
@@ -1705,6 +2950,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits indefinitely for the event queue of this script
+        /// thread's interpreter to become empty.
+        /// </summary>
+        /// <returns>
+        /// True if the event queue became empty; otherwise, false.
+        /// </returns>
         public bool WaitForEmpty()
         {
             CheckDisposed();
@@ -1715,6 +2967,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for the event queue
+        /// of this script thread's interpreter to become empty.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the event queue became empty; otherwise, false.
+        /// </returns>
         public bool WaitForEmpty(
             int timeout
             )
@@ -1727,6 +2989,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for the event queue
+        /// of this script thread's interpreter to become empty.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the event queue became empty; otherwise, false.
+        /// </returns>
         public bool WaitForEmpty(
             int timeout,
             bool strict
@@ -1740,6 +3015,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for the event queue
+        /// of this script thread's interpreter to become empty, optionally also
+        /// waiting until the queue is idle.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to also wait until the event queue is idle.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the event queue became empty; otherwise, false.
+        /// </returns>
         public bool WaitForEmpty(
             int timeout,
             bool idle,
@@ -1754,6 +3046,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits indefinitely for an event to be enqueued in this
+        /// script thread's interpreter.
+        /// </summary>
+        /// <returns>
+        /// True if an event was enqueued; otherwise, false.
+        /// </returns>
         public bool WaitForEvent()
         {
             CheckDisposed();
@@ -1764,6 +3063,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for an event to be
+        /// enqueued in this script thread's interpreter.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if an event was enqueued; otherwise, false.
+        /// </returns>
         public bool WaitForEvent(
             int timeout
             )
@@ -1776,6 +3085,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for an event to be
+        /// enqueued in this script thread's interpreter.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if an event was enqueued; otherwise, false.
+        /// </returns>
         public bool WaitForEvent(
             int timeout,
             bool strict
@@ -1789,6 +3111,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for an event to be
+        /// enqueued in this script thread's interpreter, optionally also waiting
+        /// until the queue is idle.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to also wait until the event queue is idle.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if an event was enqueued; otherwise, false.
+        /// </returns>
         public bool WaitForEvent(
             int timeout,
             bool idle,
@@ -1805,6 +3144,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Callback Methods
+        /// <summary>
+        /// This method queues the specified callback for asynchronous execution
+        /// on this script thread, scheduled for immediate execution.
+        /// </summary>
+        /// <param name="callback">
+        /// The event callback to be invoked on the script thread.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the callback was successfully queued; otherwise, false.
+        /// </returns>
         public bool Queue(
             EventCallback callback,
             IClientData clientData
@@ -1817,6 +3169,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified callback for asynchronous execution
+        /// on this script thread, scheduled for the specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time at which the callback should be executed.
+        /// </param>
+        /// <param name="callback">
+        /// The event callback to be invoked on the script thread.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the callback was successfully queued; otherwise, false.
+        /// </returns>
         public bool Queue(
             DateTime dateTime,
             EventCallback callback,
@@ -1852,6 +3220,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Evaluation Methods
+        /// <summary>
+        /// This method queues the specified script for asynchronous evaluation
+        /// on this script thread, scheduled for immediate execution.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <returns>
+        /// True if the script was successfully queued; otherwise, false.
+        /// </returns>
         public bool Queue(
             string text
             )
@@ -1863,6 +3241,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified script for asynchronous evaluation
+        /// on this script thread, scheduled for the specified date and time.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The date and time at which the script should be evaluated.
+        /// </param>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <returns>
+        /// True if the script was successfully queued; otherwise, false.
+        /// </returns>
         public bool Queue(
             DateTime dateTime,
             string text
@@ -1894,6 +3285,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script asynchronously on this
+        /// script thread, invoking the specified callback upon completion.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the asynchronous evaluation completes.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the script was successfully queued; otherwise, false.
+        /// </returns>
         public bool Queue(
             string text,
             AsynchronousCallback callback,
@@ -1928,6 +3336,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Synchronous Evaluation Methods
+        /// <summary>
+        /// This method sends the specified script to this script thread for
+        /// synchronous evaluation, waiting indefinitely for the result.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of evaluating the script, or an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode Send(
             string text,
             ref Result result
@@ -1940,6 +3363,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sends the specified script to this script thread for
+        /// synchronous evaluation, waiting indefinitely for the result.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <param name="useEngine">
+        /// Non-zero to evaluate the script using the engine; zero to evaluate it
+        /// via an event callback.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of evaluating the script, or an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode Send(
             string text,
             bool useEngine,
@@ -1953,6 +3395,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sends the specified script to this script thread for
+        /// synchronous evaluation, waiting up to the specified timeout for the
+        /// result.
+        /// </summary>
+        /// <param name="text">
+        /// The script to evaluate on the script thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum time to wait for the result, in milliseconds.
+        /// </param>
+        /// <param name="useEngine">
+        /// Non-zero to evaluate the script using the engine; zero to evaluate it
+        /// via an event callback.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of evaluating the script, or an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public ReturnCode Send(
             string text,
             int timeout,
@@ -2053,6 +3518,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Signaling Methods
+        /// <summary>
+        /// This method signals this script thread by setting its associated
+        /// event variable to the specified value.
+        /// </summary>
+        /// <param name="value">
+        /// The value to assign to the event variable.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the variable was successfully set; otherwise, false.
+        /// </returns>
         public bool Signal(
             string value
             )
@@ -2065,6 +3541,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wakes up this script thread if it is currently waiting on
+        /// its event variable.
+        /// </summary>
+        /// <returns>
+        /// True if the wake-up event was successfully set; otherwise, false.
+        /// </returns>
         public bool WakeUp()
         {
             CheckDisposed();
@@ -2077,6 +3560,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Asynchronous Cancellation Methods
+        /// <summary>
+        /// This method requests cancellation of any script currently being
+        /// evaluated by this script thread.  Any failure is reported as a
+        /// complaint.
+        /// </summary>
+        /// <param name="cancelFlags">
+        /// The flags controlling the cancellation behavior.
+        /// </param>
+        /// <returns>
+        /// True if the cancellation was successfully requested; otherwise,
+        /// false.
+        /// </returns>
         public bool Cancel(
             CancelFlags cancelFlags
             )
@@ -2091,6 +3586,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method requests cancellation of any script currently being
+        /// evaluated by this script thread.
+        /// </summary>
+        /// <param name="cancelFlags">
+        /// The flags controlling the cancellation behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the cancellation was successfully requested; otherwise,
+        /// false.
+        /// </returns>
         public bool Cancel(
             CancelFlags cancelFlags,
             ref Result error
@@ -2122,6 +3631,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets any pending cancellation state for this script
+        /// thread.  Any failure is reported as a complaint.
+        /// </summary>
+        /// <param name="cancelFlags">
+        /// The flags controlling the cancellation reset behavior.
+        /// </param>
+        /// <returns>
+        /// True if the cancellation state was successfully reset; otherwise,
+        /// false.
+        /// </returns>
         public bool ResetCancel(
             CancelFlags cancelFlags
             )
@@ -2136,6 +3656,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets any pending cancellation state for this script
+        /// thread.
+        /// </summary>
+        /// <param name="cancelFlags">
+        /// The flags controlling the cancellation reset behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the cancellation state was successfully reset; otherwise,
+        /// false.
+        /// </returns>
         public bool ResetCancel(
             CancelFlags cancelFlags,
             ref Result error
@@ -2168,6 +3702,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Cleanup Methods
+        /// <summary>
+        /// This method requests cleanup of any per-thread state associated with
+        /// this script thread's interpreter.
+        /// </summary>
+        /// <returns>
+        /// True if the cleanup was performed; otherwise, false.
+        /// </returns>
         public bool Cleanup()
         {
             CheckDisposed();
@@ -2192,6 +3733,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this script thread,
+        /// including its identifier and thread flags.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this script thread.
+        /// </returns>
         public override string ToString()
         {
             long id;
@@ -2210,6 +3758,88 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method resolves the effective thread flags for a script thread,
+        /// using the supplied flags or the default flags, and decomposes them
+        /// into the individual boolean switches used during creation and
+        /// execution.
+        /// </summary>
+        /// <param name="threadFlags">
+        /// The requested thread flags, or null to use the default flags.
+        /// </param>
+        /// <param name="viaAttach">
+        /// Non-zero if the script thread is being created in order to attach to
+        /// an existing interpreter.
+        /// </param>
+        /// <param name="throwOnDisposed">
+        /// Upon return, this is non-zero if the interpreter should throw when
+        /// used after being disposed.
+        /// </param>
+        /// <param name="safe">
+        /// Upon return, this is non-zero if the interpreter should be created in
+        /// "safe" mode.
+        /// </param>
+        /// <param name="noHidden">
+        /// Upon return, this is non-zero if hidden commands should not be created
+        /// when in safe mode.
+        /// </param>
+        /// <param name="userInterface">
+        /// Upon return, this is non-zero if the thread should be configured for
+        /// user-interface use.
+        /// </param>
+        /// <param name="isBackground">
+        /// Upon return, this is non-zero if the thread should be a background
+        /// thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Upon return, this is non-zero if the created interpreter should be
+        /// pushed onto the active interpreter stack.
+        /// </param>
+        /// <param name="quiet">
+        /// Upon return, this is non-zero if the interpreter should suppress
+        /// certain error reporting.
+        /// </param>
+        /// <param name="noBackgroundError">
+        /// Upon return, this is non-zero if background error processing should be
+        /// disabled.
+        /// </param>
+        /// <param name="useSelf">
+        /// Upon return, this is non-zero if the script thread object should be
+        /// added into its own interpreter.
+        /// </param>
+        /// <param name="noComplain">
+        /// Upon return, this is non-zero if complaints should be suppressed.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, this is non-zero if verbose diagnostic tracing should be
+        /// enabled.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, this is non-zero if debug behavior should be enabled.
+        /// </param>
+        /// <param name="usePool">
+        /// Upon return, this is non-zero if the thread pool should be used
+        /// instead of a dedicated physical thread.
+        /// </param>
+        /// <param name="purgeGlobal">
+        /// Upon return, this is non-zero if global context information should
+        /// also be purged when the thread exits.
+        /// </param>
+        /// <param name="start">
+        /// Upon return, this is non-zero if the thread should be started
+        /// immediately after creation.
+        /// </param>
+        /// <param name="noAbort">
+        /// Upon return, this is non-zero if the thread should never be forcibly
+        /// aborted.
+        /// </param>
+        /// <param name="attach">
+        /// Upon return, this is non-zero if the script thread should attach to an
+        /// existing interpreter.
+        /// </param>
+        /// <returns>
+        /// The resolved thread flags.
+        /// </returns>
         private static ThreadFlags GetThreadFlags(
             ThreadFlags? threadFlags,
             bool viaAttach,
@@ -2296,6 +3926,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective interpreter creation flags, using
+        /// the supplied flags verbatim or adjusting the default flags according
+        /// to the specified boolean switches.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The requested interpreter creation flags, or null to derive them from
+        /// the default flags and switches.
+        /// </param>
+        /// <param name="throwOnDisposed">
+        /// Non-zero if the interpreter should throw when used after being
+        /// disposed.
+        /// </param>
+        /// <param name="safe">
+        /// Non-zero if the interpreter should be created in "safe" mode.
+        /// </param>
+        /// <param name="noHidden">
+        /// Non-zero if hidden commands should not be created when in safe mode.
+        /// </param>
+        /// <returns>
+        /// The resolved interpreter creation flags.
+        /// </returns>
         private static CreateFlags GetCreateFlags(
             CreateFlags? createFlags,
             bool throwOnDisposed,
@@ -2346,6 +3998,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective host creation flags, using the
+        /// supplied flags verbatim or the default flags.
+        /// </summary>
+        /// <param name="hostCreateFlags">
+        /// The requested host creation flags, or null to use the default flags.
+        /// </param>
+        /// <returns>
+        /// The resolved host creation flags.
+        /// </returns>
         private static HostCreateFlags GetHostCreateFlags(
             HostCreateFlags? hostCreateFlags
             )
@@ -2373,6 +4035,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective initialization flags, using the
+        /// supplied flags verbatim or the default flags.
+        /// </summary>
+        /// <param name="initializeFlags">
+        /// The requested initialization flags, or null to use the default flags.
+        /// </param>
+        /// <returns>
+        /// The resolved initialization flags.
+        /// </returns>
         private static InitializeFlags GetInitializeFlags(
             InitializeFlags? initializeFlags
             )
@@ -2399,6 +4071,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective script flags, using the supplied
+        /// flags verbatim or the default flags.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The requested script flags, or null to use the default flags.
+        /// </param>
+        /// <returns>
+        /// The resolved script flags.
+        /// </returns>
         private static ScriptFlags GetScriptFlags(
             ScriptFlags? scriptFlags
             )
@@ -2425,6 +4107,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective interpreter flags, using the
+        /// supplied flags verbatim or the default flags.
+        /// </summary>
+        /// <param name="interpreterFlags">
+        /// The requested interpreter flags, or null to use the default flags.
+        /// </param>
+        /// <returns>
+        /// The resolved interpreter flags.
+        /// </returns>
         private static InterpreterFlags GetInterpreterFlags(
             InterpreterFlags? interpreterFlags
             )
@@ -2451,6 +4143,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective variable flags used when waiting
+        /// on the event variable.
+        /// </summary>
+        /// <param name="eventVariableFlags">
+        /// The requested variable flags, or null to use the default flags.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The thread flags associated with the script thread.
+        /// </param>
+        /// <returns>
+        /// The resolved variable flags.
+        /// </returns>
         private static VariableFlags GetEventVariableFlags(
             VariableFlags? eventVariableFlags,
             ThreadFlags threadFlags
@@ -2464,6 +4169,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the effective event wait flags used when waiting
+        /// on the event variable, incorporating any relevant thread flags.
+        /// </summary>
+        /// <param name="eventWaitFlags">
+        /// The requested event wait flags, or null to use the default flags.
+        /// </param>
+        /// <param name="threadFlags">
+        /// The thread flags from which additional event wait flags are derived.
+        /// </param>
+        /// <returns>
+        /// The resolved event wait flags.
+        /// </returns>
         private static EventWaitFlags GetEventWaitFlags(
             EventWaitFlags? eventWaitFlags,
             ThreadFlags threadFlags
@@ -2506,6 +4224,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a suitable name for the physical thread of the
+        /// specified script thread, using its explicit name if available or a
+        /// generated one otherwise.
+        /// </summary>
+        /// <param name="scriptThread">
+        /// The script thread for which to obtain a thread name.
+        /// </param>
+        /// <returns>
+        /// The thread name, or null if the specified script thread is null.
+        /// </returns>
         private static string GetThreadName(
             ScriptThread scriptThread
             )
@@ -2523,6 +4252,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failure result, either as a complaint or (when
+        /// complaints are suppressed) as a diagnostic trace.  This overload is
+        /// for use by the static factory methods.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to emit a diagnostic trace instead of a complaint.
+        /// </param>
+        /// <param name="result">
+        /// The result describing the failure.
+        /// </param>
         private static void PrivateComplain( /* NOTE: For Create() only. */
             bool noComplain,
             Result result
@@ -2533,6 +4273,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failure, either as a complaint or (when
+        /// complaints are suppressed) as a diagnostic trace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the failure, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to emit a diagnostic trace instead of a complaint.
+        /// </param>
+        /// <param name="code">
+        /// The return code describing the failure.
+        /// </param>
+        /// <param name="result">
+        /// The result describing the failure.
+        /// </param>
         private static void PrivateComplain(
             Interpreter interpreter,
             bool noComplain,
@@ -2555,6 +4312,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the event callback used to evaluate a script
+        /// synchronously on the script thread and convey its result back to the
+        /// waiting caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter on which to evaluate the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data containing the input and output pair for the
+        /// operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of evaluating the script, or an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode ScriptEventCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -2626,6 +4403,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the asynchronous callback used to convey the
+        /// return code and result of a script evaluation back to the waiting
+        /// caller and signal its associated event.
+        /// </summary>
+        /// <param name="context">
+        /// The asynchronous context containing the result and the client data
+        /// for the operation.
+        /// </param>
         private static void ScriptAsynchronousCallback(
             IAsynchronousContext context
             )
@@ -2668,6 +4454,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marshals the specified value into a result for the
+        /// interpreter, optionally creating a command alias and an alias
+        /// reference.  This static overload validates the interpreter before
+        /// delegating to the marshalling helper.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter into which the value is being marshalled.
+        /// </param>
+        /// <param name="currentOptions">
+        /// The current options for the operation.  This parameter may be null.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to use for any created alias.  This parameter may be null.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type used when marshalling the value.
+        /// </param>
+        /// <param name="objectName">
+        /// The name to use for the marshalled object, or null to generate one
+        /// automatically.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when marshalling the value.
+        /// </param>
+        /// <param name="value">
+        /// The value to marshal into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the marshalled value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add a reference to the alias for the marshalled value.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the
+        /// marshalled value; upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode FixupReturnValue(
             Interpreter interpreter,
             OptionDictionary currentOptions,
@@ -2703,6 +4532,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified script using the specified
+        /// interpreter, validating the interpreter beforehand.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter on which to evaluate the script.
+        /// </param>
+        /// <param name="script">
+        /// The script to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of evaluating the script, or an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode EvaluateScript(
             Interpreter interpreter,
             IScript script,
@@ -2726,6 +4573,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to interrupt, and if necessary forcibly abort,
+        /// the specified physical thread, waiting up to the specified timeout for
+        /// it to exit.
+        /// </summary>
+        /// <param name="thread">
+        /// The physical thread to interrupt or abort.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum time to wait for the thread to exit, in milliseconds.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic tracing.
+        /// </param>
+        /// <param name="noAbort">
+        /// Non-zero to prevent the thread from being forcibly aborted.
+        /// </param>
         private static void InterruptOrAbortThread(
             Thread thread,
             int timeout,
@@ -2851,6 +4716,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether this script thread is currently marked
+        /// as restricted (i.e. most of its methods are not permitted).
+        /// </summary>
+        /// <returns>
+        /// True if this script thread is restricted; otherwise, false.
+        /// </returns>
         private bool IsRestricted()
         {
             ThreadFlags threadFlags;
@@ -2866,6 +4738,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method throws an exception if this script thread is currently
+        /// marked as restricted.
+        /// </summary>
         private void CheckRestricted() /* throw */
         {
             if (IsRestricted())
@@ -2874,6 +4750,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this script thread as restricted or unrestricted.
+        /// </summary>
+        /// <param name="restricted">
+        /// Non-zero to mark this script thread as restricted; zero to mark it as
+        /// unrestricted.
+        /// </param>
         private void MarkRestricted(
             bool restricted
             )
@@ -2889,6 +4772,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the event flags to use when queuing events to the
+        /// interpreter hosted by this script thread.
+        /// </summary>
+        /// <returns>
+        /// The event flags to use when queuing events.
+        /// </returns>
         private EventFlags GetEventFlags()
         {
             Interpreter interpreter;
@@ -2906,6 +4796,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the unique identifier of this script thread, without performing
+        /// any disposal or restriction checks.
+        /// </summary>
         private long PrivateId /* NOTE: For Create(). */
         {
             get { lock (syncRoot) { return id; } }
@@ -2913,6 +4807,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the name of this script thread, without performing any disposal
+        /// or restriction checks.
+        /// </summary>
         private string PrivateName /* NOTE: For Create(). */
         {
             get { lock (syncRoot) { return name; } }
@@ -2920,6 +4818,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the timeout, in milliseconds, of this script thread, without
+        /// performing any disposal or restriction checks.
+        /// </summary>
         private int PrivateTimeout /* NOTE: For Create(). */
         {
             get { lock (syncRoot) { return timeout; } }
@@ -2927,6 +4829,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the underlying physical thread is
+        /// currently alive, without performing any disposal or restriction
+        /// checks.
+        /// </summary>
         private bool PrivateIsAlive
         {
             get
@@ -2944,6 +4851,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the hosted interpreter is currently
+        /// busy, without performing any disposal or restriction checks.
+        /// </summary>
         internal bool PrivateIsBusy /* NOTE: For Interpreter.IsOwnerBusy(). */
         {
             get
@@ -2961,6 +4872,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this script thread has been disposed.
+        /// </summary>
         private bool PrivateIsDisposed
         {
             get
@@ -2975,6 +4889,17 @@ namespace Eagle._Components.Public
         // NOTE: For use by Signal(), PrivateSignalAndSleep() and Shutdown()
         //       only.
         //
+        /// <summary>
+        /// This method signals this script thread by setting its associated
+        /// event variable to the specified value.
+        /// </summary>
+        /// <param name="value">
+        /// The value to assign to the event variable.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the variable was successfully set; otherwise, false.
+        /// </returns>
         private bool PrivateSignal(
             string value
             )
@@ -3011,6 +4936,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wakes up this script thread if it is currently waiting on
+        /// its event variable.
+        /// </summary>
+        /// <returns>
+        /// True if the wake-up event was successfully set; otherwise, false.
+        /// </returns>
         private bool PrivateWakeUp() /* NOTE: For Shutdown(). */
         {
             EventWaitHandle wakeUpEvent;
@@ -3028,6 +4960,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to finish starting up.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of a start event as a failure; zero to
+        /// treat it as success.
+        /// </param>
+        /// <returns>
+        /// True if the thread started; otherwise, false.
+        /// </returns>
         private bool PrivateWaitForStart( /* NOTE: For WaitForStart(). */
             int timeout,
             bool strict
@@ -3058,6 +5004,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for this script
+        /// thread to end.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of a running thread as a failure; zero
+        /// to treat it as success.
+        /// </param>
+        /// <returns>
+        /// True if the thread ended; otherwise, false.
+        /// </returns>
         private bool PrivateWaitForEnd( /* NOTE: For Shutdown(). */
             int timeout,
             bool strict
@@ -3090,6 +5050,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for the event queue
+        /// of this script thread's interpreter to become empty, optionally also
+        /// waiting until the queue is idle.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to also wait until the event queue is idle.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the event queue became empty; otherwise, false.
+        /// </returns>
         private bool PrivateWaitForEmpty( /* NOTE: For WaitForEmpty(). */
             int timeout,
             bool idle,
@@ -3125,6 +5102,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits, up to the specified timeout, for an event to be
+        /// enqueued in this script thread's interpreter, optionally also waiting
+        /// until the queue is idle.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum time to wait, in milliseconds.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to also wait until the event queue is idle.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an incomplete wait as a failure; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if an event was enqueued; otherwise, false.
+        /// </returns>
         private bool PrivateWaitForEvent( /* NOTE: For WaitForEvent(). */
             int timeout,
             bool idle,
@@ -3163,6 +5157,14 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by Create() only.
         //
+        /// <summary>
+        /// This method signals this script thread and then sleeps for the
+        /// specified timeout, in an attempt to allow a newly created script
+        /// thread to exit.
+        /// </summary>
+        /// <param name="timeout">
+        /// The time to sleep after signaling, in milliseconds.
+        /// </param>
         private void PrivateSignalAndSleep(
             int timeout
             )
@@ -3180,6 +5182,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failure for this script thread, either as a
+        /// complaint or (when complaints are suppressed) as a diagnostic trace.
+        /// </summary>
+        /// <param name="code">
+        /// The return code describing the failure.
+        /// </param>
+        /// <param name="result">
+        /// The result describing the failure.
+        /// </param>
         private void PrivateComplain(
             ReturnCode code,
             Result result
@@ -3199,6 +5211,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this script thread is configured to
+        /// never be forcibly aborted.
+        /// </summary>
+        /// <returns>
+        /// True if this script thread should never be forcibly aborted;
+        /// otherwise, false.
+        /// </returns>
         private bool PrivateIsNoAbort() /* NO-LOCK */
         {
             /* lock (syncRoot) */ { return this.noAbort; }
@@ -3206,6 +5226,45 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marshals the specified value into a result for the
+        /// interpreter hosted by this script thread, optionally creating a
+        /// command alias and an alias reference.
+        /// </summary>
+        /// <param name="currentOptions">
+        /// The current options for the operation.  This parameter may be null.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to use for any created alias.  This parameter may be null.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type used when marshalling the value.
+        /// </param>
+        /// <param name="objectName">
+        /// The name to use for the marshalled object, or null to generate one
+        /// automatically.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when marshalling the value.
+        /// </param>
+        /// <param name="value">
+        /// The value to marshal into the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for the marshalled value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add a reference to the alias for the marshalled value.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of (or a reference to) the
+        /// marshalled value; upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private ReturnCode FixupReturnValue(
             OptionDictionary currentOptions,
             OptionDictionary aliasOptions,
@@ -3245,6 +5304,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified variable in the specified
+        /// interpreter to change, subject to the configured event wait and
+        /// variable flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter containing the variable to wait on.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to wait on.
+        /// </param>
+        /// <param name="microseconds">
+        /// The amount of time to wait, in microseconds.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process while waiting.
+        /// </param>
+        /// <param name="notReady">
+        /// Upon return, this is non-zero if the wait could not be performed
+        /// because the interpreter was not ready.
+        /// </param>
+        /// <param name="timedOut">
+        /// Upon return, this is non-zero if the wait timed out.
+        /// </param>
+        /// <param name="changed">
+        /// Upon return, this is non-zero if the variable was changed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private ReturnCode WaitVariable(
             Interpreter interpreter,
             string varName,
@@ -3288,6 +5381,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the thread-pool work item callback to use for
+        /// this script thread, based on whether it is attaching to an existing
+        /// interpreter or creating a new one.
+        /// </summary>
+        /// <param name="attach">
+        /// Non-zero if the script thread is attaching to an existing
+        /// interpreter; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// The work item callback to use.
+        /// </returns>
         private WaitCallback GetWaitCallback(
             bool attach
             )
@@ -3299,6 +5404,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the parameterized thread-start delegate to use
+        /// for this script thread, based on whether it is attaching to an
+        /// existing interpreter or creating a new one.
+        /// </summary>
+        /// <param name="attach">
+        /// Non-zero if the script thread is attaching to an existing
+        /// interpreter; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// The thread-start delegate to use.
+        /// </returns>
         private ParameterizedThreadStart GetThreadStart(
             bool attach
             )
@@ -3310,6 +5427,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace indicating that the specified
+        /// variable in the specified interpreter was not changed.
+        /// </summary>
+        /// <param name="threadName">
+        /// The name of the script thread emitting the trace.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable that was not changed.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter containing the variable.
+        /// </param>
         private static void EmitNotChangedTrace(
             string threadName,
             string varName,
@@ -3327,6 +5457,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the thread entry point used when this script
+        /// thread creates and owns its own interpreter, evaluating the startup
+        /// script and/or waiting on the event variable as configured.
+        /// </summary>
+        /// <param name="obj">
+        /// The state object passed to the thread entry point; it is not used.
+        /// </param>
         private void CreateThreadStart(
             object obj
             )
@@ -3557,6 +5695,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the thread entry point used when this script
+        /// thread attaches to an existing interpreter, evaluating the startup
+        /// script and/or waiting on the event variable as configured.
+        /// </summary>
+        /// <param name="obj">
+        /// The state object passed to the thread entry point; it is not used.
+        /// </param>
         private void AttachThreadStart(
             object obj
             )
@@ -3753,6 +5899,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Disposal Helper Methods
+        /// <summary>
+        /// This method determines whether the underlying physical thread is
+        /// dead, also returning its display name.
+        /// </summary>
+        /// <param name="threadName">
+        /// Upon return, this contains the display name of the underlying thread.
+        /// </param>
+        /// <returns>
+        /// True if the underlying thread is dead (or does not exist); otherwise,
+        /// false.
+        /// </returns>
         private bool IsDead(
             ref string threadName
             ) /* NO-LOCK */
@@ -3763,6 +5920,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to gracefully shut down this script thread by
+        /// signaling its event variable, waking it up, and then waiting for it
+        /// to exit.
+        /// </summary>
+        /// <param name="value">
+        /// The value to assign to the event variable when signaling.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum time to wait for the thread to exit, in milliseconds.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic tracing.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of a running thread as a failure; zero
+        /// to treat it as success.
+        /// </param>
         private void Shutdown(
             string value,
             int timeout,
@@ -3820,6 +5996,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the interpreter hosted by this script thread,
+        /// if any, logging any failure.
+        /// </summary>
         private void DisposeInterpreter()
         {
             Interpreter interpreter;
@@ -3859,7 +6039,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this script thread has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this script thread has been
+        /// disposed and the interpreter is configured to throw on disposed.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -3870,6 +6058,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this script thread,
+        /// attempting a graceful thread shutdown, disposing of the interpreter,
+        /// and closing the event handles.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the <c>Dispose</c>
+        /// method; zero if it is being called from the finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -3931,6 +6128,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this script thread.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -3941,6 +6141,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this script thread, releasing any unmanaged resources.
+        /// </summary>
         ~ScriptThread()
         {
             Dispose(false);

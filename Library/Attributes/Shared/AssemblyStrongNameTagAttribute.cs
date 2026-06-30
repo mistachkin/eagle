@@ -17,6 +17,10 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This class implements a custom attribute used to mark an assembly with
+    /// a tag identifying the strong name key it was signed with.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, Inherited = false)]
 #if EAGLE
     [ObjectId("afdbd920-cb15-48d9-9469-23d03dc60d49")]
@@ -25,6 +29,13 @@ namespace Eagle._Attributes
 #endif
     public sealed class AssemblyStrongNameTagAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class, recording the specified
+        /// strong name tag value.
+        /// </summary>
+        /// <param name="value">
+        /// The strong name tag string to associate with the assembly.
+        /// </param>
         public AssemblyStrongNameTagAttribute(
             string value
             )
@@ -34,7 +45,14 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The strong name tag string associated with the assembly.
+        /// </summary>
         private string strongNameTag;
+
+        /// <summary>
+        /// Gets the strong name tag string associated with the assembly.
+        /// </summary>
         public string StrongNameTag
         {
             get { return strongNameTag; }

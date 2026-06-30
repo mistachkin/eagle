@@ -36,6 +36,15 @@ namespace Eagle._Components.Private
     //
     //          https://referencesource.microsoft.com/#mscorlib/system/text/stringbuildercache.cs
     //
+    /// <summary>
+    /// This class implements a process-wide, lock-free cache of reusable
+    /// <see cref="StringBuilder" /> instances, organized into a fixed set of
+    /// capacity-based slots.  It allows transient <see cref="StringBuilder" />
+    /// instances to be acquired from and released back to the cache, reducing
+    /// the number of allocations performed when building strings.  An optional
+    /// background thread may be used to populate, optimize, and trim the cached
+    /// instances over time.
+    /// </summary>
     [ObjectId("b1a3c0c3-208b-4ea8-994e-9328f15526b0")]
     internal static class StringBuilderCache
     {
@@ -43,8 +52,23 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The minimum capacity, in characters, that a cached
+        /// <see cref="StringBuilder" /> instance may have; a value of zero or
+        /// less indicates there is no minimum.
+        /// </summary>
         private static int MinimumCapacity = 32;
+        /// <summary>
+        /// The maximum capacity, in characters, that a cached
+        /// <see cref="StringBuilder" /> instance may have; a value of zero or
+        /// less indicates there is no maximum (i.e. unlimited).
+        /// </summary>
         private static int MaximumCapacity = 0; // unlimited
+        /// <summary>
+        /// The default capacity, in characters, used when a
+        /// <see cref="StringBuilder" /> instance is requested without an
+        /// explicit capacity.
+        /// </summary>
         private static int DefaultCapacity = MinimumCapacity;
 
         ///////////////////////////////////////////////////////////////////////
@@ -54,6 +78,11 @@ namespace Eagle._Components.Private
         //       used as the capacity for all cache slots; otherwise, their
         //       capacity will be based on the cache slot index.
         //
+        /// <summary>
+        /// When greater than zero, this value is used as the capacity for all
+        /// cache slots; otherwise, the capacity of each slot is based on the
+        /// slot index.
+        /// </summary>
         private static int FixedCapacity = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,6 +91,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the number of milliseconds to sleep on the thread
         //       used to optimize StringBuilder instances, etc.
         //
+        /// <summary>
+        /// The number of milliseconds to sleep on the thread used to optimize
+        /// <see cref="StringBuilder" /> instances, etc.
+        /// </summary>
         private static int ThreadMilliseconds = 10000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -71,6 +104,10 @@ namespace Eagle._Components.Private
         //       optimization threads running.  There SHOULD only be zero
         //       or one of these at a time.
         //
+        /// <summary>
+        /// The number of pending capacity optimization threads currently
+        /// running.  There should only be zero or one of these at a time.
+        /// </summary>
         private static int ThreadPending = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -82,6 +119,12 @@ namespace Eagle._Components.Private
         //       operations will start with an index based on their stated
         //       capacity.
         //
+        /// <summary>
+        /// When set to a non-negative value, all attempts to acquire or release
+        /// a <see cref="StringBuilder" /> instance will start searching at this
+        /// index; otherwise, those operations start with an index based on their
+        /// stated capacity.
+        /// </summary>
         private static int PreferStartIndex = -1;
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,6 +134,11 @@ namespace Eagle._Components.Private
         //       index value to a capacity value, i.e. a value of one will
         //       cause the capacity to be increased by a factor of two.
         //
+        /// <summary>
+        /// The extra offset value to add when converting an index value to a
+        /// capacity value, e.g. a value of one will cause the capacity to be
+        /// increased by a factor of two.
+        /// </summary>
         private static int ExtraOffset = 1;
 
         ///////////////////////////////////////////////////////////////////////
@@ -100,6 +148,11 @@ namespace Eagle._Components.Private
         //       requested capacity will be acquired from / released to;
         //       otherwise, any slot index may be used.
         //
+        /// <summary>
+        /// When false, only a slot index matching the requested capacity will
+        /// be acquired from or released to; otherwise, any slot index may be
+        /// used.
+        /// </summary>
         private static bool TryForAny = false;
         #endregion
 
@@ -111,6 +164,11 @@ namespace Eagle._Components.Private
         //       enabled; otherwise, it is disabled and instances cannot be
         //       acquired from it -OR- released to it.
         //
+        /// <summary>
+        /// When greater than zero, use of this cache is enabled; otherwise, it
+        /// is disabled and instances cannot be acquired from it nor released to
+        /// it.
+        /// </summary>
         private static int enableCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -120,6 +178,10 @@ namespace Eagle._Components.Private
         //       may be repeatedly attempted by the capacity optimization
         //       thread.
         //
+        /// <summary>
+        /// When greater than zero, garbage collection may be repeatedly
+        /// attempted by the capacity optimization thread.
+        /// </summary>
         private static int collectCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -128,6 +190,9 @@ namespace Eagle._Components.Private
         // NOTE: This field keeps track of the event used to stop capacity
         //       optimization threads.
         //
+        /// <summary>
+        /// The event used to stop capacity optimization threads.
+        /// </summary>
         private static EventWaitHandle ThreadStopEvent = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -145,6 +210,11 @@ namespace Eagle._Components.Private
         //
         //                  2 ** (N + log2(MinimumCapacity) + ExtraOffset)
         //
+        /// <summary>
+        /// The array of cached <see cref="StringBuilder" /> instances, with one
+        /// slot per capacity class.  Each slot holds at most one cached instance
+        /// at a time.
+        /// </summary>
         private static readonly StringBuilder[] instances = {
             null, null, null, null, null, null, null, null
         };
@@ -156,10 +226,18 @@ namespace Eagle._Components.Private
         // NOTE: These fields are used to keep track of per-slot statistics
         //       for this cache.
         //
+        /// <summary>
+        /// The per-slot count of <see cref="StringBuilder" /> instances that
+        /// have been acquired from this cache.
+        /// </summary>
         private static readonly long[] instanceAcquireCounts = {
                0,    0,    0,    0,    0,    0,    0,    0
         };
 
+        /// <summary>
+        /// The per-slot count of <see cref="StringBuilder" /> instances that
+        /// have been released back to this cache.
+        /// </summary>
         private static readonly long[] instanceReleaseCounts = {
                0,    0,    0,    0,    0,    0,    0,    0
         };
@@ -170,11 +248,35 @@ namespace Eagle._Components.Private
         // NOTE: These fields are used to keep track of overall statistics
         //       for this cache.
         //
+        /// <summary>
+        /// The total number of <see cref="StringBuilder" /> instances that have
+        /// been acquired from this cache.
+        /// </summary>
         private static long acquireCount = 0;
+        /// <summary>
+        /// The total number of times a <see cref="StringBuilder" /> instance
+        /// could not be acquired from this cache.
+        /// </summary>
         private static long noAcquireCount = 0;
+        /// <summary>
+        /// The total number of <see cref="StringBuilder" /> instances that have
+        /// been freshly allocated instead of being acquired from this cache.
+        /// </summary>
         private static long allocateCount = 0;
+        /// <summary>
+        /// The total number of <see cref="StringBuilder" /> instances that have
+        /// been released back to this cache.
+        /// </summary>
         private static long releaseCount = 0;
+        /// <summary>
+        /// The total number of times a <see cref="StringBuilder" /> instance
+        /// could not be released back to this cache.
+        /// </summary>
         private static long noReleaseCount = 0;
+        /// <summary>
+        /// The total number of <see cref="StringBuilder" /> instances that have
+        /// been cleared instead of being released back to this cache.
+        /// </summary>
         private static long clearCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -183,6 +285,10 @@ namespace Eagle._Components.Private
         // NOTE: Total number of non-array fields used for statistics by
         //       this class.
         //
+        /// <summary>
+        /// The total number of non-array fields used for statistics by this
+        /// class.
+        /// </summary>
         private static readonly int overallCountLength = 6;
 #endif
         #endregion
@@ -190,6 +296,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method temporarily disables use of this cache, saving the
+        /// previous enabled count so it can be restored later.
+        /// </summary>
+        /// <param name="savedEnableCount">
+        /// Upon success, receives the previous enabled count of this cache;
+        /// upon failure, the value stored here is unspecified.
+        /// </param>
+        /// <returns>
+        /// True if the cache was successfully disabled; otherwise, false.
+        /// </returns>
         private static bool BeginNoCache(
             out int savedEnableCount /* out */
             )
@@ -208,6 +325,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method re-enables use of this cache by restoring the enabled
+        /// count previously saved by <c>BeginNoCache</c>.
+        /// </summary>
+        /// <param name="savedEnableCount">
+        /// On input, the enabled count to restore.  Upon success, this value is
+        /// reset to zero; upon failure, it is left unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the enabled count was successfully restored; otherwise,
+        /// false.
+        /// </returns>
         private static bool EndNoCache(
             ref int savedEnableCount /* in, out */
             )
@@ -224,6 +353,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to populate the cache slot at the specified
+        /// index with a newly allocated <see cref="StringBuilder" /> instance,
+        /// if that slot is currently empty.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to populate.
+        /// </param>
+        /// <returns>
+        /// True if a new instance was allocated and stored in the slot;
+        /// otherwise, false.
+        /// </returns>
         private static bool TryPopulateAt(
             int index /* in */
             )
@@ -268,6 +409,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the <see cref="StringBuilder" />
+        /// instance from the cache slot at the specified index and clear its
+        /// contents, discarding it instead of returning it to the cache.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to clear.
+        /// </param>
+        /// <returns>
+        /// True if an instance was acquired and cleared; otherwise, false.
+        /// </returns>
         private static bool TryClearAt(
             int index /* in */
             )
@@ -292,6 +444,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire a <see cref="StringBuilder" />
+        /// instance from the cache slot at the specified index.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to acquire from.
+        /// </param>
+        /// <param name="builder">
+        /// On input, this should be null; if it is already non-null, no
+        /// acquisition is performed.  Upon success, receives the acquired
+        /// <see cref="StringBuilder" /> instance; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if an instance was acquired from the slot; otherwise, false.
+        /// </returns>
         private static bool TryAcquireFrom(
             int index,                /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -319,6 +487,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to release a <see cref="StringBuilder" />
+        /// instance back to the cache slot at the specified index, if that slot
+        /// is currently empty.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to release to.
+        /// </param>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance to release.  Upon
+        /// success, this value is reset to null; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance was released to the slot; otherwise, false.
+        /// </returns>
         private static bool TryReleaseTo(
             int index,                /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -344,6 +528,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the base index offset derived from the minimum
+        /// capacity, used when converting between capacity and slot index
+        /// values.
+        /// </summary>
+        /// <returns>
+        /// The base index offset, or zero if there is no minimum capacity.
+        /// </returns>
         private static int GetIndexOffset()
         {
             return (MinimumCapacity > 0) ?
@@ -352,6 +544,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified capacity, in characters, into the
+        /// corresponding cache slot index.
+        /// </summary>
+        /// <param name="capacity">
+        /// The capacity, in characters, to convert.
+        /// </param>
+        /// <returns>
+        /// The cache slot index corresponding to the specified capacity.
+        /// </returns>
         private static int CapacityToIndex(
             int capacity /* in */
             )
@@ -361,6 +563,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified cache slot index into the
+        /// corresponding capacity, in characters.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to convert.
+        /// </param>
+        /// <returns>
+        /// The capacity, in characters, corresponding to the specified slot
+        /// index, or null if it could not be computed.
+        /// </returns>
         private static ulong? IndexToCapacity(
             int index /* in */
             )
@@ -370,6 +583,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the cache slot index at which operations for
+        /// the specified capacity should begin, taking into account any fixed
+        /// capacity or preferred starting index.
+        /// </summary>
+        /// <param name="capacity">
+        /// The capacity, in characters, to convert.
+        /// </param>
+        /// <param name="release">
+        /// Non-zero if the resulting index will be used for a release
+        /// operation.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The cache slot index at which to begin operations for the specified
+        /// capacity.
+        /// </returns>
         private static int CapacityToIndex(
             int capacity, /* in */
             bool release  /* in: NOT USED */
@@ -403,6 +632,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the capacity, in characters, associated with
+        /// the specified cache slot index, taking into account any fixed
+        /// capacity.
+        /// </summary>
+        /// <param name="index">
+        /// The cache slot index to convert.
+        /// </param>
+        /// <param name="release">
+        /// Non-zero if the resulting capacity will be used for a release
+        /// operation.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The capacity, in characters, associated with the specified slot
+        /// index, or zero if it could not be computed.
+        /// </returns>
         private static int IndexToCapacity(
             int index,   /* in */
             bool release /* in: NOT USED */
@@ -428,6 +673,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of slots in this cache.
+        /// </summary>
+        /// <returns>
+        /// The number of slots in this cache.
+        /// </returns>
         private static int GetLength()
         {
             return instances.Length; /* SAFE: READ-ONLY */
@@ -435,6 +686,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire a <see cref="StringBuilder" />
+        /// instance suitable for the specified capacity, using either the first
+        /// matching slot or any available slot depending on configuration.
+        /// </summary>
+        /// <param name="capacity">
+        /// The desired capacity, in characters.
+        /// </param>
+        /// <param name="builder">
+        /// On input, this should be null.  Upon success, receives the acquired
+        /// <see cref="StringBuilder" /> instance; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if an instance was acquired; otherwise, false.
+        /// </returns>
         private static bool TryAcquire(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -447,6 +714,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire a <see cref="StringBuilder" />
+        /// instance from the first cache slot matching the specified capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The desired capacity, in characters.
+        /// </param>
+        /// <param name="builder">
+        /// On input, this should be null.  Upon success, receives the acquired
+        /// <see cref="StringBuilder" /> instance; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if an instance was acquired; otherwise, false.
+        /// </returns>
         private static bool TryAcquireFirst(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -462,6 +744,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire a <see cref="StringBuilder" />
+        /// instance from any cache slot at or after the one matching the
+        /// specified capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The desired capacity, in characters.
+        /// </param>
+        /// <param name="builder">
+        /// On input, this should be null.  Upon success, receives the acquired
+        /// <see cref="StringBuilder" /> instance; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if an instance was acquired; otherwise, false.
+        /// </returns>
         private static bool TryAcquireAny(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -479,6 +777,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to release a <see cref="StringBuilder" />
+        /// instance suitable for the specified capacity, using either the first
+        /// matching slot or any available slot depending on configuration.
+        /// </summary>
+        /// <param name="capacity">
+        /// The capacity, in characters, of the instance being released.
+        /// </param>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance to release.  Upon
+        /// success, this value is reset to null; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance was released; otherwise, false.
+        /// </returns>
         private static bool TryRelease(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -491,6 +805,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to release a <see cref="StringBuilder" />
+        /// instance to the first cache slot matching the specified capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The capacity, in characters, of the instance being released.
+        /// </param>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance to release.  Upon
+        /// success, this value is reset to null; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance was released; otherwise, false.
+        /// </returns>
         private static bool TryReleaseFirst(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -506,6 +835,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to release a <see cref="StringBuilder" />
+        /// instance to any cache slot at or after the one matching the specified
+        /// capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The capacity, in characters, of the instance being released.
+        /// </param>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance to release.  Upon
+        /// success, this value is reset to null; upon failure, it is left
+        /// unchanged.  This parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance was released; otherwise, false.
+        /// </returns>
         private static bool TryReleaseAny(
             int capacity,             /* in */
             ref StringBuilder builder /* in, out: OPTIONAL */
@@ -523,6 +868,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to populate every empty cache slot with a newly
+        /// allocated <see cref="StringBuilder" /> instance.
+        /// </summary>
+        /// <returns>
+        /// The number of cache slots that were populated.
+        /// </returns>
         private static long TryPopulate()
         {
             long count = 0;
@@ -537,6 +889,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to clear and discard the cached
+        /// <see cref="StringBuilder" /> instance from every cache slot.
+        /// </summary>
+        /// <returns>
+        /// The number of cache slots that were cleared.
+        /// </returns>
         private static int TryClear()
         {
             int count = 0;
@@ -551,6 +910,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the event used to stop capacity optimization
+        /// threads, creating it first if it does not already exist.
+        /// </summary>
+        /// <returns>
+        /// The event used to stop capacity optimization threads, or null if it
+        /// could not be created.
+        /// </returns>
         private static EventWaitHandle MaybeCreateStopEvent()
         {
             if (Interlocked.CompareExchange(
@@ -586,6 +953,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to optimize each cached
+        /// <see cref="StringBuilder" /> instance by ensuring it has at least the
+        /// capacity associated with its slot.
+        /// </summary>
+        /// <returns>
+        /// The number of cached instances that were optimized.
+        /// </returns>
         private static long TryOptimize()
         {
             long count = 0;
@@ -629,6 +1004,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally forces a full garbage collection when
+        /// collection has been enabled for this cache.
+        /// </summary>
+        /// <returns>
+        /// The total number of bytes believed to be allocated after collection,
+        /// or null if collection was not performed.
+        /// </returns>
         private static long? TryCollect()
         {
             if (Interlocked.CompareExchange(ref collectCount, 0, 0) > 0)
@@ -639,6 +1022,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a trace priority that is escalated based on
+        /// whether the specified counts are greater than zero.
+        /// </summary>
+        /// <param name="count1">
+        /// The first count to consider; a positive value escalates the
+        /// resulting priority.
+        /// </param>
+        /// <param name="count2">
+        /// The second count to consider; a positive value escalates the
+        /// resulting priority.
+        /// </param>
+        /// <returns>
+        /// The computed <see cref="TracePriority" /> value.
+        /// </returns>
         private static TracePriority GetTracePriority(
             long count1, /* in */
             long count2  /* in */
@@ -657,6 +1055,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace message with use of this cache
+        /// temporarily disabled, to avoid re-entrancy while tracing.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message to emit.
+        /// </param>
+        /// <param name="category">
+        /// The category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The priority associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTraceAlwaysNoCache(
@@ -683,6 +1094,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace of the specified exception with
+        /// use of this cache temporarily disabled, to avoid re-entrancy while
+        /// tracing.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to trace.
+        /// </param>
+        /// <param name="category">
+        /// The category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The priority associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTraceAlwaysNoCache(
@@ -709,6 +1134,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a formatted diagnostic trace message with use of
+        /// this cache temporarily disabled, to avoid re-entrancy while tracing.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method associated with the trace message.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to emit.
+        /// </param>
+        /// <param name="category">
+        /// The category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The priority associated with the trace message.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to allow the formatted parameter values to be truncated with
+        /// an ellipsis.
+        /// </param>
+        /// <param name="parameters">
+        /// The optional array of parameter values to include in the trace
+        /// message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         private static void DebugTraceNoCache(
@@ -740,6 +1189,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the entry point for the background thread that
+        /// periodically optimizes, populates, and trims the cached
+        /// <see cref="StringBuilder" /> instances until it is signaled to stop.
+        /// </summary>
+        /// <param name="obj">
+        /// The state object passed to the thread, which must be the
+        /// <see cref="EventWaitHandle" /> used to signal the thread to stop.
+        /// </param>
         private static void ThreadStart(
             object obj /* in */
             )
@@ -831,6 +1289,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the contents of the specified
+        /// <see cref="StringBuilder" /> instance, if it is not null.
+        /// </summary>
+        /// <param name="builder">
+        /// The <see cref="StringBuilder" /> instance to clear.  This parameter
+        /// may be null.
+        /// </param>
         private static void ClearExisting(
             StringBuilder builder /* in */
             )
@@ -841,6 +1307,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified <see cref="StringBuilder" />
+        /// instance has at least the specified capacity, growing it if
+        /// necessary.
+        /// </summary>
+        /// <param name="builder">
+        /// The <see cref="StringBuilder" /> instance to check.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="capacity">
+        /// The minimum required capacity, in characters.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the capacity was grown to meet the requirement; otherwise,
+        /// false.
+        /// </returns>
         private static bool CheckCapacity(
             StringBuilder builder, /* in */
             int? capacity          /* in */
@@ -863,6 +1346,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends all or a portion of the specified string value
+        /// to the specified <see cref="StringBuilder" /> instance.
+        /// </summary>
+        /// <param name="builder">
+        /// The <see cref="StringBuilder" /> instance to append to.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The string value to append.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the value to append from.  This
+        /// parameter is optional.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to append from the value.  This parameter is
+        /// optional.
+        /// </param>
         private static void AppendExisting(
             StringBuilder builder, /* in */
             string value,          /* in */
@@ -887,6 +1389,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method allocates a new <see cref="StringBuilder" /> instance,
+        /// optionally initialized with all or a portion of the specified string
+        /// value and the specified capacity.
+        /// </summary>
+        /// <param name="value">
+        /// The initial string value.  This parameter is optional and may be
+        /// null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the value.  This parameter is
+        /// optional.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters from the value to use.  This parameter is
+        /// optional.
+        /// </param>
+        /// <param name="capacity">
+        /// The initial capacity, in characters.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The newly allocated <see cref="StringBuilder" /> instance.
+        /// </returns>
         private static StringBuilder AllocateNew(
             string value,   /* in: OPTIONAL */
             int startIndex, /* in: OPTIONAL */
@@ -930,6 +1456,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method acquires a <see cref="StringBuilder" /> instance, reusing
+        /// one from the cache when possible and otherwise allocating a new one,
+        /// optionally initialized with all or a portion of the specified string
+        /// value and the specified capacity.
+        /// </summary>
+        /// <param name="value">
+        /// The initial string value.  This parameter is optional and may be
+        /// null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting character index within the value.  This parameter is
+        /// optional.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters from the value to use.  This parameter is
+        /// optional.
+        /// </param>
+        /// <param name="capacity">
+        /// The desired capacity, in characters.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// A <see cref="StringBuilder" /> instance, either reused from the cache
+        /// or newly allocated.
+        /// </returns>
         public static StringBuilder Acquire(
             string value,   /* in: OPTIONAL */
             int startIndex, /* in: OPTIONAL */
@@ -1004,6 +1556,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the specified <see cref="StringBuilder" />
+        /// instance back to the cache when possible, otherwise clearing and
+        /// discarding it.
+        /// </summary>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance to release.  Upon
+        /// return, this value is reset to null.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance was released back to the cache; otherwise,
+        /// false.
+        /// </returns>
         public static bool Release(
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
@@ -1059,6 +1625,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string contents of the specified
+        /// <see cref="StringBuilder" /> instance and then releases it back to
+        /// the cache.
+        /// </summary>
+        /// <param name="builder">
+        /// On input, the <see cref="StringBuilder" /> instance whose contents
+        /// are returned.  Upon return, this value is reset to null.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// The string contents of the instance, or null if it was null.
+        /// </returns>
         public static string GetStringAndRelease(
             ref StringBuilder builder /* in, out: OPTIONAL */
             )
@@ -1078,6 +1657,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables use of this cache, or queries its
+        /// current enabled state.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable the cache, zero to disable it, or null to query
+        /// its current enabled state without changing it.  This parameter is
+        /// optional.
+        /// </param>
+        /// <returns>
+        /// True if the cache is enabled after the operation; otherwise, false.
+        /// </returns>
         public static bool MaybeEnable(
             bool? enable /* in: OPTIONAL */
             )
@@ -1095,6 +1686,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables garbage collection by the capacity
+        /// optimization thread, or queries its current state.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable collection, zero to disable it, or null to query
+        /// its current state without changing it.  This parameter is optional.
+        /// </param>
+        /// <returns>
+        /// True if collection is enabled after the operation; otherwise, false.
+        /// </returns>
         public static bool MaybeCollect(
             bool? enable /* in: OPTIONAL */
             )
@@ -1112,6 +1714,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method starts or stops the background capacity optimization
+        /// thread, or queries whether one is currently pending.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to start the thread, zero to stop it, or null to query
+        /// whether one is currently pending without changing it.  This parameter
+        /// is optional.
+        /// </param>
+        /// <returns>
+        /// True if a capacity optimization thread is pending after the
+        /// operation; otherwise, false.
+        /// </returns>
         public static bool MaybeEnableThread(
             bool? enable /* in: OPTIONAL */
             )
@@ -1157,6 +1772,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and discards all cached
+        /// <see cref="StringBuilder" /> instances from this cache.
+        /// </summary>
+        /// <returns>
+        /// The number of cached instances that were cleared.
+        /// </returns>
         public static int Clear()
         {
             return TryClear();
@@ -1165,6 +1787,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CACHE_STATISTICS
+        /// <summary>
+        /// This method resets all overall and per-slot statistics counters for
+        /// this cache to zero.
+        /// </summary>
         public static void ZeroCounts()
         {
             Interlocked.Exchange(ref acquireCount, 0);
@@ -1201,6 +1827,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves a snapshot of all overall and per-slot statistics
+        /// counters for this cache, optionally resetting them afterward.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the snapshot is stored.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to reset the counters to zero after saving them.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// On input, the dictionary of saved counter snapshots, which is created
+        /// if null.  Upon return, contains the saved snapshot keyed by the
+        /// specified flags.
+        /// </param>
+        /// <returns>
+        /// True if the snapshot was saved; otherwise, false.
+        /// </returns>
         public static bool MaybeSaveCounts(
             CacheFlags flags,                                   /* in */
             bool move,                                          /* in */
@@ -1263,6 +1907,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores a previously saved snapshot of the statistics
+        /// counters for this cache, optionally merging it with the current
+        /// values and optionally removing the snapshot afterward.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the snapshot was stored.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to add the saved values to the current counters; otherwise,
+        /// the current counters are overwritten with the saved values.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to remove the snapshot after restoring it.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// On input, the dictionary of saved counter snapshots.  Upon return, it
+        /// may have the restored snapshot removed when requested.
+        /// </param>
+        /// <returns>
+        /// True if a snapshot was found and restored; otherwise, false.
+        /// </returns>
         public static bool MaybeRestoreCounts(
             CacheFlags flags,                                   /* in */
             bool merge,                                         /* in */
@@ -1373,6 +2039,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the overall and, optionally, per-slot statistics
+        /// counters for this cache to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the statistics are added.  This parameter may be
+        /// null, in which case nothing is added.
+        /// </param>
+        /// <param name="summaryOnly">
+        /// Non-zero to add only the overall counters, omitting the per-slot
+        /// counters.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include counters whose value is zero.
+        /// </param>
         public static void CountsToList(
             StringPairList list, /* in, out */
             bool summaryOnly,    /* in */
@@ -1452,6 +2133,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds diagnostic information about this cache, including
+        /// its configuration, current slot contents, and statistics, to the
+        /// specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the information is added.  This parameter may be
+        /// null, in which case nothing is added.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control the amount of detail included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */

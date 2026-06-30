@@ -26,11 +26,23 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string keys to
+    /// chronologically sorted lists of <see cref="DateTime" /> values.  It is
+    /// typically used to track timestamped events per key; it supports inserting
+    /// values in sorted order, counting values that fall within a time window,
+    /// and compacting away values that are older than a given epoch.  The
+    /// inherited mutating members are deliberately disabled in favor of the
+    /// specialized members provided here.
+    /// </summary>
     [ObjectId("5abc22da-28bb-4d04-9c9d-c1067aa50c4f")]
     internal sealed class DateTimeListDictionary :
             SomeDictionary, IDictionary<string, List<DateTime>>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public DateTimeListDictionary()
             : base()
         {
@@ -41,6 +53,20 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method removes, from the specified sorted list, every value that
+        /// occurs strictly before the specified epoch.
+        /// </summary>
+        /// <param name="value">
+        /// The chronologically sorted list of values to compact.
+        /// </param>
+        /// <param name="epoch">
+        /// The cutoff time; values that occur before this time are removed.
+        /// </param>
+        /// <returns>
+        /// The number of values that were removed from the list, or an invalid
+        /// count if the operation could not be performed.
+        /// </returns>
         private int Compact(
             List<DateTime> value,
             DateTime epoch
@@ -92,6 +118,17 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compacts every list in this dictionary by removing the
+        /// values that occur before the specified epoch, and removes any key
+        /// whose list becomes empty (or is null) as a result.
+        /// </summary>
+        /// <param name="epoch">
+        /// The cutoff time; values that occur before this time are removed.
+        /// </param>
+        /// <returns>
+        /// The total number of values that were removed across all keys.
+        /// </returns>
         private int Compact(
             DateTime epoch
             )
@@ -133,6 +170,17 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDictionary<string, IntArgumentPair> Overrides
+        /// <summary>
+        /// Gets the list of values associated with the specified key; setting
+        /// the list for a key is not supported and always throws a
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose associated list of values is to be retrieved.
+        /// </param>
+        /// <returns>
+        /// The list of values associated with the specified key.
+        /// </returns>
         List<DateTime> IDictionary<string, List<DateTime>>.this[string key]
         {
             get { return base[key]; }
@@ -141,6 +189,17 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws a
+        /// <see cref="NotSupportedException" />.  Values must be added using the
+        /// specialized add method that maintains chronological order.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the entry to add.
+        /// </param>
+        /// <param name="value">
+        /// The list of values to associate with the key.
+        /// </param>
         void IDictionary<string, List<DateTime>>.Add(
             string key,
             List<DateTime> value
@@ -153,6 +212,17 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Explicit IDictionary<string, List<DateTime>> Overrides
+        /// <summary>
+        /// Gets the list of values associated with the specified key; setting
+        /// the list for a key is not supported and always throws a
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose associated list of values is to be retrieved.
+        /// </param>
+        /// <returns>
+        /// The list of values associated with the specified key.
+        /// </returns>
         public new List<DateTime> this[string key]
         {
             get { return base[key]; }
@@ -161,6 +231,17 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws a
+        /// <see cref="NotSupportedException" />.  Values must be added using the
+        /// specialized add method that maintains chronological order.
+        /// </summary>
+        /// <param name="key">
+        /// The key of the entry to add.
+        /// </param>
+        /// <param name="value">
+        /// The list of values to associate with the key.
+        /// </param>
         public new void Add(
             string key,
             List<DateTime> value
@@ -173,6 +254,10 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Gets the current coordinated universal time (UTC) used by this
+        /// dictionary as the reference point for time-window calculations.
+        /// </summary>
         public DateTime Now
         {
             get { return TimeOps.GetUtcNow(); }
@@ -182,6 +267,21 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method counts the values associated with the specified key that
+        /// occur within the most recent interval of the specified length, as
+        /// measured backward from the current time.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose recent values are to be counted.
+        /// </param>
+        /// <param name="timeSpan">
+        /// The length of the trailing time window to consider.
+        /// </param>
+        /// <returns>
+        /// The number of values associated with the key that fall within the
+        /// time window.
+        /// </returns>
         public int CountFrom(
             string key,
             TimeSpan timeSpan
@@ -192,6 +292,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the values associated with the specified key that
+        /// occur at or after the specified epoch.
+        /// </summary>
+        /// <param name="key">
+        /// The key whose values are to be counted.
+        /// </param>
+        /// <param name="epoch">
+        /// The cutoff time; only values at or after this time are counted.  If
+        /// this is null, all values associated with the key are counted.
+        /// </param>
+        /// <returns>
+        /// The number of values associated with the key that occur at or after
+        /// the epoch.
+        /// </returns>
         public int CountFrom(
             string key,
             DateTime? epoch
@@ -217,6 +332,22 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified value to the chronologically sorted
+        /// list associated with the specified key, creating the list if it does
+        /// not already exist.  If an epoch is supplied, the entire dictionary is
+        /// first compacted to remove values older than that epoch.
+        /// </summary>
+        /// <param name="key">
+        /// The key to associate the value with.
+        /// </param>
+        /// <param name="value">
+        /// The value to insert, in sorted order, into the list for the key.
+        /// </param>
+        /// <param name="epoch">
+        /// The cutoff time used to compact the dictionary before adding.  If this
+        /// is null, no compaction is performed.
+        /// </param>
         public void Add(
             string key,
             DateTime value,
@@ -248,6 +379,23 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts this dictionary to a string in the Eagle list format, where
+        /// each matching key is followed by the list of its values formatted for
+        /// tracing.  Keys may optionally be restricted to those matching the
+        /// specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order for its entry to be
+        /// included in the resulting string.  This parameter may be null, in
+        /// which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -295,6 +443,12 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts this dictionary to a string in the Eagle list format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

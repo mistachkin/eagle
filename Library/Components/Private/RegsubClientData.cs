@@ -16,9 +16,23 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a container for the client data used by a regular
+    /// expression substitution operation, capturing the compiled expression, the
+    /// pattern, the input and replacement text, their script locations, and the
+    /// various flags that control the substitution behavior.
+    /// </summary>
     [ObjectId("9ed12565-e6f5-467e-aa35-43aa7ae02288")]
     internal sealed class RegsubClientData : ClientData
     {
+        /// <summary>
+        /// Constructs an instance of this class wrapping the specified opaque
+        /// data payload.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data payload to associate with this object.  This
+        /// parameter may be null.
+        /// </param>
         public RegsubClientData(
             object data
             )
@@ -29,6 +43,53 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class capturing the full set of state
+        /// describing a regular expression substitution operation.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data payload to associate with this object.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="regEx">
+        /// The compiled regular expression used by the substitution.
+        /// </param>
+        /// <param name="pattern">
+        /// The regular expression pattern used by the substitution.
+        /// </param>
+        /// <param name="input">
+        /// The input string to which the substitution is applied.
+        /// </param>
+        /// <param name="replacement">
+        /// The replacement string or script used by the substitution.
+        /// </param>
+        /// <param name="replacementLocation">
+        /// The script location of the replacement, if any.
+        /// </param>
+        /// <param name="text">
+        /// The text being processed by the substitution.
+        /// </param>
+        /// <param name="textLocation">
+        /// The script location of the text, if any.
+        /// </param>
+        /// <param name="count">
+        /// The number of substitutions performed.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero if replacement values should be quoted.
+        /// </param>
+        /// <param name="extra">
+        /// Non-zero if extra processing is enabled for the substitution.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero if strict processing is enabled for the substitution.
+        /// </param>
+        /// <param name="verbatim">
+        /// Non-zero if the replacement should be treated verbatim.
+        /// </param>
+        /// <param name="literal">
+        /// Non-zero if the replacement should be treated as a literal string.
+        /// </param>
         public RegsubClientData(
             object data,
             Regex regEx,
@@ -64,7 +125,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the compiled regular expression used by the substitution.
+        /// </summary>
         private Regex regEx;
+        /// <summary>
+        /// Gets or sets the compiled regular expression used by the
+        /// substitution.
+        /// </summary>
         public Regex RegEx
         {
             get { return regEx; }
@@ -73,7 +141,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the regular expression pattern used by the substitution.
+        /// </summary>
         private string pattern;
+        /// <summary>
+        /// Gets or sets the regular expression pattern used by the substitution.
+        /// </summary>
         public string Pattern
         {
             get { return pattern; }
@@ -82,7 +156,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the input string to which the substitution is applied.
+        /// </summary>
         private string input;
+        /// <summary>
+        /// Gets or sets the input string to which the substitution is applied.
+        /// </summary>
         public string Input
         {
             get { return input; }
@@ -91,7 +171,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the replacement string or script used by the substitution.
+        /// </summary>
         private string replacement;
+        /// <summary>
+        /// Gets or sets the replacement string or script used by the
+        /// substitution.
+        /// </summary>
         public string Replacement
         {
             get { return replacement; }
@@ -100,7 +187,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the script location of the replacement.
+        /// </summary>
         private IScriptLocation replacementLocation;
+        /// <summary>
+        /// Gets or sets the script location of the replacement.
+        /// </summary>
         public IScriptLocation ReplacementLocation
         {
             get { return replacementLocation; }
@@ -109,7 +202,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the text being processed by the substitution.
+        /// </summary>
         private string text;
+        /// <summary>
+        /// Gets or sets the text being processed by the substitution.
+        /// </summary>
         public string Text
         {
             get { return text; }
@@ -118,7 +217,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the script location of the text.
+        /// </summary>
         private IScriptLocation textLocation;
+        /// <summary>
+        /// Gets or sets the script location of the text.
+        /// </summary>
         public IScriptLocation TextLocation
         {
             get { return textLocation; }
@@ -127,7 +232,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the number of substitutions performed.
+        /// </summary>
         private int count;
+        /// <summary>
+        /// Gets or sets the number of substitutions performed.
+        /// </summary>
         public int Count
         {
             get { return count; }
@@ -136,7 +247,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether replacement values should be
+        /// quoted.
+        /// </summary>
         private bool quote;
+        /// <summary>
+        /// Gets or sets a value indicating whether replacement values should be
+        /// quoted.
+        /// </summary>
         public bool Quote
         {
             get { return quote; }
@@ -145,7 +264,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether extra processing is enabled for the
+        /// substitution.
+        /// </summary>
         private bool extra;
+        /// <summary>
+        /// Gets or sets a value indicating whether extra processing is enabled
+        /// for the substitution.
+        /// </summary>
         public bool Extra
         {
             get { return extra; }
@@ -154,7 +281,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether strict processing is enabled for
+        /// the substitution.
+        /// </summary>
         private bool strict;
+        /// <summary>
+        /// Gets or sets a value indicating whether strict processing is enabled
+        /// for the substitution.
+        /// </summary>
         public bool Strict
         {
             get { return strict; }
@@ -163,7 +298,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the replacement should be treated
+        /// verbatim.
+        /// </summary>
         private bool verbatim;
+        /// <summary>
+        /// Gets or sets a value indicating whether the replacement should be
+        /// treated verbatim.
+        /// </summary>
         public bool Verbatim
         {
             get { return verbatim; }
@@ -172,7 +315,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the replacement should be treated
+        /// as a literal string.
+        /// </summary>
         private bool literal;
+        /// <summary>
+        /// Gets or sets a value indicating whether the replacement should be
+        /// treated as a literal string.
+        /// </summary>
         public bool Literal
         {
             get { return literal; }

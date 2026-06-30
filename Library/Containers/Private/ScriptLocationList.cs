@@ -26,6 +26,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a stack-like list of script locations.  It extends
+    /// the generic stack list with conversion to the Eagle string list format,
+    /// including optional pattern matching.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -33,6 +38,9 @@ namespace Eagle._Containers.Private
     internal sealed class ScriptLocationList : StackList<IScriptLocation>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ScriptLocationList()
             : base()
         {
@@ -43,6 +51,21 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format, optionally
+        /// including only those elements matching the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each element must match in order to be included in
+        /// the resulting string.  This parameter may be null, in which case all
+        /// elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -57,6 +80,12 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

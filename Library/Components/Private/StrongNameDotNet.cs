@@ -35,17 +35,33 @@ using Eagle._Components.Public;
 ///////////////////////////////////////////////////////////////////////////////
 
 #region ImmutableArray<byte> Extension Methods Class
+/// <summary>
+/// This class provides extension methods for working with instances of
+/// <see cref="ImmutableArray{T}" /> of bytes, notably converting one back
+/// to its underlying mutable byte array without copying.
+/// </summary>
 [ObjectId("52ec8331-d48a-4478-8e71-45ff669fef88")]
 internal static class ImmutableByteArrayMethods
 {
     #region Private Byte Array Union Structure
+    /// <summary>
+    /// This structure provides an overlapped view of a mutable byte array
+    /// and an immutable byte array so that one representation can be
+    /// reinterpreted as the other without copying the underlying data.
+    /// </summary>
     [ObjectId("9457be5b-48c3-4f88-9f9d-d5745114f40f")]
     [StructLayout(LayoutKind.Explicit)]
     private struct ByteArrayUnion
     {
+        /// <summary>
+        /// The mutable byte array view of the overlapped storage.
+        /// </summary>
         [FieldOffset(0)]
         internal byte[] UnderlyingArray;
 
+        /// <summary>
+        /// The immutable byte array view of the overlapped storage.
+        /// </summary>
         [FieldOffset(0)]
         internal ImmutableArray<byte> ImmutableArray;
     }
@@ -54,6 +70,16 @@ internal static class ImmutableByteArrayMethods
     ///////////////////////////////////////////////////////////////////////////
 
     #region Public Extension Methods
+    /// <summary>
+    /// This method returns the mutable byte array underlying the specified
+    /// immutable byte array, without copying its contents.
+    /// </summary>
+    /// <param name="array">
+    /// The immutable byte array whose underlying mutable array is needed.
+    /// </param>
+    /// <returns>
+    /// The mutable byte array that backs the specified immutable byte array.
+    /// </returns>
     public static byte[] AsArray(
         this ImmutableArray<byte> array /* in */
         )
@@ -69,21 +95,45 @@ internal static class ImmutableByteArrayMethods
 ///////////////////////////////////////////////////////////////////////////////
 
 #region .NET Core 2.x / 3.x Strong Name Signature Verification Class
+/// <summary>
+/// This class implements strong name signature verification for managed
+/// assemblies when running on the .NET Core 2.x / 3.x runtime, where the
+/// native strong name verification APIs are unavailable.
+/// </summary>
 [ObjectId("4c129658-62a6-4508-a154-27d2cec6c416")]
 internal static class StrongNameDotNet
 {
     #region Blob Reader Helper Class
+    /// <summary>
+    /// This class provides sequential reading of primitive values and
+    /// big-integer byte blocks from a byte array, as used when parsing a
+    /// strong name public key blob.
+    /// </summary>
     [ObjectId("23bff3cd-8bf9-4ef4-be1a-7a766ea1946d")]
     private sealed class BlobReader
     {
         #region Private Data
+        /// <summary>
+        /// The byte array being read from.
+        /// </summary>
         private byte[] bytes;
+
+        /// <summary>
+        /// The current zero-based read position within the byte array.
+        /// </summary>
         private int offset;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a blob reader positioned at the start of the specified
+        /// byte array.
+        /// </summary>
+        /// <param name="bytes">
+        /// The byte array to read from.
+        /// </param>
         public BlobReader(
             byte[] bytes /* in */
             )
@@ -96,6 +146,13 @@ internal static class StrongNameDotNet
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method reads a 32-bit little-endian signed integer from the
+        /// current position and advances the read position past it.
+        /// </summary>
+        /// <returns>
+        /// The 32-bit signed integer read from the current position.
+        /// </returns>
         public int ReadInt32()
         {
             int oldOffset = offset;
@@ -110,6 +167,18 @@ internal static class StrongNameDotNet
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a big-integer value of the specified length, in
+        /// bytes, from the current position, advancing the read position past
+        /// it, and returns it in big-endian byte order.
+        /// </summary>
+        /// <param name="length">
+        /// The number of bytes to read for the big-integer value.
+        /// </param>
+        /// <returns>
+        /// The big-integer value, in big-endian byte order, read from the
+        /// current position.
+        /// </returns>
         public byte[] ReadBigInteger(
             int length /* in */
             )
@@ -131,6 +200,28 @@ internal static class StrongNameDotNet
     ///////////////////////////////////////////////////////////////////////////
 
     #region Private Methods
+    /// <summary>
+    /// This method computes the strong name hash of the assembly image by
+    /// feeding the relevant portions of the file into the specified hash
+    /// algorithm, excluding the checksum, the security directory entry, and
+    /// the strong name signature itself.
+    /// </summary>
+    /// <param name="peReader">
+    /// The portable executable reader providing access to the assembly image.
+    /// </param>
+    /// <param name="peHeaders">
+    /// The portable executable headers of the assembly image.
+    /// </param>
+    /// <param name="hashAlgorithm">
+    /// The hash algorithm into which the assembly image bytes are fed.
+    /// </param>
+    /// <param name="signatureStart">
+    /// The offset, in bytes, of the start of the strong name signature
+    /// within the assembly image.
+    /// </param>
+    /// <param name="signatureSize">
+    /// The size, in bytes, of the strong name signature.
+    /// </param>
     private static void HashAssembly(
         PEReader peReader,           /* in */
         PEHeaders peHeaders,         /* in */
@@ -231,6 +322,16 @@ internal static class StrongNameDotNet
 
     ///////////////////////////////////////////////////////////////////////////
 
+    /// <summary>
+    /// This method parses a strong name public key blob and extracts the RSA
+    /// parameters (exponent and modulus) it contains.
+    /// </summary>
+    /// <param name="bytes">
+    /// The strong name public key blob to parse.
+    /// </param>
+    /// <returns>
+    /// The RSA parameters extracted from the specified public key blob.
+    /// </returns>
     private static RSAParameters RSAParametersFromPublicKey(
         byte[] bytes /* in */
         ) /* throw */

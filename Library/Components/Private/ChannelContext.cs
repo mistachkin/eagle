@@ -21,21 +21,47 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class represents the per-thread input/output state associated with
+    /// a single Eagle channel.  It owns the underlying
+    /// <see cref="ChannelStream" />, the lazily created binary and text readers
+    /// and writers layered over that stream, and the pending byte buffer and
+    /// line-ending offsets used while reading.  It implements
+    /// <see cref="IChannelContext" /> and is disposable; disposing the context
+    /// closes the readers, writers, and underlying stream it owns.
+    /// </summary>
     [ObjectId("0c2c603d-1cf9-49bc-9faf-415818a8e942")]
     internal sealed class ChannelContext : IChannelContext, IDisposable
     {
         #region Private Data
+        /// <summary>
+        /// The number of times this object has been disposed.
+        /// </summary>
         private int disposeCount;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The pending buffer of bytes that have been read from the channel but
+        /// not yet consumed.  This field may be null.
+        /// </summary>
         private ByteList buffer;
+
+        /// <summary>
+        /// The list of buffer offsets at which line endings were detected.
+        /// This field may be null.
+        /// </summary>
         private IntList lineEndings;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty channel context and captures the identifier of
+        /// the current thread.  This is the most basic constructor; the public
+        /// constructor delegates to it.
+        /// </summary>
         private ChannelContext()
         {
             SetupThreadId();
@@ -45,6 +71,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a channel context that wraps the specified channel
+        /// stream.
+        /// </summary>
+        /// <param name="channelStream">
+        /// The channel stream that this context will own and provide
+        /// input/output access to.
+        /// </param>
         public ChannelContext(
             ChannelStream channelStream /* in */
             )
@@ -57,6 +91,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method records the identifier of the current system thread as
+        /// the owning thread of this context, unless it has already been set.
+        /// </summary>
         private void SetupThreadId()
         {
             if (threadId != 0)
@@ -67,6 +105,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes any binary or text readers and writers that have
+        /// been opened over the channel stream, optionally preventing the
+        /// underlying stream itself from being closed as a side effect of
+        /// closing those readers and writers.
+        /// </summary>
+        /// <param name="preventClose">
+        /// Non-zero to prevent the underlying channel stream from being closed
+        /// while the readers and writers are closed; the stream's prior setting
+        /// is restored afterward.
+        /// </param>
         private void PrivateCloseReadersAndWriters(
             bool preventClose /* in */
             )
@@ -131,6 +180,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// Gets the interpreter associated with this channel context.  This
+        /// member is not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); throw new NotImplementedException(); }
@@ -140,7 +194,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IThreadContext Members
+        /// <summary>
+        /// The identifier of the thread that created this channel context.
+        /// </summary>
         private long threadId;
+
+        /// <summary>
+        /// Gets the identifier of the thread that created this channel context.
+        /// </summary>
         public long ThreadId
         {
             get { CheckDisposed(); return threadId; }
@@ -150,6 +211,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this object has been disposed.  True
+        /// if this object has been disposed; otherwise, false.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -162,6 +227,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this object is currently being
+        /// disposed.  True if disposal of this object is in progress;
+        /// otherwise, false.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -177,7 +247,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IChannelContext Members
+        /// <summary>
+        /// The channel stream owned by this context.  This field may be null.
+        /// </summary>
         private ChannelStream channelStream;
+
+        /// <summary>
+        /// Gets the channel stream owned by this context.
+        /// </summary>
         public ChannelStream ChannelStream
         {
             get { CheckDisposed(); return channelStream; }
@@ -185,7 +262,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The binary reader layered over the channel stream.  This field may
+        /// be null until first requested.
+        /// </summary>
         private BinaryReader binaryReader;
+
+        /// <summary>
+        /// Gets the binary reader layered over the channel stream, if any.
+        /// </summary>
         public BinaryReader BinaryReader
         {
             get { CheckDisposed(); return binaryReader; }
@@ -193,7 +278,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The binary writer layered over the channel stream.  This field may
+        /// be null until first requested.
+        /// </summary>
         private BinaryWriter binaryWriter;
+
+        /// <summary>
+        /// Gets the binary writer layered over the channel stream, if any.
+        /// </summary>
         public BinaryWriter BinaryWriter
         {
             get { CheckDisposed(); return binaryWriter; }
@@ -201,7 +294,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The text stream reader layered over the channel stream.  This field
+        /// may be null until first requested.
+        /// </summary>
         private StreamReader streamReader;
+
+        /// <summary>
+        /// Gets the text stream reader layered over the channel stream, if any.
+        /// </summary>
         public StreamReader StreamReader
         {
             get { CheckDisposed(); return streamReader; }
@@ -209,7 +310,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The text stream writer layered over the channel stream.  This field
+        /// may be null until first requested.
+        /// </summary>
         private StreamWriter streamWriter;
+
+        /// <summary>
+        /// Gets the text stream writer layered over the channel stream, if any.
+        /// </summary>
         public StreamWriter StreamWriter
         {
             get { CheckDisposed(); return streamWriter; }
@@ -217,6 +326,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this context has an open binary or
+        /// text reader.  True if a reader is open; otherwise, false.
+        /// </summary>
         public bool HasReader
         {
             get
@@ -229,6 +342,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this context has an open binary or
+        /// text writer.  True if a writer is open; otherwise, false.
+        /// </summary>
         public bool HasWriter
         {
             get
@@ -241,6 +358,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this context has an allocated pending
+        /// buffer.  True if a buffer has been allocated; otherwise, false.
+        /// </summary>
         public bool HasBuffer
         {
             get
@@ -253,6 +374,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the pending buffer is missing or
+        /// empty.  True if there is no buffer or the buffer contains no bytes;
+        /// otherwise, false.
+        /// </summary>
         public bool HasEmptyBuffer
         {
             get
@@ -270,6 +396,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the binary reader for the channel stream,
+        /// creating it on first use with the specified encoding if necessary.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use when creating the binary reader.  This parameter
+        /// may be null, in which case a default encoding is used.
+        /// </param>
+        /// <returns>
+        /// The binary reader for the channel stream, or null if there is no
+        /// channel stream.
+        /// </returns>
         public BinaryReader GetBinaryReader(
             Encoding encoding /* in */
             )
@@ -295,6 +433,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the binary writer for the channel stream,
+        /// creating it on first use with the specified encoding if necessary.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use when creating the binary writer.  This parameter
+        /// may be null, in which case a default encoding is used.
+        /// </param>
+        /// <returns>
+        /// The binary writer for the channel stream, or null if there is no
+        /// channel stream.
+        /// </returns>
         public BinaryWriter GetBinaryWriter(
             Encoding encoding /* in */
             )
@@ -320,6 +470,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the text stream reader for the channel stream,
+        /// creating it on first use with the specified encoding if necessary.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use when creating the stream reader.  This parameter
+        /// may be null, in which case a default encoding is used.
+        /// </param>
+        /// <returns>
+        /// The text stream reader for the channel stream, or null if there is
+        /// no channel stream.
+        /// </returns>
         public StreamReader GetStreamReader(
             Encoding encoding /* in */
             )
@@ -356,6 +518,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the text stream writer for the channel stream,
+        /// creating it on first use with the specified encoding if necessary.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use when creating the stream writer.  This parameter
+        /// may be null, in which case a default encoding is used.
+        /// </param>
+        /// <returns>
+        /// The text stream writer for the channel stream, or null if there is
+        /// no channel stream.
+        /// </returns>
         public StreamWriter GetStreamWriter(
             Encoding encoding /* in */
             )
@@ -392,6 +566,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the pending buffer, discarding any bytes it
+        /// contains.
+        /// </summary>
+        /// <returns>
+        /// The number of bytes that were in the buffer prior to clearing it, or
+        /// <see cref="Count.Invalid" /> if there is no buffer.
+        /// </returns>
         public int DiscardBuffer()
         {
             CheckDisposed();
@@ -410,6 +592,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the pending buffer from this context and returns
+        /// it to the caller, leaving this context without a buffer.
+        /// </summary>
+        /// <returns>
+        /// The pending buffer that was held by this context, or null if there
+        /// was no buffer.
+        /// </returns>
         public ByteList TakeBuffer()
         {
             CheckDisposed();
@@ -423,6 +613,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs the specified buffer as the pending buffer for
+        /// this context, discarding and clearing any previously held buffer.
+        /// </summary>
+        /// <param name="buffer">
+        /// On input, the buffer to install as the pending buffer.  On output,
+        /// this is set to null when the buffer is accepted.
+        /// </param>
+        /// <returns>
+        /// True if the supplied buffer was accepted and installed; otherwise,
+        /// false.
+        /// </returns>
         public bool GiveBuffer(
             ref ByteList buffer /* in, out */
             )
@@ -450,6 +652,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method allocates a fresh, empty pending buffer for this context,
+        /// discarding and clearing any previously held buffer.
+        /// </summary>
         public void NewBuffer()
         {
             CheckDisposed();
@@ -467,6 +673,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the list of recorded line-ending offsets,
+        /// discarding any entries it contains.
+        /// </summary>
+        /// <returns>
+        /// The number of line-ending offsets that were recorded prior to
+        /// clearing the list, or <see cref="Count.Invalid" /> if there is no
+        /// list.
+        /// </returns>
         public int DiscardLineEndings()
         {
             CheckDisposed();
@@ -485,6 +700,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the list of recorded line-ending offsets from
+        /// this context and returns it to the caller, leaving this context
+        /// without such a list.
+        /// </summary>
+        /// <returns>
+        /// The list of line-ending offsets that was held by this context, or
+        /// null if there was no list.
+        /// </returns>
         public IntList TakeLineEndings()
         {
             CheckDisposed();
@@ -498,6 +722,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs the specified list as the recorded line-ending
+        /// offsets for this context, discarding and clearing any previously held
+        /// list.
+        /// </summary>
+        /// <param name="lineEndings">
+        /// On input, the list of line-ending offsets to install.  On output,
+        /// this is set to null when the list is accepted.
+        /// </param>
+        /// <returns>
+        /// True if the supplied list was accepted and installed; otherwise,
+        /// false.
+        /// </returns>
         public bool GiveLineEndings(
             ref IntList lineEndings
             )
@@ -525,6 +762,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method allocates a fresh, empty list of line-ending offsets for
+        /// this context, discarding and clearing any previously held list.
+        /// </summary>
         public void NewLineEndings()
         {
             CheckDisposed();
@@ -542,6 +783,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a partial clone of this context's channel stream
+        /// that wraps the specified underlying stream.
+        /// </summary>
+        /// <param name="stream">
+        /// The underlying stream that the cloned channel stream will wrap.
+        /// </param>
+        /// <returns>
+        /// A partial clone of this context's channel stream, or null if there
+        /// is no channel stream.
+        /// </returns>
         public ChannelStream PartialCloneChannelStream(
             Stream stream /* in */
             )
@@ -556,6 +808,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes any open writers and the underlying channel
+        /// stream, provided the stream supports writing.
+        /// </summary>
+        /// <returns>
+        /// True if at least one writer was flushed; otherwise, false.
+        /// </returns>
         public bool Flush()
         {
             CheckDisposed();
@@ -587,6 +846,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes any open binary or text readers and writers,
+        /// optionally preventing the underlying channel stream itself from being
+        /// closed as a side effect.
+        /// </summary>
+        /// <param name="preventClose">
+        /// Non-zero to prevent the underlying channel stream from being closed
+        /// while the readers and writers are closed.
+        /// </param>
         public void CloseReadersAndWriters(
             bool preventClose /* in */
             )
@@ -598,6 +866,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes any open readers and writers and then closes the
+        /// underlying channel stream itself.
+        /// </summary>
         public void Close()
         {
             CheckDisposed();
@@ -615,6 +887,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this channel context,
+        /// which is the string representation of its underlying channel stream.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the underlying channel stream, or null
+        /// if there is no channel stream.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -629,6 +909,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources owned by this channel context,
+        /// closing its readers, writers, and underlying channel stream, and
+        /// suppresses finalization of this object.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -639,7 +924,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws <see cref="ObjectDisposedException" /> if this
+        /// object has been disposed and the engine is configured to throw on
+        /// access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -653,6 +947,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this channel context.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.  When non-zero, managed resources are released in addition
+        /// to unmanaged resources.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing /* in */
             )
@@ -691,6 +994,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this channel context, releasing any unmanaged resources it
+        /// still owns.
+        /// </summary>
         ~ChannelContext()
         {
             Dispose(false);

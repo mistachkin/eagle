@@ -359,8 +359,8 @@ EagleWcharStrToUshortStr(
 	LPUSHORT sstr = (LPUSHORT)wstr;
 
 #if !defined(NO_SIZEOF_ASSERTS)
-	assert(sizeof(WCHAR) == 4);
-	assert(sizeof(USHORT) == 2);
+	assert(SIZE_OF(WCHAR) == 4);
+	assert(SIZE_OF(USHORT) == 2);
 #endif
 
 	while (1) {
@@ -410,7 +410,7 @@ EagleTracePrintf(
 #if defined(_WIN32) && !defined(USE_NARROW_CHAR_T)
     {
 	WCHAR envBuffer[LIBRARY_VAR_BUFFER_LENGTH + 1];
-	memset(envBuffer, 0, sizeof(envBuffer));
+	memset(envBuffer, 0, SIZE_OF(envBuffer));
 	if (GetEnvironmentVariableW( /* NON-PORTABLE */
 		NO_TRACE_UNICODE_VAR_NAME, envBuffer,
 		LIBRARY_VAR_BUFFER_LENGTH)) {
@@ -425,7 +425,7 @@ EagleTracePrintf(
 
     va_start(argList, format);
 
-    memset(buffer, 0, sizeof(buffer));
+    memset(buffer, 0, SIZE_OF(buffer));
 
     result = vsnprintf(buffer,
 	LIBRARY_TRACE_BUFFER_LENGTH, format, argList);
@@ -618,7 +618,7 @@ EaglePrintf(
     assert(format != NULL);
 
     if (length == 0) length = LIBRARY_RESULT_LENGTH;
-    size = (length + 1 /* NUL */) * sizeof(WCHAR);
+    size = (length + 1 /* NUL */) * SIZE_OF(WCHAR);
 
     assert(size > 0);
     assert(size <= LIBRARY_MAXIMUM_SIZE_T);
@@ -887,11 +887,11 @@ EagleParseBackslash(
     LPCWSTR p = (src + 1);
     UCSCHAR result;
     SIZE_T count;
-    BYTE buf[sizeof(UCSCHAR)];
+    BYTE buf[SIZE_OF(UCSCHAR)];
 
 #if !defined(NO_SIZEOF_ASSERTS)
-    assert(sizeof(WCHAR) == sizeof(unsigned short));
-    assert(sizeof(UCSCHAR) >= (2 * sizeof(WCHAR)));
+    assert(SIZE_OF(WCHAR) == SIZE_OF(unsigned short));
+    assert(SIZE_OF(UCSCHAR) >= (2 * SIZE_OF(WCHAR)));
 #endif
 
     assert(src != NULL);
@@ -909,7 +909,7 @@ EagleParseBackslash(
     }
 
     if (dst == NULL) {
-	memset(buf, 0, sizeof(buf));
+	memset(buf, 0, SIZE_OF(buf));
 	dst = (LPWSTR)buf;
     }
 
@@ -1692,7 +1692,7 @@ done:
 LPCWSTR
 Eagle_GetVersion(VOID)
 {
-    SIZE_T size = (LIBRARY_VERSION_LENGTH + 1 /* NUL */) * sizeof(WCHAR);
+    SIZE_T size = (LIBRARY_VERSION_LENGTH + 1 /* NUL */) * SIZE_OF(WCHAR);
     LPWSTR pBuffer = AllocateMemoryWrapper(size); /* HACK: Always calloc(). */
 
     if (pBuffer == NULL) {
@@ -1707,7 +1707,7 @@ Eagle_GetVersion(VOID)
 #else
 	UNICODIFY(" RELEASE"),
 #endif
-	UNICODIFY(" SIZE_OF_WCHAR_T="), (int)sizeof(WCHAR),
+	UNICODIFY(" SIZE_OF_WCHAR_T="), (int)SIZE_OF(WCHAR),
 #if defined(USE_32BIT_SIZE_T)
 	UNICODIFY(" USE_32BIT_SIZE_T=") UNICODIFY(STRINGIFY(USE_32BIT_SIZE_T)),
 #else
@@ -1826,7 +1826,7 @@ Eagle_AllocateMemory(
     SIZE_T memorySize;
 
 #if !defined(NO_SIZEOF_ASSERTS)
-    assert(sizeof(BYTE) >= 1);
+    assert(SIZE_OF(BYTE) >= 1);
 #endif
 
     assert(size >= 0);
@@ -2000,7 +2000,7 @@ Eagle_SplitList(
      * Integer overflow check: Verify calculated size does not wrap.
      */
 
-    if (size > (LIBRARY_MAXIMUM_SIZE_T / sizeof(SIZE_T))) {
+    if (size > (LIBRARY_MAXIMUM_SIZE_T / SIZE_OF(SIZE_T))) {
 	if (ppError != NULL) {
 	    *ppError = EaglePrintf(0,
 		UNICODIFY("list too large for element lengths (%d)"),
@@ -2008,7 +2008,7 @@ Eagle_SplitList(
 	}
 	return EAGLE_ERROR;
     }
-    allocSize = size * sizeof(SIZE_T);
+    allocSize = size * SIZE_OF(SIZE_T);
     assert(allocSize > 0);
     assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);
     argc = Eagle_AllocateMemory(allocSize);
@@ -2025,8 +2025,8 @@ Eagle_SplitList(
      * Integer overflow check: Verify calculated size does not wrap.
      */
 
-    if (size > (LIBRARY_MAXIMUM_SIZE_T / sizeof(LPWSTR)) || (listLength + 1) >
-	    (LIBRARY_MAXIMUM_SIZE_T - size * sizeof(LPWSTR)) / sizeof(WCHAR)) {
+    if (size > (LIBRARY_MAXIMUM_SIZE_T / SIZE_OF(LPWSTR)) || (listLength + 1) >
+	    (LIBRARY_MAXIMUM_SIZE_T - size * SIZE_OF(LPWSTR)) / SIZE_OF(WCHAR)) {
 	if (ppError != NULL) {
 	    *ppError = EaglePrintf(0,
 		UNICODIFY("list too large for element data (%d)"),
@@ -2035,7 +2035,7 @@ Eagle_SplitList(
 	Eagle_FreeMemory(argc);
 	return EAGLE_ERROR;
     }
-    allocSize = (size * sizeof(LPWSTR)) + ((listLength + 1) * sizeof(WCHAR));
+    allocSize = (size * SIZE_OF(LPWSTR)) + ((listLength + 1) * SIZE_OF(WCHAR));
     assert(allocSize > 0);
     assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);
     argv = Eagle_AllocateMemory(allocSize);
@@ -2049,7 +2049,7 @@ Eagle_SplitList(
 	return EAGLE_ERROR;
     }
     q = pText + length;
-    for (i = 0, p = (LPWSTR)(((LPBYTE)argv) + (size * sizeof(LPWSTR)));
+    for (i = 0, p = (LPWSTR)(((LPBYTE)argv) + (size * SIZE_OF(LPWSTR)));
 	    listLength > 0; i++) {
 	LPCWSTR prevList = pText;
 
@@ -2146,7 +2146,7 @@ Eagle_JoinList(
 	flagPtr = localFlags;
     } else {
 	assert(elementCount > 0);
-	if (elementCount > LIBRARY_MAXIMUM_SIZE_T / sizeof(FLAGS)) {
+	if (elementCount > LIBRARY_MAXIMUM_SIZE_T / SIZE_OF(FLAGS)) {
 	    if (ppError != NULL) {
 		*ppError = EaglePrintf(0,
 		    UNICODIFY("list too large for element flags (%d)"),
@@ -2154,7 +2154,7 @@ Eagle_JoinList(
 	    }
 	    return EAGLE_ERROR;
 	}
-	allocSize = elementCount * sizeof(FLAGS);
+	allocSize = elementCount * SIZE_OF(FLAGS);
 	assert(allocSize > 0);
 	assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);
 	flagPtr = Eagle_AllocateMemory(allocSize);
@@ -2187,7 +2187,7 @@ Eagle_JoinList(
      * Pass 2: copy into the result area.
      */
 
-    allocSize = (numChars + 1) * sizeof(WCHAR);
+    allocSize = (numChars + 1) * SIZE_OF(WCHAR);
     assert(allocSize > 0);
     assert(allocSize <= LIBRARY_MAXIMUM_SIZE_T);
     result = Eagle_AllocateMemory(allocSize);

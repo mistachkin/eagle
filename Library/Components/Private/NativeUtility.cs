@@ -29,15 +29,53 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the support necessary to locate, load, validate,
+    /// and call into the optional native "utility" library, which can perform
+    /// list splitting and joining (and, on Windows, private heap management)
+    /// more efficiently than the managed implementation.  All access is
+    /// serialized and the library is loaded lazily, only when first needed.
+    /// </summary>
     [ObjectId("4e7b9ec6-8474-49ec-9f5f-59c3f21e7046")]
     internal static class NativeUtility
     {
         #region Private Constants
+        /// <summary>
+        /// The build-option marker that must be present in the native library
+        /// version string when this assembly is a debug build.
+        /// </summary>
         private const string optionDebug = " DEBUG";
+
+        /// <summary>
+        /// The build-option marker that must be present in the native library
+        /// version string when this assembly is a release build.
+        /// </summary>
         private const string optionRelease = " RELEASE";
+
+        /// <summary>
+        /// The build-option marker indicating the native library was compiled
+        /// with a two-byte wide character type, which is required for Unicode
+        /// interoperability.
+        /// </summary>
         private const string optionSizeOfWcharT = " SIZE_OF_WCHAR_T=2";
+
+        /// <summary>
+        /// The build-option marker indicating the native library was compiled
+        /// to use a 32-bit size type, which is required for interoperability.
+        /// </summary>
         private const string optionUse32BitSizeT = " USE_32BIT_SIZE_T=1";
+
+        /// <summary>
+        /// The build-option marker indicating the native library uses the
+        /// system string length API; its presence or absence must match the
+        /// NATIVE_UTILITY_BSTR build configuration of this assembly.
+        /// </summary>
         private const string optionUseSysStringLen = " USE_SYSSTRINGLEN=1";
+
+        /// <summary>
+        /// The build-option marker indicating the native library supports the
+        /// Win32 heap management API, enabling use of a private native heap.
+        /// </summary>
         private const string optionUseHeapApi = " USE_HEAPAPI=1";
 
         ///////////////////////////////////////////////////////////////////////
@@ -45,6 +83,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The string comparison type used when searching for build-option
+        /// markers within the native library version string.
+        /// </summary>
         private static StringComparison optionComparisonType =
             SharedStringOps.SystemComparisonType;
 
@@ -54,6 +96,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The interval, expressed as a number of allocation operations,
+        /// between automatic compactions of the private native heap.
+        /// </summary>
         private static long compactEveryCount = 1000000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -61,7 +107,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The initial size, in bytes, requested when creating the private
+        /// native heap.
+        /// </summary>
         private static UIntPtr heapInitialSize = new UIntPtr(33554432); /* 32MB */
+
+        /// <summary>
+        /// The maximum size, in bytes, for the private native heap; a value of
+        /// zero indicates the heap is growable.
+        /// </summary>
         private static UIntPtr heapMaximumSize = new UIntPtr(0);
 #endif
         #endregion
@@ -69,59 +124,180 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize all access to the native utility
+        /// library state.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The handle of the loaded native utility library module, or
+        /// <see cref="IntPtr.Zero" /> when no library is loaded.
+        /// </summary>
         private static IntPtr nativeModule = IntPtr.Zero;
+
+        /// <summary>
+        /// The file name of the loaded native utility library, or null when no
+        /// library is loaded.
+        /// </summary>
         private static string nativeFileName = null;
+
+        /// <summary>
+        /// The mapping of native delegate types to their resolved delegate
+        /// instances for the native utility library entry points.
+        /// </summary>
         private static TypeDelegateDictionary nativeDelegates;
+
+        /// <summary>
+        /// The mapping of native delegate types to a value indicating whether
+        /// each corresponding entry point is optional.
+        /// </summary>
         private static TypeBoolDictionary nativeOptional;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if WINDOWS
+        /// <summary>
+        /// The handle of the private native heap, or <see cref="IntPtr.Zero" />
+        /// when no private heap is in use.
+        /// </summary>
         private static IntPtr nativeHeap = IntPtr.Zero;
+
+        /// <summary>
+        /// When non-null, indicates whether the private native heap management
+        /// API should be used; null indicates the choice has not yet been made.
+        /// </summary>
         private static bool? nativeUseHeapApi = null;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The delegate used to query the native utility library version.
+        /// </summary>
         private static Eagle_GetVersion nativeGetVersion;
+
+        /// <summary>
+        /// The delegate used to free a version string previously returned by
+        /// the native utility library.
+        /// </summary>
         private static Eagle_FreeVersion nativeFreeVersion;
+
+        /// <summary>
+        /// The delegate used to allocate native memory via the native utility
+        /// library.
+        /// </summary>
         private static Eagle_AllocateMemory nativeAllocateMemory;
+
+        /// <summary>
+        /// The delegate used to free native memory previously allocated by the
+        /// native utility library.
+        /// </summary>
         private static Eagle_FreeMemory nativeFreeMemory;
+
+        /// <summary>
+        /// The delegate used to free a list element array previously returned
+        /// by the native utility library.
+        /// </summary>
         private static Eagle_FreeElements nativeFreeElements;
+
+        /// <summary>
+        /// The delegate used to split a string into a list of elements via the
+        /// native utility library.
+        /// </summary>
         private static Eagle_SplitList nativeSplitList;
+
+        /// <summary>
+        /// The delegate used to join a list of elements into a string via the
+        /// native utility library.
+        /// </summary>
         private static Eagle_JoinList nativeJoinList;
+
+        /// <summary>
+        /// The delegate used to set the native memory heap used by the native
+        /// utility library.
+        /// </summary>
         private static Eagle_SetMemoryHeap nativeSetMemoryHeap;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times the native list-splitting function has been
+        /// called.
+        /// </summary>
         private static long splitCount;
+
+        /// <summary>
+        /// The number of times the native list-joining function has been
+        /// called.
+        /// </summary>
         private static long joinCount;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if WINDOWS
+        /// <summary>
+        /// The number of times a private native heap compaction has been
+        /// considered.
+        /// </summary>
         private static long maybeCompactCount;
+
+        /// <summary>
+        /// The number of times the private native heap has actually been
+        /// compacted.
+        /// </summary>
         private static long compactCount;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, an environment-variable-supplied library path that
+        /// cannot be resolved to an existing file causes failure rather than
+        /// falling back to automatic detection.
+        /// </summary>
         private static bool strictPath = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, loading of the native utility library is temporarily
+        /// locked out.
+        /// </summary>
         private static bool locked = false;
+
+        /// <summary>
+        /// When non-zero, the native utility library has been permanently
+        /// disabled; this value is informational.
+        /// </summary>
         private static bool disabled = false; /* INFORMATIONAL */
+
+        /// <summary>
+        /// When non-null, caches whether the native utility library is
+        /// available; null indicates availability has not yet been determined.
+        /// </summary>
         private static bool? isAvailable = null;
+
+        /// <summary>
+        /// The version string reported by the native utility library, or null
+        /// when it is unavailable.
+        /// </summary>
         private static string version = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached reflection field information used to access the backing
+        /// array of a string list, or null when not yet cached.
+        /// </summary>
         private static FieldInfo itemsFieldInfo = null;
+
+        /// <summary>
+        /// When non-zero, reflection is not used to obtain the backing array of
+        /// a string list.
+        /// </summary>
         private static bool noReflection = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -130,6 +306,10 @@ namespace Eagle._Components.Private
         // NOTE: Permit native utility library to be loaded on operating
         //       systems other than Windows?
         //
+        /// <summary>
+        /// When non-zero, the native utility library may be loaded on operating
+        /// systems other than Windows.
+        /// </summary>
         private static bool forceNonWindows = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -140,6 +320,10 @@ namespace Eagle._Components.Private
         //       allow this static field to be preset to bypass the runtime
         //       check.
         //
+        /// <summary>
+        /// When non-zero, the native utility library may be used even when
+        /// running on the Mono runtime, bypassing the runtime check.
+        /// </summary>
         private static bool forceMono = false;
 #endif
         #endregion
@@ -147,6 +331,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method examines the version string reported by the native
+        /// utility library and verifies that all required build options are
+        /// present and consistent with this assembly's build configuration.
+        /// </summary>
+        /// <param name="version">
+        /// The version string reported by the native utility library.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero if this assembly is a debug build; otherwise, the native
+        /// library is expected to be a release build.
+        /// </param>
+        /// <param name="useHeapApi">
+        /// Upon return, set to non-zero if the native library indicates support
+        /// for the private heap management API; otherwise, false.
+        /// </param>
+        /// <returns>
+        /// True if the native library version string is usable; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsUsable(
             string version,
             bool debug,
@@ -269,6 +473,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the native utility library
+        /// to load, honoring an explicit environment-variable path if set and
+        /// otherwise probing standard locations relative to the executing
+        /// assembly, including a processor-architecture-specific subdirectory.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The file name of the native utility library, or null if it could
+        /// not be determined.
+        /// </returns>
         private static string GetNativeLibraryFileName(
             Interpreter interpreter, /* NOT USED */
             ref Result error
@@ -380,6 +600,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NATIVE_UTILITY_BSTR
+        /// <summary>
+        /// This method builds an array containing the length of each element in
+        /// the specified string list, for use when passing the list to the
+        /// native utility library.
+        /// </summary>
+        /// <param name="list">
+        /// The string list whose element lengths are required.
+        /// </param>
+        /// <returns>
+        /// An array of element lengths parallel to the specified list, or null
+        /// if the list is null.
+        /// </returns>
         private static int[] ToLengthArray(
             StringList list
             )
@@ -406,6 +638,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears any cached reflection field information and
+        /// optionally changes whether reflection is used to obtain the backing
+        /// array of a string list.  This method is not used.
+        /// </summary>
+        /// <param name="enable">
+        /// When non-null, forces reflection to be enabled or disabled; when
+        /// null, the current setting is left unchanged.
+        /// </param>
+        /// <returns>
+        /// Non-zero if reflection is currently disabled; otherwise, false.
+        /// </returns>
         private static bool MaybeEnableReflection( /* NOT USED */
             bool? enable
             )
@@ -441,6 +685,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string list into a string array,
+        /// using reflection to access the backing array directly when reflection
+        /// has not been disabled.
+        /// </summary>
+        /// <param name="list">
+        /// The string list to convert.
+        /// </param>
+        /// <returns>
+        /// A string array containing the elements of the specified list, or
+        /// null if the list is null.
+        /// </returns>
         private static string[] ToStringArray(
             StringList list
             )
@@ -464,6 +720,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the native delegate type dictionaries with the
+        /// entry points required (and optionally supported) by the native
+        /// utility library, optionally clearing any existing entries first.
+        /// </summary>
+        /// <param name="clear">
+        /// Non-zero to clear any existing delegate entries before repopulating
+        /// the dictionaries.
+        /// </param>
         private static void InitializeNativeDelegates(
             bool clear
             )
@@ -495,6 +760,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears all the cached native utility library delegate
+        /// references and resets the associated delegate dictionaries.
+        /// </summary>
         private static void UnsetNativeDelegates()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -516,6 +785,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the native utility library entry points from
+        /// the loaded module and assigns them to the corresponding cached
+        /// delegate references.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if all required delegates were successfully resolved;
+        /// otherwise, false.
+        /// </returns>
         private static bool SetNativeDelegates(
             ref Result error
             )
@@ -568,6 +849,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if WINDOWS
+        /// <summary>
+        /// This method registers the application-domain or process exit event
+        /// handler that finalizes the private native heap and unloads the
+        /// native utility library, unless that behavior has been disabled via
+        /// configuration.
+        /// </summary>
         private static void AddExitedEventHandler()
         {
             if (!GlobalConfiguration.DoesValueExist(
@@ -594,6 +881,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unregisters the application-domain or process exit event
+        /// handler previously registered to clean up the native utility library.
+        /// </summary>
         private static void RemoveExitedEventHandler()
         {
             AppDomain appDomain = AppDomainOps.GetCurrent();
@@ -609,6 +900,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the application-domain or process exit event by
+        /// finalizing the private native heap and unloading the native utility
+        /// library.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments.
+        /// </param>
         private static void NativeUtility_Exited(
             object sender,
             EventArgs e
@@ -623,6 +925,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the private native heap and configures the
+        /// native utility library to use it, when running on Windows and no
+        /// private heap has yet been created.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the private native heap was created (or was already in use,
+        /// or is not applicable); otherwise, false.
+        /// </returns>
         private static bool InitializeNativeHeap(
             ref Result error
             )
@@ -665,6 +979,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compacts the private native heap, when running on
+        /// Windows and a private heap is in use, in order to coalesce free
+        /// blocks.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the private native heap was compacted (or there is no
+        /// private heap, or it is not applicable); otherwise, false.
+        /// </returns>
         private static bool CompactNativeHeap(
             ref Result error
             )
@@ -706,6 +1032,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the default native memory heap and destroys the
+        /// private native heap, when running on Windows and a private heap is in
+        /// use.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the private native heap was destroyed (or there is no
+        /// private heap, or it is not applicable); otherwise, false.
+        /// </returns>
         private static bool FinalizeNativeHeap(
             ref Result error
             )
@@ -745,6 +1083,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally initializes the private native heap and
+        /// registers the exit event handler, only when use of the private heap
+        /// API has been enabled.
+        /// </summary>
+        /// <returns>
+        /// True if the private native heap was initialized or its use was not
+        /// requested; otherwise, false.
+        /// </returns>
         private static bool MaybeInitializeNativeHeap()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -774,6 +1121,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally compacts the private native heap, only
+        /// when use of the private heap API has been enabled and the configured
+        /// number of operations between compactions has elapsed.
+        /// </summary>
+        /// <returns>
+        /// True if the private native heap was compacted, was not yet due for
+        /// compaction, or its use was not requested; otherwise, false.
+        /// </returns>
         private static bool MaybeCompactNativeHeap()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -806,6 +1162,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally finalizes the private native heap and
+        /// unregisters the exit event handler, only when use of the private
+        /// heap API has been enabled.
+        /// </summary>
+        /// <returns>
+        /// True if the private native heap was finalized or its use was not
+        /// requested; otherwise, false.
+        /// </returns>
         private static bool MaybeFinalizeNativeHeap()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -836,6 +1201,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates, loads, and validates the native utility library
+        /// and resolves its entry points, when one has not already been loaded.
+        /// Untrusted libraries are refused when running with a trusted core
+        /// library.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when locating and validating the
+        /// library, if any.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library was successfully loaded (or was
+        /// already loaded); otherwise, false.
+        /// </returns>
         private static bool LoadNativeLibrary(
             Interpreter interpreter
             )
@@ -981,6 +1360,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finalizes the private native heap (on Windows), clears
+        /// the cached entry-point delegates, and unloads the native utility
+        /// library module, when one is currently loaded.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library was successfully unloaded (or was
+        /// not loaded); otherwise, false.
+        /// </returns>
         private static bool UnloadNativeLibrary(
             Interpreter interpreter /* NOT USED */
             )
@@ -1048,6 +1439,17 @@ namespace Eagle._Components.Private
 
         #region Public Methods
         #region Introspection Support Methods
+        /// <summary>
+        /// This method appends diagnostic information about the native utility
+        /// library state to the specified list, honoring the specified detail
+        /// flags.  A non-blocking lock is used to avoid deadlocks.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the diagnostic information is appended.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included.
+        /// </param>
         //
         // BUGFIX: *DEADLOCK* Prevent deadlocks here by using the TryLock
         //         pattern.
@@ -1233,6 +1635,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the native utility library
+        /// synchronization lock without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, set to non-zero if the lock was acquired; otherwise,
+        /// false.
+        /// </param>
         public static void TryLock(
             ref bool locked
             )
@@ -1245,6 +1655,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the native utility library synchronization lock
+        /// if it is currently held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is held.  Upon return, set to false
+        /// once the lock has been released.
+        /// </param>
         public static void ExitLock(
             ref bool locked
             )
@@ -1261,6 +1679,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native utility library for its version
+        /// string by calling the native version entry point, using a
+        /// non-blocking lock to avoid deadlocks.
+        /// </summary>
+        /// <returns>
+        /// The version string reported by the native utility library, or null
+        /// if it is unavailable or the lock could not be acquired.
+        /// </returns>
         private static string GetVersion()
         {
             bool locked = false;
@@ -1310,6 +1737,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether use of the native utility library has
+        /// been prohibited, either via interpreter creation flags or via global
+        /// configuration.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to consult; if null, the active interpreter
+        /// is used.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library has been disabled; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsDisabled(
             Interpreter interpreter
             )
@@ -1339,6 +1779,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the native utility library is
+        /// available for use, loading and validating it on first use and
+        /// caching the result so the (potentially expensive) determination is
+        /// performed at most once.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when loading and validating the
+        /// library, if any.  This parameter is optional.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library is available; otherwise, false.
+        /// </returns>
         public static bool IsAvailable(
             Interpreter interpreter /* OPTIONAL */
             )
@@ -1519,6 +1972,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the cached availability state of the native
+        /// utility library, optionally unloading the library and clearing the
+        /// lockout, so that availability will be re-determined.  This method is
+        /// not used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when unloading the library, if any.
+        /// </param>
+        /// <param name="available">
+        /// The new cached availability value; null to force re-determination on
+        /// next use.
+        /// </param>
+        /// <param name="unload">
+        /// Non-zero to unload the native utility library.
+        /// </param>
+        /// <param name="unlock">
+        /// Non-zero to clear the loading lockout.
+        /// </param>
+        /// <returns>
+        /// True if the availability state was successfully reset; otherwise,
+        /// false.
+        /// </returns>
         private static bool ResetAvailable( /* NOT USED */
             Interpreter interpreter,
             bool? available,
@@ -1555,6 +2031,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a human-readable description of the native
+        /// utility library version or status, using a non-blocking lock to
+        /// avoid deadlocks.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when determining availability, if any.
+        /// </param>
+        /// <returns>
+        /// The native utility library version string when available; otherwise,
+        /// one of the status strings <c>disabled</c>, <c>unavailable</c>, or
+        /// <c>locked</c>.
+        /// </returns>
         //
         // BUGFIX: *DEADLOCK* Prevent deadlocks here by using the TryLock
         //         pattern.
@@ -1591,6 +2080,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified string into a list of elements
+        /// using the native utility library, appending the resulting elements
+        /// to the specified list.
+        /// </summary>
+        /// <param name="text">
+        /// The string to split into list elements.
+        /// </param>
+        /// <param name="list">
+        /// On input, an optional existing list to append to; if null, a new
+        /// list is created.  Upon success, contains the resulting list
+        /// elements.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode SplitList(
             string text,
             ref StringList list,
@@ -1754,6 +2263,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements of the specified list into a single
+        /// string using the native utility library.
+        /// </summary>
+        /// <param name="list">
+        /// The list of elements to join.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the resulting joined string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode JoinList(
             StringList list,
             ref string text,
@@ -1856,6 +2382,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method configures the native memory heap used by the native
+        /// utility library by calling the corresponding native entry point.
+        /// </summary>
+        /// <param name="newHeap">
+        /// The handle of the heap that the native utility library should use.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode SetMemoryHeap(
             ref IntPtr newHeap,
             ref Result error

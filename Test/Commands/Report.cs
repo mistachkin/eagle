@@ -19,11 +19,23 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the test-only <c>report</c> command, which drives
+    /// the graphical test form by sending it alerts, status text, progress
+    /// updates, test results, and scripts to evaluate.
+    /// </summary>
     [ObjectId("28546edf-0060-401d-9de4-c38b3ac2a285")]
     [CommandFlags(CommandFlags.Unsafe)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Report : Default
     {
+        /// <summary>
+        /// Constructs an instance of the <c>report</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its name
+        /// and flags.  This parameter may be null.
+        /// </param>
         public Report(
             ICommandData commandData
             )
@@ -36,6 +48,9 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-commands supported by this command.
+        /// </summary>
         private EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "alert", "append", "clear", "progress", "result", "send"
@@ -43,6 +58,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the collection of sub-commands supported by this
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -53,6 +72,33 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>report</c> command, dispatching to the
+        /// requested sub-command (such as <c>alert</c>, <c>append</c>,
+        /// <c>clear</c>, <c>progress</c>, <c>result</c>, or <c>send</c>) to
+        /// drive the graphical test form.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the sub-command.  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

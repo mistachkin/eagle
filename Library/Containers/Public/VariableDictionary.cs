@@ -43,6 +43,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a dictionary that maps variable names to variables
+    /// (<see cref="IVariable" />); it backs the variable storage for a call
+    /// frame.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -50,6 +55,9 @@ namespace Eagle._Containers.Public
     public sealed class VariableDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty dictionary of variables.
+        /// </summary>
         public VariableDictionary()
             : base()
         {
@@ -58,6 +66,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a dictionary of variables that contains the entries copied
+        /// from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are copied into the new dictionary.
+        /// </param>
         public VariableDictionary(
             IDictionary<string, IVariable> dictionary
             )
@@ -70,6 +85,28 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new dictionary of variables by cloning the
+        /// entries of an existing dictionary, subject to the specified clone
+        /// flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when cloning variables and determining whether
+        /// a variable is special.  This parameter may be null.
+        /// </param>
+        /// <param name="oldDictionary">
+        /// The dictionary whose variables are cloned into the new dictionary.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the variables are cloned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The new dictionary on success; otherwise, null.
+        /// </returns>
         internal static VariableDictionary Create(
             Interpreter interpreter,
             IDictionary<string, IVariable> oldDictionary,
@@ -95,6 +132,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a dictionary of variables from previously serialized
+        /// data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context describing the source and destination of the
+        /// serialized data.
+        /// </param>
         private VariableDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -109,6 +157,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method returns a string representation of the variable names in
+        /// this dictionary, with the names separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names included in
+        /// the result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of the variable names in this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -125,6 +188,28 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method copies the variables from the specified dictionary into
+        /// this dictionary, cloning each variable and optionally skipping
+        /// special variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when cloning variables and determining whether
+        /// a variable is special.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary whose variables are copied into this dictionary.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the variables are cloned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private ReturnCode MaybeCopyFrom(
             Interpreter interpreter,
             IDictionary<string, IVariable> dictionary,
@@ -165,6 +250,36 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a variable to this dictionary, or updates the
+        /// existing variable that has the specified name, cloning or copying the
+        /// supplied variable as needed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when cloning variables and determining whether
+        /// a variable is special.  This parameter may be null.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to add or update.  This parameter may be
+        /// null, in which case an error is returned.
+        /// </param>
+        /// <param name="variable">
+        /// The variable whose value is added or used to update the existing
+        /// variable.  This parameter may be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame to associate with a newly cloned variable.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the variable is cloned or copied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal ReturnCode AddOrUpdate(
             Interpreter interpreter,
             string varName,
@@ -244,6 +359,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the usable, defined variables in
+        /// this dictionary whose read-only state matches the specified value
+        /// and whose names match the optional pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching variable names against the
+        /// pattern.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="readOnly">
+        /// The read-only state that a variable must have to be included.
+        /// </param>
+        /// <returns>
+        /// The list of matching variable names.
+        /// </returns>
         internal StringList GetReadOnly(
             Interpreter interpreter,
             string pattern,
@@ -283,6 +417,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the read-only state of the usable, defined
+        /// variables in this dictionary whose names match the optional pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching variable names against the
+        /// pattern.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="readOnly">
+        /// The read-only state to set on the matching variables.
+        /// </param>
+        /// <returns>
+        /// The number of variables whose read-only state was changed.
+        /// </returns>
         internal int SetReadOnly(
             Interpreter interpreter,
             string pattern,
@@ -325,6 +477,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of defined variables in this
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The number of defined variables in this dictionary.
+        /// </returns>
         internal int GetDefinedCount()
         {
             int result = 0;
@@ -347,6 +506,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the defined variables in this
+        /// dictionary whose names match the optional pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching variable names against the
+        /// pattern.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The list of matching defined variable names.
+        /// </returns>
         internal StringList GetDefined(
             Interpreter interpreter,
             string pattern
@@ -379,6 +553,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the undefined state of the usable variables in this
+        /// dictionary whose names match the optional pattern.  This method is
+        /// exempt from the normal requirement that the variables be defined.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching variable names against the
+        /// pattern.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="undefined">
+        /// The undefined state to set on the matching variables.
+        /// </param>
+        /// <returns>
+        /// The number of variables whose undefined state was changed.
+        /// </returns>
         internal int SetUndefined(
             Interpreter interpreter,
             string pattern,
@@ -425,6 +618,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the local variables in this
+        /// dictionary whose names match the optional pattern, excluding
+        /// undefined variables, links, and variables belonging to the global or
+        /// a namespace call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when matching variable names against the
+        /// pattern and identifying global and namespace call frames.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the variable names.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The list of matching local variable names.
+        /// </returns>
         internal StringList GetLocals(
             Interpreter interpreter,
             string pattern
@@ -474,6 +685,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a list describing the variables in this
+        /// dictionary that have watchpoint flags set; each entry is a two
+        /// element sub-list of the variable name and its watch types.
+        /// </summary>
+        /// <returns>
+        /// The list of variable names and their watch types.
+        /// </returns>
         internal StringList GetWatchpoints()
         {
             StringList result = new StringList();
@@ -505,6 +724,13 @@ namespace Eagle._Containers.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method creates a new dictionary of variables that is a copy of
+        /// this dictionary.
+        /// </summary>
+        /// <returns>
+        /// The new dictionary that is a copy of this dictionary.
+        /// </returns>
         private VariableDictionary Copy()
         {
             //
@@ -516,6 +742,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the old dictionary the variables whose
+        /// names are not present in the new dictionary.
+        /// </summary>
+        /// <param name="oldDictionary">
+        /// The dictionary from which missing variables are removed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="newDictionary">
+        /// The dictionary whose keys determine which variables are retained.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="removed">
+        /// Receives the running count of variables removed, incremented by the
+        /// number removed by this call.
+        /// </param>
         private void Remove(
             IDictionary<string, IVariable> oldDictionary, /* in */
             IDictionary<string, IVariable> newDictionary, /* in */
@@ -562,6 +804,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears this dictionary and then replaces its contents
+        /// with the entries from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are committed into this dictionary.
+        /// This parameter may be null.
+        /// </param>
         private void Commit(
             IDictionary<string, IVariable> dictionary /* in, out */
             )
@@ -582,6 +832,51 @@ namespace Eagle._Containers.Public
         //       uses transactional semantics.  Figure out how to handle any
         //       variables that use non-standard variable traces.
         //
+        /// <summary>
+        /// This method merges the variables from the specified dictionary into
+        /// this dictionary, optionally overwriting existing variables, removing
+        /// missing variables, and treating existence or non-existence as an
+        /// error.  The merge is performed on a working copy that is committed
+        /// only if it succeeds.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose variables are merged into this dictionary.
+        /// This parameter may be null, in which case an error is returned.
+        /// </param>
+        /// <param name="overwriteOld">
+        /// Non-zero to overwrite variables that already exist in this
+        /// dictionary.
+        /// </param>
+        /// <param name="removeMissing">
+        /// Non-zero to remove variables from this dictionary that are not
+        /// present in the supplied dictionary.
+        /// </param>
+        /// <param name="errorOnExist">
+        /// Non-zero to return an error if a variable being merged already
+        /// exists.
+        /// </param>
+        /// <param name="errorOnNotExist">
+        /// Non-zero to return an error if a variable being merged does not
+        /// already exist.
+        /// </param>
+        /// <param name="added">
+        /// Receives the running count of variables added, incremented by the
+        /// number added by this call.
+        /// </param>
+        /// <param name="changed">
+        /// Receives the running count of variables changed, incremented by the
+        /// number changed by this call.
+        /// </param>
+        /// <param name="removed">
+        /// Receives the running count of variables removed, incremented by the
+        /// number removed by this call.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal ReturnCode Merge(
             IDictionary<string, IVariable> dictionary, /* in */
             bool overwriteOld,                         /* in */
@@ -678,6 +973,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of the variable names in
+        /// this dictionary, with the names separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the variable names in this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

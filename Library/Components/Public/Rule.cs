@@ -23,6 +23,15 @@ using _StringPair = System.Collections.Generic.KeyValuePair<string, string>;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents a single matching rule, pairing a rule type, an
+    /// identifier kind, a match mode, and a set of patterns (with their
+    /// associated regular expression options and string comparer) so that an
+    /// identifier can be tested for inclusion or exclusion.  A rule may be
+    /// created directly or parsed from a dictionary-style string via the static
+    /// factory methods, and it carries an optional identifier and client data.
+    /// It implements <see cref="IRule" /> and is cloneable.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -33,11 +42,22 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value used to determine whether missing dictionary
+        /// values are permitted when parsing a rule.
+        /// </summary>
         internal static bool DefaultAllowMissing = true;
+        /// <summary>
+        /// The default value used to determine whether extra (unsupported)
+        /// dictionary values are permitted when parsing a rule.
+        /// </summary>
         internal static bool DefaultAllowExtra = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// A shared, pre-built rule instance that carries no values.
+        /// </summary>
         internal static readonly IRule Empty = new Rule(
             null, RuleType.None, IdentifierKind.None, MatchMode.None,
             RegexOptions.None, null, null, false);
@@ -47,12 +67,28 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The cached collection of all supported dictionary field names, keyed
+        /// by name, used to validate parsed rules.
+        /// </summary>
         private static StringDictionary allFieldNames = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a rule by copying the values from the specified existing
+        /// rule.
+        /// </summary>
+        /// <param name="rule">
+        /// The existing rule whose values are copied.  This parameter may be
+        /// null, in which case no values are copied.
+        /// </param>
+        /// <param name="deepCopy">
+        /// Non-zero to make a copy of the pattern list rather than sharing the
+        /// existing one.
+        /// </param>
         internal Rule(
             IRule rule,
             bool deepCopy
@@ -73,6 +109,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a rule from the fully specified set of values.
+        /// </summary>
+        /// <param name="id">
+        /// The optional unique identifier of this rule.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="type">
+        /// The type of this rule.
+        /// </param>
+        /// <param name="kind">
+        /// The identifier kind that this rule applies to.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode used by this rule.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when matching patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of patterns associated with this rule.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="comparer">
+        /// The optional string comparer used when matching patterns.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="deepCopy">
+        /// Non-zero to make a copy of the pattern list rather than sharing the
+        /// supplied one.
+        /// </param>
         internal Rule(
             long? id,
             RuleType type,
@@ -101,6 +168,20 @@ namespace Eagle._Components.Public
         //
         // WARNING: For use by constructors only.
         //
+        /// <summary>
+        /// This method returns the pattern collection to store on a rule,
+        /// optionally making a copy of it.  For use by constructors only.
+        /// </summary>
+        /// <param name="patterns">
+        /// The collection of patterns.  This parameter may be null.
+        /// </param>
+        /// <param name="deepCopy">
+        /// Non-zero to return a copy of the pattern collection rather than the
+        /// supplied one.
+        /// </param>
+        /// <returns>
+        /// The pattern collection to store, or null when none was supplied.
+        /// </returns>
         private static IEnumerable<string> GetPatterns(
             IEnumerable<string> patterns, /* in: OPTIONAL */
             bool deepCopy                 /* in */
@@ -122,6 +203,31 @@ namespace Eagle._Components.Public
         //
         // WARNING: For use by static factory methods only.
         //
+        /// <summary>
+        /// This method sets the supplied parameters to the default values used
+        /// when parsing a rule.  For use by static factory methods only.
+        /// </summary>
+        /// <param name="id">
+        /// On output, receives the default identifier (null).
+        /// </param>
+        /// <param name="type">
+        /// On output, receives the default rule type.
+        /// </param>
+        /// <param name="kind">
+        /// On output, receives the default identifier kind.
+        /// </param>
+        /// <param name="mode">
+        /// On output, receives the default match mode.
+        /// </param>
+        /// <param name="regExOptions">
+        /// On output, receives the default regular expression options.
+        /// </param>
+        /// <param name="patterns">
+        /// On output, receives the default pattern list (null).
+        /// </param>
+        /// <param name="comparer">
+        /// On output, receives the default string comparer (null).
+        /// </param>
         private static void SetDefaultValues(
             out long? id,                  /* out */
             out RuleType type,             /* out */
@@ -146,6 +252,18 @@ namespace Eagle._Components.Public
         //
         // WARNING: For use by static factory methods only.
         //
+        /// <summary>
+        /// This method populates the cached collection of all supported
+        /// dictionary field names, used to validate parsed rules.  For use by
+        /// static factory methods only.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to repopulate the collection even when it has already been
+        /// populated.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the existing collection before repopulating it.
+        /// </param>
         private static void InitializeAllFieldNames(
             bool force, /* in */
             bool clear  /* in */
@@ -172,6 +290,23 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a rule by parsing the specified dictionary-style
+        /// string, using the default policy for missing and extra dictionary
+        /// values.
+        /// </summary>
+        /// <param name="text">
+        /// The dictionary-style string to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing values.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The newly created rule, or null if the string could not be parsed.
+        /// </returns>
         internal static IRule Create(
             string text,             /* in */
             CultureInfo cultureInfo, /* in */
@@ -185,6 +320,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a rule by parsing the specified dictionary-style
+        /// string, using the specified policy for missing and extra dictionary
+        /// values.
+        /// </summary>
+        /// <param name="text">
+        /// The dictionary-style string to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing values.  This parameter may be null.
+        /// </param>
+        /// <param name="allowMissing">
+        /// Non-zero to permit required dictionary values to be missing; zero to
+        /// fail when a required value is absent.
+        /// </param>
+        /// <param name="allowExtra">
+        /// Non-zero to permit extra (unsupported) dictionary values; zero to
+        /// fail when an unsupported value is present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The newly created rule, or null if the string could not be parsed.
+        /// </returns>
         internal static IRule Create(
             string text,             /* in */
             CultureInfo cultureInfo, /* in */
@@ -387,7 +547,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this rule.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with this rule.
+        /// </summary>
         public IClientData ClientData
         {
             get { return clientData; }
@@ -398,7 +564,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IRuleData Members
+        /// <summary>
+        /// The optional unique identifier of this rule.
+        /// </summary>
         private long? id;
+        /// <summary>
+        /// Gets the optional unique identifier of this rule.
+        /// </summary>
         public long? Id
         {
             get { return id; }
@@ -406,7 +578,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The type of this rule.
+        /// </summary>
         private RuleType type;
+        /// <summary>
+        /// Gets the type of this rule.
+        /// </summary>
         public RuleType Type
         {
             get { return type; }
@@ -414,7 +592,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The identifier kind that this rule applies to.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets the identifier kind that this rule applies to.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { return kind; }
@@ -422,7 +606,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The match mode used by this rule.
+        /// </summary>
         private MatchMode mode;
+        /// <summary>
+        /// Gets the match mode used by this rule.
+        /// </summary>
         public MatchMode Mode
         {
             get { return mode; }
@@ -430,7 +620,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression options used when matching patterns.
+        /// </summary>
         private RegexOptions regExOptions;
+        /// <summary>
+        /// Gets the regular expression options used when matching patterns.
+        /// </summary>
         public RegexOptions RegExOptions
         {
             get { return regExOptions; }
@@ -438,7 +634,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The collection of patterns associated with this rule.
+        /// </summary>
         private IEnumerable<string> patterns;
+        /// <summary>
+        /// Gets the collection of patterns associated with this rule.
+        /// </summary>
         public IEnumerable<string> Patterns
         {
             get { return patterns; }
@@ -446,7 +648,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The optional string comparer used when matching patterns.
+        /// </summary>
         private IComparer<string> comparer;
+        /// <summary>
+        /// Gets the optional string comparer used when matching patterns.
+        /// </summary>
         public IComparer<string> Comparer
         {
             get { return comparer; }
@@ -456,6 +664,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// This method creates a deep copy of this rule, including a copy of its
+        /// pattern list.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this rule.
+        /// </returns>
         public object Clone()
         {
             //
@@ -473,6 +688,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IRule Members
+        /// <summary>
+        /// This method sets the optional unique identifier of this rule.
+        /// </summary>
+        /// <param name="id">
+        /// The identifier to set.  This parameter may be null.
+        /// </param>
         public void SetId(
             long? id /* in */
             )
@@ -482,6 +703,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this rule's action flags include the
+        /// action flags of the specified match mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The match mode whose action flags are tested against this rule's
+        /// action flags.
+        /// </param>
+        /// <returns>
+        /// True if the specified mode has no action flags or this rule's action
+        /// flags include them; otherwise, false.
+        /// </returns>
         public bool MatchAction(
             MatchMode mode /* in */
             )
@@ -499,6 +732,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method builds the dictionary-style string representation of this
+        /// rule, including only the values that differ from their defaults.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this rule.
+        /// </returns>
         public override string ToString()
         {
             StringList list = new StringList();

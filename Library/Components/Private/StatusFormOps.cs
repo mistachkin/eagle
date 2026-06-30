@@ -40,14 +40,40 @@ using SFCD = Eagle._Components.Private.StatusFormOps.StatusFormClientData;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the static methods used to create, manage, update,
+    /// and tear down the optional Windows Forms based status form (and its
+    /// background status thread) associated with an interpreter.
+    /// </summary>
     [ObjectId("903b723a-5915-475b-a75b-f6f5ae1879a1")]
     internal static class StatusFormOps
     {
         #region StatusFormClientData Helper Class
+        /// <summary>
+        /// This class holds the client data carried by a status form, associating
+        /// it with its interpreter and the event used to signal that the
+        /// associated status thread should stop.
+        /// </summary>
         [ObjectId("83575c8c-7d93-4679-9427-ce4fbdf613c7")]
         internal sealed class StatusFormClientData : ClientData, IGetInterpreter
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class using the specified opaque data,
+            /// interpreter, and done event.
+            /// </summary>
+            /// <param name="data">
+            /// The opaque, caller-defined data to associate with this client data.
+            /// This parameter may be null.
+            /// </param>
+            /// <param name="interpreter">
+            /// The interpreter to associate with this client data. This parameter may
+            /// be null.
+            /// </param>
+            /// <param name="doneEvent">
+            /// The event used to signal that the associated status thread should
+            /// stop. This parameter may be null.
+            /// </param>
             public StatusFormClientData(
                 object data,              /* in: OPTIONAL */
                 Interpreter interpreter,  /* in: OPTIONAL */
@@ -63,7 +89,15 @@ namespace Eagle._Components.Private
             //////////////////////////////////////////////////////////////////
 
             #region Public Properties
+            /// <summary>
+            /// The event used to signal that the status thread associated with this
+            /// client data should stop, or null if there is none.
+            /// </summary>
             private EventWaitHandle doneEvent;
+            /// <summary>
+            /// Gets the event used to signal that the status thread associated with
+            /// this client data should stop.
+            /// </summary>
             public EventWaitHandle DoneEvent
             {
                 get { return doneEvent; }
@@ -73,7 +107,14 @@ namespace Eagle._Components.Private
             //////////////////////////////////////////////////////////////////
 
             #region IGetInterpreter Members
+            /// <summary>
+            /// The interpreter associated with this client data, or null if there is
+            /// none.
+            /// </summary>
             private Interpreter interpreter;
+            /// <summary>
+            /// Gets the interpreter associated with this client data.
+            /// </summary>
             public Interpreter Interpreter
             {
                 get { return interpreter; }
@@ -85,6 +126,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Keyboard Event Handlers Helper Class
+        /// <summary>
+        /// This class contains the keyboard event handler callbacks used by the
+        /// status form, along with the method used to populate the keyboard event
+        /// map with them.
+        /// </summary>
         [ObjectId("533e3415-7235-428c-b59a-e5873129d70d")]
         private static class KeyEventCallbacks
         {
@@ -94,6 +140,11 @@ namespace Eagle._Components.Private
             //       true -AND- the e.SuppressKeyPress property to be left
             //       alone.
             //
+            /// <summary>
+            /// The default result triplet returned by the keyboard event handler
+            /// callbacks in this class; it leaves the handled state alone while
+            /// requesting that the key press be suppressed.
+            /// </summary>
             private static FormEventResultTriplet DefaultResult =
                 new AnyTriplet<bool?, bool?, ReturnCode?>(null, true, null);
             #endregion
@@ -101,6 +152,16 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method populates the specified keyboard event map with the
+            /// keyboard event handler callbacks provided by this class, creating the
+            /// map when necessary.
+            /// </summary>
+            /// <param name="keyEventMap">
+            /// Upon input, the keyboard event map to populate; when null, a new map
+            /// is created. Upon output, this parameter receives the populated
+            /// keyboard event map.
+            /// </param>
             public static void Initialize(
                 ref KeyOps.KeyEventMap keyEventMap /* in, out */
                 )
@@ -239,6 +300,22 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Eagle._Components.Public.Delegates.FormEventCallback Methods
+            /// <summary>
+            /// This method handles the keyboard event used to select all of the text
+            /// within the status form text box.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet SelectText(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -254,6 +331,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to deselect all of the
+            /// text within the status form text box.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet DeselectText(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -269,6 +362,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to toggle the read-only
+            /// state of the status form text box.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet ToggleReadOnlyText(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -284,6 +393,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to clear the text within
+            /// the status form text box, after prompting the user for confirmation.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet ClearText(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -315,6 +440,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to close the status form
+            /// (stopping its status thread), after prompting the user for
+            /// confirmation.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet StopThread(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -342,6 +484,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to evaluate the script
+            /// contained in the status form text box, replacing the text with the
+            /// formatted result.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet EvaluateText(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -391,6 +550,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method handles the keyboard event used to dispose of the
+            /// interpreter associated with the status form, after prompting the user
+            /// for confirmation.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet DisposeInterpreter(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -431,6 +607,22 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+            /// <summary>
+            /// This method handles the keyboard event used to cancel all running
+            /// scripts in the interpreter, after prompting the user for confirmation.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet ConsoleCancelEventHandler(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -457,6 +649,23 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if SHELL
+            /// <summary>
+            /// This method handles the keyboard event used to start a new interactive
+            /// loop thread for the interpreter, after prompting the user for
+            /// confirmation.
+            /// </summary>
+            /// <param name="eventType">
+            /// The type of keyboard event being handled.
+            /// </param>
+            /// <param name="sender">
+            /// The object that raised the keyboard event. This parameter may be null.
+            /// </param>
+            /// <param name="e">
+            /// The data associated with the keyboard event. This parameter may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// </returns>
             private static FormEventResultTriplet CreateInteractiveLoopThread(
                 EventType eventType, /* in */
                 object sender,       /* in */
@@ -498,29 +707,59 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The format string used to construct the title text of the status form.
+        /// </summary>
         private const string NameFormat =
             "Status: {0} interpreter {1}, process {2}, thread {3}, domain {4}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to build the confirmation prompt shown before
+        /// clearing the status form.
+        /// </summary>
         private const string clearPromptFormat =
             "clear status form {0}: are you sure?";
 
+        /// <summary>
+        /// The format string used to build the confirmation prompt shown before
+        /// closing the status form.
+        /// </summary>
         private const string closePromptFormat =
             "close status form {0}: are you sure?";
 
+        /// <summary>
+        /// The format string used to build the confirmation prompt shown before
+        /// disposing of the interpreter.
+        /// </summary>
         private const string disposePromptFormat =
             "dispose of interpreter {0} immediately: are you sure?";
 
+        /// <summary>
+        /// The format string used to build the confirmation prompt shown before
+        /// canceling all running scripts.
+        /// </summary>
         private const string cancelPromptFormat =
             "immediately cancel all running scripts: are you sure?";
 
+        /// <summary>
+        /// The format string used to build the confirmation prompt shown before
+        /// starting a new interactive loop thread.
+        /// </summary>
         private const string shellPromptFormat =
             "start new interactive loop thread: are you sure?";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The expected primary status level for the status thread.
+        /// </summary>
         private const int PrimaryLevels = 1;
+        /// <summary>
+        /// The expected secondary status level used when updating the status form
+        /// text box.
+        /// </summary>
         private const int SecondaryLevels = 3;
         #endregion
 
@@ -530,6 +769,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// Non-zero while the process is still running; this value is decremented
+        /// to zero when the process (or AppDomain) is exiting.
+        /// </summary>
         private static int ProcessRunning = 1;
 
         ///////////////////////////////////////////////////////////////////////
@@ -537,7 +780,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The number of microseconds to wait during each iteration of the status
+        /// thread loop.
+        /// </summary>
         private static int LoopWaitMicroseconds = 15000; // 15ms
+        /// <summary>
+        /// The number of milliseconds to wait after submitting a status update
+        /// request.
+        /// </summary>
         private static int RequestWaitMilliseconds = 100;
 
         ///////////////////////////////////////////////////////////////////////
@@ -545,8 +796,20 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The number of milliseconds to sleep between iterations while waiting
+        /// for the status form to be disposed.
+        /// </summary>
         private static int DisposeSleepMilliseconds = 25;
+        /// <summary>
+        /// The minimum number of milliseconds to wait for the status form to be
+        /// disposed, or null if there is no minimum.
+        /// </summary>
         private static int? DisposeMinimumMilliseconds = null;
+        /// <summary>
+        /// The maximum number of milliseconds to wait for the status form to be
+        /// disposed, or null if there is no maximum.
+        /// </summary>
         private static int? DisposeMaximumMilliseconds = 500;
 
         ///////////////////////////////////////////////////////////////////////
@@ -554,6 +817,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When true, failures encountered while stopping the status thread are
+        /// not reported.
+        /// </summary>
         private static bool NoComplain = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -561,7 +828,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When true, Win32 events are always processed before waiting during
+        /// each iteration of the status thread loop.
+        /// </summary>
         private static bool ForcePreEvents = false;
+        /// <summary>
+        /// When true, the status form ignores the done event and stays open.
+        /// </summary>
         private static bool ForceStayOpen = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -569,6 +843,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When true, diagnostic tracing is enabled for the waits performed by
+        /// the status thread.
+        /// </summary>
         private static bool TraceWait = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -576,8 +854,17 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default width, in pixels, of the status form.
+        /// </summary>
         private static int DefaultWidth = 600;
+        /// <summary>
+        /// The default height, in pixels, of the status form.
+        /// </summary>
         private static int DefaultHeight = 300;
+        /// <summary>
+        /// The multiplier applied to a font size when producing a larger font.
+        /// </summary>
         private static int BiggerFontSizeMultiplier = 2;
 
         ///////////////////////////////////////////////////////////////////////
@@ -585,6 +872,9 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default font size, in points, used for the status form text box.
+        /// </summary>
         private static float DefaultFontSize = 8.25f;
 
         ///////////////////////////////////////////////////////////////////////
@@ -592,7 +882,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default top-most setting used for the status form.
+        /// </summary>
         private static bool DefaultTopMost = false;
+        /// <summary>
+        /// The default setting that indicates whether the status form may be
+        /// closed by the user.
+        /// </summary>
         private static bool DefaultCanClose = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -604,8 +901,19 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When true, the status form uses DPI-based automatic scaling.
+        /// </summary>
         private static bool UseAutoScaleDpi = false;
+        /// <summary>
+        /// The DPI dimensions to force for automatic scaling, or null to detect
+        /// them.
+        /// </summary>
         private static SizeF? ForceAutoScaleDpi = null;
+        /// <summary>
+        /// The DPI dimensions to use for automatic scaling when they cannot be
+        /// detected, or null if there are none.
+        /// </summary>
         private static SizeF? FallbackAutoScaleDpi = null;
 #endif
 
@@ -614,8 +922,20 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When true, the active interpreter is used as a fallback when no
+        /// interpreter can be located for a sender.
+        /// </summary>
         private static bool UseActiveInterpreter = false;
+        /// <summary>
+        /// When true, the keyboard hot-keys associated with the status form are
+        /// enabled.
+        /// </summary>
         private static bool AllowHotKeys = false;
+        /// <summary>
+        /// When true, a missing status done event name is treated as an error
+        /// when stopping the status thread.
+        /// </summary>
         private static bool StrictStopThread = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -624,6 +944,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The native window type used as the owner of the message boxes shown by
+        /// the status form.
+        /// </summary>
         private static NativeWindowType ownerWindowType =
             NativeWindowType.None;
 #endif
@@ -634,6 +958,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used to synchronize access to the static class
         //       data defined below this point.
         //
+        /// <summary>
+        /// The object used to synchronize access to the static class data defined
+        /// below it.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -641,12 +969,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is the set of keyboard mappings for this AppDomain.
         //
+        /// <summary>
+        /// The set of keyboard event mappings for this AppDomain.
+        /// </summary>
         private static KeyOps.KeyEventMap keyEventMap;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static Initialization Support Methods
+        /// <summary>
+        /// This method performs static, one-time initialization for this class.
+        /// </summary>
         public static void Initialize()
         {
             InitializeKeyEventCallbacks();
@@ -654,6 +988,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the keyboard event map used by the status form
+        /// with its associated keyboard event handler callbacks.
+        /// </summary>
         private static void InitializeKeyEventCallbacks()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -669,6 +1007,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the Interpreter.GetHostInterpreterInfo method.
         //
+        /// <summary>
+        /// This method adds rows describing the current status form settings to
+        /// the specified list, for introspection purposes.
+        /// </summary>
+        /// <param name="list">
+        /// Upon input, the list to which the descriptive rows are added. Upon
+        /// output, this list contains the added rows. This parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail to include.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -795,6 +1144,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IKeyEventManager Support Methods
+        /// <summary>
+        /// This method gets the keyboard event map for this AppDomain.
+        /// </summary>
+        /// <returns>
+        /// The keyboard event map for this AppDomain, or null if there is none.
+        /// </returns>
         public static KeyOps.KeyEventMap GetKeyEventMap()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -805,6 +1160,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the keyboard event map for this AppDomain.
+        /// </summary>
+        /// <param name="keyEventMap">
+        /// The keyboard event map to use for this AppDomain. This parameter may
+        /// be null.
+        /// </param>
         public static void SetKeyEventMap(
             KeyOps.KeyEventMap keyEventMap /* in */
             )
@@ -817,6 +1179,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the current keyboard event map, optionally resetting
+        /// it to a new, empty map.
+        /// </summary>
+        /// <param name="reset">
+        /// Non-zero to reset the keyboard event map to a new, empty map after
+        /// saving it.
+        /// </param>
+        /// <param name="savedKeyEventMap">
+        /// Upon output, this parameter receives the saved keyboard event map.
+        /// </param>
         public static void SaveKeyEventMap(
             bool reset,                 /* in */
             ref object savedKeyEventMap /* out */
@@ -833,6 +1206,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores a previously saved keyboard event map.
+        /// </summary>
+        /// <param name="savedKeyEventMap">
+        /// Upon input, the keyboard event map to restore. Upon output, this
+        /// parameter is reset to null.
+        /// </param>
         public static void RestoreKeyEventMap(
             ref object savedKeyEventMap /* in, out */
             )
@@ -848,6 +1228,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Handler Helper Methods
+        /// <summary>
+        /// This method gets the status form text box associated with the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status form text box is needed. This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The status form text box for the interpreter, or null if there is
+        /// none.
+        /// </returns>
         public static TextBox GetTextBox(
             Interpreter interpreter /* in */
             )
@@ -860,6 +1252,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the window to use as the owner for the message boxes
+        /// shown by the status form, based on the specified sender.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that originated the request. This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The window to use as the message box owner, or null if there is none.
+        /// </returns>
         private static IWin32Window GetWin32WindowFromSender(
             object sender /* in */
             )
@@ -895,6 +1297,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate the interpreter associated with the
+        /// specified sender.
+        /// </summary>
+        /// <param name="sender">
+        /// The object from which to locate the interpreter. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="noForm">
+        /// Non-zero to skip locating the interpreter via the status form
+        /// associated with the sender.
+        /// </param>
+        /// <returns>
+        /// The interpreter associated with the sender, or null if one cannot be
+        /// located.
+        /// </returns>
         private static Interpreter GetInterpreterFromSender(
             object sender, /* in */
             bool noForm    /* in */
@@ -943,6 +1361,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate the status form associated with the
+        /// specified sender.
+        /// </summary>
+        /// <param name="sender">
+        /// The object from which to locate the status form. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="noInterpreter">
+        /// Non-zero to skip locating the status form via the interpreter
+        /// associated with the sender.
+        /// </param>
+        /// <returns>
+        /// The status form associated with the sender, or null if one cannot be
+        /// located.
+        /// </returns>
         private static Form GetFormFromSender(
             object sender,     /* in */
             bool noInterpreter /* in */
@@ -982,6 +1416,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate the status form text box associated
+        /// with the specified sender.
+        /// </summary>
+        /// <param name="sender">
+        /// The object from which to locate the status form text box. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The status form text box associated with the sender, or null if one
+        /// cannot be located.
+        /// </returns>
         private static TextBox GetTextBoxFromSender(
             object sender /* in */
             )
@@ -1024,6 +1470,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Windows.Forms.Form Event Handlers
+        /// <summary>
+        /// This method handles the key-up event raised by the status form,
+        /// dispatching it through the configured keyboard event handlers.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that originated this event. This parameter may be null.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the key-up event. This parameter may be null.
+        /// </param>
         private static void HandleKeyUp(
             object sender, /* in */
             KeyEventArgs e /* in */
@@ -1060,6 +1516,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the event raised when the status form has been
+        /// closed, stopping the associated status thread.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that originated this event. This parameter may be null.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the form-closed event. This parameter may be
+        /// null.
+        /// </param>
         private static void HandleClosed(
             object sender,        /* in */
             FormClosedEventArgs e /* in */
@@ -1080,6 +1547,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the event raised when the status form has been
+        /// disposed, marking the status of the active interpreter as disposed.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that originated this event. This parameter may be null.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with this event. This parameter may be null.
+        /// </param>
         private static void HandleDisposed(
             object sender,
             EventArgs e
@@ -1098,6 +1575,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Process Event Handlers
+        /// <summary>
+        /// This method records that the process (or AppDomain) is exiting by
+        /// decrementing the running process count.
+        /// </summary>
         public static void Exit()
         {
             int localProcessRunning = Interlocked.Decrement(
@@ -1112,6 +1593,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Threading.ParameterizedThreadStart Callbacks
+        /// <summary>
+        /// This method is the entry point for the status thread; it creates the
+        /// status form and runs its message loop until the status thread is
+        /// signaled to stop.
+        /// </summary>
+        /// <param name="obj">
+        /// The state object passed to the thread; it is expected to be a triplet
+        /// carrying the interpreter and the optional close and top-most settings.
+        /// This parameter may be null.
+        /// </param>
         private static void ThreadStart(
             object obj /* in */
             ) /* System.Threading.ParameterizedThreadStart */
@@ -1421,6 +1912,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Exit Handler Support Methods
+        /// <summary>
+        /// This method registers the handler used to detect when the AppDomain or
+        /// process is exiting, unless that behavior has been disabled via
+        /// configuration.
+        /// </summary>
         private static void AddExitedEventHandler()
         {
             if (!GlobalConfiguration.DoesValueExist(
@@ -1447,6 +1943,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the handler used to detect when the AppDomain or
+        /// process is exiting.
+        /// </summary>
         private static void RemoveExitedEventHandler()
         {
             AppDomain appDomain = AppDomainOps.GetCurrent();
@@ -1462,6 +1962,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the AppDomain unload or process exit event by
+        /// recording that the process is exiting and removing itself as a
+        /// handler.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that originated this event. This parameter may be null.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with this event. This parameter may be null.
+        /// </param>
         private static void StatusFormOps_Exited(
             object sender, /* in */
             EventArgs e    /* in */
@@ -1478,6 +1989,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Threading.Thread Methods
+        /// <summary>
+        /// This method constructs the name of the start or done event used to
+        /// coordinate with the status thread for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the event name is constructed. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="done">
+        /// Non-zero to construct the name of the done event; otherwise, the name
+        /// of the start event is constructed.
+        /// </param>
+        /// <returns>
+        /// The constructed event name.
+        /// </returns>
         private static string GetEventName(
             Interpreter interpreter, /* in */
             bool done                /* in */
@@ -1490,6 +2016,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the name to use for the status thread
+        /// associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the thread name is constructed. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed thread name, or null if the interpreter is null.
+        /// </returns>
         private static string GetThreadName(
             Interpreter interpreter /* in */
             )
@@ -1504,6 +2041,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the optional status form start flags from the
+        /// specified client data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data containing the packed start flags. This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="canClose">
+        /// Upon output, this parameter receives the optional value indicating
+        /// whether the status form may be closed by the user.
+        /// </param>
+        /// <param name="topMost">
+        /// Upon output, this parameter receives the optional top-most value for
+        /// the status form.
+        /// </param>
+        /// <param name="allowHotKeys">
+        /// Upon output, this parameter receives the optional value indicating
+        /// whether the keyboard hot-keys are enabled.
+        /// </param>
         public static void GetStartFlags(
             IClientData clientData, /* in */
             out bool? canClose,     /* out */
@@ -1534,6 +2091,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the status thread for the specified
+        /// interpreter is still alive and making progress.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status thread is checked. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="timeout">
+        /// The number of milliseconds to wait while checking the status thread
+        /// for progress.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the status thread appears to be alive;
+        /// otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CheckThread(
             Interpreter interpreter, /* in */
             int timeout,             /* in */
@@ -1576,6 +2152,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and starts the status thread (and its status form)
+        /// for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the status thread is started. This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The number of milliseconds to wait for the status thread to signal
+        /// that it has started, or null to not wait.
+        /// </param>
+        /// <param name="canClose">
+        /// The optional value indicating whether the status form may be closed by
+        /// the user.
+        /// </param>
+        /// <param name="topMost">
+        /// The optional top-most value for the status form.
+        /// </param>
+        /// <param name="allowHotKeys">
+        /// The optional value indicating whether the keyboard hot-keys are
+        /// enabled.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the status thread was started
+        /// successfully; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode StartThread(
             Interpreter interpreter, /* in */
             int? timeout,            /* in */
@@ -1742,6 +2348,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the minimum number of milliseconds to wait for the
+        /// status form to be disposed.
+        /// </summary>
+        /// <returns>
+        /// The minimum number of milliseconds to wait, or null if there is no
+        /// minimum.
+        /// </returns>
         private static int? GetDisposeMinimumMilliseconds()
         {
             //
@@ -1752,6 +2366,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the maximum number of milliseconds to wait for the
+        /// status form to be disposed.
+        /// </summary>
+        /// <returns>
+        /// The maximum number of milliseconds to wait, or null if there is no
+        /// maximum.
+        /// </returns>
         private static int? GetDisposeMaximumMilliseconds()
         {
             //
@@ -1762,6 +2384,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an operation on the status form should
+        /// be performed synchronously.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional, explicit synchronous setting; when null, the setting is
+        /// inferred from the interpreter.
+        /// </param>
+        /// <returns>
+        /// True if the operation should be performed synchronously; otherwise,
+        /// false.
+        /// </returns>
         private static bool GetSynchronous(
             Interpreter interpreter, /* in: OPTIONAL */
             bool? synchronous        /* in: OPTIONAL */
@@ -1778,6 +2416,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes events on the current thread until the status
+        /// form has been disposed or the configured time limits are reached.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status form is being disposed. This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="sleepMilliseconds">
+        /// The number of milliseconds to sleep between iterations, or a negative
+        /// value to skip sleeping.
+        /// </param>
+        /// <param name="minimumMilliseconds">
+        /// The minimum number of milliseconds to wait, or null if there is no
+        /// minimum.
+        /// </param>
+        /// <param name="maximumMilliseconds">
+        /// The maximum number of milliseconds to wait, or null if there is no
+        /// maximum.
+        /// </param>
         private static void WaitOnDisposed(
             Interpreter interpreter,  /* in */
             int sleepMilliseconds,    /* in */
@@ -1931,6 +2589,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stops the status thread for the specified interpreter,
+        /// discarding any error information. This method overload delegates to
+        /// the primary overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status thread is stopped. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether to wait for the status thread to
+        /// exit.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the status thread was stopped
+        /// successfully; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode StopThread(
             Interpreter interpreter, /* in */
             bool? synchronous        /* in */
@@ -1943,6 +2618,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stops the status thread for the specified interpreter,
+        /// optionally waiting for it to exit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status thread is stopped. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether to wait for the status thread to
+        /// exit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the status thread was stopped
+        /// successfully; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode StopThread(
             Interpreter interpreter, /* in */
             bool? synchronous,       /* in */
@@ -2141,6 +2835,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stops the status thread for the specified interpreter,
+        /// complaining about any failure unless complaints have been disabled.
+        /// This method overload delegates to the primary overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status thread is stopped. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether to wait for the status thread to
+        /// exit.
+        /// </param>
         private static void StopThreadOrMaybeComplain(
             Interpreter interpreter, /* in */
             bool? synchronous        /* in */
@@ -2153,6 +2860,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stops the status thread for the specified interpreter,
+        /// optionally complaining about any failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status thread is stopped. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether to wait for the status thread to
+        /// exit.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress complaints about any failure encountered while
+        /// stopping the status thread.
+        /// </param>
         private static void StopThreadOrMaybeComplain(
             Interpreter interpreter, /* in */
             bool? synchronous,       /* in */
@@ -2172,6 +2895,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Status Text Handling Methods
+        /// <summary>
+        /// This method waits for the specified interpreter to become ready,
+        /// tracing any error that occurs. This method overload delegates to the
+        /// primary overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to wait for. This parameter may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The number of milliseconds to wait, or zero to not wait.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to enable diagnostic tracing for the wait.
+        /// </param>
+        /// <returns>
+        /// True if the wait succeeded; otherwise, false.
+        /// </returns>
         private static bool MaybeWaitFor(
             Interpreter interpreter, /* in */
             int timeout,             /* in */
@@ -2199,6 +2939,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified interpreter to become ready.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to wait for. This parameter may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The number of milliseconds to wait, or zero to not wait.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to enable diagnostic tracing for the wait.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the wait succeeded; otherwise, false.
+        /// </returns>
         private static bool MaybeWaitFor(
             Interpreter interpreter, /* in */
             int timeout,             /* in */
@@ -2222,6 +2980,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the text within the status form text box for the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status form text box is cleared. This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether the operation should be
+        /// performed synchronously.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, <see
+        /// cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Clear(
             Interpreter interpreter, /* in */
             bool? synchronous,       /* in */
@@ -2280,6 +3057,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified text to the status form text box for
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose status form text box is appended to. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The text to append to the status form text box. This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="synchronous">
+        /// The optional value indicating whether the operation should be
+        /// performed synchronously.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, <see
+        /// cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Report(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -2340,6 +3140,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods (System.Windows.Forms)
+        /// <summary>
+        /// This method creates and configures the text box used by the status
+        /// form.
+        /// </summary>
+        /// <param name="emSize">
+        /// The em-size, in points, used for the text box font.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The newly created text box, or null if it could not be created.
+        /// </returns>
         private static TextBox CreateTextBox(
             float emSize,    /* in */
             ref Result error /* out */
@@ -2386,6 +3199,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the title text used for the status form
+        /// associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the title text is constructed. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed title text.
+        /// </returns>
         private static string GetText(
             Interpreter interpreter /* in */
             )
@@ -2400,6 +3224,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DRAWING
+        /// <summary>
+        /// This method determines the DPI dimensions to use for automatic scaling
+        /// of the status form.
+        /// </summary>
+        /// <param name="control">
+        /// The control used to detect the DPI dimensions, when necessary. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The DPI dimensions to use for automatic scaling, or null if none could
+        /// be determined.
+        /// </returns>
         private static SizeF? GetAutoScaleDpi(
             Control control /* in */
             )
@@ -2426,6 +3262,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the status form (and its text box), optionally
+        /// showing it.
+        /// </summary>
+        /// <param name="text">
+        /// The title text for the status form. This parameter may be null.
+        /// </param>
+        /// <param name="tag">
+        /// The opaque object to associate with the status form. This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="emSize">
+        /// The em-size, in points, used for the text box font.
+        /// </param>
+        /// <param name="canClose">
+        /// Non-zero if the status form may be closed by the user.
+        /// </param>
+        /// <param name="topMost">
+        /// Non-zero to make the status form top-most.
+        /// </param>
+        /// <param name="show">
+        /// Non-zero to show the status form after creating it.
+        /// </param>
+        /// <param name="form">
+        /// Upon success, this parameter receives the created status form.
+        /// </param>
+        /// <param name="textBox">
+        /// Upon success, this parameter receives the created status form text
+        /// box.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, <see
+        /// cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode Create(
             string text,         /* in: OPTIONAL */
             object tag,          /* in: OPTIONAL */
@@ -2541,6 +3414,21 @@ namespace Eagle._Components.Private
 
         #region System.Drawing.Font Methods
 #if DRAWING
+        /// <summary>
+        /// This method computes a larger font size based on the specified font or
+        /// em-size.
+        /// </summary>
+        /// <param name="font">
+        /// The font whose size is used when no em-size is supplied. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="emSize">
+        /// The optional em-size, in points, to use as the basis for the
+        /// computation.
+        /// </param>
+        /// <returns>
+        /// The computed larger font size, in points.
+        /// </returns>
         private static float BiggerFontSize(
             Font font,    /* in */
             float? emSize /* in */
@@ -2557,6 +3445,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a font from the specified font, family, and em-
+        /// size.
+        /// </summary>
+        /// <param name="font">
+        /// The font whose style and other attributes are reused, when supplied.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="family">
+        /// The font family to use, when supplied. This parameter may be null.
+        /// </param>
+        /// <param name="emSize">
+        /// The em-size, in points, for the new font.
+        /// </param>
+        /// <returns>
+        /// The newly created font.
+        /// </returns>
         private static Font MakeFont(
             Font font,         /* in */
             FontFamily family, /* in */

@@ -21,6 +21,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class compares and tests for equality pairs of values (instances
+    /// of <see cref="IPair{T}" />), using the configured
+    /// <see cref="PairComparison" /> mode to select which element (the X or Y
+    /// component) of each pair participates in the comparison.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The type of the elements contained by the pairs being compared.
+    /// </typeparam>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -28,15 +37,40 @@ namespace Eagle._Comparers
     internal sealed class Pair<T> : IComparer<IPair<T>>, IEqualityComparer<IPair<T>>
     {
         #region Private Data
+        /// <summary>
+        /// The mode that selects which element of each pair (the X or Y
+        /// component) is used when comparing or testing for equality.
+        /// </summary>
         private PairComparison comparisonType;
+
+        /// <summary>
+        /// The comparer used to order the selected pair elements, or null to
+        /// use the default comparer for the element type.
+        /// </summary>
         private IComparer<T> comparer;
+
+        /// <summary>
+        /// The equality comparer used to test the selected pair elements for
+        /// equality and to compute hash codes, or null to use the default
+        /// equality comparer for the element type.
+        /// </summary>
         private IEqualityComparer<T> equalityComparer;
+
+        /// <summary>
+        /// When true, an unrecognized comparison mode causes a
+        /// <see cref="ScriptException" /> to be thrown instead of returning a
+        /// default result.
+        /// </summary>
         private bool throwOnError;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class with no comparison mode, no
+        /// custom comparers, and error throwing disabled.
+        /// </summary>
         private Pair()
         {
             this.comparisonType = PairComparison.None;
@@ -49,6 +83,18 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class using the specified comparison
+        /// mode and the default comparers for the element type.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The mode that selects which element of each pair is used when
+        /// comparing or testing for equality.
+        /// </param>
+        /// <param name="throwOnError">
+        /// When true, an unrecognized comparison mode causes a
+        /// <see cref="ScriptException" /> to be thrown.
+        /// </param>
         public Pair(
             PairComparison comparisonType,
             bool throwOnError
@@ -61,6 +107,27 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified comparison
+        /// mode and the specified custom comparers.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The mode that selects which element of each pair is used when
+        /// comparing or testing for equality.
+        /// </param>
+        /// <param name="comparer">
+        /// The comparer used to order the selected pair elements, or null to
+        /// use the default comparer for the element type.
+        /// </param>
+        /// <param name="equalityComparer">
+        /// The equality comparer used to test the selected pair elements for
+        /// equality and to compute hash codes, or null to use the default
+        /// equality comparer for the element type.
+        /// </param>
+        /// <param name="throwOnError">
+        /// When true, an unrecognized comparison mode causes a
+        /// <see cref="ScriptException" /> to be thrown.
+        /// </param>
         public Pair(
             PairComparison comparisonType,
             IComparer<T> comparer,
@@ -77,6 +144,23 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IComparer<IPair<T>> Members
+        /// <summary>
+        /// Compares two pairs and returns a value indicating their relative
+        /// order, using the configured comparison mode to select which element
+        /// of each pair is compared.  A null pair sorts before a non-null pair.
+        /// </summary>
+        /// <param name="left">
+        /// The first pair to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second pair to compare.
+        /// </param>
+        /// <returns>
+        /// Less than zero if <paramref name="left" /> is less than
+        /// <paramref name="right" />, zero if they are equal, and greater than
+        /// zero if <paramref name="left" /> is greater than
+        /// <paramref name="right" />.
+        /// </returns>
         public int Compare(
             IPair<T> left,
             IPair<T> right
@@ -130,6 +214,19 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<IPair<T>> Members
+        /// <summary>
+        /// Determines whether two pairs are equal, using the configured
+        /// comparison mode to select which element of each pair is tested.
+        /// </summary>
+        /// <param name="left">
+        /// The first pair to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second pair to compare.
+        /// </param>
+        /// <returns>
+        /// True if the pairs are considered equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             IPair<T> left,
             IPair<T> right
@@ -177,6 +274,17 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Returns a hash code for the specified pair, using the configured
+        /// comparison mode to select which element (or combination of elements)
+        /// of the pair contributes to the hash code.
+        /// </summary>
+        /// <param name="value">
+        /// The pair for which a hash code is to be computed.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified pair, or zero if it is null.
+        /// </returns>
         public int GetHashCode(
             IPair<T> value
             )

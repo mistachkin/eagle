@@ -16,11 +16,19 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class provides comparison and equality comparison for
+    /// <see cref="IInterpreter" /> instances, based on their interpreter
+    /// identifiers.
+    /// </summary>
     [ObjectId("79ebb9fb-9a30-48da-9ed6-1505c6aba10f")]
     internal sealed class _Interpreter :
             IComparer<IInterpreter>, IEqualityComparer<IInterpreter>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class.
+        /// </summary>
         public _Interpreter()
         {
             // do nothing.
@@ -30,6 +38,25 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<IInterpreter> Members
+        /// <summary>
+        /// This method compares two <see cref="IInterpreter" /> instances by
+        /// their interpreter identifiers.
+        /// </summary>
+        /// <param name="left">
+        /// The first <see cref="IInterpreter" /> instance to compare. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="right">
+        /// The second <see cref="IInterpreter" /> instance to compare. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Zero if the instances are equal, a negative number if
+        /// <paramref name="left" /> sorts before <paramref name="right" />, or a
+        /// positive number if <paramref name="left" /> sorts after
+        /// <paramref name="right" />. A null instance sorts before a non-null
+        /// instance.
+        /// </returns>
         public int Compare(
             IInterpreter left,
             IInterpreter right
@@ -58,6 +85,21 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<IInterpreter> Members
+        /// <summary>
+        /// This method determines whether two <see cref="IInterpreter" />
+        /// instances are equal, based on their interpreter identifiers.
+        /// </summary>
+        /// <param name="left">
+        /// The first <see cref="IInterpreter" /> instance to compare. This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="right">
+        /// The second <see cref="IInterpreter" /> instance to compare. This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the two instances are equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             IInterpreter left,
             IInterpreter right
@@ -84,6 +126,18 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a hash code for the specified
+        /// <see cref="IInterpreter" /> instance, based on its interpreter
+        /// identifier.
+        /// </summary>
+        /// <param name="value">
+        /// The <see cref="IInterpreter" /> instance to compute a hash code for.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified instance, or zero if it is null.
+        /// </returns>
         public int GetHashCode(
             IInterpreter value
             )

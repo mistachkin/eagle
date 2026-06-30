@@ -51,6 +51,12 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the support routines used to implement the
+    /// interactive shell commands available within the interactive loop,
+    /// including command access control, command resolution, and command
+    /// dispatch.
+    /// </summary>
     [ObjectId("3d994484-cb72-4c34-acbb-f74fd0509f14")]
     internal static class InteractiveOps
     {
@@ -61,7 +67,17 @@ namespace Eagle._Components.Private
         // NOTE: Used by the interpreter host to set its title based on the
         //       currently selected evaluation mode.
         //
+        /// <summary>
+        /// The title text used by the interpreter host when the native Tcl
+        /// evaluation mode is currently selected.
+        /// </summary>
         private static readonly string TclInteractiveMode = "native Tcl mode";
+
+        /// <summary>
+        /// The title text used by the interpreter host when the (default)
+        /// Eagle evaluation mode is currently selected; a null value
+        /// indicates that no special title text is used.
+        /// </summary>
         private static readonly string EagleInteractiveMode = null;
 #endif
 
@@ -73,6 +89,12 @@ namespace Eagle._Components.Private
         //       space left to write the complete output using the currently
         //       selected style (e.g. the internal call to WriteBox failed).
         //
+        /// <summary>
+        /// The error message issued when an attempt to write formatted
+        /// information to the interpreter host fails, typically because
+        /// there is not enough space left to write the complete output
+        /// using the currently selected style.
+        /// </summary>
         private static readonly string HostWriteInfoError =
             "failed to write formatted information to host " +
             "(perhaps there is no space left?), please use " +
@@ -85,6 +107,11 @@ namespace Eagle._Components.Private
         //       scope) to hold the result of the last interactive command.  It is
         //       used by the interactive "#sresult" command.
         //
+        /// <summary>
+        /// The default script variable name, within the current scope, used
+        /// to hold the result of the last interactive command; it is used by
+        /// the interactive "#sresult" command.
+        /// </summary>
         private static readonly string DefaultResultVarName = "__result";
 
         ///////////////////////////////////////////////////////////////////////////
@@ -93,23 +120,52 @@ namespace Eagle._Components.Private
         // NOTE: By default, should a "safe" interpreter be allowed to execute an
         //       interactive command that is not also considered "safe"?
         //
+        /// <summary>
+        /// The default value indicating whether a "safe" interpreter should
+        /// be allowed to execute an interactive command that is not also
+        /// considered "safe".
+        /// </summary>
         private static readonly bool DefaultAllowAllCommands = false;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////
 
 #if HISTORY && SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// The default file name used when loading or saving the interactive
+        /// command history.
+        /// </summary>
         private static readonly string DefaultHistoryFileName =
             "history" + FileExtension.Script;
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default history data used when loading the interactive command
+        /// history; a null value indicates that no specific data is used.
+        /// </summary>
         private static readonly IHistoryData DefaultHistoryLoadData = null;
+
+        /// <summary>
+        /// The default history data used when saving the interactive command
+        /// history; a null value indicates that no specific data is used.
+        /// </summary>
         private static readonly IHistoryData DefaultHistorySaveData = null;
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default history filter used when loading the interactive
+        /// command history; a null value indicates that no filtering is
+        /// performed.
+        /// </summary>
         private static readonly IHistoryFilter DefaultHistoryLoadFilter = null;
+
+        /// <summary>
+        /// The default history filter used when saving the interactive
+        /// command history; a null value indicates that no filtering is
+        /// performed.
+        /// </summary>
         private static readonly IHistoryFilter DefaultHistorySaveFilter = null;
 #endif
         #endregion
@@ -118,14 +174,28 @@ namespace Eagle._Components.Private
 
         #region Private Data
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The global override controlling whether "safe" interpreters may
+        /// execute all interactive commands; a null value indicates that the
+        /// default value should be used.
+        /// </summary>
         private static bool? alwaysAllowAllCommands;
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached mapping of interactive command names to their
+        /// associated command flags; it remains null until it is lazily
+        /// initialized.
+        /// </summary>
         private static CommandFlagsDictionary allCommandFlags;
 #endif
         #endregion
@@ -134,6 +204,15 @@ namespace Eagle._Components.Private
 
         #region Interactive Command Access Control Methods
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method determines whether all interactive commands should
+        /// always be allowed to execute, even from within a "safe"
+        /// interpreter.
+        /// </summary>
+        /// <returns>
+        /// True if all interactive commands should always be allowed to
+        /// execute; otherwise, false.
+        /// </returns>
         private static bool ShouldAlwaysAllowAllCommands()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -147,6 +226,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the global override that allows
+        /// all interactive commands to be executed from within "safe"
+        /// interpreters, optionally displaying a status prompt.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to display a status prompt, if any.
+        /// May be null.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to allow all interactive commands to be executed from
+        /// within "safe" interpreters; zero to disallow it.
+        /// </param>
         private static void EnableAlwaysAllowAllCommands(
             Interpreter interpreter, /* in */
             bool enable              /* in */
@@ -187,6 +279,35 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the lock is already held.
         //
+        /// <summary>
+        /// This method populates the cache that maps interactive command
+        /// names to their associated command flags, using the public static
+        /// methods of the specified type.  This method assumes the lock is
+        /// already held.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose public static methods are scanned for their
+        /// associated command flags.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to rebuild the cache even if it has already been
+        /// populated.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear any existing cached entries before (re)populating
+        /// the cache.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to overwrite an existing cache entry for a command name
+        /// that is already present; zero to keep the entry already present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode InitializeCommandFlags(
             Type type,
             bool force,
@@ -259,6 +380,25 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the lock is already held.
         //
+        /// <summary>
+        /// This method attempts to look up the command flags associated with
+        /// the specified interactive command name.  This method assumes the
+        /// lock is already held.
+        /// </summary>
+        /// <param name="command">
+        /// The interactive command name to look up.
+        /// </param>
+        /// <param name="commandFlags">
+        /// Upon success, receives the command flags associated with the
+        /// specified command name; upon failure, receives
+        /// <see cref="CommandFlags.None" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the command flags were found; otherwise, false.
+        /// </returns>
         private static bool TryGetCommandFlags(
             string command,                /* in */
             out CommandFlags commandFlags, /* out */
@@ -287,6 +427,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interactive command
+        /// is allowed to execute within the specified interpreter, taking
+        /// into account whether the interpreter is "safe" and whether the
+        /// global override allowing all commands is in effect.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the interactive command would be
+        /// executed.  May be null.
+        /// </param>
+        /// <param name="command">
+        /// The name of the interactive command to check.  It may include the
+        /// interactive command prefix.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about why access was denied.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command is allowed to execute; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsAccessAllowed(
             Interpreter interpreter, /* in */
             string command,          /* in */
@@ -343,6 +504,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a previously captured interactive command
+        /// access error to the specified interactive host, clearing it
+        /// afterward.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to which the access error should be written.
+        /// May be null.
+        /// </param>
+        /// <param name="accessError">
+        /// The access error to write.  Upon return, this is reset to null
+        /// when it has been written.
+        /// </param>
         private static void WriteAccessError(
             IInteractiveHost interactiveHost, /* in */
             ref Result accessError            /* in, out */
@@ -363,6 +537,17 @@ namespace Eagle._Components.Private
 
         #region Interactive Command Helper Methods
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method determines whether interactive command dispatch
+        /// tracing is currently enabled for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose interactive loop flags are checked.
+        /// May be null.
+        /// </param>
+        /// <returns>
+        /// True if interactive command tracing is enabled; otherwise, false.
+        /// </returns>
         private static bool ShouldTraceCommand(
             Interpreter interpreter /* in */
             )
@@ -380,6 +565,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace message describing an
+        /// interactive command dispatch operation, when such tracing is
+        /// enabled.
+        /// </summary>
+        /// <param name="tracePrefix">
+        /// A short label describing the point at which this trace message is
+        /// being emitted.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the interactive command.
+        /// May be null.
+        /// </param>
+        /// <param name="text">
+        /// The raw interactive command text being processed.
+        /// </param>
+        /// <param name="command">
+        /// The name of the interactive command being checked, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the interactive command, if any.
+        /// </param>
+        /// <param name="usePrefix">
+        /// Non-zero if the interactive command prefix is being applied to the
+        /// command name.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero if exact interactive command name matching is being used.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero if verbose diagnostic output is enabled.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments associated with the interactive command, if any.
+        /// </param>
+        /// <param name="accessError">
+        /// The access error associated with the interactive command, if any.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the interactive command, if any.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the interactive command, if any.
+        /// </param>
         private static void TraceCommand(
             string tracePrefix,      /* in */
             Interpreter interpreter, /* in */
@@ -415,6 +644,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve the first argument as an
+        /// interactive command, locating the entity that would execute it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve the interactive command.
+        /// May be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments whose first element is the interactive command name
+        /// to resolve.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when resolving the interactive command.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, receives the resolved interactive command name.
+        /// </param>
+        /// <param name="execute">
+        /// Upon success, receives the entity capable of executing the
+        /// resolved interactive command.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command was resolved; otherwise, false.
+        /// </returns>
         private static bool ResolveCommand(
             Interpreter interpreter, /* in */
             ArgumentList arguments,  /* in */
@@ -479,6 +733,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the engine flags, interactive engine flags,
+        /// substitution flags, event flags, expression flags, and result
+        /// limits to their default values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to obtain the default result limits.
+        /// May be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Upon return, receives the default engine flags.
+        /// </param>
+        /// <param name="interactiveCommandsEnabled">
+        /// Upon return, receives a value indicating whether interactive
+        /// commands are enabled.
+        /// </param>
+        /// <param name="interactiveEngineFlags">
+        /// Upon return, receives the default interactive engine flags.
+        /// </param>
+        /// <param name="interactiveSubstitutionFlags">
+        /// Upon return, receives the default interactive substitution flags.
+        /// </param>
+        /// <param name="interactiveEventFlags">
+        /// Upon return, receives the default interactive event flags.
+        /// </param>
+        /// <param name="interactiveExpressionFlags">
+        /// Upon return, receives the default interactive expression flags.
+        /// </param>
+        /// <param name="interactiveExecuteResultLimit">
+        /// Upon return, receives the default result length limit used for
+        /// interactive command execution.
+        /// </param>
+        /// <param name="interactiveNestedResultLimit">
+        /// Upon return, receives the default result length limit used for
+        /// nested interactive command execution.
+        /// </param>
         public static void ResetFlagsAndLimits(
             Interpreter interpreter,                            /* in */
             out EngineFlags engineFlags,                        /* out */
@@ -510,6 +800,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////
 
 #if RESULT_LIMITS
+        /// <summary>
+        /// This method queries the current engine flags, interactive engine
+        /// flags, substitution flags, event flags, and expression flags for
+        /// the specified interpreter, discarding the associated result
+        /// limits.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to query.  May be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Upon return, receives the current engine flags.
+        /// </param>
+        /// <param name="interactiveCommandsEnabled">
+        /// Upon return, receives a value indicating whether interactive
+        /// commands are enabled.
+        /// </param>
+        /// <param name="interactiveEngineFlags">
+        /// Upon return, receives the current interactive engine flags.
+        /// </param>
+        /// <param name="interactiveSubstitutionFlags">
+        /// Upon return, receives the current interactive substitution flags.
+        /// </param>
+        /// <param name="interactiveEventFlags">
+        /// Upon return, receives the current interactive event flags.
+        /// </param>
+        /// <param name="interactiveExpressionFlags">
+        /// Upon return, receives the current interactive expression flags.
+        /// </param>
         private static void QueryFlagsAndLimits(
             Interpreter interpreter,                            /* in */
             out EngineFlags engineFlags,                        /* out */
@@ -534,6 +852,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the current engine flags, interactive engine
+        /// flags, substitution flags, event flags, expression flags, and
+        /// result limits for the specified interpreter, falling back to the
+        /// default values when no interpreter is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to query.  May be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// Upon return, receives the current engine flags.
+        /// </param>
+        /// <param name="interactiveCommandsEnabled">
+        /// Upon return, receives a value indicating whether interactive
+        /// commands are enabled.
+        /// </param>
+        /// <param name="interactiveEngineFlags">
+        /// Upon return, receives the current interactive engine flags.
+        /// </param>
+        /// <param name="interactiveSubstitutionFlags">
+        /// Upon return, receives the current interactive substitution flags.
+        /// </param>
+        /// <param name="interactiveEventFlags">
+        /// Upon return, receives the current interactive event flags.
+        /// </param>
+        /// <param name="interactiveExpressionFlags">
+        /// Upon return, receives the current interactive expression flags.
+        /// </param>
+        /// <param name="interactiveExecuteResultLimit">
+        /// Upon return, receives the current result length limit used for
+        /// interactive command execution.
+        /// </param>
+        /// <param name="interactiveNestedResultLimit">
+        /// Upon return, receives the current result length limit used for
+        /// nested interactive command execution.
+        /// </param>
         private static void QueryFlagsAndLimits(
             Interpreter interpreter,                            /* in */
             out EngineFlags engineFlags,                        /* out */
@@ -576,6 +930,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve and execute the specified
+        /// arguments as an interactive extension command, using the
+        /// interactive engine, substitution, event, and expression flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve and execute the
+        /// interactive command.  May be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments whose first element is the interactive command name
+        /// to execute.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the interactive command, if any.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require exact interactive command name matching.
+        /// </param>
+        /// <param name="code">
+        /// Upon return, receives the return code produced by executing the
+        /// interactive command.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by executing the
+        /// interactive command.
+        /// </param>
+        /// <returns>
+        /// True if an interactive extension command was resolved and
+        /// executed; otherwise, false.
+        /// </returns>
         private static bool ExecuteCommand(
             Interpreter interpreter, /* in */
             ArgumentList arguments,  /* in */
@@ -693,6 +1078,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally performs substitution on the specified
+        /// text when it appears to contain an interactive command and
+        /// substitution has not been disabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to perform substitution.  May be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The interactive command text on which substitution may be
+        /// performed.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags used to determine whether substitution is
+        /// disabled.
+        /// </param>
+        /// <param name="interactiveEngineFlags">
+        /// The interactive engine flags used to perform substitution and to
+        /// determine whether substitution is disabled.
+        /// </param>
+        /// <param name="interactiveSubstitutionFlags">
+        /// The interactive substitution flags used to perform substitution.
+        /// </param>
+        /// <param name="interactiveEventFlags">
+        /// The interactive event flags used to perform substitution.
+        /// </param>
+        /// <param name="interactiveExpressionFlags">
+        /// The interactive expression flags used to perform substitution.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to emit a diagnostic trace message upon failure.  Upon
+        /// return, this may be reset to zero so that the error is only
+        /// reported once per interactive command entered.
+        /// </param>
+        /// <returns>
+        /// True if substitution succeeded or was not required; otherwise,
+        /// false.
+        /// </returns>
         private static bool MaybeSubstituteString(
             Interpreter interpreter,                        /* in */
             string text,                                    /* in */
@@ -777,6 +1201,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////
 
 #if HISTORY
+        /// <summary>
+        /// This method conditionally adds the specified interactive command
+        /// arguments to the command history of the interpreter, when history
+        /// recording is enabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose command history may be updated.  May
+        /// be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The interactive command arguments to add to the command history.
+        /// </param>
         private static void MaybeAddCommandToHistory(
             Interpreter interpreter, /* in */
             ArgumentList arguments   /* in */
@@ -792,6 +1228,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first element of the specified
+        /// argument list matches either of the specified interactive command
+        /// names.
+        /// </summary>
+        /// <param name="arguments">
+        /// The argument list whose first element is compared against the
+        /// command names.
+        /// </param>
+        /// <param name="normalCommand">
+        /// The normal interactive command name to match against.
+        /// </param>
+        /// <param name="systemCommand">
+        /// The system interactive command name to match against.
+        /// </param>
+        /// <returns>
+        /// True if the first argument matches one of the specified command
+        /// names; otherwise, false.
+        /// </returns>
         private static bool MatchCommand(
             IList arguments,
             string normalCommand,
@@ -814,6 +1269,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interactive command
+        /// text is permitted to execute, taking into account whether
+        /// interactive commands are enabled and whether the text looks like
+        /// an interactive system command.
+        /// </summary>
+        /// <param name="text">
+        /// The interactive command text to check.
+        /// </param>
+        /// <param name="interactiveCommandsEnabled">
+        /// Non-zero if interactive commands are currently enabled.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command is permitted to execute;
+        /// otherwise, false.
+        /// </returns>
         private static bool CanExecuteCommand(
             string text,
             bool interactiveCommandsEnabled
@@ -830,6 +1301,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the specified text represents the
+        /// specified interactive command, dispatching it as an external
+        /// interactive command when appropriate.  This overload uses local
+        /// default values for the additional tracking parameters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the interactive command is
+        /// checked.  May be null.
+        /// </param>
+        /// <param name="text">
+        /// The raw interactive command text to check.
+        /// </param>
+        /// <param name="command">
+        /// The name of the interactive command to check for, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the interactive command, if any.
+        /// </param>
+        /// <param name="usePrefix">
+        /// Non-zero to apply the interactive command prefix to the command
+        /// name being checked.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require exact interactive command name matching.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command was matched or handled; otherwise,
+        /// false.
+        /// </returns>
         public static bool CheckCommand(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -853,6 +1354,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the specified text represents the
+        /// specified interactive command, optionally performing substitution,
+        /// dispatching it as an external interactive command, and recording
+        /// it in the command history when appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the interactive command is
+        /// checked.  May be null.
+        /// </param>
+        /// <param name="text">
+        /// The raw interactive command text to check.
+        /// </param>
+        /// <param name="command">
+        /// The name of the interactive command to check for, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the interactive command, if any.
+        /// </param>
+        /// <param name="usePrefix">
+        /// Non-zero to apply the interactive command prefix to the command
+        /// name being checked.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require exact interactive command name matching.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to emit diagnostic trace and substitution error messages.
+        /// Upon return, this may be updated to suppress repeated error
+        /// reporting.
+        /// </param>
+        /// <param name="arguments">
+        /// The pre-existing interactive command arguments, if any.  Upon
+        /// return, this may receive the arguments parsed from the interactive
+        /// command text.
+        /// </param>
+        /// <param name="accessError">
+        /// Upon return, receives information about an interactive command
+        /// access error, if any.
+        /// </param>
+        /// <param name="code">
+        /// Upon return, receives the return code produced by executing the
+        /// interactive command, if any.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by executing the
+        /// interactive command, if any.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command was matched or handled; otherwise,
+        /// false.
+        /// </returns>
         private static bool CheckCommand(
             Interpreter interpreter,    /* in */
             string text,                /* in */
@@ -1226,6 +1779,144 @@ namespace Eagle._Components.Private
         //       variables that are local to the interactive loop itself when
         //       performing (some of the) interactive commands.
         //
+        /// <summary>
+        /// This method dispatches a single interactive command, executing the
+        /// appropriate built-in or external interactive command and updating
+        /// the interactive loop state accordingly.  It is tightly coupled to
+        /// the interactive loop, by design, because it must modify state
+        /// variables that are local to that loop.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the interactive command is
+        /// dispatched.  May be null.
+        /// </param>
+        /// <param name="loopData">
+        /// The interactive loop data describing the current state of the
+        /// interactive loop.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-null to override whether the interactive prompt should be
+        /// refreshed; null to use the default behavior.
+        /// </param>
+        /// <param name="noCommand">
+        /// Non-zero to skip dispatching the interactive command itself.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to enable diagnostic tracing of the interactive command
+        /// dispatch.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host used for input and output.  Upon return, this
+        /// may be updated to reflect a changed host.
+        /// </param>
+        /// <param name="text">
+        /// The raw interactive command text to dispatch.  Upon return, this
+        /// may be updated.
+        /// </param>
+        /// <param name="savedText">
+        /// The previously saved interactive command text.  Upon return, this
+        /// may be updated.
+        /// </param>
+        /// <param name="tclsh">
+        /// Non-zero if the native Tcl shell evaluation mode is active.  Upon
+        /// return, this may be updated.
+        /// </param>
+        /// <param name="savedTclsh">
+        /// Upon return, receives the saved native Tcl shell evaluation mode,
+        /// if any.
+        /// </param>
+        /// <param name="localEngineFlags">
+        /// The engine flags local to the interactive loop.  Upon return,
+        /// these may be updated.
+        /// </param>
+        /// <param name="localSubstitutionFlags">
+        /// The substitution flags local to the interactive loop.  Upon
+        /// return, these may be updated.
+        /// </param>
+        /// <param name="localEventFlags">
+        /// The event flags local to the interactive loop.  Upon return, these
+        /// may be updated.
+        /// </param>
+        /// <param name="localExpressionFlags">
+        /// The expression flags local to the interactive loop.  Upon return,
+        /// these may be updated.
+        /// </param>
+        /// <param name="localHeaderFlags">
+        /// The header flags local to the interactive loop.  Upon return,
+        /// these may be updated.
+        /// </param>
+        /// <param name="localDetailFlags">
+        /// The detail flags local to the interactive loop.  Upon return,
+        /// these may be updated.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require exact interactive command name matching.  Upon
+        /// return, this may be updated.
+        /// </param>
+        /// <param name="canceled">
+        /// Upon return, receives a value indicating whether the script in
+        /// progress was canceled.
+        /// </param>
+        /// <param name="notReady">
+        /// Upon return, receives a value indicating whether the interpreter
+        /// is not ready to continue.
+        /// </param>
+        /// <param name="parseError">
+        /// Upon return, receives information about a parsing error, if any.
+        /// </param>
+        /// <param name="localErrorLine">
+        /// The error line number local to the interactive loop.  Upon return,
+        /// this may be updated.
+        /// </param>
+        /// <param name="haveErrorLine">
+        /// Upon return, receives a value indicating whether an error line
+        /// number is available.
+        /// </param>
+        /// <param name="startedGcThread">
+        /// Upon return, receives a value indicating whether a garbage
+        /// collection thread was started.
+        /// </param>
+        /// <param name="tclInterpName">
+        /// The name of the native Tcl interpreter to use, if any.  Upon
+        /// return, this may be updated.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, receives a value indicating whether the interactive
+        /// loop should exit.
+        /// </param>
+        /// <param name="previous">
+        /// The value indicating whether the previous interactive command
+        /// produced output.  Upon return, this may be updated.
+        /// </param>
+        /// <param name="show">
+        /// Upon return, receives a value indicating whether the interactive
+        /// command result should be displayed.
+        /// </param>
+        /// <param name="forceCancel">
+        /// The value indicating whether script cancellation should be forced.
+        /// Upon return, this may be updated.
+        /// </param>
+        /// <param name="forceHalt">
+        /// The value indicating whether the interpreter halt should be
+        /// forced.  Upon return, this may be updated.
+        /// </param>
+        /// <param name="localCode">
+        /// The return code local to the interactive loop.  Upon return, this
+        /// may be updated with the return code produced by the interactive
+        /// command.
+        /// </param>
+        /// <param name="localResult">
+        /// The result local to the interactive loop.  Upon return, this may
+        /// be updated with the result produced by the interactive command.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this may be updated with the overall result of the
+        /// interactive command dispatch.
+        /// </param>
+        /// <returns>
+        /// True if the interactive command was processed (i.e. recognized and
+        /// handled); otherwise, false.
+        /// </returns>
         public static bool DispatchCommand(
             Interpreter interpreter,                      /* in */
             IInteractiveLoopData loopData,                /* in, out */
@@ -3804,11 +4495,19 @@ namespace Eagle._Components.Private
 
         #region Interactive Command Implementation Class
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This class contains the implementation methods for the built-in
+        /// interactive shell commands.
+        /// </summary>
         [ObjectId("bc7c0ee9-8677-4416-b1c4-e47437b209cb")]
         internal static class Commands
         {
             #region Public Interactive Command Methods
             #region Special Interactive Command Methods
+            /// <summary>
+            /// This method implements the "nop" interactive command, which
+            /// performs no action and exists only to carry command flags.
+            /// </summary>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void nop() /* NOTE: Needed for flags. */
@@ -3818,6 +4517,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "go" interactive command, which,
+            /// when debugging, exits the nested interactive loop so that script
+            /// evaluation can resume; otherwise, an error is reported.
+            /// </summary>
+            /// <param name="debug">
+            /// Non-zero if the interpreter is currently being debugged.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, set to non-zero to indicate that the nested
+            /// interactive loop should be exited.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void go(
@@ -3865,6 +4584,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "run" interactive command, which,
+            /// when debugging, disables all debugging features and exits the
+            /// nested interactive loop so that the script can run at full speed;
+            /// otherwise, an error is reported.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interpreter is currently being debugged.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, set to non-zero to indicate that the nested
+            /// interactive loop should be exited.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the result of the interactive command or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void run(
@@ -3950,6 +4693,69 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "break" interactive command, which
+            /// breaks into the debugger by starting a nested interactive loop.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.
+            /// </param>
+            /// <param name="token">
+            /// The script token associated with the current breakpoint, if any.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information associated with the current breakpoint, if
+            /// any.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The engine flags to use when entering the nested interactive
+            /// loop.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The substitution flags to use when entering the nested
+            /// interactive loop.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when entering the nested interactive
+            /// loop.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The expression flags to use when entering the nested interactive
+            /// loop.
+            /// </param>
+            /// <param name="localHeaderFlags">
+            /// The header flags to use when entering the nested interactive
+            /// loop.
+            /// </param>
+            /// <param name="clientData">
+            /// The client data associated with the interactive command, if any.
+            /// </param>
+            /// <param name="arguments">
+            /// The arguments associated with the interactive command, if any.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, set to non-zero to indicate that the nested
+            /// interactive loop should be exited.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the result of the interactive command or
+            /// error information.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives the overall return code to propagate to
+            /// the caller.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives the overall result to propagate to the
+            /// caller.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void _break(
@@ -4056,6 +4862,38 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "halt" interactive command, which,
+            /// when debugging, halts evaluation and exits the interactive
+            /// loop(s) returning failure to the caller; otherwise, an error is
+            /// reported.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interpreter is currently being debugged.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, set to non-zero to indicate that the nested
+            /// interactive loop should be exited.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the result of the interactive command or
+            /// error information.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives the overall return code to propagate to
+            /// the caller.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives the overall result to propagate to the
+            /// caller.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void halt(
@@ -4124,6 +4962,33 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "done" interactive command, which
+            /// exits the nested interactive loop and returns the specified (or
+            /// current) return code and result to the caller.
+            /// </summary>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional second and third elements specify the return code and
+            /// result to return to the caller.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, set to non-zero to indicate that the nested
+            /// interactive loop should be exited.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives error information on failure.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives the return code to return to the caller.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives the result to return to the caller.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void _done(
@@ -4208,6 +5073,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "exact" interactive command, which
+            /// toggles exact matching of interactive command names.
+            /// </summary>
+            /// <param name="exact">
+            /// On input, the current exact command name matching setting; upon
+            /// return, receives the toggled value.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new exact matching
+            /// setting.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void _exact(
@@ -4226,6 +5107,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "exit" interactive command, which
+            /// causes the process to exit.
+            /// </summary>
+            /// <param name="exit">
+            /// Upon return, set to non-zero to indicate that the process should
+            /// exit.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating that an interactive
+            /// exit was requested.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void exit(
@@ -4247,6 +5144,30 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////
 
             #region Normal Interactive Command Methods
+            /// <summary>
+            /// This method implements the "cmd" interactive command, which
+            /// launches a child operating system command processor (i.e.
+            /// ComSpec) shell for debugging.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// elements at index one and beyond comprise the command line to
+            /// execute.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when executing the child process.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void cmd(
@@ -4322,6 +5243,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "intsec" interactive command, which
+            /// enables or disables security for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugHost">
+            /// The debug host used to display the result of the operation, if
+            /// any.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional second element specifies whether security should be
+            /// enabled and the optional third element specifies whether the
+            /// change should be forced.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives null on success or error information on
+            /// failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void intsec(
@@ -4377,6 +5323,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "fmkeys" interactive command, which
+            /// fetches and merges the key ring for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugHost">
+            /// The debug host used to display the result of the operation, if
+            /// any.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional second element specifies whether the operation should be
+            /// forced.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives null on success or error information on
+            /// failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void fmkeys(
@@ -4420,6 +5390,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tclshrc" interactive command, which
+            /// launches a text editor for editing the shell startup file.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="fileSystemHost">
+            /// The file system host used to locate the shell startup file.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when executing the editor process.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tclshrc(
@@ -4553,6 +5547,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "website" interactive command, which
+            /// opens the assembly web site using the default shell handler.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when launching the web site.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void website(
@@ -4583,6 +5595,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "reset" interactive command, which
+            /// resets the internal debugging state to its initial defaults.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the debugger was reset
+            /// on success or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void reset(
@@ -4632,6 +5659,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "useattach" interactive command,
+            /// which toggles the attach setting of the default interactive host.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host whose attach setting should be toggled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new attach setting
+            /// on success or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void useattach(
@@ -4667,6 +5709,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "useforce" interactive command,
+            /// which toggles the force setting of the default interactive host.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host whose force setting should be toggled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new force setting
+            /// on success or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void useforce(
@@ -4702,6 +5759,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "color" interactive command, which
+            /// toggles colorized output for the interactive host.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host whose color setting should be toggled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new color setting
+            /// on success or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void color(
@@ -4737,6 +5809,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "exceptions" interactive command,
+            /// which toggles the display of exception details by the default
+            /// interactive host.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host whose exceptions setting should be toggled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new exceptions
+            /// setting on success or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void exceptions(
@@ -4772,6 +5860,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "testgc" interactive command, which
+            /// starts or stops the test garbage collection thread.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// second element specifies whether the test garbage collection
+            /// thread should be started.
+            /// </param>
+            /// <param name="startedGcThread">
+            /// Upon return, receives non-zero if the test garbage collection
+            /// thread was started or zero if it was stopped.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void testgc(
@@ -4835,6 +5946,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "hcancel" interactive command, which
+            /// queues a work item to cancel the interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating whether the work item
+            /// was queued or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void hcancel(
@@ -4870,6 +5996,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "hexit" interactive command, which
+            /// queues a work item to exit the interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating whether the work item
+            /// was queued or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void hexit(
@@ -4905,6 +6046,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "stable" interactive command, which
+            /// queries or sets whether the update check uses the stable release
+            /// path.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional second element specifies whether the stable update path
+            /// should be used.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the update path and query value on success
+            /// or error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void stable(
@@ -4962,6 +6124,44 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "check" interactive command, which
+            /// checks for available updates to the script engine.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional trailing elements specify the various options that
+            /// control how the update check is performed.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The engine flags to use when evaluating the update check script.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The substitution flags to use when evaluating the update check
+            /// script.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when evaluating the update check script.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The expression flags to use when evaluating the update check
+            /// script.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the result of the update check or error
+            /// information.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// Upon return, receives the line number where a script error
+            /// occurred, or zero if none.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void check(
@@ -5126,6 +6326,43 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "eval" interactive command, which
+            /// queues the remainder of the input text to be evaluated as a
+            /// normal script during the next iteration of the interactive loop.
+            /// </summary>
+            /// <param name="text">
+            /// The raw interactive input text being processed.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// elements at index one and beyond comprise the script to be
+            /// evaluated.
+            /// </param>
+            /// <param name="savedText">
+            /// Upon return, receives the input text to evaluate during the next
+            /// iteration of the interactive loop.
+            /// </param>
+            /// <param name="tclsh">
+            /// On input, the current tclsh emulation mode setting; upon return,
+            /// it may be set to false so that the saved text is not evaluated
+            /// using tclsh emulation mode.
+            /// </param>
+            /// <param name="savedTclsh">
+            /// Upon return, receives the saved tclsh emulation mode setting to
+            /// be restored after the saved text is evaluated, or null if none.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, set to false to indicate that the result should not
+            /// be displayed.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void eval(
@@ -5207,6 +6444,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "again" interactive command, which
+            /// replays the previously entered interactive input.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="previous">
+            /// On input, non-zero if playback of the previous interactive input
+            /// is enabled; upon return, it is set to false so that this command
+            /// is not recorded as the previous interactive input.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, set to false to indicate that the result should not
+            /// be displayed.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives error information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void again(
@@ -5274,6 +6534,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "help" interactive command, which
+            /// displays help for the interactive commands.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command, used
+            /// to select the help topics to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the help text or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void help(
@@ -5333,6 +6611,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ihelp" interactive command, which
+            /// displays help for the specified topic while excluding
+            /// interactive-only commands and groups.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional second element specifies the help topic to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the help text or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ihelp(
@@ -5367,6 +6664,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "usage" interactive command, which
+            /// displays the command line syntax for the shell.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional trailing elements specify which portions of the usage
+            /// information to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the usage information or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void usage(
@@ -5452,6 +6768,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "version" interactive command, which
+            /// displays version and related information about the shell.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// optional trailing elements specify which portions of the version
+            /// information to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the version information or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void version(
@@ -5585,6 +6921,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "args" interactive command, which
+            /// displays the command line arguments, if any, that were supplied
+            /// to the shell.
+            /// </summary>
+            /// <param name="args">
+            /// The collection of command line arguments to display, or null if
+            /// none are available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the list of command line arguments or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void args(
@@ -5610,6 +6963,40 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ainfo" interactive command, which
+            /// displays detailed information about the arguments associated
+            /// with the current breakpoint.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the argument information.
+            /// </param>
+            /// <param name="code">
+            /// The return code associated with the current breakpoint.
+            /// </param>
+            /// <param name="breakpointType">
+            /// The type of breakpoint currently being processed.
+            /// </param>
+            /// <param name="breakpointName">
+            /// The name of the breakpoint currently being processed.
+            /// </param>
+            /// <param name="arguments">
+            /// The list of arguments associated with the current breakpoint.
+            /// </param>
+            /// <param name="result">
+            /// The result associated with the current breakpoint.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ainfo(
@@ -5658,6 +7045,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "npinfo" interactive command, which
+            /// displays diagnostic information about the loaded native Tcl
+            /// interpreters.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void npinfo(
@@ -5679,6 +7082,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "clearq" interactive command, which
+            /// clears all pending callbacks from the interpreter callback
+            /// queue.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the callback queue
+            /// was cleared or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void clearq(
@@ -5700,6 +7119,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "oinfo" interactive command, which
+            /// displays detailed information about an opaque object handle.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the object information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one specifies the name of the object to
+            /// display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void oinfo(
@@ -5764,6 +7206,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "vinfo" interactive command, which
+            /// displays detailed information about a variable.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the variable information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one specifies the name of the variable to
+            /// display and the element at index two, when present, specifies
+            /// the detail flags to use.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void vinfo(
@@ -5871,6 +7337,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "complaint" interactive command,
+            /// which displays the most recent complaint recorded by the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the complaint information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void complaint(
@@ -5912,6 +7397,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "cuinfo" interactive command, which
+            /// displays custom information associated with the interactive
+            /// host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the custom information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void cuinfo(
@@ -5953,6 +7457,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dinfo" interactive command, which
+            /// displays detailed information about the script debugger.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the debugger information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the detail flags
+            /// to use.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dinfo(
@@ -6028,6 +7555,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "testinfo" interactive command, which
+            /// displays detailed information about the testing subsystem.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the test information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void testinfo(
@@ -6069,6 +7614,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "toinfo" interactive command, which
+            /// displays detailed information about a token.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the token information.
+            /// </param>
+            /// <param name="token">
+            /// The token whose information is to be displayed, or null if none
+            /// is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void toinfo(
@@ -6124,6 +7691,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tcancel" interactive command, which
+            /// displays and optionally modifies the cancellation flag
+            /// associated with the current trace operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the boolean
+            /// cancellation value to apply.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information for the current trace operation, or null
+            /// if none is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting cancellation value or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tcancel(
@@ -6166,6 +7758,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tcode" interactive command, which
+            /// displays and optionally modifies the return code associated with
+            /// the current trace operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the return code
+            /// value to apply.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information for the current trace operation, or null
+            /// if none is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting return code or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tcode(
@@ -6217,6 +7834,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "toldvalue" interactive command,
+            /// which displays and optionally modifies the old value associated
+            /// with the current trace operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the old value to
+            /// apply.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information for the current trace operation, or null
+            /// if none is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting old value or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void toldvalue(
@@ -6246,6 +7888,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tnewvalue" interactive command,
+            /// which displays and optionally modifies the new value associated
+            /// with the current trace operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the new value to
+            /// apply.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information for the current trace operation, or null
+            /// if none is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting new value or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tnewvalue(
@@ -6275,6 +7942,33 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tinfo" interactive command, which
+            /// displays detailed information about the current trace operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the trace information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the detail flags
+            /// to use.
+            /// </param>
+            /// <param name="traceInfo">
+            /// The trace information for the current trace operation, or null
+            /// if none is available.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tinfo(
@@ -6358,6 +8052,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "stack" interactive command, which
+            /// displays the interpreter call stack.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the call stack.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the maximum number
+            /// of frames to display; the element at index two specifies the
+            /// detail flags to use; and the element at index three specifies
+            /// whether to display detailed call frame information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void stack(
@@ -6480,6 +8199,40 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "finfo" interactive command, which
+            /// displays the engine, substitution, event, expression, and header
+            /// flags currently in effect.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the flag information.
+            /// </param>
+            /// <param name="engineFlags">
+            /// The engine flags to display.
+            /// </param>
+            /// <param name="substitutionFlags">
+            /// The substitution flags to display.
+            /// </param>
+            /// <param name="eventFlags">
+            /// The event flags to display.
+            /// </param>
+            /// <param name="expressionFlags">
+            /// The expression flags to display.
+            /// </param>
+            /// <param name="headerFlags">
+            /// The header flags to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void finfo(
@@ -6529,6 +8282,40 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "lfinfo" interactive command, which
+            /// displays the local engine, substitution, event, expression, and
+            /// header flags currently in effect.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the flag information.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The local engine flags to display.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The local substitution flags to display.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The local event flags to display.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The local expression flags to display.
+            /// </param>
+            /// <param name="localHeaderFlags">
+            /// The local header flags to display.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void lfinfo(
@@ -6578,6 +8365,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "frinfo" interactive command, which
+            /// displays detailed information about a call frame.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the call frame information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one specifies the call frame level or index and
+            /// the element at index two, when present, specifies the detail
+            /// flags to use.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void frinfo(
@@ -6721,6 +8532,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "einfo" interactive command, which
+            /// displays detailed information about the script engine.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the engine information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void einfo(
@@ -6762,6 +8591,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "cinfo" interactive command, which
+            /// displays detailed information about the interpreter control
+            /// state.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the control information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void cinfo(
@@ -6803,6 +8651,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "eninfo" interactive command, which
+            /// displays detailed information about the entities defined in the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the entity information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void eninfo(
@@ -6844,6 +8711,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "sinfo" interactive command, which
+            /// displays detailed information about the native stack.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the stack information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies whether the native
+            /// stack pointers should be refreshed before the information is
+            /// displayed.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void sinfo(
@@ -6923,6 +8814,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "histfile" interactive command, which
+            /// displays and optionally modifies the file name used for command
+            /// history.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the history file
+            /// name to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the history file name or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void histfile(
@@ -6946,6 +8858,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "histinfo" interactive command, which
+            /// displays the recorded command history.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the history information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void histinfo(
@@ -6998,6 +8928,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "histclear" interactive command,
+            /// which clears all recorded command history.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the history was
+            /// cleared or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void histclear(
@@ -7019,6 +8964,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "histload" interactive command, which
+            /// loads recorded command history from a file.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the file name to
+            /// load the history from.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the history was
+            /// loaded or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void histload(
@@ -7065,6 +9030,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "histsave" interactive command, which
+            /// saves the recorded command history to a file.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the file name to
+            /// save the history to.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the history was saved
+            /// or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void histsave(
@@ -7111,6 +9096,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "hinfo" interactive command, which
+            /// displays detailed information about the interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the host information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the detail flags
+            /// to use.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void hinfo(
@@ -7181,6 +9189,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "iinfo" interactive command, which
+            /// displays detailed information about the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the interpreter
+            /// information.
+            /// </param>
+            /// <param name="result">
+            /// The global result to be marked and included in the displayed
+            /// information.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives an empty string on success or error
+            /// information on failure.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void iinfo(
@@ -7229,6 +9260,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "fresc" interactive command, which
+            /// toggles the flag that forces script cancellation to be reset.
+            /// </summary>
+            /// <param name="forceCancel">
+            /// Upon return, receives the toggled value of the flag that forces
+            /// script cancellation to be reset.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the new state of the
+            /// flag or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void fresc(
@@ -7248,6 +9295,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "fresh" interactive command, which
+            /// toggles the flag that forces the halt state to be reset.
+            /// </summary>
+            /// <param name="forceHalt">
+            /// Upon return, receives the toggled value of the flag that forces
+            /// the halt state to be reset.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the new state of the
+            /// flag or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void fresh(
@@ -7267,6 +9330,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "resc" interactive command, which
+            /// resets the script cancellation flags for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies whether the
+            /// cancellation flags should be reset globally.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating whether the cancel
+            /// flags were reset or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void resc(
@@ -7311,6 +9394,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "resh" interactive command, which
+            /// resets the halt flags for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies whether the halt
+            /// flags should be reset globally.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating whether the halt
+            /// flags were reset or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void resh(
@@ -7355,6 +9458,32 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "rehash" interactive command, which
+            /// reloads the user-specific host profile and re-initializes the
+            /// host color settings.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host whose profile and color settings are to be
+            /// reloaded.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the host profile
+            /// name and the element at index two specifies the name of the
+            /// encoding to use when reading the profile file.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message indicating the host profile was
+            /// reloaded or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void rehash(
@@ -7459,6 +9588,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "deval" interactive command, which
+            /// evaluates one or more arguments as a script within the isolated
+            /// debugger interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// elements at index one and beyond comprise the script to be
+            /// evaluated.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the result of evaluating the script or
+            /// error information.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// Upon return, receives the line number where a script error
+            /// occurred, or zero if none.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void deval(
@@ -7510,6 +9664,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dsubst" interactive command, which
+            /// performs backslash, command, and variable substitutions on a
+            /// string within the isolated debugger interpreter, honoring the
+            /// "-nobackslashes", "-nocommands", and "-novariables" options.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command,
+            /// including any options and the string to be substituted.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the substituted string or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dsubst(
@@ -7602,6 +9777,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "paused" interactive command, which
+            /// lists the interactive loops that are currently paused.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the list of paused interactive loops or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void paused(
@@ -7621,6 +9811,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "pause" interactive command, which
+            /// pauses an interactive loop, optionally identified by thread
+            /// identifier and application domain identifier, and then waits
+            /// for it to be unpaused.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command,
+            /// which may specify the thread identifier, application domain
+            /// identifier, wait timeout in microseconds, and quiet flag.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, may be set to indicate whether prompt and related
+            /// output should be shown, based on the optional quiet argument.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void pause(
@@ -7705,6 +9920,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "unpause" interactive command, which
+            /// unpauses an interactive loop, optionally identified by thread
+            /// identifier and application domain identifier.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command,
+            /// which may specify the thread identifier, application domain
+            /// identifier, and quiet flag.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, may be set to indicate whether prompt and related
+            /// output should be shown, based on the optional quiet argument.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void unpause(
@@ -7768,6 +10007,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "suspend" interactive command, which
+            /// suspends debugger stepping when debugging is active.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode;
+            /// when false, the command reports an error.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void suspend(
@@ -7815,6 +10072,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "resume" interactive command, which
+            /// resumes debugger stepping when debugging is active.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode;
+            /// when false, the command reports an error.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void resume(
@@ -7862,6 +10137,32 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "about" interactive command, which
+            /// displays the banner and legal information for the interpreter
+            /// and, optionally, configures the stable update path and query
+            /// string.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to write the banner and related
+            /// output.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the desired
+            /// stability level and the element at index two, when present,
+            /// specifies an optional suffix.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             [MethodImpl(MethodImplOptions.NoInlining)]
@@ -7948,6 +10249,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "chans" interactive command, which
+            /// verifies or restores the standard input, output, and error
+            /// channels for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="streamHost">
+            /// The stream host providing the underlying standard channel
+            /// streams.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, indicates whether existing
+            /// channels should be replaced.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void chans(
@@ -7993,6 +10318,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "init" interactive command, which
+            /// (re)initializes the interpreter or its shell, optionally
+            /// forcing the operation.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, indicates whether the shell
+            /// should be initialized and the element at index two, when
+            /// present, indicates whether the operation should be forced.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void init(
@@ -8059,6 +10405,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dpath" interactive command, which
+            /// displays the various paths used by the interpreter, as selected
+            /// by the optional debug path flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the debug path
+            /// flags controlling which paths are displayed.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dpath(
@@ -8103,6 +10469,18 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "cancel" interactive command, which
+            /// initiates script cancellation, roughly simulating a console
+            /// interrupt (Ctrl-C).
+            /// </summary>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void cancel(
@@ -8137,6 +10515,43 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "test" (and "ptest") interactive
+            /// command, which runs the test suite, optionally filtered by a
+            /// pattern, using an extra search path, over either the default or
+            /// plugin test files.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command,
+            /// which may specify the test name pattern, an all flag, and an
+            /// extra search path.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The engine flags to use while running the tests.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The substitution flags to use while running the tests.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use while running the tests.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The expression flags to use while running the tests.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// Upon return, receives the line number where a script error
+            /// occurred, or zero if none.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void test(
@@ -8202,6 +10617,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "trustclr" interactive command,
+            /// which clears the list of trusted directories maintained by the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void trustclr(
@@ -8239,6 +10669,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "trustdir" interactive command,
+            /// which adds a directory to, and then returns, the list of
+            /// trusted directories maintained by the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the directory to
+            /// add to the trusted list.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void trustdir(
@@ -8278,6 +10728,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "testdir" interactive command, which
+            /// sets and/or reports the manual test path along with the
+            /// effective base, library, and plugin test paths.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the manual test
+            /// path to use.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void testdir(
@@ -8305,6 +10775,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "purge" interactive command, which
+            /// purges unused call frames from the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void purge(
@@ -8318,6 +10802,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "restc" interactive command, which
+            /// restores the core plugin for the interpreter, optionally in
+            /// strict and/or verbose mode.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, indicates strict mode and
+            /// the element at index two, when present, indicates verbose mode.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void restc(
@@ -8363,6 +10867,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "restm" interactive command, which
+            /// restores the monitor plugin for the interpreter, optionally in
+            /// strict and/or verbose mode.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, indicates strict mode and
+            /// the element at index two, when present, indicates verbose mode.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void restm(
@@ -8413,6 +10937,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "restv" interactive command, which
+            /// restores the core variables and platform-related variables for
+            /// the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="args">
+            /// The collection of command-line style arguments used when
+            /// setting up the core variables.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void restv(
@@ -8458,6 +11001,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "vout" interactive command, which
+            /// enables or disables virtual output for a channel, or returns
+            /// the captured virtual output for it.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the channel
+            /// identifier and the element at index two, when present,
+            /// indicates whether virtual output should be enabled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void vout(
@@ -8505,6 +11069,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "relimit" interactive command, which
+            /// sets and/or returns the readiness check limit for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the new readiness
+            /// check limit.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void relimit(
@@ -8537,6 +11121,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "rlimit" interactive command, which
+            /// sets and/or returns the recursion limit for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the new recursion
+            /// limit.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the command result or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void rlimit(
@@ -8569,6 +11172,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ntypes" interactive command, which
+            /// sets and/or returns the notification types enabled for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the notification
+            /// type value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting notification types or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ntypes(
@@ -8614,6 +11238,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "nflags" interactive command, which
+            /// sets and/or returns the notification flags for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the notification
+            /// flag value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting notification flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void nflags(
@@ -8659,6 +11303,38 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "hflags" interactive command, which
+            /// sets and/or returns the interactive header flags for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used when computing the effective header
+            /// flags.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the header flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode.
+            /// </param>
+            /// <param name="localHeaderFlags">
+            /// Upon return, receives the updated header flags when they are
+            /// changed by the command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting header flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void hflags(
@@ -8705,6 +11381,37 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dflags" interactive command, which
+            /// sets and/or returns the interactive detail flags for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host associated with the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the detail flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode.
+            /// </param>
+            /// <param name="localDetailFlags">
+            /// Upon return, receives the updated detail flags when they are
+            /// changed by the command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting detail flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dflags(
@@ -8749,6 +11456,38 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "lhflags" interactive command, which
+            /// sets and/or returns the local interactive loop header flags,
+            /// without modifying the interpreter-wide header flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used when computing the effective header
+            /// flags.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the header flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode.
+            /// </param>
+            /// <param name="localHeaderFlags">
+            /// The local header flags to modify; upon return, receives the
+            /// updated header flags when they are changed by the command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting header flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void lhflags(
@@ -8794,6 +11533,38 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ldflags" interactive command, which
+            /// sets and/or returns the local interactive loop detail flags,
+            /// without modifying the interpreter-wide detail flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used when computing the effective detail
+            /// flags.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the detail flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero if the interactive loop is currently in debug mode.
+            /// </param>
+            /// <param name="localDetailFlags">
+            /// The local detail flags to modify; upon return, receives the
+            /// updated detail flags when they are changed by the command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting detail flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ldflags(
@@ -8839,6 +11610,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "cflags" interactive command, which
+            /// sets and/or returns the creation flags for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the creation flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting creation flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void cflags(
@@ -8879,6 +11670,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dcflags" interactive command, which
+            /// sets and/or returns the default creation flags for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the default
+            /// creation flag value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting default creation flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dcflags(
@@ -8919,6 +11731,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "scflags" interactive command, which
+            /// sets and/or returns the script flags for the interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the script flag
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting script flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void scflags(
@@ -8959,6 +11791,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dscflags" interactive command,
+            /// which sets and/or returns the default script flags for the
+            /// interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the default
+            /// script flag value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting default script flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dscflags(
@@ -8999,6 +11852,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "iflags" interactive command, which
+            /// sets and/or returns the interpreter flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the interpreter
+            /// flag value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interpreter flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void iflags(
@@ -9040,6 +11913,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "diflags" interactive command, which
+            /// displays and optionally modifies the default interpreter flags
+            /// for the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting default interpreter flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void diflags(
@@ -9081,6 +11975,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "itflags" interactive command, which
+            /// displays and optionally modifies the interpreter test flags for
+            /// the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interpreter test flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void itflags(
@@ -9122,6 +12037,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dtflags" interactive command, which
+            /// displays and optionally modifies the default interpreter test
+            /// flags for the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting default interpreter test
+            /// flags or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dtflags(
@@ -9163,6 +12099,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "spaflags" interactive command, which
+            /// displays and optionally modifies the shared package flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting shared package flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void spaflags(
@@ -9203,6 +12160,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "sprflags" interactive command, which
+            /// displays and optionally modifies the shared procedure flags for
+            /// the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting shared procedure flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void sprflags(
@@ -9243,6 +12221,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "pflags" interactive command, which
+            /// displays and optionally modifies the plugin flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting plugin flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void pflags(
@@ -9283,6 +12282,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ceflags" interactive command, which
+            /// displays and optionally modifies the context engine flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// Upon return, receives the updated engine flags when the context
+            /// engine flags are successfully modified.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting context engine flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ceflags(
@@ -9325,6 +12349,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "seflags" interactive command, which
+            /// displays and optionally modifies the shared engine flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// Upon return, receives the updated engine flags when the shared
+            /// engine flags are successfully modified.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting shared engine flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void seflags(
@@ -9367,6 +12416,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "evflags" interactive command, which
+            /// displays and optionally modifies the engine event flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// Upon return, receives the updated event flags when the engine
+            /// event flags are successfully modified.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting engine event flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void evflags(
@@ -9409,6 +12483,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "exflags" interactive command, which
+            /// displays and optionally modifies the expression flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// Upon return, receives the updated expression flags when the
+            /// expression flags are successfully modified.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting expression flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void exflags(
@@ -9451,6 +12550,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ieflags" interactive command, which
+            /// displays and optionally modifies the interactive engine flags for
+            /// the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interactive engine flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ieflags(
@@ -9492,6 +12612,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "ievflags" interactive command, which
+            /// displays and optionally modifies the interactive event flags for
+            /// the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interactive event flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void ievflags(
@@ -9532,6 +12673,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "iexflags" interactive command, which
+            /// displays and optionally modifies the interactive expression flags
+            /// for the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interactive expression flags
+            /// or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void iexflags(
@@ -9573,6 +12735,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "leflags" interactive command, which
+            /// displays and optionally modifies the local (interactive loop)
+            /// engine flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The local engine flags to display and, when requested, modify.
+            /// Upon return, receives the updated engine flags.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting local engine flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void leflags(
@@ -9614,6 +12801,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "levflags" interactive command, which
+            /// displays and optionally modifies the local (interactive loop)
+            /// event flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The local event flags to display and, when requested, modify.
+            /// Upon return, receives the updated event flags.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting local event flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void levflags(
@@ -9655,6 +12867,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "lexflags" interactive command, which
+            /// displays and optionally modifies the local (interactive loop)
+            /// expression flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The local expression flags to display and, when requested,
+            /// modify.  Upon return, receives the updated expression flags.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting local expression flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void lexflags(
@@ -9696,6 +12933,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "sflags" interactive command, which
+            /// displays and optionally modifies the substitution flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// Upon return, receives the updated substitution flags when the
+            /// substitution flags are successfully modified.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting substitution flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void sflags(
@@ -9738,6 +13000,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "isflags" interactive command, which
+            /// displays and optionally modifies the interactive substitution
+            /// flags for the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting interactive substitution
+            /// flags or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void isflags(
@@ -9779,6 +13062,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "izflags" interactive command, which
+            /// displays and optionally modifies the initialize flags for the
+            /// specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting initialize flags or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void izflags(
@@ -9820,6 +13124,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "dizflags" interactive command, which
+            /// displays and optionally modifies the default initialize flags for
+            /// the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting default initialize flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void dizflags(
@@ -9861,6 +13186,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "lsflags" interactive command, which
+            /// displays and optionally modifies the local (interactive loop)
+            /// substitution flags.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the flag value(s)
+            /// to apply.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The local substitution flags to display and, when requested,
+            /// modify.  Upon return, receives the updated substitution flags.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting local substitution flags or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void lsflags(
@@ -9902,6 +13252,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "step" interactive command, which
+            /// toggles the single step flag of the script debugger associated
+            /// with the specified interpreter.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new single step
+            /// state or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void step(
@@ -9939,6 +13305,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "style" interactive command, which
+            /// displays and optionally modifies the output style of the default
+            /// interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host whose output style is to be displayed or
+            /// modified.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the output style
+            /// value(s) to apply.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting output style or error
+            /// information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void style(
@@ -9993,6 +13384,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "canexit" interactive command, which
+            /// toggles whether the interactive host is permitted to exit the
+            /// process.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host whose exit capability is to be toggled.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new exit state or
+            /// error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void canexit(
@@ -10036,6 +13443,42 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "show" interactive command, which
+            /// displays the current debug information, including the local or
+            /// global return code and result, via the interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the debug information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// elements at index one and two, when present, control whether the
+            /// local result is shown and whether empty values are included.
+            /// </param>
+            /// <param name="loopData">
+            /// The interactive loop data providing additional context for the
+            /// information being displayed.  This parameter may be null.
+            /// </param>
+            /// <param name="result">
+            /// The global result to display.  This parameter may be null.
+            /// </param>
+            /// <param name="localHeaderFlags">
+            /// The header flags used when writing the debug header.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code to display.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to display.  This parameter may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void show(
@@ -10145,6 +13588,33 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "overr" interactive command, which
+            /// overrides the local return code and/or result based on the
+            /// supplied options.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command,
+            /// including the supported options (for example, -code and -result).
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the overridden local return code, when the
+            /// -code option is supplied.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the overridden local result, when the
+            /// -result option is supplied.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void overr(
@@ -10242,6 +13712,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "prevr" interactive command, which
+            /// rewinds the local result and return code to the previously saved
+            /// result, when available.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code of the previous result, or
+            /// error information when no previous result is available.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a copy of the previous result, or error
+            /// information when no previous result is available.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void prevr(
@@ -10291,6 +13784,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "nextr" interactive command, which
+            /// saves the current local result and return code as the previous
+            /// result.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code to save as part of the previous result.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to save as the previous result.  This parameter
+            /// may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void nextr(
@@ -10337,6 +13852,32 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "fresr" interactive command, which
+            /// fully resets the local and global results in-place, setting both
+            /// return codes to <see cref="ReturnCode.Ok" />.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to reset in-place.  Upon return, receives the
+            /// reset local result.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="result">
+            /// The global result to reset in-place.  Upon return, receives the
+            /// reset global result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void fresr(
@@ -10378,6 +13919,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "resr" interactive command, which
+            /// resets the local and global results, setting both return codes to
+            /// <see cref="ReturnCode.Ok" />.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the reset (empty) local result.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives the reset (empty) global result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void resr(
@@ -10415,6 +13980,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "clearr" interactive command, which
+            /// clears the local result, setting its return code to
+            /// <see cref="ReturnCode.Ok" />.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the cleared (empty) local result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void clearr(
@@ -10445,6 +14028,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "nullr" interactive command, which
+            /// sets the local result to null and its return code to
+            /// <see cref="ReturnCode.Ok" />.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives <see cref="ReturnCode.Ok" />.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives null.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void nullr(
@@ -10475,6 +14076,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "copyr" interactive command, which
+            /// copies the global result and return code into the local result
+            /// and return code.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="code">
+            /// The global return code to copy into the local return code.
+            /// </param>
+            /// <param name="result">
+            /// The global result to copy into the local result.  This parameter
+            /// may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the copied global return code.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a copy of the global result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void copyr(
@@ -10509,6 +14135,31 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "setr" interactive command, which
+            /// copies the local result and return code into the global result
+            /// and return code.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code to copy into the global return code.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to copy into the global result.  This parameter
+            /// may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives the copied local return code.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives a copy of the local result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void setr(
@@ -10543,6 +14194,32 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "mover" interactive command, which
+            /// moves the local result and return code into the global result and
+            /// return code, then resets the local result.
+            /// </summary>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives <see cref="ReturnCode.Ok" /> after the
+            /// local result has been moved and reset.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to move.  Upon return, receives the reset
+            /// (empty) local result.
+            /// </param>
+            /// <param name="code">
+            /// Upon return, receives the moved local return code.
+            /// </param>
+            /// <param name="result">
+            /// Upon return, receives the moved local result.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void mover(
@@ -10579,6 +14256,32 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "lrinfo" interactive command, which
+            /// displays detailed information about the local result via the
+            /// interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the local result
+            /// information.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code whose information is to be displayed.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result whose information is to be displayed.  This
+            /// parameter may be null.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// The error line number associated with the local result.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void lrinfo(
@@ -10640,6 +14343,34 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "grinfo" interactive command, which
+            /// displays detailed information about the global result (optionally
+            /// including the previous result) via the interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the global result
+            /// information.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, indicates whether the
+            /// previous result information should also be displayed.
+            /// </param>
+            /// <param name="code">
+            /// The global return code whose information is to be displayed.
+            /// </param>
+            /// <param name="result">
+            /// The global result whose information is to be displayed.  This
+            /// parameter may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void grinfo(
@@ -10746,6 +14477,38 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "rinfo" interactive command, which
+            /// displays both the global result and the local result via the
+            /// interactive host.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the result information.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code whose information is to be displayed.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result whose information is to be displayed.  This
+            /// parameter may be null.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// The error line number associated with the local result.
+            /// </param>
+            /// <param name="code">
+            /// The global return code whose information is to be displayed.
+            /// </param>
+            /// <param name="result">
+            /// The global result whose information is to be displayed.  This
+            /// parameter may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void rinfo(
@@ -10814,6 +14577,41 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "sresult" interactive command, which
+            /// stores the local or global result into a script variable.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to display the outcome of the command.
+            /// </param>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the variable name;
+            /// the element at index two, when present, indicates whether the
+            /// global result should be stored instead of the local result.
+            /// </param>
+            /// <param name="localCode">
+            /// The local return code used when formatting the local result.
+            /// </param>
+            /// <param name="localResult">
+            /// The local result to store.  This parameter may be null.
+            /// </param>
+            /// <param name="localErrorLine">
+            /// The error line number associated with the local result.
+            /// </param>
+            /// <param name="code">
+            /// The global return code used when formatting the global result.
+            /// </param>
+            /// <param name="result">
+            /// The global result to store.  This parameter may be null.
+            /// </param>
+            /// <param name="show">
+            /// Upon return, receives false to indicate that the local result has
+            /// already been displayed and should not be shown again.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Safe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void sresult(
@@ -10896,6 +14694,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tclsh" interactive command, which
+            /// toggles the native Tcl evaluation mode for the interactive loop
+            /// and refreshes the interactive host title.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host whose title is refreshed when the mode
+            /// changes.
+            /// </param>
+            /// <param name="tclsh">
+            /// The current native Tcl evaluation mode flag.  Upon return,
+            /// receives the toggled mode flag.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the new native Tcl
+            /// evaluation mode or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tclsh(
@@ -10928,6 +14750,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "tclinterp" interactive command, which
+            /// displays and optionally sets the name of the target Tcl
+            /// interpreter to use.
+            /// </summary>
+            /// <param name="debugArguments">
+            /// The list of arguments supplied to the interactive command.  The
+            /// element at index one, when present, specifies the target Tcl
+            /// interpreter name; an empty string selects any parent Tcl
+            /// interpreter.
+            /// </param>
+            /// <param name="tclInterpName">
+            /// The current target Tcl interpreter name.  Upon return, receives
+            /// the updated name, or null when any parent Tcl interpreter should
+            /// be used.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives the resulting target Tcl interpreter name
+            /// or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void tclinterp(
@@ -10961,6 +14807,96 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method implements the "queue" interactive command, which
+            /// reads a complete logical line of interactive input and queues it
+            /// for asynchronous evaluation as an event on a background thread.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context for the interactive command.
+            /// </param>
+            /// <param name="loopData">
+            /// The interactive loop data providing context for reading input.
+            /// When null, the command fails.
+            /// </param>
+            /// <param name="refresh">
+            /// Non-zero to refresh the interactive prompt before reading input,
+            /// zero to suppress it, or null to use the default behavior.
+            /// </param>
+            /// <param name="noCommand">
+            /// Non-zero to disable interactive command processing while reading
+            /// input.
+            /// </param>
+            /// <param name="trace">
+            /// Non-zero to enable tracing while reading input.
+            /// </param>
+            /// <param name="debug">
+            /// Non-zero to enable debug behavior while reading input.
+            /// </param>
+            /// <param name="localEngineFlags">
+            /// The engine flags to use when reading input and creating the
+            /// queued script.
+            /// </param>
+            /// <param name="localSubstitutionFlags">
+            /// The substitution flags to use when reading input and creating the
+            /// queued script.
+            /// </param>
+            /// <param name="localEventFlags">
+            /// The event flags to use when creating the queued script.
+            /// </param>
+            /// <param name="localExpressionFlags">
+            /// The expression flags to use when creating the queued script.
+            /// </param>
+            /// <param name="clientData">
+            /// The client data to pass along while reading input.  This
+            /// parameter may be null.
+            /// </param>
+            /// <param name="forceCancel">
+            /// Non-zero to force cancellation while reading input.
+            /// </param>
+            /// <param name="forceHalt">
+            /// Non-zero to force a halt while reading input.
+            /// </param>
+            /// <param name="interactiveHost">
+            /// The interactive host used to read input.  Upon return, receives
+            /// the (possibly updated) interactive host.
+            /// </param>
+            /// <param name="savedText">
+            /// The previously saved partial input text.  Upon return, receives
+            /// the updated saved text.
+            /// </param>
+            /// <param name="done">
+            /// Upon return, receives true if the interactive loop should
+            /// terminate; otherwise, false.
+            /// </param>
+            /// <param name="previous">
+            /// Upon return, receives a value indicating whether the previous
+            /// input should be reused.
+            /// </param>
+            /// <param name="canceled">
+            /// Upon return, receives true if reading the input was canceled;
+            /// otherwise, false.
+            /// </param>
+            /// <param name="text">
+            /// Upon return, receives the complete logical line of input that was
+            /// read.
+            /// </param>
+            /// <param name="notReady">
+            /// Upon return, receives true if the input was not ready to be
+            /// processed; otherwise, false.
+            /// </param>
+            /// <param name="parseError">
+            /// Upon return, receives any parse error encountered while reading
+            /// the input.
+            /// </param>
+            /// <param name="localCode">
+            /// Upon return, receives the return code indicating success or
+            /// failure of the interactive command.
+            /// </param>
+            /// <param name="localResult">
+            /// Upon return, receives a message describing the outcome of the
+            /// queue operation or error information.
+            /// </param>
             [CommandFlags(CommandFlags.Core | CommandFlags.Unsafe |
                 CommandFlags.NonStandard | CommandFlags.Interactive)]
             public static void queue(

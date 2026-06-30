@@ -15,10 +15,23 @@ using Eagle._Components.Public;
 
 namespace Eagle._Tasks
 {
+    /// <summary>
+    /// This class implements an MSBuild task that creates an interpreter and
+    /// evaluates a script within it, logging any errors that occur during the
+    /// process.
+    /// </summary>
     [ObjectId("939fefef-4352-4d02-b86f-01df06770435")]
     public sealed class EvaluateScript : Script
     {
         #region Microsoft.Build.Utilities.Task Overrides
+        /// <summary>
+        /// This method executes the task.  It creates an interpreter, evaluates
+        /// the configured script within it, and logs any errors encountered.
+        /// </summary>
+        /// <returns>
+        /// True if the task succeeded and no errors were logged; otherwise,
+        /// false.
+        /// </returns>
         public override bool Execute()
         {
             CheckDisposed();
@@ -72,7 +85,15 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this task has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this task has already been
+        /// disposed.  It is called at the start of most members to guard against
+        /// use after disposal.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -86,6 +107,15 @@ namespace Eagle._Tasks
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this task.  It implements
+        /// the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from <see cref="IDisposable.Dispose" />
+        /// (i.e. deterministically); zero if it is being called from the
+        /// finalizer.  When non-zero, managed resources are released.
+        /// </param>
         protected override void Dispose(
             bool disposing
             )

@@ -24,9 +24,16 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps types to the factory
+    /// callback delegates used to create instances of those types.
+    /// </summary>
     [ObjectId("ef362c7e-fe48-479c-85d6-913f828abd36")]
     internal sealed class TypeFactoryCallbackDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public TypeFactoryCallbackDictionary()
             : base()
         {

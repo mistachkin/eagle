@@ -23,9 +23,16 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to array
+    /// search state objects.
+    /// </summary>
     [ObjectId("3f992cdc-cf6c-49c0-82fa-0f91c8ff2113")]
     internal sealed class ArraySearchDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ArraySearchDictionary()
             : base()
         {

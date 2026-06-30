@@ -27,6 +27,11 @@ using Eagle._Constants;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides security-related helper methods, primarily the
+    /// platform-specific logic used to determine whether the current process is
+    /// running with administrative privileges.
+    /// </summary>
 #if NET_40
     [SecurityCritical()]
 #else
@@ -40,6 +45,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the private platform native method declarations,
+        /// accessed via P/Invoke, that are used to query the administrative
+        /// status of the current process.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("6d48f680-28c0-45e9-9469-0c8769dffd93")]
         private static class UnsafeNativeMethods
@@ -49,6 +59,20 @@ namespace Eagle._Components.Private
             // NOTE: For use with Windows NT and Windows 2000 RTM+
             //       (does not work properly with Vista).
             //
+            /// <summary>
+            /// This method determines whether the current user is an
+            /// administrator on Windows NT and Windows 2000 RTM through SP3.
+            /// </summary>
+            /// <param name="reserved1">
+            /// Reserved; this parameter must be zero.
+            /// </param>
+            /// <param name="reserved2">
+            /// Reserved; this parameter must be zero.
+            /// </param>
+            /// <returns>
+            /// Non-zero if the current user is an administrator; otherwise,
+            /// zero.
+            /// </returns>
             [DllImport(DllName.AdvPack,
                 CallingConvention = CallingConvention.Winapi)]
             [return: MarshalAs(UnmanagedType.Bool)]
@@ -62,6 +86,14 @@ namespace Eagle._Components.Private
             //       Windows XP Home/Pro RTM+, and Vista (and hopefully 
             //       Windows Server 2008).
             //
+            /// <summary>
+            /// This method determines whether the current user is a member of
+            /// the local Administrators group.
+            /// </summary>
+            /// <returns>
+            /// Non-zero if the current user is an administrator; otherwise,
+            /// zero.
+            /// </returns>
             [DllImport(DllName.Shell32, EntryPoint = "#680",
                 CallingConvention = CallingConvention.Winapi)]
             [return: MarshalAs(UnmanagedType.Bool)]
@@ -71,6 +103,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if UNIX
+            /// <summary>
+            /// This method returns the real user identifier of the calling
+            /// process.
+            /// </summary>
+            /// <returns>
+            /// The real user identifier of the calling process.
+            /// </returns>
             /* NOTE: *POSIX* Cannot fail. */
             [DllImport(DllName.LibC,
                 CallingConvention = CallingConvention.Cdecl)]
@@ -82,6 +121,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Platform Abstraction Methods
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges, ignoring any error that may occur during
+        /// the query.
+        /// </summary>
+        /// <returns>
+        /// True if the current process is running with administrative
+        /// privileges; otherwise, false.
+        /// </returns>
         public static bool IsAdministrator()
         {
             bool administrator = false;
@@ -94,6 +142,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges, dispatching to the appropriate
+        /// platform-specific implementation.
+        /// </summary>
+        /// <param name="administrator">
+        /// Upon success, this parameter will be set to non-zero if the current
+        /// process is running with administrative privileges.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode IsAdministrator(
             ref bool administrator,
             ref Result error
@@ -117,6 +182,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Platform Abstraction Methods
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges, discarding any error that may occur
+        /// during the query.
+        /// </summary>
+        /// <param name="administrator">
+        /// Upon success, this parameter will be set to non-zero if the current
+        /// process is running with administrative privileges.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode IsAdministrator(
             ref bool administrator
             )
@@ -131,6 +209,23 @@ namespace Eagle._Components.Private
 
         #region Private Windows-Specific Methods
 #if WINDOWS
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges on a Windows operating system, selecting
+        /// the appropriate native query based on the operating system version.
+        /// </summary>
+        /// <param name="administrator">
+        /// Upon success, this parameter will be set to non-zero if the current
+        /// process is running with administrative privileges.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode WindowsIsAdministrator(
             ref bool administrator,
             ref Result error
@@ -184,6 +279,23 @@ namespace Eagle._Components.Private
 
         #region Private Unix-Specific Methods
 #if UNIX
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges on a Unix operating system by checking
+        /// whether the real user identifier is that of the root user.
+        /// </summary>
+        /// <param name="administrator">
+        /// Upon success, this parameter will be set to non-zero if the current
+        /// process is running with administrative privileges.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UnixIsAdministrator(
             ref bool administrator,
             ref Result error

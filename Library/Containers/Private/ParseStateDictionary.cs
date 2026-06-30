@@ -39,6 +39,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary of parser states, keyed by name.  It
+    /// extends the configured backing dictionary (cache, fast, or standard)
+    /// with a type name suitable for use within Eagle, the ability to be
+    /// converted to the Eagle list format, and, when enabled, the tracking of
+    /// cache usage statistics.
+    /// </summary>
     [ObjectId("40feae99-acda-40ed-9ddd-0d37c75a0859")]
     internal sealed class ParseStateDictionary :
 #if CACHE_DICTIONARY
@@ -54,6 +61,10 @@ namespace Eagle._Containers.Private
     {
         #region Private Data
 #if CACHE_STATISTICS
+        /// <summary>
+        /// The array of cache usage counts, indexed by
+        /// <see cref="CacheCountType" />.
+        /// </summary>
         private long[] cacheCounts =
             new long[(int)CacheCountType.SizeOf]; // WARNING: CACHE USE ONLY.
 #endif
@@ -62,6 +73,9 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ParseStateDictionary()
             : base()
         {
@@ -73,6 +87,15 @@ namespace Eagle._Containers.Private
 
         #region ICacheCounts Members
 #if CACHE_STATISTICS
+        /// <summary>
+        /// Increments the cache usage count of the specified type by one.
+        /// </summary>
+        /// <param name="type">
+        /// The type of cache usage count to increment.
+        /// </param>
+        /// <returns>
+        /// True if the count was incremented; otherwise, false.
+        /// </returns>
         public bool IncrementCacheCount(
             CacheCountType type
             )
@@ -92,6 +115,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether this dictionary has any cache usage information,
+        /// either entries or non-zero counts.
+        /// </summary>
+        /// <returns>
+        /// True if there is cache usage information; otherwise, false.
+        /// </returns>
         public bool HaveCacheCounts()
         {
             if (this.Count > 0)
@@ -102,6 +132,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the array of cache usage counts maintained by this dictionary.
+        /// </summary>
+        /// <returns>
+        /// The array of cache usage counts, indexed by
+        /// <see cref="CacheCountType" />.
+        /// </returns>
         public long[] GetCacheCounts()
         {
             return cacheCounts;
@@ -109,6 +146,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets all of the cache usage counts maintained by this dictionary
+        /// to zero.
+        /// </summary>
+        /// <returns>
+        /// True if the counts were reset; otherwise, false.
+        /// </returns>
         public bool ZeroCacheCounts()
         {
             if (cacheCounts != null)
@@ -127,6 +171,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the cache usage counts maintained by this dictionary, either by
+        /// merging with or overwriting the existing counts.
+        /// </summary>
+        /// <param name="counts">
+        /// The array of cache usage counts to set, or null to reset the counts
+        /// when not merging.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to add the supplied counts to the existing counts; zero to
+        /// overwrite the existing counts.
+        /// </param>
+        /// <returns>
+        /// True if the counts were set; otherwise, false.
+        /// </returns>
         public bool SetCacheCounts(
             long[] counts,
             bool merge
@@ -200,6 +259,17 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the cache usage information for this dictionary to a string
+        /// in the Eagle list format.
+        /// </summary>
+        /// <param name="empty">
+        /// Non-zero to include counts whose value is zero in the result.
+        /// </param>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents the cache
+        /// usage information for this dictionary.
+        /// </returns>
         public string CacheCountsToString(
             bool empty
             )
@@ -218,6 +288,21 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys, or null to include all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents the matching
+        /// keys of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -233,6 +318,14 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents the keys of
+        /// this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

@@ -45,62 +45,177 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class is an internal static utility/helper class that provides a
+    /// wide variety of string operations used throughout Eagle, including
+    /// string comparison and equality, encoding detection and conversion,
+    /// character classification, whitespace and line-ending normalization,
+    /// the engines that implement the <c>[format]</c>, <c>[scan]</c>,
+    /// <c>[string map]</c>, and <c>[string match]</c> commands, and
+    /// base16/base26/base64 helper routines.
+    /// </summary>
     [ObjectId("517405a1-bb12-4694-b937-30cb46b7c263")]
     internal static class StringOps
     {
         #region String Comparison Type Constants
+        /// <summary>
+        /// The default <see cref="StringComparison" /> used for culture-aware,
+        /// case-sensitive string comparisons performed on behalf of the user.
+        /// </summary>
         private static readonly StringComparison UserComparisonType =
             StringComparison.CurrentCulture;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="StringComparison" /> used for culture-aware,
+        /// case-insensitive string comparisons performed on behalf of the user.
+        /// </summary>
         private static readonly StringComparison UserNoCaseComparisonType =
             StringComparison.CurrentCultureIgnoreCase;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="StringComparer" /> used when an ordering or
+        /// equality comparer for strings is needed.
+        /// </summary>
         private static readonly StringComparer DefaultStringComparer =
             StringComparer.CurrentCulture;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="CultureInfo" /> (the invariant culture) used
+        /// for culture-sensitive string operations.
+        /// </summary>
         private static readonly CultureInfo DefaultCultureInfo = CultureInfo.InvariantCulture;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region String Case Conversion Constants
+        /// <summary>
+        /// The name of the <c>ToLower</c> method, used when locating a
+        /// case-conversion method via reflection.
+        /// </summary>
+        private const string ToLowerMethodName = "ToLower";
+        /// <summary>
+        /// The name of the <c>ToTitle</c> method, used when locating a
+        /// case-conversion method via reflection.
+        /// </summary>
+        private const string ToTitleMethodName = "ToTitle";
+        /// <summary>
+        /// The name of the <c>ToUpper</c> method, used when locating a
+        /// case-conversion method via reflection.
+        /// </summary>
+        private const string ToUpperMethodName = "ToUpper";
+        /// <summary>
+        /// The suffix (<c>Invariant</c>) appended to a case-conversion method
+        /// name to select its culture-invariant variant.
+        /// </summary>
+        private const string InvariantMethodSuffix = "Invariant";
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
         #region Encoding Constants
+        /// <summary>
+        /// The composite format string used to render a count as an eight-digit,
+        /// zero-padded hexadecimal value.
+        /// </summary>
         private static string CountFormat = "{0:X8}";
 
+        /// <summary>
+        /// The maximum character value (<c>0x7F</c>) considered to be a standard
+        /// ASCII character.
+        /// </summary>
         private const int CharMaxAscii = 0x7F;
 
+        /// <summary>
+        /// The name used to refer to the null encoding sentinel.
+        /// </summary>
         internal static readonly string NullEncodingName = _String.Null;
+        /// <summary>
+        /// The name used to refer to the binary (one-byte) encoding.
+        /// </summary>
         internal static readonly string BinaryEncodingName = "binary";
 
+        /// <summary>
+        /// The name used to refer to the default channel encoding.
+        /// </summary>
         internal static readonly string ChannelEncodingName = "channelDefault";
+        /// <summary>
+        /// The name used to refer to the default encoding.
+        /// </summary>
         internal static readonly string DefaultEncodingName = "default";
+        /// <summary>
+        /// The name used to refer to the system default encoding.
+        /// </summary>
         internal static readonly string SystemEncodingName = "systemDefault";
+        /// <summary>
+        /// The name used to refer to the default Tcl encoding.
+        /// </summary>
         internal static readonly string TclEncodingName = "tclDefault";
+        /// <summary>
+        /// The name used to refer to the default text encoding.
+        /// </summary>
         internal static readonly string TextEncodingName = "textDefault";
+        /// <summary>
+        /// The name used to refer to the default script encoding.
+        /// </summary>
         internal static readonly string ScriptEncodingName = "scriptDefault";
+        /// <summary>
+        /// The name used to refer to the default XML encoding.
+        /// </summary>
         internal static readonly string XmlEncodingName = "xmlDefault";
+        /// <summary>
+        /// The name used to refer to the snippet encoding.
+        /// </summary>
         internal static readonly string SnippetEncodingName = "snippetEncoding";
 
+        /// <summary>
+        /// The null encoding sentinel, used to represent the absence of an
+        /// encoding.
+        /// </summary>
         private static readonly Encoding NullEncoding = null;
+        /// <summary>
+        /// The system default encoding (little-endian Unicode without a
+        /// byte-order mark).
+        /// </summary>
         private static readonly Encoding SystemEncoding = new UnicodeEncoding(false, false);
 
         //
         // WARNING: For use by the [encoding system] sub-command only.
         //
+        /// <summary>
+        /// The IANA registered (web) name of the system default encoding, or null
+        /// if it is not available.
+        /// </summary>
         internal static readonly string SystemEncodingWebName = (SystemEncoding != null) ?
             SystemEncoding.WebName : null;
 
+        /// <summary>
+        /// The default encoding (the Eagle core UTF-8 encoding) used when no other
+        /// encoding is specified.
+        /// </summary>
         private static readonly Encoding DefaultEncoding = CoreUtf8Encoding.CoreUtf8;
 
+        /// <summary>
+        /// The encoding (the Eagle core UTF-8 encoding) used when reading or
+        /// writing XML data.
+        /// </summary>
         private static readonly Encoding XmlEncoding = CoreUtf8Encoding.CoreUtf8;
 
+        /// <summary>
+        /// The encoding (a one-byte encoding) used to treat string data as raw
+        /// binary bytes.
+        /// </summary>
         private static readonly Encoding BinaryEncoding = OneByteEncoding.OneByte;
 
+        /// <summary>
+        /// The encoding used when reading or writing text data.
+        /// </summary>
         private static readonly Encoding TextEncoding = DefaultEncoding;
 
         //
@@ -108,19 +223,46 @@ namespace Eagle._Components.Private
         //       encoding "cp1252", which is their default channel encoding on
         //       Windows.
         //
+        /// <summary>
+        /// The default encoding (<c>iso-8859-1</c>) used for I/O channels.
+        /// </summary>
         private static readonly Encoding ChannelEncoding = GetEncoding(
             "iso-8859-1");
 
+        /// <summary>
+        /// The default encoding used for Tcl compatibility.
+        /// </summary>
         private static readonly Encoding TclEncoding = ChannelEncoding;
+        /// <summary>
+        /// The default encoding used when reading or writing script files.
+        /// </summary>
         private static readonly Encoding ScriptEncoding = TclEncoding;
+        /// <summary>
+        /// The default encoding used when reading or writing script snippets.
+        /// </summary>
         private static readonly Encoding SnippetEncoding = ScriptEncoding;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The code page identifier for the UTF-8 encoding.
+        /// </summary>
         private const int Utf8CodePage = 65001;              /* UTF-8 */
+        /// <summary>
+        /// The code page identifier for the little-endian UTF-16 encoding.
+        /// </summary>
         private const int Utf16LittleEndianCodePage = 1200;  /* UTF-16LE */
+        /// <summary>
+        /// The code page identifier for the big-endian UTF-16 encoding.
+        /// </summary>
         private const int Utf16BigEndianCodePage = 1201;     /* UTF-16BE */
+        /// <summary>
+        /// The code page identifier for the little-endian UTF-32 encoding.
+        /// </summary>
         private const int Utf32LittleEndianCodePage = 12000; /* UTF-32LE */
+        /// <summary>
+        /// The code page identifier for the big-endian UTF-32 encoding.
+        /// </summary>
         private const int Utf32BigEndianCodePage = 12001;    /* UTF-32BE */
         #endregion
 
@@ -130,37 +272,86 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The placeholder token (<c>%text%</c>) substituted with replacement text
+        /// during string processing.
+        /// </summary>
         private static string TextReplacementToken = "%text%";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used by the <c>[string map]</c>
+        /// command.
+        /// </summary>
         internal static readonly MatchMode DefaultMapMatchMode = MatchMode.Exact; // COMPAT: Tcl.
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used for general string matching.
+        /// </summary>
         internal static readonly MatchMode DefaultMatchMode = MatchMode.Glob; // COMPAT: Tcl.
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used by the <c>[switch]</c>
+        /// command.
+        /// </summary>
         internal static readonly MatchMode DefaultSwitchMatchMode = MatchMode.Exact; // COMPAT: Tcl.
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used when matching result values.
+        /// </summary>
         internal static readonly MatchMode DefaultResultMatchMode = MatchMode.Exact; // COMPAT: Tcl.
 
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used when matching object names.
+        /// </summary>
         internal static readonly MatchMode DefaultObjectMatchMode = DefaultMatchMode;
+        /// <summary>
+        /// The default <see cref="MatchMode" /> used when matching names during
+        /// unload operations.
+        /// </summary>
         internal static readonly MatchMode DefaultUnloadMatchMode = MatchMode.Exact;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL && INTERACTIVE_COMMANDS && XML
+        /// <summary>
+        /// The regular expression quantifier (<c>{2,}</c>) matching two or more
+        /// occurrences of the preceding element.
+        /// </summary>
         private static readonly string TwoOrMoreQuantifier = "{2,}";
 
+        /// <summary>
+        /// The regular expression used to match runs of two or more whitespace
+        /// characters.
+        /// </summary>
         private static readonly Regex TwoOrMoreWhiteSpaceRegEx = RegExOps.Create(
             String.Format("\\s{0}", TwoOrMoreQuantifier));
 
+        /// <summary>
+        /// The regular expression used to match runs of two or more space
+        /// characters.
+        /// </summary>
         private static readonly Regex TwoOrMoreSpaceRegEx = RegExOps.Create(
             String.Format("[ ]{0}", TwoOrMoreQuantifier));
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default <see cref="RegexOptions" /> used when creating regular
+        /// expressions.
+        /// </summary>
         internal static readonly RegexOptions DefaultRegExOptions = RegexOptions.None;
+        /// <summary>
+        /// The default <see cref="RegexOptions" /> used when testing strings
+        /// against regular expressions.
+        /// </summary>
         internal static readonly RegexOptions DefaultRegExTestOptions = RegexOptions.Singleline; /* COMPAT: Tcl. */
+        /// <summary>
+        /// The default <see cref="RegexOptions" /> used when parsing regular
+        /// expression syntax.
+        /// </summary>
         internal static readonly RegexOptions DefaultRegExSyntaxOptions = RegexOptions.Singleline; /* COMPAT: Tcl. */
         #endregion
 
@@ -170,6 +361,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default precision (number of digits) used when formatting
+        /// floating-point values with the <c>E</c>, <c>F</c>, and <c>G</c>
+        /// conversion specifiers.
+        /// </summary>
         private static int DoubleDefaultPrecision = 6; /* For 'E' / 'e', 'F' / 'f', and 'G' / 'g'. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -177,6 +373,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The minimum number of digits used when formatting the exponent of a
+        /// floating-point value.
+        /// </summary>
         private static int MinimumExponentLength = 2;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -184,21 +384,55 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The characters (<c>E</c> and <c>e</c>) that introduce the exponent
+        /// portion of a formatted floating-point value.
+        /// </summary>
         private static char[] ExponentPrefixChars = {
             Characters.E, Characters.e
         };
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message used when positional (<c>%n$</c>) and non-positional
+        /// (<c>%</c>) conversion specifiers are mixed.
+        /// </summary>
         private const string mixedXpgError = "cannot mix \"%\" and \"%n$\" conversion specifiers";
+        /// <summary>
+        /// The error message used when a formatted value exceeds the maximum
+        /// allowed size.
+        /// </summary>
         private const string OverflowError = "max size for a Tcl value exceeded";
 
+        /// <summary>
+        /// The prefix (<c>0b</c>) that denotes a binary (base-2) integer literal.
+        /// </summary>
         private const string BinaryPrefix = "0b";
+        /// <summary>
+        /// The prefix (<c>0d</c>) that denotes a decimal (base-10) integer
+        /// literal.
+        /// </summary>
         private const string DecimalPrefix = "0d";
+        /// <summary>
+        /// The legacy prefix (<c>0</c>) that denotes an octal (base-8) integer
+        /// literal.
+        /// </summary>
         private const string LegacyOctalPrefix = "0";
+        /// <summary>
+        /// The prefix (<c>0o</c>) that denotes an octal (base-8) integer literal.
+        /// </summary>
         private const string OctalPrefix = "0o";
+        /// <summary>
+        /// The prefix (<c>0x</c>) that denotes a hexadecimal (base-16) integer
+        /// literal.
+        /// </summary>
         private const string HexadecimalPrefix = "0x";
 
+        /// <summary>
+        /// The error messages used when a <c>[format]</c> argument index is
+        /// missing or out of range.
+        /// </summary>
         private static readonly string[] BadIndexError = {
             "not enough arguments for all format specifiers",
             "\"%n$\" argument index out of range"
@@ -208,12 +442,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Character List Constants
+        /// <summary>
+        /// The characters (the minus sign and the slash) recognized as
+        /// command-line switch prefixes.
+        /// </summary>
         private static readonly char[] switchChars = {
             Characters.MinusSign, Characters.Slash
         };
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The characters (the open and close braces) that delimit a sub-pattern.
+        /// </summary>
         private static readonly char[] SubPatternChars = {
             Characters.OpenBrace, Characters.CloseBrace
         };
@@ -223,6 +464,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Excludes characters covered by PathOps.HasPathWildcard().
         //
+        /// <summary>
+        /// The characters treated as wildcards by the <c>[string match]</c>
+        /// command, excluding those covered by
+        /// <c>PathOps.HasPathWildcard</c>.
+        /// </summary>
         private static readonly char[] StringMatchWildcardChars = {
             Characters.OpenBracket,
             Characters.Backslash,
@@ -233,6 +479,10 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// The list of characters that are recognized as command-line switch
+        /// prefixes.
+        /// </summary>
         private static readonly CharList switchCharList = new CharList(switchChars);
 #endif
         #endregion
@@ -241,36 +491,62 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Radix Regular Expressions
+        /// <summary>
+        /// The regular expression used to match a hexadecimal SHA-1 hash value
+        /// with a leading <c>0x</c> prefix.
+        /// </summary>
         internal static readonly Regex sha1HashValueRegEx = RegExOps.Create(
             "^0x[0-9a-f]{40}$");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to match a hexadecimal SHA-512 hash value
+        /// with a leading <c>0x</c> prefix.
+        /// </summary>
         internal static readonly Regex sha512HashValueRegEx = RegExOps.Create(
             "^0x[0-9a-f]{128}$");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to validate a base16 (hexadecimal) encoded
+        /// string.
+        /// </summary>
         private static readonly Regex base16RegEx = RegExOps.Create(
             "^(?:0x)?(?:[0-9A-F][0-9A-F])*$", RegexOptions.IgnoreCase |
             RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of base26 character groups emitted per line when formatting
+        /// base26 output.
+        /// </summary>
         private const int Base26GroupsPerLine = 25;
 
+        /// <summary>
+        /// The regular expression used to validate a base26 encoded string.
+        /// </summary>
         private static readonly Regex base26RegEx = RegExOps.Create(
             "^(?:[A-Z\\s][A-Z\\s])*$", RegexOptions.IgnoreCase |
             RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to validate a base64 encoded string.
+        /// </summary>
         private static readonly Regex base64RegEx = RegExOps.Create(
             "^(?:[0-9A-Z+/]{4})*(?:[0-9A-Z+/]{3}=|[0-9A-Z+/]{2}==)?$",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to validate a whitespace-separated list of
+        /// hexadecimal byte values.
+        /// </summary>
         private static readonly Regex hexadecimalBytesRegEx = RegExOps.Create(
             "^(?:0x[0-9A-F]{2}(?:\\s+0x[0-9A-F]{2})*)?$",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -279,6 +555,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the static data of this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -288,23 +567,50 @@ namespace Eagle._Components.Private
         //       encodings.  Linear searching is used for detection; therefore, this
         //       list should be kept very small.
         //
+        /// <summary>
+        /// The list that maps byte-order-mark byte sequences to their
+        /// corresponding encodings, used for encoding detection.
+        /// </summary>
         private static IList<IAnyPair<byte[], Encoding>> preambleEncodings = null;
 
         //
         // NOTE: This is the minimum number of bytes needed for the byte-order-mark
         //       sequences handled by this class.
         //
+        /// <summary>
+        /// The minimum number of bytes required to detect any of the supported
+        /// byte-order-mark sequences.
+        /// </summary>
         private static int minimumPreambleSize = 0;
 
         //
         // NOTE: This is the maximum number of bytes needed for the byte-order-mark
         //       sequences handled by this class.
         //
+        /// <summary>
+        /// The maximum number of bytes required to detect any of the supported
+        /// byte-order-mark sequences.
+        /// </summary>
         private static int maximumPreambleSize = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value is null or
+        /// empty and reports its length to the caller.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.  This value may be null.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the length of the specified string value, or
+        /// an invalid length when the string value is null.
+        /// </param>
+        /// <returns>
+        /// True if the specified string value is null or empty; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsNullOrEmpty(
             string value,
             out int length
@@ -324,6 +630,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value is
+        /// logically empty, i.e. null, empty, or consisting only of whitespace
+        /// characters.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified string value is logically empty; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsLogicallyEmpty(
             string value
             )
@@ -335,6 +653,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value is
+        /// logically empty, i.e. null, empty, or consisting only of whitespace
+        /// characters, and reports its length to the caller.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.  This value may be null.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the length of the specified string value, or
+        /// an invalid length when the string value is null.
+        /// </param>
+        /// <returns>
+        /// True if the specified string value is logically empty; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsLogicallyEmpty(
             string value,
             out int length
@@ -347,6 +681,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value is
+        /// logically empty, i.e. null, empty, or consisting only of whitespace
+        /// characters, and reports its trimmed value to the caller.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.  This value may be null.
+        /// </param>
+        /// <param name="trimValue">
+        /// Upon success, receives the specified string value with leading and
+        /// trailing whitespace removed, or null when the string value is null.
+        /// </param>
+        /// <returns>
+        /// True if the specified string value is logically empty; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsLogicallyEmpty(
             string value,
             out string trimValue
@@ -359,6 +709,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value is
+        /// logically empty, i.e. null, empty, or consisting only of whitespace
+        /// characters, and reports both its trimmed value and length to the
+        /// caller.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.  This value may be null.
+        /// </param>
+        /// <param name="trimValue">
+        /// Upon success, receives the specified string value with leading and
+        /// trailing whitespace removed, or null when the string value is null.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the length of the specified string value, or
+        /// an invalid length when the string value is null.
+        /// </param>
+        /// <returns>
+        /// True if the specified string value is logically empty; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsLogicallyEmpty(
             string value,
             out string trimValue,
@@ -393,6 +764,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain a string representation from the
+        /// specified object value, handling the various string-like wrapper
+        /// types supported by the engine.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a string representation from.  Supported
+        /// values include a string, a string builder, a string builder wrapper,
+        /// an argument, a result, or an interpreter.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the string representation of the specified
+        /// object value.  Upon failure, this value is set to null.
+        /// </param>
+        /// <returns>
+        /// True if a string representation was obtained from the specified
+        /// object value; otherwise, false.
+        /// </returns>
         public static bool TryGetStringFromObject(
             object @object,
             out string result
@@ -440,6 +829,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a string representation from the specified object
+        /// value, falling back to its string representation when necessary.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a string representation from.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified object value, or null if
+        /// one cannot be obtained.
+        /// </returns>
         public static string GetStringFromObject(
             object @object
             )
@@ -449,6 +850,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a string representation from the specified object
+        /// value, optionally falling back to its string representation, and
+        /// returning a default value when no representation can be obtained.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a string representation from.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="default">
+        /// The default string value to return when a string representation
+        /// cannot be obtained.  This value may be null.
+        /// </param>
+        /// <param name="toStringOk">
+        /// Non-zero to fall back to the string representation of the specified
+        /// object value when it is not one of the natively supported types.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified object value, or the
+        /// default value if one cannot be obtained.
+        /// </returns>
         public static string GetStringFromObject(
             object @object,
             string @default,
@@ -468,6 +890,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a string representation from the specified object
+        /// value, treating it as a collection of strings when it is enumerable
+        /// and not one of the natively supported string-like types.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a string representation from.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified object value, or the
+        /// list representation of its elements when it is an enumerable
+        /// collection.
+        /// </returns>
         public static string GetStringsFromObject(
             object @object
             )
@@ -492,6 +928,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains an argument from the specified object value,
+        /// converting the various string-like and enumerable types supported by
+        /// the engine as necessary.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain an argument from.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The argument for the specified object value, or null if one cannot
+        /// be obtained.
+        /// </returns>
         public static Argument GetArgumentFromObject(
             object @object
             )
@@ -501,6 +949,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains an argument from the specified object value,
+        /// converting the various string-like and enumerable types supported by
+        /// the engine as necessary, with control over how a disposed object is
+        /// handled.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain an argument from.  This value may be null.
+        /// </param>
+        /// <param name="throwOnDisposed">
+        /// Non-zero to re-throw any object disposed exception encountered while
+        /// converting the specified object value; otherwise, null is returned
+        /// in that case.
+        /// </param>
+        /// <returns>
+        /// The argument for the specified object value, or null if one cannot
+        /// be obtained.
+        /// </returns>
         private static Argument GetArgumentFromObject(
             object @object,
             bool throwOnDisposed
@@ -576,6 +1042,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a result from the specified object value,
+        /// converting the various string-like and enumerable types supported by
+        /// the engine as necessary.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a result from.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The result for the specified object value, or null if one cannot be
+        /// obtained.
+        /// </returns>
         public static Result GetResultFromObject(
             object @object
             )
@@ -585,6 +1063,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a result from the specified object value,
+        /// converting the various string-like and enumerable types supported by
+        /// the engine as necessary, with control over how a disposed object is
+        /// handled.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a result from.  This value may be null.
+        /// </param>
+        /// <param name="throwOnDisposed">
+        /// Non-zero to re-throw any object disposed exception encountered while
+        /// converting the specified object value; otherwise, null is returned
+        /// in that case.
+        /// </param>
+        /// <returns>
+        /// The result for the specified object value, or null if one cannot be
+        /// obtained.
+        /// </returns>
         public static Result GetResultFromObject(
             object @object,
             bool throwOnDisposed
@@ -660,6 +1156,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the underlying string builder from the specified
+        /// string builder wrapper.
+        /// </summary>
+        /// <param name="haveStringBuilder">
+        /// The string builder wrapper to obtain the underlying string builder
+        /// from.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The underlying string builder, or null when the specified string
+        /// builder wrapper is null.
+        /// </returns>
         private static StringBuilder GetStringBuilder(
             IHaveStringBuilder haveStringBuilder
             )
@@ -672,6 +1180,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new string builder wrapper backed by a new,
+        /// empty string builder.
+        /// </summary>
+        /// <returns>
+        /// The newly created string builder wrapper.
+        /// </returns>
         public static IHaveStringBuilder NewIHaveStringBuilder()
         {
             return NewIHaveStringBuilder(SBF.CreateNoCache()); /* EXEMPT */
@@ -679,6 +1194,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new string builder wrapper backed by the
+        /// specified string builder.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to wrap.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created string builder wrapper.
+        /// </returns>
         private static IHaveStringBuilder NewIHaveStringBuilder(
             StringBuilder builder
             )
@@ -688,6 +1213,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains an object that exposes a string builder for the
+        /// specified object value, unwrapping any supported wrapper types as
+        /// necessary.
+        /// </summary>
+        /// <param name="object">
+        /// The object value to obtain a string builder wrapper for.  Supported
+        /// values include an existing string builder wrapper, a string builder,
+        /// a string, an argument, a result, or any other object (in which case
+        /// its string representation is used).
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create and return a new, empty string builder wrapper
+        /// when the specified object value is null.
+        /// </param>
+        /// <returns>
+        /// The string builder wrapper for the specified object value, or null
+        /// if one cannot be obtained and creation was not requested.
+        /// </returns>
         public static IHaveStringBuilder GetIHaveStringBuilderFromObject(
             object @object,
             bool create
@@ -732,6 +1276,23 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method obtains a string builder representing the specified
+        /// object, unwrapping known wrapper types and converting other values to
+        /// their string forms as necessary.
+        /// </summary>
+        /// <param name="object">
+        /// The object to obtain a string builder for.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create and return an empty string builder when the
+        /// object is null; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// A string builder representing the object, or null if one could not
+        /// be obtained and creation was not requested.
+        /// </returns>
         public static StringBuilder GetStringBuilderFromObject(
             object @object,
             bool create
@@ -773,6 +1334,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new string builder that contains a copy of the
+        /// contents of the specified string builder.
+        /// </summary>
+        /// <param name="value">
+        /// The string builder whose contents are to be copied.
+        /// </param>
+        /// <returns>
+        /// A new string builder containing a copy of the specified contents, or
+        /// null if the specified string builder is null.
+        /// </returns>
         public static StringBuilder CopyStringBuilder(
             StringBuilder value
             )
@@ -790,6 +1362,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified string value into an array of lines,
+        /// recognizing carriage-return, line-feed, and carriage-return/line-feed
+        /// line endings.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to split into lines.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include empty lines in the resulting array.
+        /// </param>
+        /// <returns>
+        /// The array of lines, or null if the specified string value is null.
+        /// </returns>
         private static string[] SplitLines(
             string value,
             bool empty
@@ -854,6 +1440,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes blank lines and comment lines from the specified
+        /// string value, normalizing the remaining lines to use carriage-return/
+        /// line-feed line endings.
+        /// </summary>
+        /// <param name="trimAll">
+        /// Non-zero to trim leading and trailing whitespace from every retained
+        /// line; otherwise, the original (untrimmed) lines are retained verbatim.
+        /// </param>
+        /// <param name="value">
+        /// Upon input, the string value to process.  Upon success, this parameter
+        /// will be modified to contain the resulting string value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode RemoveBlanksAndComments(
             bool trimAll,     /* in */
             ref string value, /* in, out */
@@ -919,6 +1526,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the data contained within the comment lines of
+        /// the specified string value, discarding all non-comment lines and the
+        /// leading comment character of each comment line, normalizing the
+        /// result to use carriage-return/line-feed line endings.
+        /// </summary>
+        /// <param name="value">
+        /// Upon input, the string value to process.  Upon success, this parameter
+        /// will be modified to contain the resulting string value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ExtractDataFromComments(
             ref string value, /* in, out */
             ref Result error  /* out */
@@ -981,6 +1606,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the cached collection of preamble encodings and
+        /// resets the associated minimum and maximum preamble sizes.
+        /// </summary>
+        /// <returns>
+        /// The number of cached items that were cleared.
+        /// </returns>
         public static int ClearPreambleEncodings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1015,6 +1647,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the preamble (byte-order mark) associated with
+        /// the specified encoding.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding whose preamble is to be obtained.
+        /// </param>
+        /// <returns>
+        /// The preamble bytes for the specified encoding, or null if the
+        /// encoding is null or its preamble cannot be obtained.
+        /// </returns>
         public static byte[] GetPreamble(
             Encoding encoding
             )
@@ -1036,6 +1679,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes, if necessary, the cached collection of
+        /// preamble encodings along with the associated minimum and maximum
+        /// preamble sizes.
+        /// </summary>
         private static void InitializePreambleEncodings()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1083,6 +1731,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the minimum and maximum sizes, in bytes, of the
+        /// known encoding preambles.
+        /// </summary>
+        /// <param name="minimumSize">
+        /// Upon success, this parameter will be modified to contain the minimum
+        /// preamble size, in bytes.
+        /// </param>
+        /// <param name="maximumSize">
+        /// Upon success, this parameter will be modified to contain the maximum
+        /// preamble size, in bytes.
+        /// </param>
         public static void GetPreambleSizes(
             ref int minimumSize,
             ref int maximumSize
@@ -1099,6 +1759,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to guess the encoding of the specified array of
+        /// bytes by matching its leading bytes against the known encoding
+        /// preambles (byte-order marks).
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes whose encoding is to be guessed.
+        /// </param>
+        /// <param name="preambleSize">
+        /// Upon success, this parameter will be modified to contain the size, in
+        /// bytes, of the matched preamble.
+        /// </param>
+        /// <returns>
+        /// The guessed encoding, or null if no matching preamble is found.
+        /// </returns>
         private static Encoding GuessEncoding(
             byte[] bytes,
             ref int preambleSize
@@ -1136,6 +1811,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to guess the encoding of the specified array of
+        /// bytes from its preamble (byte-order mark), falling back to the
+        /// encoding associated with the specified encoding type when no preamble
+        /// is recognized.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes whose encoding is to be guessed.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type whose associated encoding is to be used when no
+        /// preamble is recognized.
+        /// </param>
+        /// <returns>
+        /// The guessed or fallback encoding, or null if none can be determined.
+        /// </returns>
         public static Encoding GuessOrGetEncoding(
             byte[] bytes,
             EncodingType type
@@ -1148,6 +1839,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to guess the encoding of the specified array of
+        /// bytes from its preamble (byte-order mark), falling back to the
+        /// encoding associated with the specified encoding type when no preamble
+        /// is recognized.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes whose encoding is to be guessed.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type whose associated encoding is to be used when no
+        /// preamble is recognized.
+        /// </param>
+        /// <param name="preambleSize">
+        /// Upon success, this parameter will be modified to contain the size, in
+        /// bytes, of the matched preamble, when applicable.
+        /// </param>
+        /// <returns>
+        /// The guessed or fallback encoding, or null if none can be determined.
+        /// </returns>
         public static Encoding GuessOrGetEncoding(
             byte[] bytes,
             EncodingType type,
@@ -1165,6 +1876,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the encoding associated with the specified
+        /// encoding name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the encoding to obtain.
+        /// </param>
+        /// <returns>
+        /// The encoding associated with the specified name, or null if it cannot
+        /// be obtained.
+        /// </returns>
         public static Encoding GetEncoding(
             string name
             )
@@ -1176,6 +1898,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the encoding associated with the specified
+        /// encoding name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the encoding to obtain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The encoding associated with the specified name, or null if it cannot
+        /// be obtained.
+        /// </returns>
         public static Encoding GetEncoding(
             string name,
             ref Result error
@@ -1202,6 +1939,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the encoding associated with the specified
+        /// encoding type.
+        /// </summary>
+        /// <param name="type">
+        /// The encoding type whose associated encoding is to be obtained.
+        /// </param>
+        /// <returns>
+        /// The encoding associated with the specified encoding type, or null if
+        /// the encoding type is not recognized.
+        /// </returns>
         public static Encoding GetEncoding(
             EncodingType type
             )
@@ -1253,6 +2001,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified encoding name refers to
+        /// the default encoding.
+        /// </summary>
+        /// <param name="name">
+        /// The encoding name to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified encoding name refers to the default encoding;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsDefaultEncodingName(
             string name /* in */
             )
@@ -1262,6 +2021,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified dictionary with all of the
+        /// encodings known to the system, keyed by their names.
+        /// </summary>
+        /// <param name="encodings">
+        /// Upon input, the dictionary to populate; if it is null, a new
+        /// dictionary is created.  Upon return, this parameter contains the
+        /// system encodings keyed by their names.
+        /// </param>
         public static void GetSystemEncodings(
             ref EncodingDictionary encodings /* in, out */
             )
@@ -1285,6 +2053,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the number of bytes required to encode the
+        /// specified string value using the specified encoding (or the encoding
+        /// associated with the specified encoding type) and adds that number to
+        /// the running byte count.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.
+        /// </param>
+        /// <param name="value">
+        /// The string value whose encoded byte count is to be computed.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="byteCount">
+        /// Upon success, this value is increased by the number of bytes required
+        /// to encode the specified string value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode AddByteCount(
             Encoding encoding, /* in */
             string value,      /* in */
@@ -1320,6 +2116,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method encodes the specified string value into an array of bytes
+        /// using the specified encoding (or the encoding associated with the
+        /// specified encoding type).
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.  If no encoding can
+        /// be determined, the value is treated as Base64.
+        /// </param>
+        /// <param name="value">
+        /// The string value to encode into bytes.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="errorOnNull">
+        /// Non-zero if a null string value should be treated as an error.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, this parameter will be modified to contain the resulting
+        /// array of bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetBytes(
             Encoding encoding, /* in */
             string value,      /* in */
@@ -1372,6 +2199,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes a count prefix from the specified array of bytes
+        /// using the specified encoding (or the encoding associated with the
+        /// specified encoding type) and parses it as a hexadecimal integer.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes containing the encoded count string.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this parameter will be modified to contain the parsed
+        /// count value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetCount(
             Encoding encoding,       /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1451,6 +2309,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a count prefix for the specified string value
+        /// and appends it, followed by a space character, to the specified string
+        /// builder.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// The string value whose encoded byte count is to be computed.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="builder">
+        /// Upon success, this string builder will have the count prefix appended
+        /// to it.  If this value is null, a new string builder will be created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode AppendCount(
             Encoding encoding,         /* in */
             CultureInfo cultureInfo,   /* in: NOT USED */
@@ -1512,6 +2401,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes the specified array of bytes into a string value
+        /// using the specified encoding (or the encoding associated with the
+        /// specified encoding type).
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes to decode into a string value.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the resulting
+        /// string value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetString(
             Encoding encoding, /* in */
             byte[] bytes,      /* in */
@@ -1527,6 +2439,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes the specified array of bytes into a string value
+        /// using the specified encoding (or the encoding associated with the
+        /// specified encoding type).  If no encoding can be determined, the bytes
+        /// are treated as Base64.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to use.  If this value is null, the encoding associated
+        /// with the specified encoding type is used instead.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes to decode into a string value.
+        /// </param>
+        /// <param name="type">
+        /// The encoding type to use when no explicit encoding is specified.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will be modified to contain the resulting
+        /// string value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetString(
             Encoding encoding, /* in */
             byte[] bytes,      /* in */
@@ -1574,6 +2514,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string value from one encoding to
+        /// another by first encoding it to bytes using the input encoding and
+        /// then decoding those bytes back into a string using the output
+        /// encoding.
+        /// </summary>
+        /// <param name="inputEncoding">
+        /// The encoding to use when encoding the input value to bytes.  If this
+        /// value is null, the encoding associated with the fallback input type is
+        /// used instead.
+        /// </param>
+        /// <param name="outputEncoding">
+        /// The encoding to use when decoding the bytes into the output value.  If
+        /// this value is null, the encoding associated with the fallback output
+        /// type is used instead.
+        /// </param>
+        /// <param name="fallbackInputType">
+        /// The encoding type to use when no explicit input encoding is specified.
+        /// </param>
+        /// <param name="fallbackOutputType">
+        /// The encoding type to use when no explicit output encoding is
+        /// specified.
+        /// </param>
+        /// <param name="inputValue">
+        /// The string value to convert.
+        /// </param>
+        /// <param name="outputValue">
+        /// Upon success, this parameter will be modified to contain the converted
+        /// string value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ConvertString(
             Encoding inputEncoding,
             Encoding outputEncoding,
@@ -1624,6 +2602,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified array of bytes from one encoding to
+        /// another by first decoding it into a string using the input encoding
+        /// and then encoding that string back into bytes using the output
+        /// encoding.
+        /// </summary>
+        /// <param name="inputEncoding">
+        /// The encoding to use when decoding the input bytes into a string.  If
+        /// this value is null, the encoding associated with the fallback input
+        /// type is used instead.
+        /// </param>
+        /// <param name="outputEncoding">
+        /// The encoding to use when encoding the string into the output bytes.
+        /// If this value is null, the encoding associated with the fallback
+        /// output type is used instead.
+        /// </param>
+        /// <param name="fallbackInputType">
+        /// The encoding type to use when no explicit input encoding is specified.
+        /// </param>
+        /// <param name="fallbackOutputType">
+        /// The encoding type to use when no explicit output encoding is
+        /// specified.
+        /// </param>
+        /// <param name="inputBytes">
+        /// The array of bytes to convert.
+        /// </param>
+        /// <param name="outputBytes">
+        /// Upon success, this parameter will be modified to contain the converted
+        /// array of bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ConvertBytes(
             Encoding inputEncoding,
             Encoding outputEncoding,
@@ -1680,6 +2696,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified string for the last occurrence of
+        /// the specified substring, using the specified string comparison type.
+        /// </summary>
+        /// <param name="haystack">
+        /// The string value to search within.
+        /// </param>
+        /// <param name="needle">
+        /// The substring to search for.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The rules to use when comparing the strings.
+        /// </param>
+        /// <returns>
+        /// The zero-based index of the last occurrence of the substring within
+        /// the string, or a negative number if it is not found.
+        /// </returns>
         public static int LastIndexOf(
             string haystack,
             string needle,
@@ -1708,6 +2741,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all leading switch characters from the specified
+        /// string value.
+        /// </summary>
+        /// <param name="text">
+        /// The string value from which to remove leading switch characters.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this parameter will be modified to contain the number of
+        /// leading switch characters that were removed.
+        /// </param>
+        /// <returns>
+        /// The string value with all leading switch characters removed.
+        /// </returns>
         public static string TrimSwitchChars(
             string text,
             ref int count
@@ -1733,6 +2780,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified switch, comparing only the leading portion of the switch up
+        /// to the length of the text, using a case-insensitive comparison.
+        /// </summary>
+        /// <param name="text">
+        /// The text to compare against the switch.
+        /// </param>
+        /// <param name="switch">
+        /// The switch to be matched.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the leading portion of the switch; otherwise,
+        /// false.
+        /// </returns>
         public static bool MatchSwitch(
             string text,
             string @switch
@@ -1747,6 +2809,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the two specified string values are
+        /// equal, using the comparison type configured for user-level string
+        /// comparisons.
+        /// </summary>
+        /// <param name="left">
+        /// The first string value to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second string value to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two string values are equal; otherwise, false.
+        /// </returns>
         public static bool UserEquals(
             string left,
             string right
@@ -1758,6 +2834,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the two specified string values are
+        /// equal, using the case-insensitive comparison type configured for
+        /// user-level string comparisons.
+        /// </summary>
+        /// <param name="left">
+        /// The first string value to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second string value to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two string values are equal; otherwise, false.
+        /// </returns>
         public static bool UserNoCaseEquals(
             string left,
             string right
@@ -1769,6 +2859,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character satisfies the
+        /// condition represented by the specified callback.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to test the character.  If this value is null, the
+        /// character is considered to not satisfy the condition.
+        /// </param>
+        /// <returns>
+        /// True if the character satisfies the condition represented by the
+        /// callback; otherwise, false.
+        /// </returns>
         private static bool CharIs(
             char character,
             CharIsCallback callback
@@ -1782,6 +2887,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a word
+        /// character (i.e. a letter, a digit, or connector punctuation).
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is a word character; otherwise, false.
+        /// </returns>
         public static bool CharIsWord(
             char character
             )
@@ -1792,6 +2907,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an ASCII
+        /// decimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is an ASCII decimal digit; otherwise, false.
+        /// </returns>
         public static bool CharIsAsciiDigit(
             char character
             )
@@ -1801,6 +2926,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an ASCII
+        /// alphabetic character.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is an ASCII alphabetic character; otherwise,
+        /// false.
+        /// </returns>
         public static bool CharIsAsciiAlpha(
             char character
             )
@@ -1811,6 +2947,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an ASCII
+        /// alphabetic character or an ASCII decimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is an ASCII alphabetic character or an ASCII
+        /// decimal digit; otherwise, false.
+        /// </returns>
         public static bool CharIsAsciiAlphaOrDigit(
             char character
             )
@@ -1820,6 +2967,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an ASCII
+        /// character.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is an ASCII character; otherwise, false.
+        /// </returns>
         public static bool CharIsAscii(
             char character
             )
@@ -1829,6 +2986,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a printable
+        /// character that is not white-space (i.e. a visible graphic character).
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is a visible graphic character; otherwise,
+        /// false.
+        /// </returns>
         public static bool CharIsGraph(
             char character
             )
@@ -1838,6 +3006,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is one of the
+        /// characters reserved by the Tcl language syntax.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is a reserved character; otherwise, false.
+        /// </returns>
         public static bool CharIsReserved(
             char character
             )
@@ -1861,6 +3039,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a printable
+        /// character.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is a printable character; otherwise, false.
+        /// </returns>
         public static bool CharIsPrint(
             char character
             )
@@ -1898,6 +3086,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an ASCII
+        /// hexadecimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is an ASCII hexadecimal digit; otherwise, false.
+        /// </returns>
         public static bool CharIsAsciiHexadecimal(
             char character
             )
@@ -1909,6 +3107,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid as the
+        /// first character of a C# identifier.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid as the first character of a C#
+        /// identifier; otherwise, false.
+        /// </returns>
         public static bool CharIsIdentifierZero( /* NOTE: First C# identifier character. */
             char character
             )
@@ -1918,6 +3127,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid as a
+        /// subsequent (non-first) character of a C# identifier.
+        /// </summary>
+        /// <param name="character">
+        /// The character to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid as a subsequent character of a C#
+        /// identifier; otherwise, false.
+        /// </returns>
         public static bool CharIsIdentifierOnePlus( /* NOTE: Subsequent C# identifier characters. */
             char character
             )
@@ -1927,6 +3147,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes the specified hexavigesimal (base-26) string into
+        /// an array of bytes.  All white-space characters are removed prior to
+        /// decoding.
+        /// </summary>
+        /// <param name="text">
+        /// The hexavigesimal (base-26) string to decode.
+        /// </param>
+        /// <returns>
+        /// The resulting array of bytes, or null if the string is null, empty, or
+        /// cannot be decoded.
+        /// </returns>
         public static byte[] FromBase26String(
             string text
             )
@@ -1973,6 +3205,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method encodes the specified array of bytes into a hexavigesimal
+        /// (base-26) string, optionally inserting line breaks and spaces.
+        /// </summary>
+        /// <param name="array">
+        /// The array of bytes to encode.
+        /// </param>
+        /// <param name="options">
+        /// The formatting options that control the insertion of line breaks and
+        /// spaces.
+        /// </param>
+        /// <returns>
+        /// The resulting hexavigesimal (base-26) string, or null if the array is
+        /// null.
+        /// </returns>
         public static string ToBase26String(
             byte[] array,
             Base26FormattingOption options /* IGNORED */
@@ -2009,6 +3256,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a string of spaces representing the leading
+        /// white-space indentation present in the specified string value,
+        /// starting at the specified index and reduced by the specified number of
+        /// indent spaces.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to examine for leading white-space.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index at which to begin examining the string value.
+        /// </param>
+        /// <param name="indentSpaces">
+        /// The number of spaces to subtract from the computed indentation.
+        /// </param>
+        /// <param name="indent">
+        /// Upon success, this parameter may be modified to contain the computed
+        /// string of indentation spaces.
+        /// </param>
         private static void CalculateIndent(
             string value,
             int startIndex,
@@ -2047,6 +3313,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value contains
+        /// more than one logical line (i.e. whether it contains a line-ending
+        /// character or sequence).
+        /// </summary>
+        /// <param name="value">
+        /// The string value to examine.
+        /// </param>
+        /// <returns>
+        /// True if the value contains a line-ending; otherwise, false.
+        /// </returns>
         public static bool IsMultiLine(
             string value
             )
@@ -2061,6 +3338,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string value contains
+        /// more than one logical line and, if so, reports the line-ending that
+        /// was detected along with the leading indentation for the next line.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to examine.
+        /// </param>
+        /// <param name="indentSpaces">
+        /// The number of indentation spaces to remove when calculating the
+        /// resulting indentation string.
+        /// </param>
+        /// <param name="newLine">
+        /// Upon success, this contains the line-ending character or sequence
+        /// that was detected within the value.
+        /// </param>
+        /// <param name="indent">
+        /// Upon success, this contains the indentation string calculated for
+        /// the line following the detected line-ending.
+        /// </param>
+        /// <returns>
+        /// True if the value contains a line-ending; otherwise, false.
+        /// </returns>
         public static bool IsMultiLine(
             string value,
             int indentSpaces,
@@ -2116,6 +3416,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the string contained within the
+        /// specified string builder contains more than one logical line and, if
+        /// so, reports the line-ending that was detected along with the leading
+        /// indentation for the next line.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder whose contents should be examined.
+        /// </param>
+        /// <param name="indentSpaces">
+        /// The number of indentation spaces to remove when calculating the
+        /// resulting indentation string.
+        /// </param>
+        /// <param name="newLine">
+        /// Upon success, this contains the line-ending character or sequence
+        /// that was detected within the contents.
+        /// </param>
+        /// <param name="indent">
+        /// Upon success, this contains the indentation string calculated for
+        /// the line following the detected line-ending.
+        /// </param>
+        /// <returns>
+        /// True if the contents contain a line-ending; otherwise, false.
+        /// </returns>
         public static bool IsMultiLine(
             StringBuilder builder,
             int indentSpaces,
@@ -2133,6 +3457,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// SHA1 hash value.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be a SHA1 hash value; otherwise, false.
+        /// </returns>
         public static bool IsSha1HashValue(
             string text
             )
@@ -2150,6 +3484,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// SHA512 hash value.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be a SHA512 hash value; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsSha512HashValue(
             string text
             )
@@ -2167,6 +3512,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// base-16 (hexadecimal) encoded value.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be base-16 encoded; otherwise, false.
+        /// </returns>
         public static bool IsBase16(
             string text
             )
@@ -2184,6 +3539,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// base-26 encoded value.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be base-26 encoded; otherwise, false.
+        /// </returns>
         public static bool IsBase26(
             string text
             )
@@ -2201,6 +3566,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the length of the specified text after removing
+        /// all whitespace characters, replacing the text with its whitespace
+        /// stripped form when any whitespace is present.
+        /// </summary>
+        /// <param name="text">
+        /// On input, the text to examine; on output, the text with all
+        /// whitespace characters removed when any were present.
+        /// </param>
+        /// <returns>
+        /// The number of non-whitespace characters in the text, or an invalid
+        /// length when the text is null.
+        /// </returns>
         private static int LengthWithoutSpaces(
             ref string text /* in, out */
             )
@@ -2236,6 +3614,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// base-64 encoded value.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be base-64 encoded; otherwise, false.
+        /// </returns>
         public static bool IsBase64(
             string text
             )
@@ -2267,6 +3655,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text appears to be a
+        /// delimited string of hexadecimal byte values.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine.
+        /// </param>
+        /// <returns>
+        /// True if the text appears to be hexadecimal bytes; otherwise, false.
+        /// </returns>
         private static bool IsHexadecimalBytes(
             string text
             )
@@ -2284,6 +3682,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string value into an array of
+        /// bytes, automatically detecting the encoding format (delimited
+        /// hexadecimal bytes, base-16, base-64, or a GUID).
+        /// </summary>
+        /// <param name="value">
+        /// The string value to convert into bytes.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use when parsing the value.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, this contains the array of bytes produced from the
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode GetBytesFromString(
             string value,
             CultureInfo cultureInfo,
@@ -2339,6 +3759,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the list separators within the specified
+        /// string value by replacing comma and semicolon characters with space
+        /// characters.
+        /// </summary>
+        /// <param name="value">
+        /// The string value whose list separators should be normalized.
+        /// </param>
+        /// <returns>
+        /// The string value with its list separators normalized to spaces.
+        /// </returns>
         public static string NormalizeListSeparators(
             string value
             )
@@ -2356,6 +3787,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes all line-endings within the specified text to
+        /// the convention required by the script evaluation engine.
+        /// </summary>
+        /// <param name="text">
+        /// The text whose line-endings should be normalized.
+        /// </param>
+        /// <returns>
+        /// The text with all line-endings normalized.
+        /// </returns>
         public static string NormalizeLineEndings(
             string text
             )
@@ -2388,6 +3829,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the contents of the specified string builder
+        /// in-place, normalizing all line-endings to the Unix line-ending
+        /// convention.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder whose contents should be modified in-place.
+        /// </param>
         public static void FixupLineEndings(
             StringBuilder builder
             )
@@ -2438,6 +3887,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the contents of the specified string builder
+        /// in-place, replacing each line-ending character with a visible
+        /// representation suitable for display.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder whose contents should be modified in-place.
+        /// </param>
+        /// <param name="extended">
+        /// Non-zero to use extended (non-Unicode) characters to represent the
+        /// line-ending characters.
+        /// </param>
+        /// <param name="unicode">
+        /// Non-zero to use Unicode arrow characters to represent the
+        /// line-ending characters; this takes precedence over the extended
+        /// parameter.
+        /// </param>
         public static void FixupDisplayLineEndings(
             StringBuilder builder,
             bool extended,
@@ -2492,6 +3958,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the specified string value uses carriage
+        /// return, line-feed pairs for its line-endings, inserting the missing
+        /// carriage returns when the value contains line-feeds but no carriage
+        /// returns.
+        /// </summary>
+        /// <param name="value">
+        /// The string value whose line-endings should be modified.
+        /// </param>
+        /// <returns>
+        /// The string value with carriage returns added as needed.
+        /// </returns>
         public static string ForceCarriageReturns(
             string value
             )
@@ -2520,6 +3998,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a single trailing platform line-ending from the
+        /// specified string value, when present.
+        /// </summary>
+        /// <param name="value">
+        /// On input, the string value to examine; on output, the value with a
+        /// single trailing platform line-ending removed when present.
+        /// </param>
         public static void StripNewLine(
             ref string value /* in, out */
             )
@@ -2541,6 +4027,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified text into a comma-separated list
+        /// of values suitable for use with the enumeration parsing facilities
+        /// (e.g. for flags fields).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when splitting the text into a list.
+        /// </param>
+        /// <param name="text">
+        /// The text to convert into a comma-separated list.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the resulting comma-separated list; upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode StringToEnumList(
             Interpreter interpreter,
             string text,
@@ -2583,6 +4088,17 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines whether the specified character is recognized
+        /// as a command-line switch prefix.
+        /// </summary>
+        /// <param name="character">
+        /// The character to examine.
+        /// </param>
+        /// <returns>
+        /// True if the character is a command-line switch prefix; otherwise,
+        /// false.
+        /// </returns>
         private static bool CharIsSwitch( /* NOT USED */
             char character
             )
@@ -2592,6 +4108,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is an
+        /// alphabetic letter.
+        /// </summary>
+        /// <param name="character">
+        /// The character to examine.
+        /// </param>
+        /// <returns>
+        /// True if the character is an alphabetic letter; otherwise, false.
+        /// </returns>
         private static bool CharIsAlpha( /* NOT USED */
             char character
             )
@@ -2611,6 +4137,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a decimal
+        /// digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to examine.
+        /// </param>
+        /// <returns>
+        /// True if the character is a decimal digit; otherwise, false.
+        /// </returns>
         private static bool CharIsDigit( /* NOT USED */
             char character
             )
@@ -2620,6 +4156,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the substring of the specified string between
+        /// the specified first and last character indexes, inclusive, clamping
+        /// the indexes to the bounds of the string and swapping them when they
+        /// are out of order.
+        /// </summary>
+        /// <param name="text">
+        /// The string to extract the substring from.
+        /// </param>
+        /// <param name="firstIndex">
+        /// The index of the first character to include in the substring.
+        /// </param>
+        /// <param name="lastIndex">
+        /// The index of the last character to include in the substring.
+        /// </param>
+        /// <returns>
+        /// The extracted substring, or the original string when it is null or
+        /// empty.
+        /// </returns>
         private static string Slice( /* NOT USED */
             string text,
             int firstIndex,
@@ -2649,6 +4204,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces occurrences of a substring within a string with
+        /// another substring, using the specified comparison type and honoring
+        /// an optional maximum number of replacements.
+        /// </summary>
+        /// <param name="text">
+        /// The string to perform the replacements on.
+        /// </param>
+        /// <param name="oldValue">
+        /// The substring to search for and replace.
+        /// </param>
+        /// <param name="newValue">
+        /// The substring to substitute for each occurrence of the old value.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The type of string comparison to use when searching for the old
+        /// value.
+        /// </param>
+        /// <param name="maximum">
+        /// The maximum number of replacements to perform, or a value less than
+        /// or equal to zero to replace all occurrences.
+        /// </param>
+        /// <param name="count">
+        /// Upon return, this parameter is incremented by the number of
+        /// replacements that were performed.
+        /// </param>
+        /// <returns>
+        /// The resulting string after the replacements have been performed.
+        /// </returns>
         private static string StrReplace(
             string text,
             string oldValue,
@@ -2777,6 +4361,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether all (or any) of the characters in the
+        /// specified string satisfy the predicate represented by the supplied
+        /// callback.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be checked.  May be null or empty.
+        /// </param>
+        /// <param name="callback">
+        /// The per-character predicate used to test each character of the string.
+        /// </param>
+        /// <param name="not">
+        /// Non-zero to invert the sense of the per-character predicate.
+        /// </param>
+        /// <param name="any">
+        /// Non-zero to require that at least one character satisfy the predicate;
+        /// zero to require that all characters satisfy it.
+        /// </param>
+        /// <param name="nullOrEmpty">
+        /// The value to return when the specified string is null or empty.
+        /// </param>
+        /// <param name="failIndex">
+        /// Upon failure, this receives the zero-based index of the first character
+        /// that did not satisfy the predicate.
+        /// </param>
+        /// <returns>
+        /// True if the string satisfies the (possibly inverted) predicate subject to
+        /// the specified semantics; otherwise, false.
+        /// </returns>
         public static bool StringIs(
             string value,            /* in */
             CharIsCallback callback, /* in */
@@ -2815,6 +4428,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether all (or any) of the characters in the
+        /// specified string satisfy the predicate(s) represented by the supplied
+        /// callbacks, using one callback for the first character and another callback
+        /// for the remaining characters.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be checked.  May be null or empty.
+        /// </param>
+        /// <param name="zeroCallback">
+        /// The per-character predicate used to test the first character of the
+        /// string.
+        /// </param>
+        /// <param name="onePlusCallback">
+        /// The per-character predicate used to test the characters after the first
+        /// one.  This parameter is optional and may be null, in which case the first
+        /// callback is used for all characters.
+        /// </param>
+        /// <param name="not">
+        /// Non-zero to invert the sense of the per-character predicate.
+        /// </param>
+        /// <param name="any">
+        /// Non-zero to require that at least one character satisfy the predicate;
+        /// zero to require that all characters satisfy it.
+        /// </param>
+        /// <param name="nullOrEmpty">
+        /// The value to return when the specified string is null or empty.
+        /// </param>
+        /// <param name="failIndex">
+        /// Upon failure, this receives the zero-based index of the first character
+        /// that did not satisfy the predicate.
+        /// </param>
+        /// <returns>
+        /// True if the string satisfies the (possibly inverted) predicate subject to
+        /// the specified semantics; otherwise, false.
+        /// </returns>
         public static bool StringIs(
             string value,                   /* in */
             CharIsCallback zeroCallback,    /* in */
@@ -2858,6 +4507,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the length of the longest string within the
+        /// specified array of strings.
+        /// </summary>
+        /// <param name="values">
+        /// The array of strings to examine.  May be null, and individual elements
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The length of the longest non-null string, or an invalid length if there
+        /// are no non-null strings.
+        /// </returns>
         public static int GetMaximumLength(
             params string[] values
             )
@@ -2886,6 +4547,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the specified replacement string as a script using
+        /// the supplied interpreter, replacing it with the script result and
+        /// recalculating its length.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate the replacement script.  If null, no
+        /// evaluation is performed.
+        /// </param>
+        /// <param name="replacement">
+        /// Upon input, the replacement script to evaluate.  Upon success, this
+        /// receives the result of evaluating that script.
+        /// </param>
+        /// <param name="replacementLength">
+        /// Upon input, the length of the replacement string.  Upon success, this
+        /// receives the length of the evaluated replacement string.
+        /// </param>
+        /// <returns>
+        /// True if the replacement was evaluated successfully (or no evaluation was
+        /// necessary); otherwise, false.
+        /// </returns>
         private static bool EvaluateScriptReplacement(
             Interpreter interpreter,  /* in */
             ref string replacement,   /* in, out */
@@ -2913,6 +4595,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to match the specified pattern against the specified
+        /// text at the given starting index, optionally performing a replacement.
+        /// This overload discards the matched and replacement values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against the text.
+        /// </param>
+        /// <param name="patternLength">
+        /// The length of the pattern, in characters.
+        /// </param>
+        /// <param name="replacement">
+        /// The replacement value to use when a match is found and replacement is
+        /// requested.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="subSpec">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement value.
+        /// </param>
+        /// <param name="replace">
+        /// Non-zero to perform the replacement within the string builder.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the matched (or skipped) text to the string builder.
+        /// </param>
+        /// <param name="oldLength">
+        /// Upon success, this receives the length of the text that was matched (or
+        /// replaced).
+        /// </param>
+        /// <param name="builder">
+        /// Upon input, the string builder being built.  Upon success, it may be
+        /// modified to contain the replacement or appended text.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the pattern was matched at the specified starting index;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchForStrMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -2941,6 +4680,69 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to match the specified pattern against the specified
+        /// text at the given starting index, optionally performing a replacement,
+        /// also reporting the matched and replacement values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against the text.
+        /// </param>
+        /// <param name="patternLength">
+        /// The length of the pattern, in characters.
+        /// </param>
+        /// <param name="replacement">
+        /// The replacement value to use when a match is found and replacement is
+        /// requested.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="subSpec">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement value.
+        /// </param>
+        /// <param name="replace">
+        /// Non-zero to perform the replacement within the string builder.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the matched (or skipped) text to the string builder.
+        /// </param>
+        /// <param name="oldLength">
+        /// Upon success, this receives the length of the text that was matched (or
+        /// replaced).
+        /// </param>
+        /// <param name="oldValue">
+        /// Upon success, this receives the value that was matched.
+        /// </param>
+        /// <param name="newValue">
+        /// Upon success, this receives the replacement value.
+        /// </param>
+        /// <param name="builder">
+        /// Upon input, the string builder being built.  Upon success, it may be
+        /// modified to contain the replacement or appended text.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the pattern was matched at the specified starting index;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchForStrMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -2962,7 +4764,15 @@ namespace Eagle._Components.Private
         {
             bool evaluate = FlagOps.HasFlags(mode, MatchMode.Evaluate, true);
 
-            mode &= ~MatchMode.FlagsMask;
+            //
+            // BUGFIX: Also strip the complex-mode bits (e.g. Evaluate, which was
+            //         already extracted just above) before validating the simple
+            //         mode.  They are NOT part of FlagsMask, so leaving them set
+            //         made the (mode != Exact && mode != RegExp) guard below fail
+            //         for [string map -eval] (et al), silently turning it into a
+            //         no-op.  See FINDINGS F52.
+            //
+            mode &= ~(MatchMode.FlagsMask | MatchMode.ComplexModeMask);
 
             if ((mode != MatchMode.Exact) && (mode != MatchMode.RegExp))
                 return false;
@@ -3049,6 +4859,23 @@ namespace Eagle._Components.Private
                                 match, 0, out matchIndex,
                                 out matchLength, out matchValue))
                         {
+                            //
+                            // BUGFIX: The non-replace (char-by-char) [string map]
+                            //         driver (StrMap) advances one position at a
+                            //         time and expects a match ANCHORED at the
+                            //         current index.  A regular-expression match
+                            //         can occur FORWARD of startIndex; honoring it
+                            //         here made StrMap drop the skipped prefix and
+                            //         garble 2-or-more matches.  Treat a
+                            //         non-anchored match as "no match here" and let
+                            //         the driver advance to the match position on
+                            //         its own.  (The replace driver, StrMultiMap,
+                            //         wants forward matching and is handled in the
+                            //         "replace" branch below.)  See FINDINGS F53.
+                            //
+                            if (!replace && (matchIndex != startIndex))
+                                break;
+
                             if (subSpec)
                             {
                                 replacement = RegExOps.TranslateSubSpec(
@@ -3067,7 +4894,22 @@ namespace Eagle._Components.Private
 
                             if (replace && (builder != null))
                             {
-                                oldLength = replacementLength;
+                                //
+                                // BUGFIX: The replace driver (StrMultiMap)
+                                //         advances its start index by oldLength.
+                                //         A regular-expression match can occur
+                                //         FORWARD of startIndex, so the advance
+                                //         must cover the skipped prefix plus the
+                                //         replacement; otherwise the next search
+                                //         re-scans the skipped text (and part of
+                                //         the just-inserted replacement), causing
+                                //         over-wrapping on 2-or-more matches.
+                                //         (For exact matches matchIndex ==
+                                //         startIndex, so this is unchanged.)  See
+                                //         FINDINGS F54.
+                                //
+                                oldLength = (matchIndex - startIndex) +
+                                    replacementLength;
 
                                 oldValue = text.Substring(
                                     matchIndex, matchLength);
@@ -3085,8 +4927,16 @@ namespace Eagle._Components.Private
                                 oldLength = (matchIndex -
                                     startIndex) + matchLength;
 
-                                oldValue = text.Substring(
-                                    startIndex, matchIndex + 1);
+                                //
+                                // BUGFIX: The matched text is the regular
+                                //         expression match value, not a
+                                //         "startIndex .. matchIndex + 1" slice
+                                //         (which was the wrong length, used the
+                                //         wrong endpoint, and could even throw).
+                                //         oldValue feeds StrMap's over-quota
+                                //         passthrough.  See FINDINGS F53.
+                                //
+                                oldValue = matchValue;
 
                                 newValue = replacement;
 
@@ -3112,6 +4962,65 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to match any of the specified patterns against the
+        /// specified text at the given starting index, optionally performing a
+        /// replacement using the first pattern that matches.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of pattern/replacement pairs to attempt to match.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="allowEmpty">
+        /// Non-zero to allow empty patterns to be matched; zero to skip them.
+        /// </param>
+        /// <param name="subSpace">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement value.
+        /// </param>
+        /// <param name="replace">
+        /// Non-zero to perform the replacement within the string builder.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append the matched (or skipped) text to the string builder.
+        /// </param>
+        /// <param name="oldLength">
+        /// Upon success, this receives the length of the text that was matched (or
+        /// replaced).
+        /// </param>
+        /// <param name="oldValue">
+        /// Upon success, this receives the value that was matched.
+        /// </param>
+        /// <param name="newValue">
+        /// Upon success, this receives the replacement value.
+        /// </param>
+        /// <param name="builder">
+        /// Upon input, the string builder being built.  Upon success, it may be
+        /// modified to contain the replacement or appended text.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if any of the patterns matched at the specified starting index;
+        /// otherwise, false.
+        /// </returns>
         private static bool StrInMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -3176,6 +5085,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method repeatedly replaces each pattern in the specified list with
+        /// its associated replacement value throughout the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of pattern/replacement pairs to apply to the text.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="maximum">
+        /// The maximum number of replacements to perform, or an invalid count for no
+        /// limit.
+        /// </param>
+        /// <param name="subSpec">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement values.
+        /// </param>
+        /// <param name="count">
+        /// Upon input, the number of replacements performed so far.  Upon return,
+        /// this is incremented by the number of replacements performed by this
+        /// method.
+        /// </param>
+        /// <returns>
+        /// The text after all applicable replacements have been performed.
+        /// </returns>
         public static string StrMultiMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -3258,6 +5210,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces each pattern in the specified list with its
+        /// associated replacement value throughout the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of pattern/replacement pairs to apply to the text.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="maximum">
+        /// The maximum number of replacements to perform, or an invalid count for no
+        /// limit.
+        /// </param>
+        /// <param name="subSpec">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement values.
+        /// </param>
+        /// <returns>
+        /// The text after all applicable replacements have been performed.
+        /// </returns>
         public static string StrMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -3280,6 +5270,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces each pattern in the specified list with its
+        /// associated replacement value throughout the specified text, also
+        /// reporting the number of replacements performed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate replacement scripts, if any.  May be
+        /// null.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode (e.g. exact or regular expression) to use, possibly
+        /// combined with matching flags.
+        /// </param>
+        /// <param name="text">
+        /// The text to be searched.  May be null or empty.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index within the text at which to begin matching.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of pattern/replacement pairs to apply to the text.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison semantics to use for exact matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use for regular expression matching.
+        /// </param>
+        /// <param name="maximum">
+        /// The maximum number of replacements to perform, or an invalid count for no
+        /// limit.
+        /// </param>
+        /// <param name="subSpec">
+        /// Non-zero to translate regular expression substitution specifications
+        /// within the replacement values.
+        /// </param>
+        /// <param name="count">
+        /// Upon input, the number of replacements performed so far.  Upon return,
+        /// this is incremented by the number of replacements performed by this
+        /// method.
+        /// </param>
+        /// <returns>
+        /// The text after all applicable replacements have been performed.
+        /// </returns>
         public static string StrMap(
             Interpreter interpreter,         /* in */
             MatchMode mode,                  /* in */
@@ -3419,6 +5453,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses the order of the characters in the specified string.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be reversed.  May be null or empty.
+        /// </param>
+        /// <returns>
+        /// The specified string with its characters in reverse order.
+        /// </returns>
         public static string StrReverse(
             string text
             )
@@ -3435,6 +5478,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a string consisting of the specified character
+        /// repeated enough times to pad the specified value out to the given total
+        /// count of characters.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose length is subtracted from the requested count.  May be
+        /// null.
+        /// </param>
+        /// <param name="count">
+        /// The total number of characters; the length of the value is subtracted
+        /// from this to determine how many characters to repeat.
+        /// </param>
+        /// <param name="character">
+        /// The character to repeat.
+        /// </param>
+        /// <returns>
+        /// A string composed of the repeated character.
+        /// </returns>
         public static string StrRepeat(
             string value,
             int count,
@@ -3452,6 +5514,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a string consisting of the specified character
+        /// repeated the specified number of times.
+        /// </summary>
+        /// <param name="count">
+        /// The number of times to repeat the character.  Values less than or equal
+        /// to zero produce an empty string.
+        /// </param>
+        /// <param name="character">
+        /// The character to repeat.
+        /// </param>
+        /// <returns>
+        /// A string composed of the repeated character.
+        /// </returns>
         public static string StrRepeat(
             int count,
             char character
@@ -3470,6 +5546,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a string consisting of the specified text repeated
+        /// the specified number of times.
+        /// </summary>
+        /// <param name="count">
+        /// The number of times to repeat the text.  Values less than or equal to
+        /// zero produce an empty string.
+        /// </param>
+        /// <param name="text">
+        /// The text to repeat.  May be null or empty.
+        /// </param>
+        /// <returns>
+        /// A string composed of the repeated text.
+        /// </returns>
         public static string StrRepeat(
             int count,
             string text
@@ -3493,6 +5583,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method centers the specified text within a field of the given length
+        /// by padding both sides with the specified character.
+        /// </summary>
+        /// <param name="text">
+        /// The text to be centered.  May be null or empty.
+        /// </param>
+        /// <param name="length">
+        /// The total length of the resulting padded string.
+        /// </param>
+        /// <param name="character">
+        /// The character used to pad either side of the text.
+        /// </param>
+        /// <returns>
+        /// The text centered within a field of the specified length.
+        /// </returns>
         public static string PadCenter(
             string text,
             int length,
@@ -3523,6 +5629,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparer that corresponds to the specified
+        /// string comparison semantics.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The string comparison semantics for which a matching comparer is
+        /// required.
+        /// </param>
+        /// <returns>
+        /// The <see cref="StringComparer" /> corresponding to the specified
+        /// comparison semantics, or the default comparer if it is not recognized.
+        /// </returns>
         public static StringComparer GetStringComparer(
             StringComparison comparisonType
             )
@@ -3548,6 +5666,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally appends the string representation of the
+        /// specified value to the specified string builder, optionally preceding it
+        /// with a space and/or applying title-casing and a format string.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.  If null, nothing is done.
+        /// </param>
+        /// <param name="format">
+        /// An optional composite format string used to format the value.  May be
+        /// null, in which case the value is appended verbatim.
+        /// </param>
+        /// <param name="value">
+        /// The value to append.  If null or its string representation is empty,
+        /// nothing is done.
+        /// </param>
+        /// <param name="withSpace">
+        /// Non-zero to append a space before the value.
+        /// </param>
+        /// <param name="toTitle">
+        /// Non-zero to convert the value to title case before appending it.
+        /// </param>
         public static void MaybeAppend(
             StringBuilder builder, /* in */
             string format,         /* in: OPTIONAL */
@@ -3571,7 +5711,7 @@ namespace Eagle._Components.Private
                 builder.Append(Characters.Space);
 
             if (toTitle)
-                valueString = ToTitle(valueString, null);
+                valueString = ToTitle(valueString, null, null);
 
             if (format != null)
                 builder.AppendFormat(format, valueString);
@@ -3581,9 +5721,76 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally rewrites the specified case-changing sub-command
+        /// name to its culture-invariant variant.
+        /// </summary>
+        /// <param name="subCommand">
+        /// Upon input, the sub-command name to examine.  Upon success, this receives
+        /// the name with the invariant suffix appended.
+        /// </param>
+        /// <param name="invariant">
+        /// Non-zero to request the culture-invariant variant; zero to leave the name
+        /// unchanged.  May be null to use the default behavior.
+        /// </param>
+        /// <returns>
+        /// True if the sub-command name was rewritten to its invariant variant;
+        /// otherwise, false.
+        /// </returns>
+        public static bool MaybeMutateCaseMethodName(
+            ref string subCommand,
+            bool? invariant
+            )
+        {
+            if (String.IsNullOrEmpty(subCommand))
+                return false;
+
+            //
+            // TODO: Good default?
+            //
+            if ((invariant != null) && !(bool)invariant)
+                return false;
+
+            if (!SharedStringOps.SystemNoCaseEquals(
+                    subCommand, ToLowerMethodName) &&
+                !SharedStringOps.SystemNoCaseEquals(
+                    subCommand, ToTitleMethodName) &&
+                !SharedStringOps.SystemNoCaseEquals(
+                    subCommand, ToUpperMethodName))
+            {
+                return false;
+            }
+
+            subCommand += InvariantMethodSuffix;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method converts the first character of the specified string to
+        /// upper-case (i.e. "title" case) and the remaining characters to
+        /// lower-case, using the indicated culture and case-folding semantics.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.  May be null or empty.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the case conversion.  May be null to use
+        /// the default culture-specific or invariant semantics.
+        /// </param>
+        /// <param name="invariant">
+        /// Non-zero (or null) to use invariant case-folding when no culture is
+        /// available; otherwise, the current culture is used.
+        /// </param>
+        /// <returns>
+        /// The converted string, or the original string when it is null or
+        /// empty.
+        /// </returns>
         public static string ToTitle(
             string text,
-            CultureInfo cultureInfo
+            CultureInfo cultureInfo,
+            bool? invariant
             )
         {
             string result = text;
@@ -3598,15 +5805,25 @@ namespace Eagle._Components.Private
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                 if (cultureInfo != null)
                 {
-                    result = Char.ToUpper(firstCharacter,
-                        cultureInfo) + secondToEnd.ToLower(
-                        cultureInfo);
+                    result = Char.ToUpper(firstCharacter, cultureInfo) +
+                        secondToEnd.ToLower(cultureInfo);
                 }
                 else
 #endif
                 {
-                    result = Char.ToUpper(firstCharacter) +
-                        secondToEnd.ToLower();
+                    //
+                    // TODO: Good default?
+                    //
+                    if ((invariant == null) || (bool)invariant)
+                    {
+                        result = Char.ToUpperInvariant(firstCharacter) +
+                            secondToEnd.ToLowerInvariant();
+                    }
+                    else
+                    {
+                        result = Char.ToUpper(firstCharacter) +
+                            secondToEnd.ToLower();
+                    }
                 }
             }
 
@@ -3615,9 +5832,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the first character of the specified string to
+        /// lower-case, leaving the remaining characters unchanged, using the
+        /// indicated culture and case-folding semantics.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.  May be null or empty.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the case conversion.  May be null to use
+        /// the default culture-specific or invariant semantics.
+        /// </param>
+        /// <param name="invariant">
+        /// Non-zero (or null) to use invariant case-folding when no culture is
+        /// available; otherwise, the current culture is used.
+        /// </param>
+        /// <returns>
+        /// The converted string, or the original string when it is null or
+        /// empty.
+        /// </returns>
         public static string ToLowerInitial(
             string text,
-            CultureInfo cultureInfo
+            CultureInfo cultureInfo,
+            bool? invariant
             )
         {
             string result = text;
@@ -3632,14 +5870,25 @@ namespace Eagle._Components.Private
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                 if (cultureInfo != null)
                 {
-                    result = Char.ToLower(firstCharacter,
-                        cultureInfo) + secondToEnd;
+                    result = Char.ToLower(
+                        firstCharacter, cultureInfo) + secondToEnd;
                 }
                 else
 #endif
                 {
-                    result = Char.ToLower(firstCharacter) +
-                        secondToEnd;
+                    //
+                    // TODO: Good default?
+                    //
+                    if ((invariant == null) || (bool)invariant)
+                    {
+                        result = Char.ToLowerInvariant(firstCharacter) +
+                            secondToEnd;
+                    }
+                    else
+                    {
+                        result = Char.ToLower(firstCharacter) +
+                            secondToEnd;
+                    }
                 }
             }
 
@@ -3651,6 +5900,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Excludes characters covered by PathOps.HasPathWildcard().
         //
+        /// <summary>
+        /// This method determines whether the specified string contains any of
+        /// the characters considered to be string-matching wildcard characters.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be checked.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the string contains at least one string-matching wildcard
+        /// character; otherwise, false.
+        /// </returns>
         public static bool HasStringMatchWildcard(
             string value
             )
@@ -3662,6 +5922,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string contains any of
+        /// the characters reserved for use by the string-matching engine.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be checked.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the string contains at least one reserved string-matching
+        /// character; otherwise, false.
+        /// </returns>
         public static bool HasStringMatchChar(
             string text
             )
@@ -3672,6 +5943,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all white-space and control characters from the
+        /// specified string.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be processed.  May be null or empty.
+        /// </param>
+        /// <returns>
+        /// A copy of the string with all white-space and control characters
+        /// removed, or the original string when it is null or empty.
+        /// </returns>
         private static string RemoveWhiteSpace(
             string text
             )
@@ -3718,6 +6000,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL && INTERACTIVE_COMMANDS && XML
+        /// <summary>
+        /// This method builds (or selects a cached) regular expression suitable
+        /// for collapsing runs of white-space characters, honoring the specified
+        /// flags that indicate which kinds of white-space should be preserved.
+        /// </summary>
+        /// <param name="textFlags">
+        /// The flags used to control which categories of white-space characters
+        /// are matched by the resulting regular expression.
+        /// </param>
+        /// <returns>
+        /// The regular expression used to collapse white-space, or null when no
+        /// white-space categories are eligible for collapsing.
+        /// </returns>
         private static Regex GetRegExForCollapseWhiteSpace(
             TextFlags textFlags /* in */
             )
@@ -3794,6 +6089,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collapses runs of white-space characters within the
+        /// specified string into single spaces, honoring the specified flags.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be processed.  May be null or empty.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control which categories of white-space characters
+        /// are collapsed and whether escape sequences are processed.
+        /// </param>
+        /// <returns>
+        /// The string with eligible white-space collapsed, or the original
+        /// string when no collapsing is performed.
+        /// </returns>
         public static string CollapseWhiteSpace(
             string text,
             TextFlags textFlags
@@ -3826,6 +6136,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces literal white-space characters within the
+        /// specified string with their backslash escape sequences.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be processed.  Upon return, contains the string with
+        /// its white-space characters replaced by escape sequences.
+        /// </param>
         private static void EscapeWhiteSpace(
             ref string text /* in, out */
             )
@@ -3839,6 +6157,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces, in-place, literal white-space characters within
+        /// the specified string builder with their backslash escape sequences.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to be modified in-place.  May be null, in which
+        /// case this method does nothing.
+        /// </param>
         private static void EscapeWhiteSpace(
             StringBuilder builder
             )
@@ -3855,6 +6181,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces backslash white-space escape sequences within
+        /// the specified string with their literal white-space characters.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be processed.  Upon return, contains the string with
+        /// its escape sequences replaced by literal white-space characters.
+        /// </param>
         public static void UnescapeWhiteSpace(
             ref string text /* in, out */
             )
@@ -3868,6 +6202,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces, in-place, backslash white-space escape
+        /// sequences within the specified string builder with their literal
+        /// white-space characters.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to be modified in-place.  May be null, in which
+        /// case this method does nothing.
+        /// </param>
         private static void UnescapeWhiteSpace(
             StringBuilder builder
             )
@@ -3884,6 +6227,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string can be
+        /// represented using a single byte per character when encoded with the
+        /// specified encoding.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding used to evaluate the string.  May be null.
+        /// </param>
+        /// <param name="value">
+        /// The string to be evaluated.  May be null or empty.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when the encoding is null or the string is null
+        /// or empty.
+        /// </param>
+        /// <returns>
+        /// True if the string is representable using a single byte per
+        /// character; otherwise, false.
+        /// </returns>
         public static bool IsSingleByte(
             Encoding encoding,
             string value,
@@ -3906,6 +6268,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current environment appears to be
+        /// configured for a Unicode (UTF-8) locale, based on the relevant
+        /// environment variables.
+        /// </summary>
+        /// <returns>
+        /// True if the environment indicates a Unicode (UTF-8) locale;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsUnicodeEncoding()
         {
             foreach (string name in new string[] { 
@@ -3942,6 +6313,18 @@ namespace Eagle._Components.Private
         //       single-width characters regardless of their multi-byte
         //       representation in UTF-8.
         //
+        /// <summary>
+        /// This method determines whether the specified encoding represents a
+        /// Unicode encoding (e.g. UTF-8, UTF-16, or UTF-32) for the purpose of
+        /// displaying Unicode characters.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding to be evaluated.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the encoding represents a Unicode encoding; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsUnicodeEncoding(
             Encoding encoding /* in */
             )
@@ -3999,6 +6382,25 @@ namespace Eagle._Components.Private
         //          Each character that gets replaced must be replaced by
         //          another character, not a string.
         //
+        /// <summary>
+        /// This method normalizes the white-space characters within the
+        /// specified string, replacing each one in-place without changing the
+        /// overall length of the string.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be normalized.  May be null or empty.
+        /// </param>
+        /// <param name="fallback">
+        /// The character used to replace white-space characters that have no
+        /// other suitable replacement.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how white-space characters are normalized.
+        /// </param>
+        /// <returns>
+        /// The normalized string, or the original string when it is null or
+        /// empty.
+        /// </returns>
         public static string NormalizeWhiteSpace(
             string text,
             char fallback,
@@ -4033,6 +6435,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes, in-place, the white-space characters within
+        /// the specified string builder according to the specified flags.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to be modified in-place.  May be null, in which
+        /// case this method does nothing.
+        /// </param>
+        /// <param name="fallback">
+        /// The character used to replace white-space characters that have no
+        /// other suitable replacement.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how white-space characters are normalized.
+        /// </param>
         public static void FixupWhiteSpace(
             StringBuilder builder,
             char fallback,
@@ -4654,6 +7071,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the character at the specified index within the
+        /// specified string, or a null character when the string is null or the
+        /// index is out of range.
+        /// </summary>
+        /// <param name="value">
+        /// The string from which to obtain the character.  May be null.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the character to obtain.
+        /// </param>
+        /// <returns>
+        /// The character at the specified index, or a null character when the
+        /// string is null or the index is out of range.
+        /// </returns>
         private static char CharOrNull(
             string value,
             int index
@@ -4670,6 +7102,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns null when the specified string is null or empty;
+        /// otherwise, it returns the original string.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be checked.  May be null or empty.
+        /// </param>
+        /// <returns>
+        /// Null when the string is null or empty; otherwise, the original
+        /// string.
+        /// </returns>
         public static string NullIfEmpty(
             string value
             )
@@ -4685,6 +7128,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified left sub-command name
+        /// is equal to, or a leading prefix of, the specified right sub-command
+        /// name.
+        /// </summary>
+        /// <param name="left">
+        /// The first sub-command name to compare.  May be null.
+        /// </param>
+        /// <param name="right">
+        /// The second sub-command name to compare against.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the sub-command names are considered equal; otherwise,
+        /// false.
+        /// </returns>
         public static bool SubCommandEquals(
             string left,
             string right
@@ -4735,6 +7193,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE
+        /// <summary>
+        /// This method determines whether the two specified strings are equal,
+        /// treating two null strings as equal.
+        /// </summary>
+        /// <param name="left">
+        /// The first string to compare.  May be null.
+        /// </param>
+        /// <param name="right">
+        /// The second string to compare.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the strings are equal; otherwise, false.
+        /// </returns>
         public static bool StringEquals(
             string left,
             string right
@@ -4751,6 +7222,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the two specified values are equal,
+        /// comparing them as strings when both are strings and as objects
+        /// otherwise; two null values are considered equal.
+        /// </summary>
+        /// <param name="left">
+        /// The first value to compare.  May be null.
+        /// </param>
+        /// <param name="right">
+        /// The second value to compare.  May be null.
+        /// </param>
+        /// <returns>
+        /// True if the values are equal; otherwise, false.
+        /// </returns>
         public static bool StringOrObjectEquals(
             object left,
             object right
@@ -4773,6 +7258,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates a hash code for the specified value, handling
+        /// string values and dictionaries of objects specially.
+        /// </summary>
+        /// <param name="value">
+        /// The value for which a hash code is calculated.  May be null.
+        /// </param>
+        /// <returns>
+        /// The calculated hash code for the specified value, or zero when it is
+        /// null.
+        /// </returns>
         public static int StringOrObjectHashCode(
             object value
             )
@@ -4809,6 +7305,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !MONO && NATIVE && WINDOWS
+        /// <summary>
+        /// This method overwrites the in-memory character buffer of the
+        /// specified string with zeros, scrubbing its (potentially sensitive)
+        /// contents in place.  The caller must own the string exclusively; it
+        /// must not be interned or otherwise shared.
+        /// </summary>
+        /// <param name="value">
+        /// The string whose backing storage is to be overwritten with zeros.
+        /// </param>
+        /// <param name="noComplain">
+        /// Upon failure, this value is set to true when the caller should not
+        /// report the associated error; otherwise, it is left unchanged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// Upon success, it is left unchanged.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodImpl(
             MethodImplOptions.NoInlining
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
@@ -4829,22 +7346,62 @@ namespace Eagle._Components.Private
                 return ReturnCode.Error;
             }
 
-            if (CommonOps.Runtime.IsMono())
-            {
-                noComplain = true;
-                error = "not implemented";
+            //
+            // NOTE: The number of characters to scrub comes from the managed
+            //       String.Length property.  This is the correct amount, and
+            //       the reasoning is worth stating because this method depends
+            //       on it:
+            //
+            //       A System.String stores exactly Length characters of content,
+            //       immediately followed by a single U+0000 terminator (the CLR
+            //       guarantees strings are both length-prefixed AND null
+            //       terminated).  The allocated character buffer is therefore
+            //       Length + 1 chars.  The caller's SECRET occupies precisely
+            //       the first Length chars; the trailing terminator is always
+            //       zero and contains no secret.  So zeroing Length chars erases
+            //       all of the sensitive data.  (Length is NOT, in general,
+            //       required to equal the raw buffer allocation -- it does not
+            //       include the terminator, and on very old CLRs a redundant
+            //       capacity field once existed -- but any bytes past index
+            //       Length are never part of the string's value, so not
+            //       scrubbing them does not leak the secret.  See "Q1" citations
+            //       below).
+            //
+            //       This replaces a previous version-specific trick that read
+            //       the length field at a NEGATIVE offset from the pinned first
+            //       character; that offset differed between the CLR 2.x layout
+            //       (m_arrayLength then m_stringLength) and the CLR 4.x layout
+            //       (m_stringLength only) and was wrong on .NET Core / .NET 5+.
+            //       String.Length needs no layout assumptions and is correct
+            //       everywhere; verified to wipe content on .NET Framework,
+            //       the .NET runtime, and Mono.
+            //
+            //       Field layout / "zero terminated" / buffer == Length + 1:
+            //       .NET (modern), String.cs ("_stringLength", "_firstChar",
+            //       "strings are both null-terminated and length-prefixed"):
+            //
+            //       https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/String.cs
+            //
+            //       .NET Framework reference source, string.cs ("m_stringLength",
+            //       "m_firstChar", "map directly onto ... EE StringObject",
+            //       "always zero terminated"):
+            //
+            //       https://github.com/microsoft/referencesource/blob/main/mscorlib/system/string.cs
+            //
+            //       Mono uses that same reference source for its corlib String:
+            //
+            //       https://github.com/mono/mono/blob/main/mcs/class/referencesource/mscorlib/system/string.cs
+            //
+            // WARNING: This mutates the storage of a System.String in place.  Do
+            //          NOT pass an interned or otherwise shared string (e.g. a
+            //          string literal); doing so would corrupt every other
+            //          reference to the same instance.  The caller must own the
+            //          string exclusively.
+            //
+            int length = value.Length;
 
-                return ReturnCode.Error;
-            }
-
-            if (CommonOps.Runtime.IsDotNetCore3x() ||
-                CommonOps.Runtime.IsDotNetCore5xOrHigher())
-            {
-                noComplain = true;
-                error = "not implemented";
-
-                return ReturnCode.Error;
-            }
+            if (length <= 0)
+                return ReturnCode.Ok;
 
             GCHandle handle = NativeOps.GetInvalidGCHandle();
 
@@ -4854,26 +7411,41 @@ namespace Eagle._Components.Private
 
                 if (handle.IsAllocated)
                 {
-                    /* m_firstChar */
-                    IntPtr pMemory = handle.AddrOfPinnedObject();
+                    //
+                    // NOTE: For a PINNED String, GCHandle.AddrOfPinnedObject()
+                    //       returns the address of the first character (m_firstChar
+                    //       / _firstChar), i.e. the start of the contiguous char
+                    //       buffer -- NOT the object header.  This is a documented,
+                    //       stable contract on every supported runtime (it is how
+                    //       the previous code located the buffer too, and it has
+                    //       been empirically confirmed here on the .NET runtime and
+                    //       Mono, where it equals the JIT "fixed (char* = str)"
+                    //       pointer).  Because the buffer is contiguous chars,
+                    //       zeroing length * sizeof(char) bytes from this pointer
+                    //       clears exactly the string content.
+                    //
+                    //       AddrOfPinnedObject special-cases String (returns
+                    //       GetRawStringData(), the first char) and arrays:
+                    //
+                    //       https://github.com/dotnet/runtime/blob/main/src/libraries/System.Private.CoreLib/src/System/Runtime/InteropServices/GCHandle.cs
+                    //
+                    //       This also holds on LEGACY Mono (its own hand-written
+                    //       corlib, before it adopted the MS reference source).
+                    //       Verified at the mono-2.0 tag: MonoString is
+                    //       { MonoObject object; gint32 length; gunichar2 chars[]; }
+                    //       and the GCHandle GetAddrOfPinnedObject icall returns
+                    //       mono_string_chars((MonoString*)obj) == &chars[0] for
+                    //       strings (mono_array_addr for arrays).  String.Length
+                    //       returns that same "length" field, so both assumptions
+                    //       hold back to (at least) Mono 2.0:
+                    //
+                    //       https://github.com/mono/mono/blob/mono-2.0/mono/metadata/gc.c (GetAddrOfPinnedObject)
+                    //       https://github.com/mono/mono/blob/mono-2.0/mono/metadata/object.h (MonoString, mono_string_chars)
+                    //
+                    IntPtr pMemory = handle.AddrOfPinnedObject(); /* m_firstChar */
 
                     if (pMemory != IntPtr.Zero)
                     {
-                        int length;
-
-                        if (CommonOps.Runtime.IsFramework40())
-                        {
-                            /* m_stringLength */
-                            length = Marshal.ReadInt32(pMemory,
-                                -sizeof(int));
-                        }
-                        else
-                        {
-                            /* m_arrayLength */
-                            length = Marshal.ReadInt32(pMemory,
-                                -(sizeof(int) * 2));
-                        }
-
                         return NativeOps.ZeroMemory(
                             pMemory, (uint)(length * sizeof(char)),
                             ref error);
@@ -4903,6 +7475,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method overwrites the in-memory character buffer of the
+        /// specified string with zeros, emitting a diagnostic trace message
+        /// when the operation fails.
+        /// </summary>
+        /// <param name="value">
+        /// The string whose backing storage is to be overwritten with zeros.
+        /// </param>
+        /// <returns>
+        /// True if the string was successfully zeroed; otherwise, false.
+        /// </returns>
         public static bool ZeroStringOrTrace(
             string value
             )
@@ -4928,6 +7511,1281 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        #region The [scan] Engine
+        /// <summary>
+        /// This method implements the core engine for the [scan] command,
+        /// extracting values from the input string according to the specified
+        /// format string.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="input">
+        /// The input string to be scanned.
+        /// </param>
+        /// <param name="format">
+        /// The format string that controls how the input is scanned.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments containing the variable names to be assigned.
+        /// </param>
+        /// <param name="firstVarIndex">
+        /// The index, into the argument list, of the first variable name.
+        /// </param>
+        /// <param name="inline">
+        /// Non-zero to return the scanned values as a list; otherwise, the
+        /// scanned values are stored into the named variables.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter receives the scanned value list or the
+        /// number of conversions performed.  Upon failure, it receives an error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
+        public static ReturnCode DoScan(
+            Interpreter interpreter, /* in */
+            string input,            /* in */
+            string format,           /* in */
+            ArgumentList arguments,  /* in */
+            int firstVarIndex,       /* in */
+            bool inline,             /* in */
+            ref Result result        /* out */
+            )
+        {
+            CultureInfo cultureInfo = interpreter.InternalCultureInfo;
+
+            int inputLength = (input != null) ? input.Length : 0;
+            int formatLength = (format != null) ? format.Length : 0;
+
+            int inputIndex = 0;
+            int formatIndex = 0;
+
+            int nextVarIndex = firstVarIndex;
+            int conversions = 0;
+            int assignments = 0;
+
+            bool underflow = false;
+            bool sawXpg = false;
+
+            //
+            // NOTE: Accumulates the scanned values for the "inline" form (and,
+            //       for positional [XPG] specifiers, indexed by position).
+            //
+            StringList values = new StringList();
+
+            //
+            // NOTE: In the variable form (no positional specifiers), the number
+            //       of supplied variable names must match the number of
+            //       non-suppressed conversion specifiers (this is a static
+            //       property of the format, checked up front like Tcl does).
+            //
+            if (!inline)
+            {
+                bool formatHasXpg;
+
+                int specifierCount = CountSpecifiers(format, out formatHasXpg);
+
+                if (!formatHasXpg)
+                {
+                    int variableCount = arguments.Count - firstVarIndex;
+
+                    if (variableCount > specifierCount)
+                    {
+                        result = "variable is not assigned by any conversion specifiers";
+                        return ReturnCode.Error;
+                    }
+                    else if (specifierCount > variableCount)
+                    {
+                        result = "different numbers of variable names and field specifiers";
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            while (formatIndex < formatLength)
+            {
+                char formatChar = format[formatIndex];
+
+                //
+                // NOTE: A whitespace run in the format matches any (possibly
+                //       empty) whitespace run in the input.
+                //
+                if (Char.IsWhiteSpace(formatChar))
+                {
+                    formatIndex++;
+
+                    while ((inputIndex < inputLength) &&
+                            Char.IsWhiteSpace(input[inputIndex]))
+                    {
+                        inputIndex++;
+                    }
+
+                    continue;
+                }
+
+                //
+                // NOTE: A non-conversion (literal) character must match the
+                //       input exactly; otherwise scanning stops.
+                //
+                if (formatChar != Characters.PercentSign)
+                {
+                    if ((inputIndex < inputLength) &&
+                            (input[inputIndex] == formatChar))
+                    {
+                        inputIndex++;
+                        formatIndex++;
+                        continue;
+                    }
+
+                    break;
+                }
+
+                //
+                // NOTE: A conversion specifier; consume the percent sign.
+                //
+                formatIndex++;
+
+                if (formatIndex >= formatLength)
+                {
+                    result = "bad scan format: trailing \"%\"";
+                    return ReturnCode.Error;
+                }
+
+                formatChar = format[formatIndex];
+
+                //
+                // NOTE: A literal "%%" matches a single percent sign.
+                //
+                if (formatChar == Characters.PercentSign)
+                {
+                    if ((inputIndex < inputLength) &&
+                            (input[inputIndex] == Characters.PercentSign))
+                    {
+                        inputIndex++;
+                        formatIndex++;
+                        continue;
+                    }
+
+                    break;
+                }
+
+                //
+                // NOTE: Optional XPG positional specifier (e.g. "%2$d"); the
+                //       leading digits are a position only when followed by a
+                //       dollar sign, otherwise they are the field width below.
+                //
+                int position = Index.Invalid;
+
+                {
+                    int savedIndex = formatIndex;
+                    int number = 0;
+                    bool haveNumber = false;
+
+                    while ((formatIndex < formatLength) &&
+                            Char.IsDigit(format[formatIndex]))
+                    {
+                        number = (number * Parser.DecimalRadix) +
+                            (format[formatIndex] - Characters.Zero);
+
+                        haveNumber = true;
+                        formatIndex++;
+                    }
+
+                    if (haveNumber && (formatIndex < formatLength) &&
+                            (format[formatIndex] == Characters.DollarSign))
+                    {
+                        position = number;
+                        formatIndex++;
+                        sawXpg = true;
+                    }
+                    else
+                    {
+                        formatIndex = savedIndex;
+                    }
+                }
+
+                //
+                // NOTE: Optional assignment-suppression flag.
+                //
+                bool suppress = false;
+
+                if ((formatIndex < formatLength) &&
+                        (format[formatIndex] == Characters.Asterisk))
+                {
+                    suppress = true;
+                    formatIndex++;
+                }
+
+                //
+                // NOTE: Optional maximum field width.
+                //
+                int width = Width.Invalid;
+
+                {
+                    int number = 0;
+                    bool haveNumber = false;
+
+                    while ((formatIndex < formatLength) &&
+                            Char.IsDigit(format[formatIndex]))
+                    {
+                        number = (number * Parser.DecimalRadix) +
+                            (format[formatIndex] - Characters.Zero);
+
+                        haveNumber = true;
+                        formatIndex++;
+                    }
+
+                    if (haveNumber)
+                        width = number;
+                }
+
+                //
+                // NOTE: Optional (ignored) size modifiers, for Tcl source
+                //       compatibility.
+                //
+                while ((formatIndex < formatLength) &&
+                        ((format[formatIndex] == Characters.l) ||
+                         (format[formatIndex] == Characters.h) ||
+                         (format[formatIndex] == Characters.L)))
+                {
+                    formatIndex++;
+                }
+
+                if (formatIndex >= formatLength)
+                {
+                    result = "bad scan format: missing conversion character";
+                    return ReturnCode.Error;
+                }
+
+                char conversion = format[formatIndex];
+                formatIndex++;
+
+                //
+                // NOTE: The character set conversion carries its own spec; it
+                //       is gathered here so the engine can match against it.
+                //
+                string charSet = null;
+
+                if (conversion == Characters.OpenBracket)
+                {
+                    int setEnd = ParseCharSet(format, formatIndex);
+
+                    if (setEnd == Index.Invalid)
+                    {
+                        result = "bad scan format: unmatched \"[\" in format string";
+                        return ReturnCode.Error;
+                    }
+
+                    charSet = format.Substring(
+                        formatIndex, setEnd - formatIndex);
+
+                    formatIndex = setEnd + 1; /* skip the closing "]". */
+                }
+
+                //
+                // NOTE: Conversions other than character, character-set, and
+                //       count skip leading whitespace in the input.
+                //
+                if ((conversion != Characters.c) &&
+                    (conversion != Characters.OpenBracket) &&
+                    (conversion != Characters.n))
+                {
+                    while ((inputIndex < inputLength) &&
+                            Char.IsWhiteSpace(input[inputIndex]))
+                    {
+                        inputIndex++;
+                    }
+                }
+
+                //
+                // NOTE: The character-count conversion neither consumes input
+                //       nor counts as a conversion; it just reports progress.
+                //
+                if (conversion == Characters.n)
+                {
+                    if (!suppress)
+                    {
+                        string countValue = inputIndex.ToString(
+                            CultureInfo.InvariantCulture);
+
+                        if (!StoreValue(
+                                interpreter, arguments, firstVarIndex,
+                                ref nextVarIndex, inline, sawXpg, position,
+                                countValue, values, ref assignments,
+                                ref result))
+                        {
+                            return ReturnCode.Error;
+                        }
+                    }
+
+                    continue;
+                }
+
+                //
+                // NOTE: End-of-input reached before this conversion could match
+                //       anything; remember it for the return-value rule below.
+                //
+                if (inputIndex >= inputLength)
+                {
+                    underflow = true;
+                    break;
+                }
+
+                string scanned = null;
+                bool matched = false;
+
+                switch (conversion)
+                {
+                    case Characters.d:
+                    case Characters.i:
+                    case Characters.o:
+                    case Characters.x:
+                    case Characters.X:
+                    case Characters.u:
+                    case Characters.b:
+                        {
+                            matched = ScanInteger(
+                                input, ref inputIndex, width, conversion,
+                                cultureInfo, out scanned);
+
+                            break;
+                        }
+                    case Characters.c:
+                        {
+                            //
+                            // NOTE: A single character; the result is its
+                            //       integer code (no leading whitespace skip).
+                            //
+                            int code = input[inputIndex];
+                            inputIndex++;
+
+                            scanned = code.ToString(
+                                CultureInfo.InvariantCulture);
+
+                            matched = true;
+                            break;
+                        }
+                    case Characters.e:
+                    case Characters.E:
+                    case Characters.f:
+                    case Characters.g:
+                    case Characters.G:
+                        {
+                            matched = ScanReal(
+                                input, ref inputIndex, width, cultureInfo,
+                                out scanned);
+
+                            break;
+                        }
+                    case Characters.s:
+                        {
+                            matched = ScanString(
+                                input, ref inputIndex, width, out scanned);
+
+                            break;
+                        }
+                    default:
+                        {
+                            if (charSet != null)
+                            {
+                                matched = ScanCharSet(
+                                    input, ref inputIndex, width, charSet,
+                                    out scanned);
+                            }
+                            else
+                            {
+                                result = String.Format(
+                                    "bad scan conversion character \"%{0}\"",
+                                    conversion);
+
+                                return ReturnCode.Error;
+                            }
+
+                            break;
+                        }
+                }
+
+                //
+                // NOTE: A failed conversion stops scanning (matching Tcl); the
+                //       return value reflects what was assigned so far.
+                //
+                if (!matched)
+                    break;
+
+                conversions++;
+
+                if (!suppress)
+                {
+                    if (!StoreValue(
+                            interpreter, arguments, firstVarIndex,
+                            ref nextVarIndex, inline, sawXpg, position,
+                            scanned, values, ref assignments, ref result))
+                    {
+                        return ReturnCode.Error;
+                    }
+                }
+            }
+
+            //
+            // NOTE: Build the return value.  The inline form yields the list of
+            //       scanned values; the variable form yields the number of
+            //       successful (non-suppressed) conversions, or -1 if the input
+            //       was exhausted before any conversion matched.
+            //
+            if (inline)
+            {
+                result = values;
+            }
+            else if (underflow && (conversions == 0))
+            {
+                result = Index.Invalid;
+            }
+            else
+            {
+                result = assignments;
+            }
+
+            return ReturnCode.Ok;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        #region [scan] Conversion Helpers
+        /// <summary>
+        /// This method stores a single scanned value, either by appending it to
+        /// the inline result list or by assigning it to the appropriate
+        /// variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments containing the variable names to be assigned.
+        /// </param>
+        /// <param name="firstVarIndex">
+        /// The index, into the argument list, of the first variable name.
+        /// </param>
+        /// <param name="nextVarIndex">
+        /// Upon success, this value is advanced to the index of the next
+        /// variable name to be assigned.  Upon failure, it is left unchanged.
+        /// </param>
+        /// <param name="inline">
+        /// Non-zero to append the value to the result list; otherwise, the
+        /// value is assigned to a variable.
+        /// </param>
+        /// <param name="sawXpg">
+        /// Non-zero if a positional [XPG] specifier was seen.
+        /// </param>
+        /// <param name="position">
+        /// The one-based position for a positional specifier, or a value less
+        /// than one when there is no associated position.
+        /// </param>
+        /// <param name="value">
+        /// The scanned value to be stored.
+        /// </param>
+        /// <param name="values">
+        /// The list used to accumulate values for the inline form.
+        /// </param>
+        /// <param name="assignments">
+        /// Upon success, this value is incremented to reflect the stored value.
+        /// Upon failure, it is left unchanged.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this parameter receives an error message.  Upon
+        /// success, it is left unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully stored; otherwise, false.
+        /// </returns>
+        private static bool StoreValue(
+            Interpreter interpreter, /* in */
+            ArgumentList arguments,  /* in */
+            int firstVarIndex,       /* in */
+            ref int nextVarIndex,    /* in, out */
+            bool inline,             /* in */
+            bool sawXpg,             /* in */
+            int position,            /* in */
+            string value,            /* in */
+            StringList values,       /* in, out */
+            ref int assignments,     /* in, out */
+            ref Result result        /* out */
+            )
+        {
+            if (inline)
+            {
+                //
+                // NOTE: For positional specifiers the value lands at its slot
+                //       (one-based), padding any skipped slots with the empty
+                //       string; otherwise it is simply appended.
+                //
+                if (sawXpg && (position > 0))
+                {
+                    while (values.Count < position)
+                        values.Add(String.Empty);
+
+                    values[position - 1] = value;
+                }
+                else
+                {
+                    values.Add(value);
+                }
+
+                assignments++;
+                return true;
+            }
+
+            //
+            // NOTE: Variable form; positional specifiers select the n-th
+            //       variable name argument, otherwise the next one in order.
+            //
+            int varIndex;
+
+            if (sawXpg && (position > 0))
+                varIndex = (firstVarIndex + position) - 1;
+            else
+                varIndex = nextVarIndex++;
+
+            if (varIndex >= arguments.Count)
+            {
+                result = "different numbers of variable names and field specifiers";
+                return false;
+            }
+
+            Result error = null;
+
+            if (interpreter.SetVariableValue(VariableFlags.None,
+                    arguments[varIndex], value, null,
+                    ref error) != ReturnCode.Ok)
+            {
+                result = error;
+                return false;
+            }
+
+            assignments++;
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method scans an integer value from the input string, starting
+        /// at the specified index, using the radix implied by the conversion
+        /// character.
+        /// </summary>
+        /// <param name="input">
+        /// The input string being scanned.
+        /// </param>
+        /// <param name="inputIndex">
+        /// Upon success, this value is advanced past the scanned integer.  Upon
+        /// failure, it is left unchanged.
+        /// </param>
+        /// <param name="width">
+        /// The maximum field width, or an invalid width when there is no limit.
+        /// </param>
+        /// <param name="conversion">
+        /// The conversion character that selects the radix and signedness.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the integer value.
+        /// </param>
+        /// <param name="scanned">
+        /// Upon success, this parameter receives the scanned value formatted as
+        /// a string.  Upon failure, it is set to null.
+        /// </param>
+        /// <returns>
+        /// True if an integer value was successfully scanned; otherwise, false.
+        /// </returns>
+        private static bool ScanInteger(
+            string input,           /* in */
+            ref int inputIndex,     /* in, out */
+            int width,              /* in */
+            char conversion,        /* in */
+            CultureInfo cultureInfo, /* in */
+            out string scanned      /* out */
+            )
+        {
+            scanned = null;
+
+            int length = input.Length;
+            int start = inputIndex;
+            int limit = (width != Width.Invalid) ? (start + width) : length;
+
+            if (limit > length)
+                limit = length;
+
+            int index = start;
+
+            //
+            // NOTE: Optional sign (handled here so the magnitude can be parsed
+            //       with an explicit radix below).
+            //
+            bool negative = false;
+
+            if ((index < limit) &&
+                ((input[index] == Characters.PlusSign) ||
+                 (input[index] == Characters.MinusSign)))
+            {
+                negative = (input[index] == Characters.MinusSign);
+                index++;
+            }
+
+            //
+            // NOTE: Determine the radix from the conversion character; "%i"
+            //       autodetects it from any "0x"/leading-"0" prefix.
+            //
+            int radix;
+
+            if ((conversion == Characters.o))
+                radix = Parser.OctalRadix;
+            else if ((conversion == Characters.x) || (conversion == Characters.X))
+                radix = Parser.HexadecimalRadix;
+            else if ((conversion == Characters.b))
+                radix = Parser.BinaryRadix;
+            else
+                radix = Parser.DecimalRadix;
+
+            //
+            // NOTE: Consume an optional base prefix where it is meaningful, so
+            //       the parsed magnitude is just the bare digits.
+            //
+            if ((conversion == Characters.x) || (conversion == Characters.X) ||
+                (conversion == Characters.i))
+            {
+                if (((index + 1) < limit) && (input[index] == Characters.Zero) &&
+                        ((input[index + 1] == Characters.x) ||
+                         (input[index + 1] == Characters.X)))
+                {
+                    radix = Parser.HexadecimalRadix;
+                    index += 2;
+                }
+                else if ((conversion == Characters.i) && (index < limit) &&
+                        (input[index] == Characters.Zero))
+                {
+                    radix = Parser.OctalRadix;
+                }
+            }
+
+            int digitsStart = index;
+
+            while ((index < limit) && IsRadixDigit(input[index], radix))
+                index++;
+
+            if (index == digitsStart)
+                return false;
+
+            //
+            // NOTE: Re-attach the canonical radix prefix (the input may or may
+            //       not have had one) so the value parser autodetects the radix.
+            //
+            string token = RadixPrefix(radix) +
+                input.Substring(digitsStart, index - digitsStart);
+
+            Result error = null;
+
+            if (conversion == Characters.u)
+            {
+                ulong unsignedValue = 0;
+
+                if (Value.GetUnsignedWideInteger2(
+                        token, ValueFlags.AnyWideInteger, cultureInfo,
+                        ref unsignedValue, ref error) != ReturnCode.Ok)
+                {
+                    return false;
+                }
+
+                inputIndex = index;
+
+                scanned = unsignedValue.ToString(CultureInfo.InvariantCulture);
+                return true;
+            }
+            else
+            {
+                long value = 0;
+
+                if (Value.GetWideInteger2(
+                        token, ValueFlags.AnyWideInteger, cultureInfo,
+                        ref value, ref error) != ReturnCode.Ok)
+                {
+                    return false;
+                }
+
+                if (negative)
+                    value = -value;
+
+                inputIndex = index;
+
+                scanned = value.ToString(CultureInfo.InvariantCulture);
+                return true;
+            }
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method scans a floating-point value from the input string,
+        /// starting at the specified index.
+        /// </summary>
+        /// <param name="input">
+        /// The input string being scanned.
+        /// </param>
+        /// <param name="inputIndex">
+        /// Upon success, this value is advanced past the scanned value.  Upon
+        /// failure, it is left unchanged.
+        /// </param>
+        /// <param name="width">
+        /// The maximum field width, or an invalid width when there is no limit.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the floating-point value.
+        /// </param>
+        /// <param name="scanned">
+        /// Upon success, this parameter receives the scanned value formatted as
+        /// a string.  Upon failure, it is set to null.
+        /// </param>
+        /// <returns>
+        /// True if a floating-point value was successfully scanned; otherwise,
+        /// false.
+        /// </returns>
+        private static bool ScanReal(
+            string input,           /* in */
+            ref int inputIndex,     /* in, out */
+            int width,              /* in */
+            CultureInfo cultureInfo, /* in */
+            out string scanned      /* out */
+            )
+        {
+            scanned = null;
+
+            int length = input.Length;
+            int start = inputIndex;
+            int limit = (width != Width.Invalid) ? (start + width) : length;
+
+            if (limit > length)
+                limit = length;
+
+            int index = start;
+
+            if ((index < limit) &&
+                ((input[index] == Characters.PlusSign) ||
+                 (input[index] == Characters.MinusSign)))
+            {
+                index++;
+            }
+
+            bool haveDigit = false;
+
+            while ((index < limit) && Char.IsDigit(input[index]))
+            {
+                haveDigit = true;
+                index++;
+            }
+
+            if ((index < limit) && (input[index] == Characters.Period))
+            {
+                index++;
+
+                while ((index < limit) && Char.IsDigit(input[index]))
+                {
+                    haveDigit = true;
+                    index++;
+                }
+            }
+
+            if (!haveDigit)
+                return false;
+
+            //
+            // NOTE: Optional decimal exponent.
+            //
+            if ((index < limit) &&
+                ((input[index] == Characters.e) || (input[index] == Characters.E)))
+            {
+                int exponentIndex = index + 1;
+
+                if ((exponentIndex < limit) &&
+                    ((input[exponentIndex] == Characters.PlusSign) ||
+                     (input[exponentIndex] == Characters.MinusSign)))
+                {
+                    exponentIndex++;
+                }
+
+                if ((exponentIndex < limit) &&
+                        Char.IsDigit(input[exponentIndex]))
+                {
+                    index = exponentIndex;
+
+                    while ((index < limit) && Char.IsDigit(input[index]))
+                        index++;
+                }
+            }
+
+            string text = input.Substring(start, index - start);
+            double doubleValue = 0.0;
+
+            Result error = null;
+
+            if (Value.GetDouble(
+                    text, cultureInfo, ref doubleValue,
+                    ref error) != ReturnCode.Ok)
+            {
+                return false;
+            }
+
+            inputIndex = index;
+
+            //
+            // NOTE: Render the value using Eagle's canonical double form so the
+            //       result is self-consistent with [expr].
+            //
+            Result temporary = doubleValue;
+            scanned = temporary.ToString();
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method scans a run of non-whitespace characters from the input
+        /// string, starting at the specified index.
+        /// </summary>
+        /// <param name="input">
+        /// The input string being scanned.
+        /// </param>
+        /// <param name="inputIndex">
+        /// Upon success, this value is advanced past the scanned characters.
+        /// Upon failure, it is left unchanged.
+        /// </param>
+        /// <param name="width">
+        /// The maximum field width, or an invalid width when there is no limit.
+        /// </param>
+        /// <param name="scanned">
+        /// Upon success, this parameter receives the scanned characters.  Upon
+        /// failure, it is set to null.
+        /// </param>
+        /// <returns>
+        /// True if at least one character was successfully scanned; otherwise,
+        /// false.
+        /// </returns>
+        private static bool ScanString(
+            string input,        /* in */
+            ref int inputIndex,  /* in, out */
+            int width,           /* in */
+            out string scanned   /* out */
+            )
+        {
+            scanned = null;
+
+            int length = input.Length;
+            int start = inputIndex;
+            int limit = (width != Width.Invalid) ? (start + width) : length;
+
+            if (limit > length)
+                limit = length;
+
+            int index = start;
+
+            while ((index < limit) && !Char.IsWhiteSpace(input[index]))
+                index++;
+
+            if (index == start)
+                return false;
+
+            inputIndex = index;
+
+            scanned = input.Substring(start, index - start);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method scans a run of characters that belong to the specified
+        /// character set from the input string, starting at the specified
+        /// index.
+        /// </summary>
+        /// <param name="input">
+        /// The input string being scanned.
+        /// </param>
+        /// <param name="inputIndex">
+        /// Upon success, this value is advanced past the scanned characters.
+        /// Upon failure, it is left unchanged.
+        /// </param>
+        /// <param name="width">
+        /// The maximum field width, or an invalid width when there is no limit.
+        /// </param>
+        /// <param name="charSet">
+        /// The character set specification that determines which characters are
+        /// matched.
+        /// </param>
+        /// <param name="scanned">
+        /// Upon success, this parameter receives the scanned characters.  Upon
+        /// failure, it is set to null.
+        /// </param>
+        /// <returns>
+        /// True if at least one character was successfully scanned; otherwise,
+        /// false.
+        /// </returns>
+        private static bool ScanCharSet(
+            string input,        /* in */
+            ref int inputIndex,  /* in, out */
+            int width,           /* in */
+            string charSet,      /* in */
+            out string scanned   /* out */
+            )
+        {
+            scanned = null;
+
+            int length = input.Length;
+            int start = inputIndex;
+            int limit = (width != Width.Invalid) ? (start + width) : length;
+
+            if (limit > length)
+                limit = length;
+
+            int index = start;
+
+            while ((index < limit) &&
+                    CharSetContains(charSet, input[index]))
+            {
+                index++;
+            }
+
+            if (index == start)
+                return false;
+
+            inputIndex = index;
+
+            scanned = input.Substring(start, index - start);
+            return true;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method locates the end of a character set specification within
+        /// the specified format string, accounting for the special handling of
+        /// a leading negation or close bracket.
+        /// </summary>
+        /// <param name="format">
+        /// The format string containing the character set specification.
+        /// </param>
+        /// <param name="formatIndex">
+        /// The index, into the format string, of the first character of the
+        /// character set specification.
+        /// </param>
+        /// <returns>
+        /// The index of the closing bracket that terminates the character set,
+        /// or an invalid index when the set is unterminated.
+        /// </returns>
+        private static int ParseCharSet(
+            string format,   /* in */
+            int formatIndex  /* in */
+            )
+        {
+            int length = format.Length;
+            int index = formatIndex;
+
+            //
+            // NOTE: A leading "^" negates the set and is not a member.
+            //
+            if ((index < length) && (format[index] == Characters.CircumflexAccent))
+                index++;
+
+            //
+            // NOTE: A "]" in the first position (after any "^") is a literal
+            //       member, not the terminator.
+            //
+            if ((index < length) && (format[index] == Characters.CloseBracket))
+                index++;
+
+            while (index < length)
+            {
+                if (format[index] == Characters.CloseBracket)
+                    return index;
+
+                index++;
+            }
+
+            return Index.Invalid; /* unterminated set. */
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method determines whether the specified character is matched by
+        /// the specified character set specification, honoring negation and
+        /// character ranges.
+        /// </summary>
+        /// <param name="charSet">
+        /// The character set specification to test against.
+        /// </param>
+        /// <param name="character">
+        /// The character to test for membership.
+        /// </param>
+        /// <returns>
+        /// True if the character is matched by the set; otherwise, false.
+        /// </returns>
+        private static bool CharSetContains(
+            string charSet, /* in */
+            char character  /* in */
+            )
+        {
+            int length = charSet.Length;
+            int index = 0;
+
+            bool negated = false;
+
+            if ((index < length) && (charSet[index] == Characters.CircumflexAccent))
+            {
+                negated = true;
+                index++;
+            }
+
+            bool found = false;
+
+            while (index < length)
+            {
+                char setChar = charSet[index];
+
+                //
+                // NOTE: A range "a-z" applies when the hyphen is between two
+                //       characters; a trailing/leading hyphen is literal.
+                //
+                if ((setChar == Characters.MinusSign) &&
+                    (index > 0) && ((index + 1) < length))
+                {
+                    char low = charSet[index - 1];
+                    char high = charSet[index + 1];
+
+                    if ((character > low) && (character <= high))
+                        found = true;
+
+                    index += 2;
+                    continue;
+                }
+
+                if (character == setChar)
+                    found = true;
+
+                index++;
+            }
+
+            return negated ? !found : found;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method returns the textual prefix associated with the specified
+        /// numeric radix (e.g. "0x" for hexadecimal, "0o" for octal, or "0b"
+        /// for binary).
+        /// </summary>
+        /// <param name="radix">
+        /// The numeric radix for which the textual prefix is returned.
+        /// </param>
+        /// <returns>
+        /// The textual prefix associated with the specified radix, or an empty
+        /// string when the radix has no associated prefix.
+        /// </returns>
+        private static string RadixPrefix(
+            int radix /* in */
+            )
+        {
+            if (radix == Parser.HexadecimalRadix)
+                return Characters.Zero.ToString() + Characters.x;
+            else if (radix == Parser.OctalRadix)
+                return Characters.Zero.ToString() + Characters.o;
+            else if (radix == Parser.BinaryRadix)
+                return Characters.Zero.ToString() + Characters.b;
+            else
+                return String.Empty;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method counts the number of conversion specifiers present in the
+        /// specified scan format string, skipping literal "%%" sequences,
+        /// assignment-suppressed specifiers, field widths, size modifiers, and
+        /// character-set specifications.
+        /// </summary>
+        /// <param name="format">
+        /// The scan format string whose conversion specifiers are counted.
+        /// </param>
+        /// <param name="sawXpg">
+        /// Upon return, this parameter is set to non-zero if at least one XPG
+        /// positional specifier was encountered; otherwise, it is set to zero.
+        /// </param>
+        /// <returns>
+        /// The number of variable-consuming conversion specifiers found in the
+        /// specified format string.
+        /// </returns>
+        private static int CountSpecifiers(
+            string format,    /* in */
+            out bool sawXpg   /* out */
+            )
+        {
+            sawXpg = false;
+
+            int count = 0;
+            int length = format.Length;
+            int index = 0;
+
+            while (index < length)
+            {
+                if (format[index] != Characters.PercentSign)
+                {
+                    index++;
+                    continue;
+                }
+
+                index++; /* consume the percent sign. */
+
+                if (index >= length)
+                    break;
+
+                //
+                // NOTE: A literal "%%" is not a conversion specifier.
+                //
+                if (format[index] == Characters.PercentSign)
+                {
+                    index++;
+                    continue;
+                }
+
+                //
+                // NOTE: Skip an XPG positional specifier (just note that one
+                //       was seen).
+                //
+                {
+                    int savedIndex = index;
+                    bool haveNumber = false;
+
+                    while ((index < length) && Char.IsDigit(format[index]))
+                    {
+                        haveNumber = true;
+                        index++;
+                    }
+
+                    if (haveNumber && (index < length) &&
+                            (format[index] == Characters.DollarSign))
+                    {
+                        sawXpg = true;
+                        index++;
+                    }
+                    else
+                    {
+                        index = savedIndex;
+                    }
+                }
+
+                //
+                // NOTE: Skip the assignment-suppression flag (a suppressed
+                //       specifier consumes no variable).
+                //
+                bool suppress = false;
+
+                if ((index < length) && (format[index] == Characters.Asterisk))
+                {
+                    suppress = true;
+                    index++;
+                }
+
+                //
+                // NOTE: Skip the field width and any size modifiers.
+                //
+                while ((index < length) && Char.IsDigit(format[index]))
+                    index++;
+
+                while ((index < length) &&
+                        ((format[index] == Characters.l) ||
+                         (format[index] == Characters.h) ||
+                         (format[index] == Characters.L)))
+                {
+                    index++;
+                }
+
+                if (index >= length)
+                    break;
+
+                char conversion = format[index];
+                index++;
+
+                //
+                // NOTE: Skip over a character-set specification.
+                //
+                if (conversion == Characters.OpenBracket)
+                {
+                    int setEnd = ParseCharSet(format, index);
+
+                    if (setEnd == Index.Invalid)
+                        break;
+
+                    index = setEnd + 1;
+                }
+
+                if (!suppress)
+                    count++;
+            }
+
+            return count;
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// digit for the specified numeric radix, treating both upper-case and
+        /// lower-case letters as digit values beyond nine.
+        /// </summary>
+        /// <param name="character">
+        /// The character to evaluate.
+        /// </param>
+        /// <param name="radix">
+        /// The numeric radix against which the character is evaluated.
+        /// </param>
+        /// <returns>
+        /// True if the specified character is a valid digit for the specified
+        /// radix; otherwise, false.
+        /// </returns>
+        private static bool IsRadixDigit(
+            char character, /* in */
+            int radix       /* in */
+            )
+        {
+            int digitValue;
+
+            if ((character >= Characters.Zero) && (character <= Characters.Nine))
+                digitValue = character - Characters.Zero;
+            else if ((character >= Characters.a) && (character <= Characters.z))
+                digitValue = (character - Characters.a) + Parser.DecimalRadix;
+            else if ((character >= Characters.A) && (character <= Characters.Z))
+                digitValue = (character - Characters.A) + Parser.DecimalRadix;
+            else
+                return false;
+
+            return digitValue < radix;
+        }
+        #endregion
+
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+
+        /// <summary>
+        /// This method appends the specified message to the specified string
+        /// builder, separating it from any existing content with a comma and a
+        /// space, creating a new string builder when one is not supplied.
+        /// </summary>
+        /// <param name="message">
+        /// The message to append.  When null or empty, nothing is appended.
+        /// </param>
+        /// <param name="result">
+        /// The string builder to which the message is appended.  When null, a
+        /// new string builder is created and stored here.
+        /// </param>
         public static void AppendWithComma(
             string message,
             ref StringBuilder result
@@ -4950,6 +8808,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the exponent portion of the specified
+        /// formatted numeric segment by stripping superfluous leading zeros and
+        /// padding the exponent to the minimum required length.
+        /// </summary>
+        /// <param name="segment">
+        /// The string builder containing the formatted numeric segment to fix
+        /// up.  When null, nothing is done.
+        /// </param>
+        /// <param name="positiveSign">
+        /// The string used to represent a positive sign in the exponent.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="negativeSign">
+        /// The string used to represent a negative sign in the exponent.  This
+        /// parameter may be null.
+        /// </param>
         private static void FixupExponentSuffix(
             StringBuilder segment,
             string positiveSign,
@@ -5030,6 +8905,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified arguments according to the
+        /// specified format string, mimicking the behavior of the Tcl [format]
+        /// command, and appends the resulting text to the specified string
+        /// builder.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to evaluate formatting flags and limits.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="format">
+        /// The format string describing how the supplied arguments are
+        /// converted to text.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to be formatted according to the format string.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform culture-sensitive formatting.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// The string builder to which the formatted text is appended.  Upon
+        /// success, it contains the formatted output; when null, a new string
+        /// builder is created and stored here.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error that
+        /// was encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode AppendWithFormat(
             Interpreter interpreter,
             string format,
@@ -6256,6 +10165,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method applies the specified prefix and/or suffix to each of
+        /// the sub-patterns in the specified list, when the associated handling
+        /// flags are enabled.  If there are no sub-patterns and prefix/suffix
+        /// handling is enabled, a single sub-pattern consisting of the prefix
+        /// and suffix will be created.
+        /// </summary>
+        /// <param name="subPatterns">
+        /// The list of sub-patterns to be modified in place.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix string to be inserted at the start of each sub-pattern,
+        /// or null if there is no prefix.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix string to be appended to the end of each sub-pattern, or
+        /// null if there is no suffix.
+        /// </param>
+        /// <param name="withPrefix">
+        /// Non-zero to enable handling of the prefix.
+        /// </param>
+        /// <param name="withSuffix">
+        /// Non-zero to enable handling of the suffix.
+        /// </param>
         private static void FixupSubPatterns(
             IList<StringBuilder> subPatterns,
             string prefix,
@@ -6311,6 +10244,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified pattern string into its component
+        /// sub-patterns, expanding any nested brace-enclosed alternatives into
+        /// a flattened list of patterns.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern string to be split into sub-patterns.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the pattern string where processing should begin.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to allow empty sub-pattern fragments to be included in the
+        /// resulting list.
+        /// </param>
+        /// <param name="subPatterns">
+        /// Upon success, this list will contain the resulting sub-patterns.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SplitSubPatterns(
             string pattern,             /* in */
             int startIndex,             /* in */
@@ -6417,6 +10374,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans the specified pattern string, starting at the
+        /// given index, and extracts the sub-patterns contained within the
+        /// first level of brace-enclosed alternatives, along with the prefix
+        /// and suffix surrounding them.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern string to be scanned for sub-patterns.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the pattern string where scanning should begin.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to allow empty sub-pattern fragments to be included in the
+        /// resulting list.
+        /// </param>
+        /// <param name="firstOnly">
+        /// Non-zero to stop scanning after the first complete brace-enclosed
+        /// sub-pattern list has been processed.
+        /// </param>
+        /// <param name="withPrefix">
+        /// Non-zero to enable handling of the prefix when fixing up the
+        /// extracted sub-patterns.
+        /// </param>
+        /// <param name="withSuffix">
+        /// Non-zero to enable handling of the suffix when fixing up the
+        /// extracted sub-patterns.
+        /// </param>
+        /// <param name="prefix">
+        /// Upon success, this will contain the portion of the pattern prior to
+        /// the first open brace.
+        /// </param>
+        /// <param name="suffix">
+        /// Upon success, this will contain the portion of the pattern after the
+        /// last close brace.
+        /// </param>
+        /// <param name="subPatterns">
+        /// Upon success, this list will contain the extracted sub-patterns.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, this will contain the index within the pattern string
+        /// where scanning stopped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode SplitSubPatterns(
             string pattern,                       /* in */
             int startIndex,                       /* in */
@@ -6693,6 +10699,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the user-configured string comparison type that
+        /// is appropriate for the requested case sensitivity.
+        /// </summary>
+        /// <param name="noCase">
+        /// Non-zero to return the case-insensitive comparison type; otherwise,
+        /// the case-sensitive comparison type is returned.
+        /// </param>
+        /// <returns>
+        /// The user-configured <see cref="StringComparison" /> value to use.
+        /// </returns>
         private static StringComparison GetUserComparisonType(
             bool noCase
             )
@@ -6703,6 +10720,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparison type to use, selecting
+        /// between the user-configured comparison type and the system comparison
+        /// type based on the specified interpreter flags.
+        /// </summary>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags that determine whether the user-configured
+        /// (culture) comparison type should be used.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to return a case-insensitive comparison type; otherwise, a
+        /// case-sensitive comparison type is returned.
+        /// </param>
+        /// <returns>
+        /// The selected <see cref="StringComparison" /> value to use.
+        /// </returns>
         public static StringComparison GetComparisonType(
             InterpreterFlags interpreterFlags,
             bool noCase
@@ -6722,6 +10755,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparison type to use, selecting
+        /// between path, system, and user-configured comparison types based on
+        /// the specified match mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The match mode flags that determine which comparison type should be
+        /// used.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to return a case-insensitive comparison type; otherwise, a
+        /// case-sensitive comparison type is returned.
+        /// </param>
+        /// <returns>
+        /// The selected <see cref="StringComparison" /> value to use.
+        /// </returns>
         private static StringComparison GetComparisonType(
             MatchMode mode,
             bool noCase
@@ -6737,6 +10786,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type implements the
+        /// named generic interface, optionally verifying that its generic type
+        /// arguments match the specified ones.
+        /// </summary>
+        /// <param name="type">
+        /// The type to be checked for the named generic interface.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the generic interface to look for.
+        /// </param>
+        /// <param name="typeArguments">
+        /// The array of generic type arguments that the interface must match,
+        /// or null to skip this verification.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the type implements the named generic interface and any
+        /// specified generic type arguments match; otherwise, false.
+        /// </returns>
         private static bool HasGenericInterface(
             Type type,
             string typeName,
@@ -6791,6 +10862,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an instance of the string comparer named by the
+        /// specified value, verifying that the resolved type implements the
+        /// <see cref="IComparer{T}" /> interface for strings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="value">
+        /// The string naming the comparer type to be created.  An empty value
+        /// selects the default string comparer.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when resolving the comparer type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The created string comparer, or null if it could not be created.
+        /// </returns>
         public static IComparer<string> GetComparer(
             Interpreter interpreter,
             string value,
@@ -6859,6 +10951,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces all occurrences of the text replacement token
+        /// within the specified pattern with the specified text, applying any
+        /// quoting or list formatting indicated by the match mode.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern string that may contain the text replacement token.
+        /// </param>
+        /// <param name="text">
+        /// The text to substitute for the replacement token, or null to remove
+        /// the token.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the substituted text should
+        /// be formatted (e.g. raw, quoted, or as a list element).
+        /// </param>
+        /// <returns>
+        /// The pattern string with the text replacement token replaced, or the
+        /// original pattern if there was nothing to replace.
+        /// </returns>
         private static string ReplaceMatchText(
             string pattern,
             string text,
@@ -6901,6 +11013,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified pattern, using the specified match mode and case
+        /// sensitivity.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the pattern; otherwise, false.
+        /// </returns>
         public static bool Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -6914,6 +11050,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified pattern, using the specified match mode, case sensitivity,
+        /// and string comparer.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="comparer">
+        /// The string comparer to use when matching, or null to use the default
+        /// comparison behavior.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the pattern; otherwise, false.
+        /// </returns>
         private static bool Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -6933,6 +11097,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified pattern, using the specified match mode, case sensitivity,
+        /// string comparer, and regular expression options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="comparer">
+        /// The string comparer to use when matching, or null to use the default
+        /// comparison behavior.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the match mode specifies
+        /// regular expression matching.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the pattern; otherwise, false.
+        /// </returns>
         public static bool Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -6960,6 +11156,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified pattern, using the specified match mode and case
+        /// sensitivity, returning detailed error information on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -6980,6 +11206,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified pattern, using the specified match mode, case sensitivity,
+        /// string comparer, and regular expression options, returning detailed
+        /// error information on failure.  When the match mode specifies
+        /// sub-pattern handling, the pattern may contain multiple sub-patterns
+        /// that are matched in an OR-wise fashion.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how the pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="comparer">
+        /// The string comparer to use when matching, or null to use the default
+        /// comparison behavior.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the match mode specifies
+        /// regular expression matching.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -7056,6 +11323,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the core matching of a single pattern against
+        /// the specified text, dispatching to the appropriate matching strategy
+        /// (e.g. exact, sub-string, glob, regular expression, numeric, or
+        /// script-based) based on the specified match mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine which matching strategy is used.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match the text against.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.  This may be overridden by certain match mode
+        /// flags.
+        /// </param>
+        /// <param name="comparer">
+        /// The string comparer to use when matching, or null to use the default
+        /// comparison behavior.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the match mode specifies
+        /// regular expression matching.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode MatchCore(
             Interpreter interpreter,
             MatchMode mode,
@@ -7401,6 +11708,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches any or all
+        /// of the specified patterns, using the specified match mode and case
+        /// sensitivity.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how each pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of patterns to match the text against.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that the text match all of the patterns; zero to
+        /// require that the text match any of the patterns.  This may be
+        /// overridden by certain match mode flags.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the patterns according to the requested
+        /// any-or-all semantics; otherwise, false.
+        /// </returns>
         public static bool MatchAnyOrAll(
             Interpreter interpreter,
             MatchMode mode,
@@ -7427,6 +11764,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches any or all
+        /// of the specified patterns, using the specified match mode and case
+        /// sensitivity.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how each pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of patterns to match the text against.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that the text match all of the patterns; zero to
+        /// require that the text match any of the patterns.  This may be
+        /// overridden by certain match mode flags.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the patterns
+        /// according to the requested any-or-all semantics.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode MatchAnyOrAll(
             Interpreter interpreter,
             MatchMode mode,
@@ -7445,6 +11815,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches any or all
+        /// of the specified patterns, using the specified match mode and case
+        /// sensitivity, returning detailed error information on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how each pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of patterns to match the text against.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that the text match all of the patterns; zero to
+        /// require that the text match any of the patterns.  This may be
+        /// overridden by certain match mode flags.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the patterns
+        /// according to the requested any-or-all semantics.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode MatchAnyOrAll(
             Interpreter interpreter,
             MatchMode mode,
@@ -7466,6 +11872,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches any or all
+        /// of the specified patterns, using the specified match mode, case
+        /// sensitivity, string comparer, and regular expression options,
+        /// returning detailed error information on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any, associated with this operation.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode flags that determine how each pattern is interpreted.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of patterns to match the text against.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that the text match all of the patterns; zero to
+        /// require that the text match any of the patterns.  This may be
+        /// overridden by certain match mode flags.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match; otherwise, the match
+        /// is case-sensitive.
+        /// </param>
+        /// <param name="comparer">
+        /// The string comparer to use when matching, or null to use the default
+        /// comparison behavior.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the match mode specifies
+        /// regular expression matching.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this will be non-zero if the text matched the patterns
+        /// according to the requested any-or-all semantics.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode MatchAnyOrAll(
             Interpreter interpreter,
             MatchMode mode,

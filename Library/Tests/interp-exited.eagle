@@ -4522,8 +4522,9 @@ do downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush\
 for foreach format fpclassify gets global guid hash if incr invoke join lappend\
 lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
 lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
-regexp regsub rename return scope seek set split string subst switch tell test1\
-test2 throw time truncate try unset update uplevel upvar variable vwait while$}}
+regexp regsub rename return scan scope seek set split string subst switch tell\
+test1 test2 throw time truncate try unset update uplevel upvar variable vwait\
+while$}}
 
 ###############################################################################
 

@@ -26,12 +26,27 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>hash</c> command, which computes
+    /// message digests and message authentication codes over strings, byte
+    /// array objects, or files using the cryptographic hash algorithms
+    /// provided by the runtime.  It is an ensemble whose sub-commands are
+    /// <c>keyed</c>, <c>list</c>, <c>mac</c>, and <c>normal</c>.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("66a2a9aa-1024-4199-b6d9-097c2662acd7")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("string")]
     internal sealed class _Hash : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>hash</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _Hash(
             ICommandData commandData
             )
@@ -44,6 +59,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, namely <c>keyed</c>, <c>list</c>, <c>mac</c>, and
+        /// <c>normal</c>.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "keyed", "list", "mac", "normal"
@@ -51,6 +71,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-commands supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -60,11 +84,48 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>hash</c> command.  It dispatches to the
+        /// requested sub-command (<c>keyed</c>, <c>list</c>, <c>mac</c>, or
+        /// <c>normal</c>) in order to compute a keyed hash, list the available
+        /// algorithm names, compute a hash-based message authentication code,
+        /// or compute an ordinary message digest, honoring the recognized
+        /// options (such as <c>-encoding</c>, <c>-filename</c>, <c>-object</c>,
+        /// and <c>-raw</c>).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name; the remaining
+        /// elements supply the options and operands for the selected
+        /// sub-command.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the computed hash (formatted as a
+        /// hexadecimal string, or as a raw byte list when <c>-raw</c> is used)
+        /// or the requested list of algorithm names.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the computed hash or
+        /// algorithm list placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the interpreter is null, the
+        /// argument list is null, the wrong number of arguments is supplied,
+        /// an unknown sub-command or option is given, or the hash computation
+        /// fails, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

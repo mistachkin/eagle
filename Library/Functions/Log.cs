@@ -23,6 +23,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>log</c> expression function, which
+    /// returns the natural (base <c>e</c>) logarithm of its single numeric
+    /// argument.  See <c>core_language.md</c> for expression and function
+    /// semantics.
+    /// </summary>
     [ObjectId("a18bc359-6a3c-4772-97fa-f791e290e7b0")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
@@ -31,6 +37,13 @@ namespace Eagle._Functions
     internal sealed class Log : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>log</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Log(
             IFunctionData functionData /* in */
             )
@@ -43,6 +56,38 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>log</c> function.  It validates the
+        /// arguments using the base implementation, obtains the single argument
+        /// as a numeric variant, and produces its natural logarithm, handling
+        /// double and (when supported) big integer values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value whose natural logarithm is
+        /// computed.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the computed natural logarithm.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing, of an
+        /// unsupported type, or a math exception occurs, with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

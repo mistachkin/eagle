@@ -22,10 +22,22 @@ using _Engine = Eagle._Components.Public.Engine;
 
 namespace Eagle._Hosts
 {
+    /// <summary>
+    /// This class implements a custom console host used for testing purposes.
+    /// It extends the standard console host without adding any specialized
+    /// behavior.
+    /// </summary>
     [ObjectId("fbce00e2-9408-42bf-ac13-06865c5928ad")]
     internal sealed class Custom : Eagle._Hosts.Console, IDisposable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this custom console host.
+        /// </summary>
+        /// <param name="hostData">
+        /// The data used to create and configure this host.  This parameter may
+        /// be null.
+        /// </param>
         public Custom(
             IHostData hostData
             )
@@ -38,6 +50,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         #region IDebugHost Members
+        /// <summary>
+        /// Creates a copy of this host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the cloned host will be associated with.
+        /// </param>
+        /// <returns>
+        /// The newly created copy of this host, or null if it could not be
+        /// created.
+        /// </returns>
         public override IHost Clone(
             Interpreter interpreter
             )
@@ -53,6 +75,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this object has been disposed.
+        /// </summary>
         public override bool Disposed
         {
             get { return disposed; }
@@ -62,7 +87,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this host has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this host has already been
+        /// disposed.  It is called at the start of most members to guard against
+        /// use after disposal.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -76,6 +109,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this host.  It implements
+        /// the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from <see cref="Dispose()" />
+        /// (i.e. deterministically); zero if it is being called from the
+        /// finalizer.  When non-zero, managed resources are released.
+        /// </param>
         protected override void Dispose(bool disposing)
         {
             try
@@ -106,6 +148,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this host, releasing any resources that were not released
+        /// by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~Custom()
         {
             Dispose(false);

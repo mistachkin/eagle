@@ -20,29 +20,65 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods used to support the Eagle
+    /// event manager subsystem, including computing wait and sleep timings,
+    /// processing the event queue, waiting for events, and dispatching
+    /// background errors.
+    /// </summary>
     [ObjectId("214d2a13-4973-41cd-a765-3f94b3c514ca")]
     internal static class EventOps
     {
         #region Private Constants
         #region Wait Handling
+        /// <summary>
+        /// The minimum amount of time, in milliseconds, to sleep while waiting
+        /// for an object to be disposed.
+        /// </summary>
         private static readonly int DisposeSleepMinimumTime = 1; /* milliseconds */
+
+        /// <summary>
+        /// The divisor used to scale a requested dispose time down into a
+        /// per-iteration sleep time.
+        /// </summary>
         private static readonly int DisposeSleepDivisor = 10;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The divisor used when converting a microsecond wait time into a
+        /// millisecond value, to account for processing overhead.
+        /// </summary>
         private static readonly int WaitGeneralDivisor = 2;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The maximum amount of time, in milliseconds, to sleep during a
+        /// single iteration of a wait loop.
+        /// </summary>
         private static readonly int WaitSleepMaximumTime = 50; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The divisor used to compute the slop time allowed when checking
+        /// whether a wait has elapsed.
+        /// </summary>
         private static readonly int WaitSlopDivisor = 40;
+
+        /// <summary>
+        /// The maximum slop time, in microseconds, permitted when checking
+        /// whether a wait has elapsed.
+        /// </summary>
         private static readonly int WaitSlopMinimumTime = 25000; /* microseconds */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum elapsed time, in microseconds, beyond which a completed
+        /// wait is traced at a higher priority.
+        /// </summary>
         private static readonly int WaitTraceMinimumTime = 2000000; /* microseconds */
         #endregion
 
@@ -53,6 +89,10 @@ namespace Eagle._Components.Private
         // NOTE: This string is used to indent the details about a background
         //       error.
         //
+        /// <summary>
+        /// The string used to indent the detail lines included with a reported
+        /// background error.
+        /// </summary>
         private const string BackgroundErrorDetailIndent = "    ";
         #endregion
         #endregion
@@ -60,6 +100,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Manager Support Methods
+        /// <summary>
+        /// This method computes the amount of time to sleep, in milliseconds,
+        /// between checks while waiting for an object to be disposed.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The total amount of time, in milliseconds, available for the wait.
+        /// </param>
+        /// <returns>
+        /// The number of milliseconds to sleep between successive checks.
+        /// </returns>
         public static int GetDisposeSleepMilliseconds(
             int milliseconds
             )
@@ -70,6 +120,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes an optional microsecond value into a concrete
+        /// microsecond value, substituting a default when none is supplied.
+        /// </summary>
+        /// <param name="microseconds">
+        /// The requested time, in microseconds, or null to use the default
+        /// based on the maximum per-iteration sleep time.
+        /// </param>
+        /// <returns>
+        /// The resolved time, in microseconds.
+        /// </returns>
         private static long GetMicroseconds(
             long? microseconds
             )
@@ -83,6 +144,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a time expressed in microseconds into a
+        /// millisecond value suitable for use as a per-iteration sleep time.
+        /// </summary>
+        /// <param name="microseconds">
+        /// The time, in microseconds, to convert.
+        /// </param>
+        /// <returns>
+        /// The equivalent time, in milliseconds, scaled to account for
+        /// processing overhead.
+        /// </returns>
         public static int GetMilliseconds(
             long microseconds
             )
@@ -94,6 +166,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the slop time, in microseconds, allowed when
+        /// determining whether a wait has elapsed, ensuring it does not exceed
+        /// the actual wait time.
+        /// </summary>
+        /// <param name="microseconds">
+        /// The total wait time, in microseconds.
+        /// </param>
+        /// <returns>
+        /// The slop time, in microseconds.
+        /// </returns>
         public static long GetSlopMicroseconds(
             long microseconds
             )
@@ -108,6 +191,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the event flags used when queueing an event,
+        /// based on the supplied flags.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The base event flags to start from.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to include the debug event flag in the result.
+        /// </param>
+        /// <returns>
+        /// The event flags suitable for queueing an event.
+        /// </returns>
         public static EventFlags GetQueueEventFlags(
             EventFlags eventFlags,
             bool debug
@@ -126,6 +222,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adjusts the supplied interpreter readiness flags so that
+        /// full readiness checks are performed when script cancellation must be
+        /// honored.
+        /// </summary>
+        /// <param name="noCancel">
+        /// Non-zero if script cancellation is not being checked for; otherwise,
+        /// zero.
+        /// </param>
+        /// <param name="readyFlags">
+        /// The interpreter readiness flags to adjust, in place.
+        /// </param>
         public static void AdjustReadyFlags(
             bool noCancel,            /* in */
             ref ReadyFlags readyFlags /* in, out */
@@ -141,6 +249,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the pre-wait and post-wait callbacks currently
+        /// configured for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query, or null.
+        /// </param>
+        /// <param name="preCallback">
+        /// Upon success, receives the configured pre-wait callback, if any;
+        /// otherwise, receives null.
+        /// </param>
+        /// <param name="postCallback">
+        /// Upon success, receives the configured post-wait callback, if any;
+        /// otherwise, receives null.
+        /// </param>
         public static void QueryWaitCallbacks(
             Interpreter interpreter,
             out EventCallback preCallback,
@@ -175,6 +298,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event manager is valid
+        /// and usable.
+        /// </summary>
+        /// <param name="eventManager">
+        /// The event manager to check, or null.
+        /// </param>
+        /// <returns>
+        /// True if the event manager is non-null and has not been disposed;
+        /// otherwise, false.
+        /// </returns>
         public static bool ManagerIsOk(
             IEventManager eventManager
             ) /* THREAD-SAFE */
@@ -190,6 +324,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the current enabled state of the event manager for
+        /// the specified interpreter and then forcibly disables it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose event manager is to be modified, or null.
+        /// </param>
+        /// <param name="nullOk">
+        /// Non-zero to treat a missing event manager as success.
+        /// </param>
+        /// <param name="savedEnabled">
+        /// Upon success, receives the previously saved enabled state of the
+        /// event manager.
+        /// </param>
+        /// <returns>
+        /// True if the operation was performed (or tolerated); otherwise,
+        /// false.
+        /// </returns>
         public static bool SaveEnabledAndForceDisabled(
             Interpreter interpreter,
             bool nullOk,
@@ -218,6 +370,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the previously saved enabled state of the event
+        /// manager for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose event manager is to be modified, or null.
+        /// </param>
+        /// <param name="savedEnabled">
+        /// The previously saved enabled state to restore.
+        /// </param>
+        /// <returns>
+        /// The result of restoring the enabled state, or null if the
+        /// interpreter or its event manager was not available.
+        /// </returns>
         public static bool? RestoreEnabled(
             Interpreter interpreter,
             int savedEnabled
@@ -236,6 +402,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sleeps using the event manager for the specified
+        /// interpreter, allowing events to be processed as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose event manager should perform the sleep, or
+        /// null.
+        /// </param>
+        /// <param name="sleepType">
+        /// The type of sleep being requested.
+        /// </param>
+        /// <param name="minimum">
+        /// Non-zero to sleep for the minimum amount of time.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the sleep was performed successfully; otherwise, false.
+        /// </returns>
         public static bool Sleep(
             Interpreter interpreter,
             SleepType sleepType,
@@ -256,6 +442,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose events should be processed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags controlling which events are processed.
+        /// </param>
+        /// <param name="priority">
+        /// The minimum priority of events to be processed.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose events should be processed, or
+        /// null for any thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero for all of them.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing events upon the first error.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to return an error when there are no events to process.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of processing events; upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ProcessEvents(
             Interpreter interpreter,
             EventFlags eventFlags,
@@ -276,6 +494,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events for the specified interpreter,
+        /// updating a running count of the events that have been processed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose events should be processed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags controlling which events are processed.
+        /// </param>
+        /// <param name="priority">
+        /// The minimum priority of events to be processed.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose events should be processed, or
+        /// null for any thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero for all of them.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing events upon the first error.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to return an error when there are no events to process.
+        /// </param>
+        /// <param name="eventCount">
+        /// The running count of processed events, updated in place to include
+        /// the events processed by this call.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of processing events; upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ProcessEvents(
             Interpreter interpreter,
             EventFlags eventFlags,
@@ -313,6 +568,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes a single pending event for the specified
+        /// interpreter, updating a running count of the events that have been
+        /// processed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose event should be processed.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags controlling which events are processed.
+        /// </param>
+        /// <param name="priority">
+        /// The minimum priority of events to be processed.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose events should be processed, or
+        /// null for any thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero for all of them.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing events upon the first error.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to return an error when there are no events to process.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to also process pending user-interface events.
+        /// </param>
+        /// <param name="eventCount">
+        /// The running count of processed events, updated in place to include
+        /// the events processed by this call.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of processing the event; upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode DoOneEvent(
             Interpreter interpreter,
             EventFlags eventFlags,
@@ -363,6 +659,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the trace priority to use when tracing the
+        /// completion of a wait, based on how long the wait actually took.
+        /// </summary>
+        /// <param name="waitMicroseconds">
+        /// The requested wait time, in microseconds, or null.
+        /// </param>
+        /// <param name="outerElapsedMicroseconds">
+        /// The actual elapsed time, in microseconds, of the wait.
+        /// </param>
+        /// <returns>
+        /// The trace priority to use.
+        /// </returns>
         private static TracePriority GetTracePriority(
             long? waitMicroseconds,
             double outerElapsedMicroseconds
@@ -380,6 +689,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified event to be signaled, for up to
+        /// the requested amount of time, optionally processing events and
+        /// honoring script cancellation while it waits.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the wait.
+        /// </param>
+        /// <param name="event">
+        /// The event to wait on, or null to simply wait for the requested
+        /// amount of time.
+        /// </param>
+        /// <param name="waitMicroseconds">
+        /// The total amount of time, in microseconds, to wait, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="readyMicroseconds">
+        /// The amount of time, in microseconds, to wait for interpreter
+        /// readiness, or null to use the default.
+        /// </param>
+        /// <param name="timeout">
+        /// Non-zero to time out the interpreter readiness checks.
+        /// </param>
+        /// <param name="noWindows">
+        /// Non-zero to skip processing of Windows messages.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to ignore script cancellation while waiting.
+        /// </param>
+        /// <param name="noGlobalCancel">
+        /// Non-zero to ignore global script cancellation while waiting.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to emit diagnostic trace output about the wait.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Wait(
             Interpreter interpreter,
             EventWaitHandle @event,
@@ -403,6 +753,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified event to be signaled, for up to
+        /// the requested amount of time, optionally processing events and
+        /// honoring script cancellation while it waits, and reporting whether
+        /// the wait timed out.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the wait.
+        /// </param>
+        /// <param name="event">
+        /// The event to wait on, or null to simply wait for the requested
+        /// amount of time.
+        /// </param>
+        /// <param name="waitMicroseconds">
+        /// The total amount of time, in microseconds, to wait, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="readyMicroseconds">
+        /// The amount of time, in microseconds, to wait for interpreter
+        /// readiness, or null to use the default.
+        /// </param>
+        /// <param name="timeout">
+        /// Non-zero to time out the interpreter readiness checks.
+        /// </param>
+        /// <param name="noWindows">
+        /// Non-zero to skip processing of Windows messages.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to ignore script cancellation while waiting.
+        /// </param>
+        /// <param name="noGlobalCancel">
+        /// Non-zero to ignore global script cancellation while waiting.
+        /// </param>
+        /// <param name="trace">
+        /// Non-zero to emit diagnostic trace output about the wait.
+        /// </param>
+        /// <param name="timedOut">
+        /// Upon return, indicates whether the interpreter readiness check timed
+        /// out.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Wait(
             Interpreter interpreter,
             EventWaitHandle @event,
@@ -774,6 +1170,43 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Background Error Reporter
+        /// <summary>
+        /// This method formats and reports the details of a background error to
+        /// the appropriate diagnostic channel.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the background error, or null.
+        /// </param>
+        /// <param name="handlerName">
+        /// The name of the background error handler, if any.
+        /// </param>
+        /// <param name="description0">
+        /// The format string describing the overall background error, or null.
+        /// </param>
+        /// <param name="description1">
+        /// The label describing the first (original) error detail, or null.
+        /// </param>
+        /// <param name="code1">
+        /// The return code associated with the first error detail.
+        /// </param>
+        /// <param name="result1">
+        /// The result associated with the first error detail.
+        /// </param>
+        /// <param name="errorLine1">
+        /// The error line number associated with the first error detail.
+        /// </param>
+        /// <param name="description2">
+        /// The label describing the second error detail, or null.
+        /// </param>
+        /// <param name="code2">
+        /// The return code associated with the second error detail.
+        /// </param>
+        /// <param name="result2">
+        /// The result associated with the second error detail.
+        /// </param>
+        /// <param name="errorLine2">
+        /// The error line number associated with the second error detail.
+        /// </param>
         private static void ReportBackgroundError(
             Interpreter interpreter,
             string handlerName,
@@ -828,6 +1261,36 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Background Error Executor
+        /// <summary>
+        /// This method executes the background error handler for the specified
+        /// interpreter within a dedicated call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which to execute the background error handler.
+        /// </param>
+        /// <param name="handlerName">
+        /// The name of the background error handler being executed.
+        /// </param>
+        /// <param name="execute">
+        /// The resolved entity used to execute the background error handler.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the background error handler, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to pass to the background error handler.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of executing the background error
+        /// handler; upon failure, receives an error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure, receives the error line number reported by the
+        /// background error handler.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode ExecuteBackgroundError(
             Interpreter interpreter,
             string handlerName,
@@ -927,6 +1390,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Background Error Dispatcher
+        /// <summary>
+        /// This method handles a background error by dispatching it to the
+        /// background error handler configured for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the background error.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the original error.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the original error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the background error was handled;
+        /// otherwise, an error code.
+        /// </returns>
         public static ReturnCode HandleBackgroundError(
             Interpreter interpreter,
             ReturnCode code,
@@ -941,6 +1421,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles a background error by dispatching it to the
+        /// background error handler configured for the specified interpreter,
+        /// reporting whether the handler should be invoked again later.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the background error.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the original error.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the original error.
+        /// </param>
+        /// <param name="bgError">
+        /// Upon return, indicates whether the background error handler should be
+        /// invoked again on the next pass through the event loop.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the background error was handled;
+        /// otherwise, an error code.
+        /// </returns>
         public static ReturnCode HandleBackgroundError(
             Interpreter interpreter,
             ReturnCode code,

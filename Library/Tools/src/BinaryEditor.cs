@@ -59,31 +59,90 @@ using System.Text.RegularExpressions;
 
 namespace Tools
 {
+    /// <summary>
+    /// This class implements the BinaryEditor tool, a command line utility
+    /// that performs a search-and-replace of a sequence of bytes within a
+    /// file, optionally writing the modified bytes to a separate output file.
+    /// </summary>
     public class BinaryEditor
     {
         #region Private Constants
+        /// <summary>
+        /// The string comparison used when matching command line arguments
+        /// against the supported option names.
+        /// </summary>
         private const StringComparison DefaultOptionComparison =
             StringComparison.OrdinalIgnoreCase;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The command line option used to disable strict mode, which causes
+        /// the absence of the original string to be silently ignored.
+        /// </summary>
         private const string NoStrictOption = "-noStrict";
+
+        /// <summary>
+        /// The command line option used to make the string comparisons
+        /// case-insensitive.
+        /// </summary>
         private const string NoCaseOption = "-noCase";
+
+        /// <summary>
+        /// The command line option used to treat the original and replacement
+        /// strings as paths, canonicalizing any rooted path.
+        /// </summary>
         private const string PathsOption = "-paths";
+
+        /// <summary>
+        /// The command line option used to simulate the operation without
+        /// making any persistent modifications.
+        /// </summary>
         private const string WhatIfOption = "-whatIf";
+
+        /// <summary>
+        /// The command line option used to output extra diagnostic information
+        /// useful in debugging this tool.
+        /// </summary>
         private const string DebugOption = "-debug";
+
+        /// <summary>
+        /// The command line option used to output extra diagnostic information
+        /// useful in troubleshooting.
+        /// </summary>
         private const string VerboseOption = "-verbose";
+
+        /// <summary>
+        /// The command line option used to mark the end of options.  The
+        /// argument following this one is never treated as an option.
+        /// </summary>
         private const string EndOfOptions = "--";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bit mask used to detect a character whose value cannot fit
+        /// within a single byte (i.e. its high-order byte is set).
+        /// </summary>
         private const char CharHighByte = (char)0xFF00;
+
+        /// <summary>
+        /// The bit mask used to extract the low-order byte from a character.
+        /// </summary>
         private const char CharLowByte = (char)byte.MaxValue;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Methods
+        /// <summary>
+        /// This method attempts to determine the fully qualified file name of
+        /// the main module for the current process.
+        /// </summary>
+        /// <returns>
+        /// The file name of the main module for the current process -OR- null
+        /// if it cannot be determined.
+        /// </returns>
         private static string GetFileName()
         {
             Process process = Process.GetCurrentProcess();
@@ -108,6 +167,17 @@ namespace Tools
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine the version of the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to query.
+        /// </param>
+        /// <returns>
+        /// The version of the specified assembly -OR- null if it cannot be
+        /// determined.
+        /// </returns>
         private static Version GetVersion(
             Assembly assembly
             )
@@ -134,6 +204,19 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Diagnostic Output Methods
+        /// <summary>
+        /// This method conditionally writes a formatted message, followed by a
+        /// line terminator, to the console.
+        /// </summary>
+        /// <param name="condition">
+        /// Non-zero to write the message; otherwise, nothing is written.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string to write.
+        /// </param>
+        /// <param name="args">
+        /// The array of objects to format and write.
+        /// </param>
         private static void WriteLineIf(
             bool condition,
             string format,
@@ -146,6 +229,21 @@ namespace Tools
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally writes a formatted error message,
+        /// followed by a line terminator, to the console using the color
+        /// reserved for errors.  The previous console foreground color is
+        /// restored before this method returns.
+        /// </summary>
+        /// <param name="condition">
+        /// Non-zero to write the error message; otherwise, nothing is written.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string to write.
+        /// </param>
+        /// <param name="args">
+        /// The array of objects to format and write.
+        /// </param>
         private static void WriteErrorIf(
             bool condition,
             string format,
@@ -173,6 +271,20 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Error Reporting Methods
+        /// <summary>
+        /// This method displays an error message to the console and/or
+        /// displays the version and command line usage information for this
+        /// tool, including a description of each supported option.
+        /// </summary>
+        /// <param name="error">
+        /// The error message to display, if any.
+        /// </param>
+        /// <param name="usage">
+        /// Non-zero to display the version and command line usage information.
+        /// </param>
+        /// <returns>
+        /// Always returns one, the failure exit code for this tool.
+        /// </returns>
         private static int Fail(
             string error,
             bool usage
@@ -297,6 +409,18 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Path Handling Methods
+        /// <summary>
+        /// This method canonicalizes the specified path.  If the path is a
+        /// rooted path, it is converted to its fully qualified, canonical
+        /// form; otherwise, it is returned unchanged.
+        /// </summary>
+        /// <param name="path">
+        /// The path to canonicalize.
+        /// </param>
+        /// <returns>
+        /// The canonicalized path -OR- the original path if it is null, empty,
+        /// or not rooted.
+        /// </returns>
         private static string CanonicalizePath(
             string path
             )
@@ -311,6 +435,24 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Bytes-To-Chars / Chars-To-Bytes Methods
+        /// <summary>
+        /// This method converts an array of bytes into an array of characters,
+        /// using a one-to-one mapping where each byte becomes a single
+        /// character with the same value.
+        /// </summary>
+        /// <param name="verbose">
+        /// Non-zero to output extra diagnostic information when an error is
+        /// encountered.
+        /// </param>
+        /// <param name="bytes">
+        /// The array of bytes to convert.
+        /// </param>
+        /// <param name="chars">
+        /// Upon success, this will contain the resulting array of characters.
+        /// </param>
+        /// <returns>
+        /// True if the conversion was successful; otherwise, false.
+        /// </returns>
         private static bool ConvertBytesToChars(
             bool verbose,
             byte[] bytes,
@@ -354,6 +496,25 @@ namespace Tools
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an array of characters into an array of bytes,
+        /// using a one-to-one mapping where each character becomes a single
+        /// byte with the same value.  An error is raised if any character
+        /// cannot fit within a single byte.
+        /// </summary>
+        /// <param name="verbose">
+        /// Non-zero to output extra diagnostic information when an error is
+        /// encountered.
+        /// </param>
+        /// <param name="chars">
+        /// The array of characters to convert.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, this will contain the resulting array of bytes.
+        /// </param>
+        /// <returns>
+        /// True if the conversion was successful; otherwise, false.
+        /// </returns>
         private static bool ConvertCharsToBytes(
             bool verbose,
             char[] chars,
@@ -417,6 +578,44 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Search / Replace Methods
+        /// <summary>
+        /// This method searches the specified array of characters for all
+        /// occurrences of the original value and replaces them with the
+        /// replacement value.  When the lengths are required to match, the
+        /// replacement value is truncated or padded with null characters so
+        /// that the overall length is preserved.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of the original value as a failure;
+        /// otherwise, the absence of the original value is ignored.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to output extra diagnostic information when an error is
+        /// encountered.
+        /// </param>
+        /// <param name="sameLength">
+        /// Non-zero to require that the resulting array of characters have the
+        /// same length as the original array of characters.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform the search using a case-insensitive comparison.
+        /// </param>
+        /// <param name="oldValue">
+        /// The original value to search for.
+        /// </param>
+        /// <param name="newValue">
+        /// The replacement value to substitute for the original value.
+        /// </param>
+        /// <param name="oldChars">
+        /// The array of characters to search within.
+        /// </param>
+        /// <param name="newChars">
+        /// Upon success, this will contain the resulting array of characters
+        /// after the search-and-replace has been performed.
+        /// </param>
+        /// <returns>
+        /// True if the search-and-replace was successful; otherwise, false.
+        /// </returns>
         private static bool SearchAndReplace(
             bool strict,
             bool verbose,
@@ -551,6 +750,20 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Application Entry Point
+        /// <summary>
+        /// This is the entry-point for this tool.  It handles processing the
+        /// command line options and arguments, reading the input file,
+        /// performing the search-and-replace, and writing the modified bytes
+        /// to the output file.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments.  Following any options, exactly four
+        /// non-option arguments are required: the input file name, the output
+        /// file name, the original value, and the replacement value.
+        /// </param>
+        /// <returns>
+        /// Zero upon success; non-zero on failure.
+        /// </returns>
         public static int Main(string[] args)
         {
             int exitCode = 0;

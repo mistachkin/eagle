@@ -77,6 +77,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used throughout the
+    /// Eagle core library for manipulating, normalizing, comparing, combining,
+    /// and validating file system paths and URIs, as well as for creating
+    /// temporary and unique paths.  It also contains the native interop
+    /// declarations needed to query file system information on the supported
+    /// platforms.
+    /// </summary>
 #if NATIVE
 #if NET_40
     [SecurityCritical()]
@@ -93,58 +101,172 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the native interop declarations (P/Invoke entry
+        /// points) and the associated native structures used by this class to
+        /// query file system information on the supported platforms.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("73db358b-e0ef-42b5-9de5-46362ad86e91")]
         internal static class UnsafeNativeMethods
         {
 #if WINDOWS
+            /// <summary>
+            /// This structure mirrors the native Windows <c>FILETIME</c>
+            /// structure, representing a date and time as the number of
+            /// 100-nanosecond intervals since the Windows system epoch.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("41367b38-86f2-41c3-b7ee-4b3374372039")]
             internal struct FILETIME
             {
+                /// <summary>
+                /// The low-order 32 bits of the file time.
+                /// </summary>
                 public uint dwLowDateTime;
+                /// <summary>
+                /// The high-order 32 bits of the file time.
+                /// </summary>
                 public uint dwHighDateTime;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native Windows
+            /// <c>BY_HANDLE_FILE_INFORMATION</c> structure, which contains the
+            /// information retrieved for a file via an open handle.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("bb894e4a-17d1-4f0e-aae1-6f878ad05f2c")]
             internal struct BY_HANDLE_FILE_INFORMATION
             {
+                /// <summary>
+                /// The file attributes for the file.
+                /// </summary>
                 public FileFlagsAndAttributes dwFileAttributes;
+                /// <summary>
+                /// The time the file was created.
+                /// </summary>
                 public FILETIME ftCreationTime;
+                /// <summary>
+                /// The time the file was last accessed.
+                /// </summary>
                 public FILETIME ftLastAccessTime;
+                /// <summary>
+                /// The time the file was last written to.
+                /// </summary>
                 public FILETIME ftLastWriteTime;
+                /// <summary>
+                /// The serial number of the volume that contains the file.
+                /// </summary>
                 public uint dwVolumeSerialNumber;
+                /// <summary>
+                /// The high-order 32 bits of the file size, in bytes.
+                /// </summary>
                 public uint nFileSizeHigh;
+                /// <summary>
+                /// The low-order 32 bits of the file size, in bytes.
+                /// </summary>
                 public uint nFileSizeLow;
+                /// <summary>
+                /// The number of links to the file.
+                /// </summary>
                 public uint nNumberOfLinks;
+                /// <summary>
+                /// The high-order 32 bits of the unique identifier associated
+                /// with the file.
+                /// </summary>
                 public uint nFileIndexHigh;
+                /// <summary>
+                /// The low-order 32 bits of the unique identifier associated
+                /// with the file.
+                /// </summary>
                 public uint nFileIndexLow;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The native control code used to retrieve the object identifier
+            /// for the specified file or directory.
+            /// </summary>
             internal const uint FSCTL_GET_OBJECT_ID = 0x9009c;
+            /// <summary>
+            /// The native control code used to retrieve the object identifier
+            /// for the specified file or directory, creating one if it does not
+            /// already exist.
+            /// </summary>
             internal const uint FSCTL_CREATE_OR_GET_OBJECT_ID = 0x900c0;
 
+            /// <summary>
+            /// This structure mirrors the native Windows
+            /// <c>FILE_OBJECTID_BUFFER</c> structure, which contains the object
+            /// identifiers associated with a file or directory.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("71d21cdf-5626-4197-9c5c-428e4717dc80")]
             internal struct FILE_OBJECTID_BUFFER
             {
+                /// <summary>
+                /// The object identifier of the file or directory.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
                 public byte[] ObjectId;
+                /// <summary>
+                /// The identifier of the volume on which the object resided
+                /// when the object identifier was first created.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
                 public byte[] BirthVolumeId;
+                /// <summary>
+                /// The object identifier of the object at the time it was
+                /// first created.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
                 public byte[] BirthObjectId;
+                /// <summary>
+                /// Reserved; the domain identifier associated with the object.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 16)]
                 public byte[] DomainId;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Windows <c>CreateFile</c> function,
+            /// which creates or opens a file or input/output device and returns
+            /// a handle to it.
+            /// </summary>
+            /// <param name="fileName">
+            /// The name of the file or device to be created or opened.
+            /// </param>
+            /// <param name="desiredAccess">
+            /// The requested access to the file or device.
+            /// </param>
+            /// <param name="shareMode">
+            /// The requested sharing mode of the file or device.
+            /// </param>
+            /// <param name="securityAttributes">
+            /// An optional pointer to a security attributes structure, or
+            /// <see cref="IntPtr.Zero" /> for none.
+            /// </param>
+            /// <param name="creationDisposition">
+            /// An action to take on a file or device that exists or does not
+            /// exist.
+            /// </param>
+            /// <param name="flagsAndAttributes">
+            /// The file or device attributes and flags.
+            /// </param>
+            /// <param name="templateFile">
+            /// An optional handle to a template file, or
+            /// <see cref="IntPtr.Zero" /> for none.
+            /// </param>
+            /// <returns>
+            /// Upon success, an open handle to the specified file or device;
+            /// otherwise, an invalid handle value.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 CharSet = CharSet.Auto, BestFitMapping = false,
@@ -161,6 +283,46 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Windows <c>DeviceIoControl</c>
+            /// function, which sends a control code directly to a specified
+            /// device driver, causing the corresponding device to perform the
+            /// associated operation.
+            /// </summary>
+            /// <param name="device">
+            /// A handle to the device on which the operation is to be
+            /// performed.
+            /// </param>
+            /// <param name="ioControlCode">
+            /// The control code for the operation to be performed.
+            /// </param>
+            /// <param name="inBuffer">
+            /// An optional pointer to the input buffer that contains the data
+            /// required to perform the operation, or
+            /// <see cref="IntPtr.Zero" /> for none.
+            /// </param>
+            /// <param name="inBufferSize">
+            /// The size, in bytes, of the input buffer.
+            /// </param>
+            /// <param name="outBuffer">
+            /// An optional pointer to the output buffer that is to receive the
+            /// data returned by the operation, or <see cref="IntPtr.Zero" />
+            /// for none.
+            /// </param>
+            /// <param name="outBufferSize">
+            /// The size, in bytes, of the output buffer.
+            /// </param>
+            /// <param name="bytesReturned">
+            /// Upon success, receives the size, in bytes, of the data stored
+            /// in the output buffer.
+            /// </param>
+            /// <param name="overlapped">
+            /// An optional pointer to an overlapped structure, or
+            /// <see cref="IntPtr.Zero" /> for none.
+            /// </param>
+            /// <returns>
+            /// True if the operation succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -173,6 +335,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Windows
+            /// <c>GetFileInformationByHandle</c> function, which retrieves file
+            /// information for the file referenced by the specified handle.
+            /// </summary>
+            /// <param name="file">
+            /// A handle to the file for which information is to be retrieved.
+            /// </param>
+            /// <param name="fileInformation">
+            /// Upon success, receives the information for the specified file.
+            /// </param>
+            /// <returns>
+            /// True if the information was retrieved successfully; otherwise,
+            /// false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -184,6 +361,17 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Windows <c>PathIsExe</c> function,
+            /// which determines whether a file is an executable by examining its
+            /// file name extension.
+            /// </summary>
+            /// <param name="path">
+            /// The path of the file to test.
+            /// </param>
+            /// <returns>
+            /// True if the file is an executable; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Shell32,
                 CallingConvention = CallingConvention.Winapi,
                 CharSet = CharSet.Unicode, BestFitMapping = false,
@@ -195,106 +383,252 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if UNIX
+            /// <summary>
+            /// This structure mirrors the native Unix <c>timespec</c> structure,
+            /// representing a time as a number of whole seconds plus a number of
+            /// nanoseconds.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("ace5d181-10ec-4bdf-ab7a-72c9e2d698f0")]
             internal struct timespec
             {
+                /// <summary>
+                /// The number of whole seconds.
+                /// </summary>
                 public long /* time_t */ tv_sec; // wrong?
+                /// <summary>
+                /// The number of nanoseconds.
+                /// </summary>
                 public long tv_nsec;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native Linux <c>stat</c> structure,
+            /// which contains the file system metadata for a file or directory.
+            /// </summary>
             /* WARNING: Non-portable, select versions of Linux only? */
             [StructLayout(LayoutKind.Explicit)]
             [ObjectId("3f01d0eb-ba6b-4b5a-b15b-68488418a11b")]
             internal struct linux_stat /* monophile: Ubuntu 16.04.7 LTS */
             {
+                /// <summary>
+                /// The identifier of the device containing the file.
+                /// </summary>
                 [FieldOffset(0)]
                 public ulong /* dev_t */ st_dev; /* 0 */
+                /// <summary>
+                /// The inode number of the file.
+                /// </summary>
                 [FieldOffset(8)]
                 public ulong /* ino_t */ st_ino; /* 8 */
+                /// <summary>
+                /// The number of hard links to the file.
+                /// </summary>
                 [FieldOffset(16)]
                 public ulong /* nlink_t */ st_nlink; /* 16 */
+                /// <summary>
+                /// The file type and mode (permission) bits.
+                /// </summary>
                 [FieldOffset(24)]
                 public uint /* mode_t */ st_mode; /* 24 */
+                /// <summary>
+                /// The user identifier of the owner of the file.
+                /// </summary>
                 [FieldOffset(28)]
                 public uint /* uid_t */ st_uid; /* 28 */
+                /// <summary>
+                /// The group identifier of the owner of the file.
+                /// </summary>
                 [FieldOffset(32)]
                 public uint /* gid_t */ st_gid; /* 32 */
+                /// <summary>
+                /// The device identifier, if the file is a special file.
+                /// </summary>
                 [FieldOffset(40)]
                 public ulong /* dev_t */ st_rdev; /* 40 */
+                /// <summary>
+                /// The total size of the file, in bytes.
+                /// </summary>
                 [FieldOffset(48)]
                 public ulong /* off_t */ st_size; /* 48 */
+                /// <summary>
+                /// The preferred block size, in bytes, for file system
+                /// input/output.
+                /// </summary>
                 [FieldOffset(56)]
                 public ulong /* blksize_t */ st_blksize; /* 56 */
+                /// <summary>
+                /// The number of 512-byte blocks allocated to the file.
+                /// </summary>
                 [FieldOffset(64)]
                 public ulong /* blkcnt_t */ st_blocks; /* 64 */
+                /// <summary>
+                /// The time the file was last accessed.
+                /// </summary>
                 [FieldOffset(72)]
                 public /* struct */ timespec st_atim; /* 72 */
+                /// <summary>
+                /// The time the file was last modified.
+                /// </summary>
                 [FieldOffset(88)]
                 public /* struct */ timespec st_mtim; /* 88 */
+                /// <summary>
+                /// The time the file status was last changed.
+                /// </summary>
                 [FieldOffset(104)]
                 public /* struct */ timespec st_ctim; /* 104 */
+                /// <summary>
+                /// Reserved padding.
+                /// </summary>
                 [FieldOffset(120)]
                 public ulong padding1; /* 120 */
+                /// <summary>
+                /// Reserved padding.
+                /// </summary>
                 [FieldOffset(128)]
                 public ulong padding2; /* 128 */
+                /// <summary>
+                /// Reserved padding.
+                /// </summary>
                 [FieldOffset(136)]
                 public ulong padding3; /* 136 */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native macOS <c>stat</c> structure,
+            /// which contains the file system metadata for a file or directory.
+            /// </summary>
             /* WARNING: Non-portable, select versions of macOS only? */
             [StructLayout(LayoutKind.Explicit)]
             [ObjectId("6904da5b-3efb-4a92-8f4c-3f30c0adc5fb")]
             internal struct macos_stat_buf
             {
+                /// <summary>
+                /// The identifier of the device containing the file.
+                /// </summary>
                 [FieldOffset(0)]
                 public uint /* dev_t */ st_dev; /* 0 */
+                /// <summary>
+                /// The file type and mode (permission) bits.
+                /// </summary>
                 [FieldOffset(4)]
                 public ushort /* mode_t */ st_mode; /* 4 */
+                /// <summary>
+                /// The number of hard links to the file.
+                /// </summary>
                 [FieldOffset(6)]
                 public ushort /* nlink_t */ st_nlink; /* 6 */
+                /// <summary>
+                /// The inode number of the file.
+                /// </summary>
                 [FieldOffset(8)]
                 public ulong /* ino_t */ st_ino; /* 8 */
+                /// <summary>
+                /// The user identifier of the owner of the file.
+                /// </summary>
                 [FieldOffset(16)]
                 public uint /* uid_t */ st_uid; /* 16 */
+                /// <summary>
+                /// The group identifier of the owner of the file.
+                /// </summary>
                 [FieldOffset(20)]
                 public uint /* gid_t */ st_gid; /* 20 */
+                /// <summary>
+                /// The device identifier, if the file is a special file.
+                /// </summary>
                 [FieldOffset(24)]
                 public ulong /* dev_t */ st_rdev; /* 24 */
+                /// <summary>
+                /// Reserved padding.
+                /// </summary>
                 [FieldOffset(28)]
                 private uint __pad; /* 28 */
+                /// <summary>
+                /// The time the file was last accessed.
+                /// </summary>
                 [FieldOffset(32)]
                 public /* struct */ timespec st_atimespec; /* 32 */
+                /// <summary>
+                /// The time the file was last modified.
+                /// </summary>
                 [FieldOffset(48)]
                 public /* struct */ timespec st_mtimespec; /* 48 */
+                /// <summary>
+                /// The time the file status was last changed.
+                /// </summary>
                 [FieldOffset(64)]
                 public /* struct */ timespec st_ctimespec; /* 64 */
+                /// <summary>
+                /// The time the file was created.
+                /// </summary>
                 [FieldOffset(80)]
                 public /* struct */ timespec st_birthtimespec; /* 80 */
+                /// <summary>
+                /// The total size of the file, in bytes.
+                /// </summary>
                 [FieldOffset(96)]
                 public ulong /* off_t */ st_size; /* 96 */
+                /// <summary>
+                /// The number of 512-byte blocks allocated to the file.
+                /// </summary>
                 [FieldOffset(104)]
                 public ulong /* blkcnt_t */ st_blocks; /* 104 */
+                /// <summary>
+                /// The preferred block size, in bytes, for file system
+                /// input/output.
+                /// </summary>
                 [FieldOffset(112)]
                 public uint /* blksize_t */ st_blksize; /* 112 */
+                /// <summary>
+                /// The user-defined flags for the file.
+                /// </summary>
                 [FieldOffset(116)]
                 public uint /* uint32_t */ st_flags; /* 116 */
+                /// <summary>
+                /// The file generation number.
+                /// </summary>
                 [FieldOffset(120)]
                 public uint /* uint32_t */ st_gen; /* 120 */
+                /// <summary>
+                /// Reserved for future use.
+                /// </summary>
                 [FieldOffset(124)]
                 public int /* int32_t */ st_lspare; /* 124 */
+                /// <summary>
+                /// Reserved for future use.
+                /// </summary>
                 [FieldOffset(128)]
                 public long /* int64_t */ st_qspare0; /* 128 */
+                /// <summary>
+                /// Reserved for future use.
+                /// </summary>
                 [FieldOffset(136)]
                 public long /* int64_t */ st_qspare1; /* 136 */
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Linux <c>__xstat</c> function,
+            /// which retrieves the file system metadata for the file at the
+            /// specified path.
+            /// </summary>
+            /// <param name="ver">
+            /// The version of the <c>stat</c> structure expected by the caller.
+            /// </param>
+            /// <param name="path">
+            /// The path of the file for which information is to be retrieved.
+            /// </param>
+            /// <param name="buf">
+            /// Upon success, receives the file system metadata for the file.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero value.
+            /// </returns>
             /* WARNING: Non-portable, select versions of Linux only? */
             [DllImport(DllName.LibC, EntryPoint = "__xstat",
                 CallingConvention = CallingConvention.Cdecl,
@@ -304,6 +638,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native Linux <c>__lxstat</c> function,
+            /// which retrieves the file system metadata for the file at the
+            /// specified path, without following a final symbolic link.
+            /// </summary>
+            /// <param name="ver">
+            /// The version of the <c>stat</c> structure expected by the caller.
+            /// </param>
+            /// <param name="path">
+            /// The path of the file for which information is to be retrieved.
+            /// </param>
+            /// <param name="buf">
+            /// Upon success, receives the file system metadata for the file.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero value.
+            /// </returns>
             /* WARNING: Non-portable, select versions of Linux only? */
             [DllImport(DllName.LibC, EntryPoint = "__lxstat",
                 CallingConvention = CallingConvention.Cdecl,
@@ -313,6 +664,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native macOS <c>stat</c> function, which
+            /// retrieves the file system metadata for the file at the specified
+            /// path.
+            /// </summary>
+            /// <param name="path">
+            /// The path of the file for which information is to be retrieved.
+            /// </param>
+            /// <param name="buf">
+            /// Upon success, receives the file system metadata for the file.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero value.
+            /// </returns>
             [DllImport(DllName.Internal, EntryPoint = "stat",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi, BestFitMapping = false,
@@ -321,6 +686,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native macOS <c>lstat</c> function, which
+            /// retrieves the file system metadata for the file at the specified
+            /// path, without following a final symbolic link.
+            /// </summary>
+            /// <param name="path">
+            /// The path of the file for which information is to be retrieved.
+            /// </param>
+            /// <param name="buf">
+            /// Upon success, receives the file system metadata for the file.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero value.
+            /// </returns>
             [DllImport(DllName.Internal, EntryPoint = "lstat",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi, BestFitMapping = false,
@@ -334,8 +713,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The length, in characters, of a drive prefix (e.g. <c>C:</c>).
+        /// </summary>
         private const int DrivePrefixLength = 2;
+        /// <summary>
+        /// The length, in characters, of an extended-length path prefix (e.g.
+        /// <c>\\?\</c>).
+        /// </summary>
         private const int ExtendedPrefixLength = 4;
+        /// <summary>
+        /// The length, in characters, of a UNC path prefix (e.g. <c>\\</c>).
+        /// </summary>
         private const int UncPrefixLength = 2;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -344,26 +733,45 @@ namespace Eagle._Components.Private
         //
         // NOTE: The maximum length for a module file name.
         //
+        /// <summary>
+        /// The maximum length, in characters, for a native module file name.
+        /// </summary>
         private static readonly uint UNICODE_STRING_MAX_CHARS = 32767;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if path comparisons should be performed without regard to
+        /// case, based on the conventions of the current operating system.
+        /// </summary>
         public static readonly bool NoCase =
             PlatformOps.IsWindowsOperatingSystem() ?
                 true : PlatformOps.IsUnixOperatingSystem() ? false : true;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The <see cref="StringComparison" /> value used when comparing paths,
+        /// based on the conventions of the current operating system.
+        /// </summary>
         public static readonly StringComparison ComparisonType =
             GetComparisonType();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The <see cref="StringComparer" /> used when comparing paths, based
+        /// on the conventions of the current operating system.
+        /// </summary>
         public static readonly StringComparer Comparer = GetComparer();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of characters that are treated as wildcards within a path
+        /// pattern.
+        /// </summary>
         private static readonly char[] PathWildcardChars = {
             Characters.Asterisk,
             Characters.QuestionMark
@@ -371,15 +779,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of build configuration names considered when searching for
+        /// build output directories.
+        /// </summary>
         private static readonly string[] BuildConfigurations = {
             BuildConfiguration.Debug, BuildConfiguration.Release
         };
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The configuration flags used when reading a scalar (single) native
+        /// path configuration value.
+        /// </summary>
         private static readonly ConfigurationFlags ScalarConfigurationFlags =
             ConfigurationFlags.PathOps | ConfigurationFlags.NativePathValue;
 
+        /// <summary>
+        /// The configuration flags used when reading a list of native path
+        /// configuration values.
+        /// </summary>
         private static readonly ConfigurationFlags ListConfigurationFlags =
             ConfigurationFlags.PathOps | ConfigurationFlags.NativePathListValue;
 
@@ -392,16 +812,34 @@ namespace Eagle._Components.Private
         //       values instead, because various methods in this library
         //       depend on these two character values being different.
         //
+        /// <summary>
+        /// The primary directory separator character used by this library.
+        /// </summary>
         public static readonly char DirectorySeparatorChar = Characters.DirectorySeparator;
+        /// <summary>
+        /// The alternate directory separator character used by this library.
+        /// </summary>
         public static readonly char AltDirectorySeparatorChar = Characters.AltDirectorySeparator;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The relative path component that refers to the current directory
+        /// (e.g. <c>.</c>).
+        /// </summary>
         public static readonly string CurrentDirectory = _Path.Current;
+        /// <summary>
+        /// The relative path component that refers to the parent directory
+        /// (e.g. <c>..</c>).
+        /// </summary>
         public static readonly string ParentDirectory = _Path.Parent;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The directory separator character that is not native to the current
+        /// operating system.
+        /// </summary>
         public static readonly char NonNativeDirectorySeparatorChar =
             PlatformOps.IsWindowsOperatingSystem() ?
                 AltDirectorySeparatorChar :
@@ -409,6 +847,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The directory separator character that is native to the current
+        /// operating system.
+        /// </summary>
         public static readonly char NativeDirectorySeparatorChar =
             PlatformOps.IsWindowsOperatingSystem() ?
                 DirectorySeparatorChar :
@@ -416,6 +858,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached set of directory separator characters, lazily
+        /// initialized on first use.
+        /// </summary>
         private static char[] DirectoryChars = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -429,6 +875,10 @@ namespace Eagle._Components.Private
          * This value was stolen directly from the Tcl 8.6 source code.
          */
 
+        /// <summary>
+        /// The number of 100-nanosecond intervals between the Windows system
+        /// epoch (1601-01-01) and the POSIX epoch (1970-01-01).
+        /// </summary>
         private const ulong POSIX_EPOCH_AS_FILETIME = (ulong)116444736 * (ulong)1000000000;
 #endif
 
@@ -439,26 +889,52 @@ namespace Eagle._Components.Private
         //       URI from a relative one so the GetComponents method may
         //       be used to grab portions of the relative URI.
         //
+        /// <summary>
+        /// The default base URI used to temporarily build an absolute URI from
+        /// a relative one when extracting URI components.
+        /// </summary>
         private static readonly Uri DefaultBaseUri = new Uri("https://www.example.com/");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to determine whether a string is a valid
+        /// identifier (i.e. consists only of letters, digits, and underscores).
+        /// </summary>
         private static readonly Regex identifierRegEx = RegExOps.Create(
             "^[0-9A-Z_]+$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Unique Path Constants
+        /// <summary>
+        /// The default prefix used when forming a unique path on Windows.
+        /// </summary>
         private static readonly string DefaultWindowsUniquePrefix = "eiq-";
+        /// <summary>
+        /// The default prefix used when forming a unique path on Unix.
+        /// </summary>
         private static readonly string DefaultUnixUniquePrefix = "eagle-unique-path-";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default maximum number of times to retry when attempting to
+        /// create a unique path.
+        /// </summary>
         private static readonly int DefaultUniqueMaximumRetries = 10000;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default number of random bytes used within a unique path on
+        /// Windows.
+        /// </summary>
         private static readonly int DefaultWindowsUniqueByteCount = sizeof(ushort);
+        /// <summary>
+        /// The default number of random bytes used within a unique path on
+        /// Unix.
+        /// </summary>
         private static readonly int DefaultUnixUniqueByteCount = sizeof(ulong);
         #endregion
         #endregion
@@ -470,6 +946,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used to synchronize access to the other static data
         //       members in this class.
         //
+        /// <summary>
+        /// The object used to synchronize access to the other static data
+        /// members in this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -481,6 +961,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When greater than zero, trace calls into the NormalizePath method,
+        /// which is handled specially due to it being in the hot-path for
+        /// nearly everything.
+        /// </summary>
         private static int traceForNormalize = 0;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -492,8 +977,22 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the test-specific temporary environment variables may
+        /// be used when searching for a suitable base directory for temporary
+        /// files.
+        /// </summary>
         private static bool includeTestTemporaryEnvVars = true;
+        /// <summary>
+        /// When non-zero, the XDG temporary environment variables may be used
+        /// when searching for a suitable base directory for temporary files.
+        /// </summary>
         private static bool includeXdgTemporaryEnvVars = false;
+        /// <summary>
+        /// When non-zero, the system temporary environment variables (e.g.
+        /// "TEMP" and "TMP") may be used when searching for a suitable base
+        /// directory for temporary files.
+        /// </summary>
         private static bool includeSystemTemporaryEnvVars = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -505,6 +1004,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, all temporary file names returned from this class are
+        /// validated beforehand, via the ValidatePathAsFile method.
+        /// </summary>
         private static bool validateTemporaryFileName = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -516,7 +1019,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the temporary sub-path is combined with any directory
+        /// value being used as a base temporary directory.
+        /// </summary>
         private static bool useTemporarySubPath = false;
+        /// <summary>
+        /// When non-null, this value is combined with any directory value being
+        /// used as a base temporary directory.
+        /// </summary>
         private static string temporarySubPath = GlobalState.GetPackageFileNameOnly();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -527,6 +1038,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-null, this value is used as the return value from the
+        /// GetBinaryPath method.
+        /// </summary>
         private static string binaryPath = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -542,6 +1057,12 @@ namespace Eagle._Components.Private
         // WARNING: These values are probably not correct for non-Windows
         //          platforms.
         //
+        /// <summary>
+        /// The list of candidate path components, in priority order, used when
+        /// attempting to locate the cloud drive directory for a user.  These
+        /// path components are appended to the home directory for a given user
+        /// prior to being checked for validity.
+        /// </summary>
         private static readonly string[] defaultCloudPaths = {
             null,           // Override #1
             null,           // Override #2
@@ -563,7 +1084,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-null, this callback is used to obtain a temporary file name
+        /// instead of the default mechanism.
+        /// </summary>
         private static GetStringValueCallback getTempFileNameCallback = null;
+        /// <summary>
+        /// When non-null, this callback is used to obtain the temporary
+        /// directory path instead of the default mechanism.
+        /// </summary>
         private static GetStringValueCallback getTempPathCallback = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -572,6 +1101,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, native methods are not used when determining whether
+        /// two paths refer to the same file.
+        /// </summary>
         private static bool NoNativeIsSameFile = false;
 #endif
 
@@ -583,9 +1116,17 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The URI components to be used from the base URI in the
+        /// TryCombineUris method.
+        /// </summary>
         private static UriComponents BaseUriComponents = UriComponents.Scheme |
             UriComponents.UserInfo | UriComponents.Host | UriComponents.Port;
 
+        /// <summary>
+        /// The default <see cref="UriFormat" /> used when extracting URI
+        /// components.
+        /// </summary>
         private static UriFormat DefaultUriFormat = UriFormat.SafeUnescaped;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -598,7 +1139,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The prefix used when attempting to form a unique path for use by
+        /// external callers (e.g. temporary log files).
+        /// </summary>
         private static string UniquePrefix;
+        /// <summary>
+        /// The suffix used when attempting to form a unique path for use by
+        /// external callers (e.g. temporary log files).
+        /// </summary>
         private static string UniqueSuffix;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -609,6 +1158,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of times to retry before giving up on being able
+        /// to create a unique path.
+        /// </summary>
         private static int UniqueMaximumRetries;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -619,6 +1172,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of random bytes to use within the path when attempting to
+        /// create a unique path.
+        /// </summary>
         private static int UniqueByteCount;
         #endregion
         #endregion
@@ -629,6 +1186,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds rows describing the current path-related
+        /// configuration of this class to the specified list, for use in
+        /// building diagnostic or introspection output.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the path information rows are added.  If this
+        /// value is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control how much detail is included in the
+        /// resulting path information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -727,6 +1297,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the static fields used when generating
+        /// unique file or directory names, populating any of them that have
+        /// not yet been set with their platform-appropriate default values.
+        /// </summary>
         private static void InitializeUniquePathData()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -757,6 +1332,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fills in any unspecified unique-name generation
+        /// properties with the corresponding configured default values.  Only
+        /// those parameters that are null or zero upon entry are modified.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to use for generated names.  If this value is null upon
+        /// entry, it is set to the configured default prefix.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to use for generated names.  If this value is null upon
+        /// entry, it is set to the configured default suffix.
+        /// </param>
+        /// <param name="byteCount">
+        /// The number of random bytes to use for generated names.  If this
+        /// value is zero upon entry, it is set to the configured default byte
+        /// count.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry name generation.  If this
+        /// value is zero upon entry, it is set to the configured default
+        /// maximum retry count.
+        /// </param>
         private static void MaybeGetUniqueProperties(
             ref string prefix,     /* in, out */
             ref string suffix,     /* in, out */
@@ -782,6 +1380,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the cached binary path used by this class.
+        /// </summary>
+        /// <param name="path">
+        /// The binary path to store.
+        /// </param>
         private static void SetBinaryPath(
             string path /* in */
             )
@@ -794,6 +1398,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the URI components used by this class when forming
+        /// base URIs.
+        /// </summary>
+        /// <param name="uriComponents">
+        /// The URI components to store.
+        /// </param>
         private static void SetBaseUriComponents(
             UriComponents uriComponents /* in */
             )
@@ -806,6 +1417,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the URI format used by this class when forming
+        /// URIs.
+        /// </summary>
+        /// <param name="uriFormat">
+        /// The URI format to store.
+        /// </param>
         private static void SetBaseUriFormat(
             UriFormat uriFormat /* in */
             )
@@ -818,6 +1436,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified array of directory
+        /// separator characters is non-null and non-empty.
+        /// </summary>
+        /// <param name="characters">
+        /// The array of directory separator characters to check.
+        /// </param>
+        /// <returns>
+        /// True if the array is non-null and contains at least one character;
+        /// otherwise, false.
+        /// </returns>
         private static bool HaveDirectoryChars(
             char[] characters
             )
@@ -827,6 +1456,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new array of directory separator characters,
+        /// optionally including both the native and non-native separators.
+        /// </summary>
+        /// <param name="both">
+        /// Non-zero to include both the native and non-native directory
+        /// separator characters; zero to include only the native directory
+        /// separator character.
+        /// </param>
+        /// <returns>
+        /// The newly created array of directory separator characters.
+        /// </returns>
         private static char[] NewDirectoryChars(
             bool both
             )
@@ -848,6 +1489,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the cached array of directory separator
+        /// characters, creating and caching it based on the current operating
+        /// system if it does not already exist.
+        /// </summary>
+        /// <returns>
+        /// The cached array of directory separator characters.
+        /// </returns>
         private static char[] GetOrNewDirectoryChars()
         {
             char[] characters = Interlocked.CompareExchange(
@@ -868,6 +1517,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the array of directory separator
+        /// characters appropriate for the current operating system.
+        /// </summary>
+        /// <param name="characters">
+        /// Upon success, this receives the array of directory separator
+        /// characters.
+        /// </param>
+        /// <returns>
+        /// True if a non-empty array of directory separator characters was
+        /// obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetDirectoryChars(
             out char[] characters
             )
@@ -877,6 +1538,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain an array of directory separator
+        /// characters, optionally building a fresh array that includes both the
+        /// native and non-native separators.
+        /// </summary>
+        /// <param name="both">
+        /// When non-null, a fresh array is created and always returned: a value
+        /// of true includes both the native and non-native directory separator
+        /// characters, while false includes only the native one.  When null,
+        /// the cached array for the current operating system is used instead.
+        /// </param>
+        /// <param name="characters">
+        /// Upon success, this receives the array of directory separator
+        /// characters.
+        /// </param>
+        /// <returns>
+        /// True if a non-empty array of directory separator characters was
+        /// obtained; otherwise, false.
+        /// </returns>
         private static bool TryGetDirectoryChars(
             bool? both,
             out char[] characters
@@ -894,6 +1574,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparer appropriate for comparing
+        /// file names on the current operating system.
+        /// </summary>
+        /// <returns>
+        /// A case-insensitive comparer on Windows, where file names are not
+        /// case-sensitive; otherwise, a case-sensitive (ordinal) comparer.
+        /// </returns>
         public static StringComparer GetComparer()
         {
             //
@@ -905,6 +1593,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparison type appropriate for
+        /// comparing file names on the current operating system.
+        /// </summary>
+        /// <returns>
+        /// A case-insensitive comparison type on Windows, where file names are
+        /// not case-sensitive; otherwise, a case-sensitive comparison type, as
+        /// file names are assumed to be binary and case-sensitive.
+        /// </returns>
         public static StringComparison GetComparisonType()
         {
             //
@@ -930,6 +1627,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the currently configured callback delegate of
+        /// the specified type.
+        /// </summary>
+        /// <param name="callbackType">
+        /// The type of path-related callback to retrieve.
+        /// </param>
+        /// <param name="delegate">
+        /// Upon success, this receives the configured callback delegate of the
+        /// requested type, which may be null if no callback has been set.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// callback could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetCallback(
             PathCallbackType callbackType, /* in */
             ref Delegate @delegate,        /* out */
@@ -969,6 +1685,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the configured callback delegate of the
+        /// specified type, clearing it when the supplied delegate is null.
+        /// </summary>
+        /// <param name="callbackType">
+        /// The type of path-related callback to change.
+        /// </param>
+        /// <param name="delegate">
+        /// The callback delegate to store, or null to clear the existing
+        /// callback.  When non-null, it must be convertible to the delegate
+        /// type expected for the specified callback type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// callback could not be changed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ChangeCallback(
             PathCallbackType callbackType, /* in */
             Delegate @delegate,            /* in */
@@ -1061,6 +1797,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method initializes the specified native file information
+        /// structure to its default (zeroed) state prior to use.
+        /// </summary>
+        /// <param name="fileInformation">
+        /// Upon return, this receives a fully initialized file information
+        /// structure with all of its fields reset to their default values.
+        /// </param>
         private static void InitializeFileInformation(
             out UNM.BY_HANDLE_FILE_INFORMATION fileInformation /* out */
             )
@@ -1085,6 +1829,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native file system for information about the
+        /// specified file or directory, populating a native file information
+        /// structure.  This operation is only supported on Windows.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file or directory to query.
+        /// </param>
+        /// <param name="directory">
+        /// Non-zero if the named path refers to a directory; otherwise, zero.
+        /// </param>
+        /// <param name="reparse">
+        /// Non-zero to open the reparse point itself rather than its target,
+        /// when the named path is a reparse point.
+        /// </param>
+        /// <param name="fileInformation">
+        /// Upon success, this receives the file information retrieved for the
+        /// named path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// file information could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetPathInformation(
             string fileName,                                    /* in */
             bool directory,                                     /* in */
@@ -1168,6 +1939,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native file system for information about the
+        /// specified path and returns it as a list of name/value pairs.  This
+        /// operation is only supported on Windows.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to query.
+        /// </param>
+        /// <param name="directory">
+        /// Non-zero if the path refers to a directory; otherwise, zero.
+        /// </param>
+        /// <param name="reparse">
+        /// Non-zero to open the reparse point itself rather than its target,
+        /// when the path is a reparse point.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this receives the list of name/value pairs describing
+        /// the file information.  If it is null upon entry, a new list is
+        /// created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// file information could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetPathInformation(
             string path,         /* in */
             bool directory,      /* in */
@@ -1232,6 +2031,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native file system for the size, in bytes,
+        /// of the specified file or directory.  This operation is only
+        /// supported on Windows.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to query.
+        /// </param>
+        /// <param name="directory">
+        /// Non-zero if the path refers to a directory; otherwise, zero.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this receives the size of the path, in bytes, as a
+        /// string.  Upon failure, this receives an error message that describes
+        /// why the size could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetSize(
             string path,      /* in */
             bool directory,   /* in */
@@ -1269,6 +2088,16 @@ namespace Eagle._Components.Private
         // NOTE: This algorithm was stolen directly from the Tcl 8.6
         //       source code and modified to work in C#.
         //
+        /// <summary>
+        /// This method converts a native file time value into a POSIX time
+        /// value, i.e. the number of seconds elapsed since the POSIX epoch.
+        /// </summary>
+        /// <param name="fileTime">
+        /// The native file time value to convert.
+        /// </param>
+        /// <returns>
+        /// The converted POSIX time value, in seconds since the POSIX epoch.
+        /// </returns>
         private static ulong ToTimeT(
             UNM.FILETIME fileTime /* in */
             )
@@ -1285,6 +2114,29 @@ namespace Eagle._Components.Private
         // NOTE: This algorithm was stolen directly from the Tcl 8.6
         //       source code and modified to work in C#.
         //
+        /// <summary>
+        /// This method derives the POSIX-style file mode bits from the
+        /// specified native file flags and attributes.
+        /// </summary>
+        /// <param name="flagsAndAttributes">
+        /// The native file flags and attributes to translate into file mode
+        /// bits.
+        /// </param>
+        /// <param name="checkLinks">
+        /// Non-zero to treat a reparse point as a symbolic link; otherwise, the
+        /// reparse-point attribute is ignored.
+        /// </param>
+        /// <param name="isExecutable">
+        /// Non-zero if the file should be considered executable, causing the
+        /// execute mode bit to be set.
+        /// </param>
+        /// <param name="userOnly">
+        /// Non-zero to limit the resulting mode bits to the owning user; zero to
+        /// also propagate the user permissions to the group and other classes.
+        /// </param>
+        /// <returns>
+        /// The computed file mode bits.
+        /// </returns>
         private static FSM GetMode(
             FileFlagsAndAttributes flagsAndAttributes, /* in */
             bool checkLinks,                           /* in */
@@ -1330,6 +2182,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path is likely to refer
+        /// to an executable file, based on platform-specific checks and the file
+        /// name extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file to examine.
+        /// </param>
+        /// <returns>
+        /// True if the path appears to refer to an executable file; otherwise,
+        /// false.
+        /// </returns>
         private static bool MightBeExecutable(
             string path /* in */
             )
@@ -1373,6 +2237,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && !MONO
+        /// <summary>
+        /// This method retrieves the owning user and group for the specified
+        /// file or directory.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory whose owner is to be retrieved.
+        /// </param>
+        /// <param name="ownerUser">
+        /// Upon success, this receives the identity reference of the owning
+        /// user.
+        /// </param>
+        /// <param name="ownerGroup">
+        /// Upon success, this receives the identity reference of the owning
+        /// group.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// owner could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetOwner(
             string path,                      /* in */
             ref IdentityReference ownerUser,  /* out */
@@ -1411,6 +2298,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the native file system object identifier for
+        /// the specified file or directory, optionally creating one if it does
+        /// not already exist.  This operation is only supported on Windows.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file or directory whose object identifier is to be
+        /// retrieved.
+        /// </param>
+        /// <param name="directory">
+        /// Non-zero if the named path refers to a directory; otherwise, zero.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an object identifier if one does not already
+        /// exist; zero to only retrieve an existing object identifier.
+        /// </param>
+        /// <param name="fileObjectId">
+        /// Upon success, this receives the native object identifier buffer for
+        /// the named path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// object identifier could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetObjectId(
             string fileName,                           /* in */
             bool directory,                            /* in */
@@ -1526,6 +2441,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the native file system object identifier for
+        /// the specified path and returns it as a list of name/value pairs,
+        /// optionally creating one if it does not already exist.  This operation
+        /// is only supported on Windows.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory whose object identifier is to be
+        /// retrieved.
+        /// </param>
+        /// <param name="directory">
+        /// Non-zero if the path refers to a directory; otherwise, zero.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an object identifier if one does not already
+        /// exist; zero to only retrieve an existing object identifier.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this receives the list of name/value pairs describing
+        /// the object identifier.  If it is null upon entry, a new list is
+        /// created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// object identifier could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetObjectId(
             string path,         /* in */
             bool directory,      /* in */
@@ -1577,6 +2522,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && (WINDOWS || UNIX)
+        /// <summary>
+        /// This method adjusts the group and other permission bits of the
+        /// specified file mode, either propagating the user permissions to them
+        /// or clearing them entirely.
+        /// </summary>
+        /// <param name="addFromUser">
+        /// Non-zero to add the group and other permission bits derived from the
+        /// user permissions; zero to clear all of the group, other, and combined
+        /// permission bits.
+        /// </param>
+        /// <param name="mode">
+        /// The file mode bits to adjust in place.
+        /// </param>
         private static void AdjustPermissions(
             bool addFromUser, /* in */
             ref FSM mode      /* in, out */
@@ -1600,6 +2558,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the POSIX-style file mode bits for the
+        /// specified file or directory, using the appropriate native mechanism
+        /// for the current operating system.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory whose mode is to be retrieved.
+        /// </param>
+        /// <param name="checkLinks">
+        /// Non-zero to query the symbolic link itself rather than its target,
+        /// when the path refers to a symbolic link.
+        /// </param>
+        /// <param name="mode">
+        /// Upon success, this receives the file mode bits for the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this receives an error message that describes why the
+        /// mode could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetMode(
             string path,     /* in */
             bool checkLinks, /* in */
@@ -1698,6 +2679,37 @@ namespace Eagle._Components.Private
         // NOTE: This method is used directly by both the [file lstat]
         //       and [file stat] sub-commands.
         //
+        /// <summary>
+        /// This method queries the file system status information for the
+        /// specified path, returning the results as a name/value pair list
+        /// (e.g. device, inode, mode, link count, owner, size, and time
+        /// stamps).  The exact mechanism used to obtain this information is
+        /// dependent upon the host operating system.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory for which the status information
+        /// is to be queried.
+        /// </param>
+        /// <param name="checkLinks">
+        /// Non-zero to query the status of the link itself rather than the
+        /// target of the link, when the path refers to a symbolic link.
+        /// </param>
+        /// <param name="reparse">
+        /// Non-zero to follow reparse points when querying the path
+        /// information.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this list is populated with the name/value pairs that
+        /// describe the status information for the path.  If the value is null
+        /// upon entry, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetStatus(
             string path,         /* in */
             bool checkLinks,     /* in */
@@ -1921,6 +2933,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path refers to a
+        /// "normal" file system object, optionally verifying that it is a
+        /// file (or directory) and, on platforms with native support,
+        /// checking its mode bits.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="mustBeFile">
+        /// When non-null, this controls the type check: a non-zero value
+        /// requires the path to refer to an existing file, while a value of
+        /// zero requires it to refer to an existing file or directory.  When
+        /// null, no existence check is performed.
+        /// </param>
+        /// <param name="checkLinks">
+        /// When non-null on platforms with native support, the mode bits of
+        /// the path are checked; a non-zero value examines the link itself
+        /// rather than its target.  When null, no mode check is performed.
+        /// </param>
+        /// <returns>
+        /// True if the path is considered normal; otherwise, false.
+        /// </returns>
         public static bool IsNormal(
             string path,      /* in */
             bool? mustBeFile, /* in: OPTIONAL */
@@ -2024,6 +3059,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// drive letter followed by a colon (e.g. <c>C:</c>).
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require that the path consist of exactly the drive
+        /// letter and colon; otherwise, the path may contain additional
+        /// characters following the colon.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a drive letter and colon; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsDriveLetterAndColon(
             string path, /* in */
             bool exact   /* in */
@@ -2039,6 +3090,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// drive letter followed by a colon (e.g. <c>C:</c>), using a
+        /// previously computed path length.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the path.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require that the path consist of exactly the drive
+        /// letter and colon; otherwise, the path may contain additional
+        /// characters following the colon.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a drive letter and colon; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsDriveLetterAndColon(
             string path, /* in */
             int length,  /* in */
@@ -2052,6 +3123,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// drive letter followed by a colon (e.g. <c>C:</c>), also returning
+        /// the path length and the offset just past the drive prefix.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require that the path consist of exactly the drive
+        /// letter and colon; otherwise, the path may contain additional
+        /// characters following the colon.
+        /// </param>
+        /// <param name="length">
+        /// Upon return, this contains the length, in characters, of the path.
+        /// </param>
+        /// <param name="offset">
+        /// Upon success, this is set to the offset of the first character
+        /// following the drive letter and colon prefix.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a drive letter and colon; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsDriveLetterAndColon(
             string path,    /* in */
             bool exact,     /* in */
@@ -2067,6 +3162,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// drive letter followed by a colon (e.g. <c>C:</c>), using a
+        /// previously computed path length and returning the offset just past
+        /// the drive prefix.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the path.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require that the path consist of exactly the drive
+        /// letter and colon; otherwise, the path may contain additional
+        /// characters following the colon.
+        /// </param>
+        /// <param name="offset">
+        /// Upon success, this is set to the offset of the first character
+        /// following the drive letter and colon prefix.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a drive letter and colon; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsDriveLetterAndColon(
             string path,   /* in */
             int length,    /* in */
@@ -2097,6 +3217,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with an
+        /// extended-length path prefix (e.g. <c>\\?\</c> or <c>\??\</c>),
+        /// returning the offset just past that prefix.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the path.
+        /// </param>
+        /// <param name="offset">
+        /// Upon success, this is set to the offset of the first character
+        /// following the extended-length path prefix.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with an extended-length path prefix;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsExtended(
             string path,   /* in */
             int length,    /* in */
@@ -2127,6 +3266,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// UNC prefix (i.e. two leading slashes or backslashes).
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a UNC prefix; otherwise, false.
+        /// </returns>
         public static bool HasUncPrefix(
             string path /* in */
             )
@@ -2141,6 +3290,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// UNC prefix (i.e. two leading slashes or backslashes), using a
+        /// previously computed path length.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the path.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a UNC prefix; otherwise, false.
+        /// </returns>
         private static bool HasUncPrefix(
             string path, /* in */
             int length   /* in */
@@ -2153,6 +3316,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// UNC prefix (i.e. two leading slashes or backslashes), using a
+        /// previously computed path length and returning the offset just past
+        /// that prefix.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="length">
+        /// The length, in characters, of the path.
+        /// </param>
+        /// <param name="offset">
+        /// Upon success, this is set to the offset of the first character
+        /// following the UNC prefix.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a UNC prefix; otherwise, false.
+        /// </returns>
         private static bool HasUncPrefix(
             string path,   /* in */
             int length,    /* in */
@@ -2181,6 +3363,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the set of characters that are not permitted in
+        /// a path or file name on the current platform.
+        /// </summary>
+        /// <param name="fileNameOnly">
+        /// Non-zero to return the characters that are invalid within a file
+        /// name; otherwise, the characters that are invalid within a full path
+        /// are returned.
+        /// </param>
+        /// <returns>
+        /// An array of the invalid characters, which may be null.
+        /// </returns>
         private static char[] GetInvalidChars( /* MAY RETURN NULL */
             bool fileNameOnly /* in */
             )
@@ -2192,6 +3386,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates the specified path by splitting it into its
+        /// components and verifying that each component contains no invalid
+        /// file name characters, optionally allowing a leading drive letter
+        /// prefix.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be validated.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow the first component to be a drive letter and
+        /// colon prefix.
+        /// </param>
+        /// <returns>
+        /// True if every component of the path is valid; otherwise, false.
+        /// </returns>
         private static bool ValidatePathAsComponents(
             string path,    /* in */
             bool allowDrive /* in */
@@ -2244,6 +3454,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path is valid by
+        /// checking it for characters that are not permitted in a path or file
+        /// name and, optionally, by validating its individual components.
+        /// </summary>
+        /// <param name="unix">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="path">
+        /// The path to be checked.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// Non-zero to treat the path as a file name, using the set of
+        /// characters that are invalid within a file name; otherwise, the set
+        /// of characters that are invalid within a full path is used.
+        /// </param>
+        /// <param name="allowExtended">
+        /// Non-zero to permit and skip over a leading extended-length path
+        /// prefix when the path is not being treated as a file name only.
+        /// </param>
+        /// <param name="useComponents">
+        /// Non-zero to additionally validate the path by splitting it into its
+        /// individual components.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow a leading drive letter and colon prefix when
+        /// validating the path components.
+        /// </param>
+        /// <returns>
+        /// True if the path is valid; otherwise, false.
+        /// </returns>
         public static bool CheckForValid(
             bool? unix,         /* in: NOT USED */
             string path,        /* in */
@@ -2290,6 +3531,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value contains any of
+        /// the characters that are treated as path wildcards.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be checked.
+        /// </param>
+        /// <returns>
+        /// True if the value contains a path wildcard character; otherwise,
+        /// false.
+        /// </returns>
         public static bool HasPathWildcard(
             string value /* in */
             )
@@ -2300,6 +3552,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method cleans the specified path by removing any surrounding
+        /// double quotes and, optionally, removing or replacing all invalid
+        /// path characters.
+        /// </summary>
+        /// <param name="path">
+        /// The path to be cleaned.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to perform full cleaning, removing or replacing all
+        /// invalid path characters in addition to the surrounding double
+        /// quotes.
+        /// </param>
+        /// <param name="invalidChar">
+        /// When non-null, each invalid path character is replaced with this
+        /// character during full cleaning; otherwise, each invalid path
+        /// character is removed.
+        /// </param>
+        /// <returns>
+        /// The cleaned path.
+        /// </returns>
         private static string CleanPath(
             string path,      /* in */
             bool full,        /* in */
@@ -2350,6 +3623,13 @@ namespace Eagle._Components.Private
         //       method causes Mono to crash; therefore, it has been moved
         //       to a method by itself (which seems to get around the problem).
         //
+        /// <summary>
+        /// This method determines whether the ASP.NET runtime is using the
+        /// integrated request processing pipeline.
+        /// </summary>
+        /// <returns>
+        /// True if the integrated pipeline is in use; otherwise, false.
+        /// </returns>
         private static bool HttpRuntimeUsingIntegratedPipeline()
         {
             return HttpRuntime.UsingIntegratedPipeline;
@@ -2359,6 +3639,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if WEB && !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether there is a current ASP.NET HTTP
+        /// context available.
+        /// </summary>
+        /// <returns>
+        /// True if a current HTTP context is available; otherwise, false.
+        /// </returns>
         private static bool HaveHttpContext()
         {
             HttpContext context = null;
@@ -2368,6 +3655,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there is a current ASP.NET HTTP
+        /// context available, returning that context.
+        /// </summary>
+        /// <param name="context">
+        /// Upon success, this is set to the current HTTP context.
+        /// </param>
+        /// <returns>
+        /// True if a current HTTP context is available; otherwise, false.
+        /// </returns>
         private static bool HaveHttpContext(
             ref HttpContext context /* out */
             )
@@ -2379,6 +3676,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified ASP.NET HTTP context
+        /// has an associated server utility object, returning that object.
+        /// </summary>
+        /// <param name="context">
+        /// The HTTP context from which the server utility object is to be
+        /// obtained.
+        /// </param>
+        /// <param name="server">
+        /// Upon success, this is set to the server utility object associated
+        /// with the HTTP context.
+        /// </param>
+        /// <returns>
+        /// True if the server utility object is available; otherwise, false.
+        /// </returns>
         private static bool HaveHttpServerUtility(
             HttpContext context,         /* in */
             ref HttpServerUtility server /* out */
@@ -2394,6 +3706,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified ASP.NET HTTP context
+        /// has an associated request object, returning that object.
+        /// </summary>
+        /// <param name="context">
+        /// The HTTP context from which the request object is to be obtained.
+        /// </param>
+        /// <param name="request">
+        /// Upon success, this is set to the request object associated with the
+        /// HTTP context.
+        /// </param>
+        /// <returns>
+        /// True if the request object is available; otherwise, false.
+        /// </returns>
         private static bool HaveHttpRequest(
             HttpContext context,    /* in */
             ref HttpRequest request /* out */
@@ -2409,6 +3735,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the machine name of the server associated with
+        /// the current ASP.NET HTTP context, if any.
+        /// </summary>
+        /// <returns>
+        /// The server machine name, or null if no current HTTP context or
+        /// server utility object is available.
+        /// </returns>
         public static string GetServerName()
         {
             HttpContext context = null;
@@ -2427,6 +3761,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the directory containing the binary files
+        /// for the running application.  If a manual override has been set, it
+        /// is used; otherwise, the path is derived from the hosting web
+        /// application (when applicable) or from the base directory of the
+        /// current application domain.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to resolve the resulting path to a fully-qualified,
+        /// absolute path.
+        /// </param>
+        /// <returns>
+        /// The binary path, or null if it cannot be determined.
+        /// </returns>
         public static string GetBinaryPath(
             bool full /* in */
             )
@@ -2654,6 +4002,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the name of the current processor architecture
+        /// to the specified base path, producing a processor-specific
+        /// sub-directory path.
+        /// </summary>
+        /// <param name="path">
+        /// The base path to which the processor name should be appended.
+        /// </param>
+        /// <param name="alternateName">
+        /// Non-zero to use the alternate processor name instead of the primary
+        /// processor name.
+        /// </param>
+        /// <returns>
+        /// The processor-specific path, or the original path verbatim if it is
+        /// null or empty or no processor name is available.
+        /// </returns>
         public static string GetProcessorPath(
             string path,       /* in */
             bool alternateName /* in */
@@ -2684,6 +4048,29 @@ namespace Eagle._Components.Private
         // WARNING: This method is designed for use by the [info path]
         //          sub-command only.
         //
+        /// <summary>
+        /// This method queries one of the various well-known paths used by the
+        /// Eagle runtime, as selected by the specified path type flags, and
+        /// optionally appends the processor name and/or fully resolves the
+        /// result to an absolute path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="infoPathType">
+        /// The flags that select which path to query and how it should be
+        /// processed (e.g. whether to fully resolve it, use the local library
+        /// location, omit the processor name, or use the alternate processor
+        /// name).
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the resolved path.  Upon failure, this
+        /// contains an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetInfoPath(
             Interpreter interpreter,   /* in: OPTIONAL */
             InfoPathType infoPathType, /* in */
@@ -2809,6 +4196,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the path to the native library directory
+        /// used by the Eagle runtime.  On Unix-like platforms this is derived
+        /// from the well-known system library locations; otherwise, it is
+        /// derived from the binary path.
+        /// </summary>
+        /// <param name="local">
+        /// Non-zero to use the local library location (e.g. the per-user local
+        /// library directory) on platforms that support it.
+        /// </param>
+        /// <param name="noProcessor">
+        /// Non-zero to omit the processor-specific sub-directory from the
+        /// resulting path.
+        /// </param>
+        /// <param name="alternateName">
+        /// Non-zero to use the alternate processor name when appending the
+        /// processor-specific sub-directory.
+        /// </param>
+        /// <returns>
+        /// The native library path.
+        /// </returns>
         public static string GetLibPath(
             bool local,        /* in */
             bool noProcessor,  /* in */
@@ -2840,6 +4248,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the directory containing the main module
+        /// (i.e. the primary executable) of the current process.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to resolve the main module file name to a fully-qualified,
+        /// absolute path before extracting its directory.
+        /// </param>
+        /// <returns>
+        /// The directory of the current process main module, or null if it
+        /// cannot be determined.
+        /// </returns>
         private static string GetProcessMainModulePath(
             bool full /* in */
             )
@@ -2850,6 +4270,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the main module (i.e. the
+        /// primary executable) of the current process.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to resolve the resulting file name to a fully-qualified,
+        /// absolute path.
+        /// </param>
+        /// <returns>
+        /// The file name of the current process main module, or null if it
+        /// cannot be determined.
+        /// </returns>
         public static string GetProcessMainModuleFileName(
             bool full /* in */
             )
@@ -2860,6 +4292,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the main module (i.e. the
+        /// primary executable) of the specified process.
+        /// </summary>
+        /// <param name="process">
+        /// The process whose main module file name is to be determined.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to resolve the resulting file name to a fully-qualified,
+        /// absolute path.
+        /// </param>
+        /// <returns>
+        /// The file name of the specified process main module, or null if it
+        /// cannot be determined.
+        /// </returns>
         public static string GetProcessMainModuleFileName(
             Process process, /* in */
             bool full        /* in */
@@ -2890,6 +4338,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method resolves the file name of a loaded native module.  It
+        /// first attempts the primary mechanism (which works on Windows) and,
+        /// failing that, falls back to alternative mechanisms that may work on
+        /// other platforms, optionally using an exported function name as the
+        /// basis for the lookup.
+        /// </summary>
+        /// <param name="module">
+        /// The native module handle whose file name is to be resolved.
+        /// </param>
+        /// <param name="functionName">
+        /// The name of an exported function that may be used as the basis for
+        /// locating the module file name when the primary mechanism fails.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains error information explaining why the
+        /// module file name could not be resolved.
+        /// </param>
+        /// <returns>
+        /// The resolved native module file name, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string GetNativeModuleFileName(
             IntPtr module,       /* in */
             string functionName, /* in: OPTIONAL */
@@ -3022,6 +4493,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the file name of the native executable for the
+        /// current process by querying the main module via the native module
+        /// file name resolution mechanism.
+        /// </summary>
+        /// <returns>
+        /// The native executable file name, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string GetNativeExecutableName()
         {
             Result error = null;
@@ -3032,6 +4512,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the managed executable for
+        /// the current process, preferring the entry assembly location and
+        /// falling back to the main module file name of the current process.
+        /// </summary>
+        /// <returns>
+        /// The managed executable file name, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string GetManagedExecutableName()
         {
             return GetManagedExecutableName(
@@ -3040,6 +4529,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the managed executable for
+        /// the specified process, preferring the entry assembly location and
+        /// optionally falling back to the main module file name of the
+        /// specified process.
+        /// </summary>
+        /// <param name="process">
+        /// The process to use when falling back to the main module file name.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="fallback">
+        /// Non-zero to fall back to the main module file name of the specified
+        /// process when the entry assembly location is not available.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to resolve the fallback file name to a fully-qualified,
+        /// absolute path.
+        /// </param>
+        /// <returns>
+        /// The managed executable file name, or null if it cannot be
+        /// determined.
+        /// </returns>
         private static string GetManagedExecutableName(
             Process process, /* in */
             bool fallback,   /* in */
@@ -3059,6 +4570,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates a random file name (without any directory
+        /// component), optionally using the specified prefix.  When a prefix is
+        /// supplied, it is validated against the identifier pattern and a
+        /// fail-safe fallback prefix is substituted if it is invalid.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to prepend to the random file name.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// Upon return, this contains the generated random file name, without
+        /// any directory component.
+        /// </param>
         private static void GetRandomFileName(
             string prefix,          /* in: OPTIONAL */
             out string fileNameOnly /* out */
@@ -3104,6 +4629,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured temporary sub-path that should be
+        /// appended to the temporary directory, if the use of a temporary
+        /// sub-path is currently enabled.
+        /// </summary>
+        /// <returns>
+        /// The configured temporary sub-path, or null if the use of a temporary
+        /// sub-path is not currently enabled.
+        /// </returns>
         private static string GetTempSubPath()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3117,6 +4651,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method configures the temporary sub-path that should be
+        /// appended to the temporary directory and, optionally, whether the use
+        /// of that temporary sub-path is enabled.
+        /// </summary>
+        /// <param name="subPath">
+        /// The temporary sub-path to configure.  This parameter may be null.
+        /// </param>
+        /// <param name="enabled">
+        /// Non-zero to enable the use of the temporary sub-path, zero to
+        /// disable it, or null to leave the enabled state unchanged.
+        /// </param>
         private static void SetTempSubPath( /* NOT USED */
             string subPath, /* in: OPTIONAL */
             bool? enabled   /* in: OPTIONAL */
@@ -3133,6 +4679,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified temporary sub-path to the
+        /// specified rooted path, creating the resulting directory if
+        /// necessary.  The path is left unchanged if it is null or empty, not
+        /// rooted, or if no sub-path is supplied.
+        /// </summary>
+        /// <param name="path">
+        /// The base path to which the temporary sub-path should be appended.
+        /// Upon return, this contains the combined path when a sub-path was
+        /// applied; otherwise, it is left unchanged.
+        /// </param>
+        /// <param name="subPath">
+        /// The temporary sub-path to append.  This parameter may be null.
+        /// </param>
         private static void ApplyTempSubPath(
             ref string path, /* in, out */
             string subPath   /* in: OPTIONAL */
@@ -3153,6 +4713,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the system temporary directory, optionally with
+        /// the specified temporary sub-path appended.
+        /// </summary>
+        /// <param name="subPath">
+        /// The temporary sub-path to append to the system temporary directory.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The temporary directory path, or null if it cannot be determined.
+        /// </returns>
         private static string GetTempPath(
             string subPath /* in: OPTIONAL */
             )
@@ -3181,6 +4752,13 @@ namespace Eagle._Components.Private
         // WARNING: For use by the TestGetTempFileNameCallback
         //          method only.
         //
+        /// <summary>
+        /// This method determines whether generated temporary file names should
+        /// be validated.
+        /// </summary>
+        /// <returns>
+        /// True if temporary file names should be validated; otherwise, false.
+        /// </returns>
         public static bool ShouldValidateTempFileName()
         {
             lock (syncRoot)
@@ -3191,6 +4769,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates the full path to a temporary file, using the
+        /// configured temporary file name callback when one is present or, by
+        /// default, combining a random file name with the temporary directory.
+        /// When validation is enabled, the resulting path is validated as a
+        /// file.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to use when generating the random file name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The full path to a temporary file.
+        /// </returns>
         public static string GetTempFileName(
             Interpreter interpreter, /* in: OPTIONAL */
             string prefix            /* in: OPTIONAL */
@@ -3252,6 +4847,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine the temporary directory from the
+        /// relevant environment variables, in priority order, returning the
+        /// first writable location found.  The categories of environment
+        /// variables that are consulted are controlled by the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when verifying that a candidate path
+        /// is writable.  This parameter may be null.
+        /// </param>
+        /// <param name="subPath">
+        /// The temporary sub-path to append to the resulting directory.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="includeTest">
+        /// Non-zero to consult the Eagle test-specific temporary directory
+        /// environment variables.
+        /// </param>
+        /// <param name="includeXdg">
+        /// Non-zero to consult the XDG runtime directory environment variable.
+        /// </param>
+        /// <param name="includeSystem">
+        /// Non-zero to consult the system temporary directory environment
+        /// variables.
+        /// </param>
+        /// <returns>
+        /// The first writable temporary directory found, or null if none is
+        /// available.
+        /// </returns>
         private static string GetTempPathViaEnvironment(
             Interpreter interpreter, /* in: OPTIONAL */
             string subPath,          /* in: OPTIONAL */
@@ -3313,6 +4937,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the temporary directory to use, using the
+        /// configured temporary path callback when one is present or, by
+        /// default, consulting the relevant environment variables and falling
+        /// back to the system temporary directory.  Any configured temporary
+        /// sub-path is applied to the result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The temporary directory path.
+        /// </returns>
         public static string GetTempPath(
             Interpreter interpreter /* in: OPTIONAL */
             ) /* throw */
@@ -3370,6 +5007,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates a unique file or directory path within the
+        /// specified base directory by combining the configured prefix and
+        /// suffix with a randomly generated hexadecimal identifier, retrying
+        /// until an unused path is found or the maximum number of retries is
+        /// exhausted.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="directory">
+        /// The base directory in which to generate the unique path.  If this
+        /// parameter is null or an empty string, the temporary directory is
+        /// used instead.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to prepend to the generated identifier, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to append to the generated identifier, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that
+        /// describes why a unique path could not be generated.
+        /// </param>
+        /// <returns>
+        /// The generated unique path, or null if a unique path could not be
+        /// generated.
+        /// </returns>
         public static string GetUniquePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string directory,        /* in: OPTIONAL */
@@ -3522,6 +5190,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the file name only (i.e. without any directory
+        /// information) of the executable file for the current process.
+        /// </summary>
+        /// <returns>
+        /// The file name of the current process executable, or null if it
+        /// cannot be determined.
+        /// </returns>
         public static string GetExecutableNameOnly()
         {
             try
@@ -3536,6 +5212,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the fully qualified file name of the executable
+        /// file for the current process.
+        /// </summary>
+        /// <returns>
+        /// The fully qualified file name of the current process executable, or
+        /// null if it cannot be determined.
+        /// </returns>
         public static string GetExecutableName()
         {
             return GetExecutableName(
@@ -3544,6 +5228,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the file name of the main module for the
+        /// specified process.
+        /// </summary>
+        /// <param name="process">
+        /// The process whose main module file name is to be returned.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to return the fully qualified file name; otherwise, the
+        /// file name only is returned.
+        /// </param>
+        /// <returns>
+        /// The file name of the main module for the specified process, or null
+        /// if it cannot be determined.
+        /// </returns>
         private static string GetExecutableName(
             Process process, /* in */
             bool full        /* in */
@@ -3559,6 +5258,18 @@ namespace Eagle._Components.Private
         //       when set [to anything], causes this method to always return
         //       null.
         //
+        /// <summary>
+        /// This method returns the build configuration (e.g. <c>Debug</c> or
+        /// <c>Release</c>) associated with the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose build configuration is to be returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The build configuration of the specified assembly, or null if it
+        /// cannot be determined.
+        /// </returns>
         private static string GetBuildConfiguration( /* MAY RETURN NULL */
             Assembly assembly /* in: OPTIONAL */
             )
@@ -3568,6 +5279,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value starts with any
+        /// of the known build configuration names, including the build
+        /// configuration associated with the specified assembly, if any.
+        /// </summary>
+        /// <param name="value">
+        /// The value to examine.  This parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose build configuration should also be considered.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, this parameter receives the length of the matched
+        /// build configuration name; otherwise, it receives zero.
+        /// </param>
+        /// <returns>
+        /// True if the specified value starts with a known build configuration
+        /// name; otherwise, false.
+        /// </returns>
         private static bool StartsWithBuildConfiguration(
             string value,      /* in: OPTIONAL */
             Assembly assembly, /* in: OPTIONAL */
@@ -3611,6 +5342,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the default (fallback) file name by combining the
+        /// specified base file name with the specified file extension.
+        /// </summary>
+        /// <param name="fileName">
+        /// The base file name.  If this parameter is null or an empty string,
+        /// null is returned.
+        /// </param>
+        /// <param name="fileExtension">
+        /// The file extension to append to the base file name.
+        /// </param>
+        /// <returns>
+        /// The fallback file name, or null if the base file name is null or an
+        /// empty string.
+        /// </returns>
         private static string GetFallbackFileName(
             string fileName,     /* in */
             string fileExtension /* in */
@@ -3624,6 +5370,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the web-specific fallback file name (i.e.
+        /// <c>Web</c> combined with the specified file extension) located within
+        /// the same directory as the specified base file name.
+        /// </summary>
+        /// <param name="fileName">
+        /// The base file name used to determine the target directory.  If this
+        /// parameter is null or an empty string, null is returned.
+        /// </param>
+        /// <param name="fileExtension">
+        /// The file extension to append to the web fallback file name.
+        /// </param>
+        /// <returns>
+        /// The web fallback file name, or null if the base file name is null or
+        /// an empty string.
+        /// </returns>
         private static string GetWebFallbackFileName(
             string fileName,     /* in */
             string fileExtension /* in */
@@ -3639,6 +5401,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any of the local name environment
+        /// variables (e.g. user name, computer name, and user domain) are
+        /// present in the environment.
+        /// </summary>
+        /// <param name="perUser">
+        /// Non-zero to also consider the per-user environment variables (i.e.
+        /// the user name and user domain); otherwise, only the computer name is
+        /// considered.
+        /// </param>
+        /// <returns>
+        /// True if at least one of the applicable local name environment
+        /// variables is present; otherwise, false.
+        /// </returns>
         private static bool HaveLocalNames(
             bool perUser /* in */
             )
@@ -3666,6 +5442,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the local user name, machine name, and domain
+        /// name, using either the built-in runtime values or the corresponding
+        /// environment variables.
+        /// </summary>
+        /// <param name="perUser">
+        /// Non-zero to consider the per-user environment variables when
+        /// deciding whether the built-in values should be used.
+        /// </param>
+        /// <param name="forceBuiltIn">
+        /// Non-zero to force the use of the built-in runtime values, zero to
+        /// force the use of the environment variables, or null to decide
+        /// automatically based on the operating system and environment.
+        /// </param>
+        /// <param name="userName">
+        /// Upon return, this parameter receives the local user name.
+        /// </param>
+        /// <param name="machineName">
+        /// Upon return, this parameter receives the local machine name.
+        /// </param>
+        /// <param name="domainName">
+        /// Upon return, this parameter receives the local domain name.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the built-in runtime values were used, zero if the
+        /// environment variables were used, or null if no local names could be
+        /// obtained.
+        /// </returns>
         public static bool? GetLocalNames(
             bool perUser,           /* in */
             bool? forceBuiltIn,     /* in */
@@ -3720,6 +5524,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the ordered list of candidate override file names
+        /// for the specified base file name, incorporating the local user name,
+        /// machine name, and domain name in their various combinations and,
+        /// optionally, the default and web fallback file names.
+        /// </summary>
+        /// <param name="fileName">
+        /// The base file name.  If this parameter is null or an empty string,
+        /// null is returned.
+        /// </param>
+        /// <param name="fileExtension">
+        /// The file extension to append to each candidate file name.
+        /// </param>
+        /// <param name="includeFallback">
+        /// Non-zero to include the default (fallback) file name as the last
+        /// entry in the returned list.
+        /// </param>
+        /// <param name="includeWeb">
+        /// Non-zero to also include the web fallback file name when the default
+        /// fallback file name is included.
+        /// </param>
+        /// <returns>
+        /// The ordered list of candidate override file names, or null if the
+        /// base file name is null or an empty string.
+        /// </returns>
         public static StringList GetOverrideFileNames(
             string fileName,      /* in */
             string fileExtension, /* in */
@@ -3824,6 +5653,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the base path for the specified path,
+        /// accounting for the build configuration of the specified assembly and
+        /// various well-known directory layouts.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose build configuration should be considered.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The path for which the base path is to be determined.
+        /// </param>
+        /// <returns>
+        /// The base path, or null if it cannot be determined.
+        /// </returns>
         public static string GetBasePath( /* MAY RETURN NULL */
             Assembly assembly, /* in: OPTIONAL */
             string path        /* in */
@@ -3836,6 +5680,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the base suffix (i.e. the portion of the path
+        /// that follows the base path) for the binary path associated with the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose build configuration should be considered.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The base suffix, or null if it cannot be determined.
+        /// </returns>
         public static string GetBaseSuffix( /* MAY RETURN NULL */
             Assembly assembly /* in: OPTIONAL */
             )
@@ -3846,6 +5702,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the base suffix (i.e. the portion of the path
+        /// that follows the base path) for the specified path, accounting for
+        /// the build configuration of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose build configuration should be considered.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The path for which the base suffix is to be determined.
+        /// </param>
+        /// <returns>
+        /// The base suffix, or null if it cannot be determined.
+        /// </returns>
         public static string GetBaseSuffix( /* MAY RETURN NULL */
             Assembly assembly, /* in: OPTIONAL */
             string path        /* in */
@@ -3861,6 +5732,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path refers to the root
+        /// directory of its drive or volume.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.  If this parameter is null or an empty string,
+        /// false is returned.
+        /// </param>
+        /// <returns>
+        /// True if the specified path is a root path; otherwise, false.
+        /// </returns>
         public static bool IsRootPath(
             string path /* in */
             )
@@ -3874,6 +5756,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally adjusts the specified path to handle
+        /// certain corner cases prior to base path computation, such as running
+        /// from the special build tasks output directory or a target framework
+        /// specific directory (e.g. <c>netstandard2.0</c>).
+        /// </summary>
+        /// <param name="path">
+        /// The path to possibly mutate.  Upon return, this parameter may
+        /// contain a modified path.
+        /// </param>
+        /// <returns>
+        /// True if the specified path was modified by this method; otherwise,
+        /// false.
+        /// </returns>
         public static bool MaybePreMutatePath(
             ref string path /* in, out */
             )
@@ -3958,6 +5854,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally removes the trailing <c>bin</c> directory
+        /// from the specified path, subject to the <c>StrictBasePath</c>
+        /// environment variable, unless the specified path is a root path.
+        /// </summary>
+        /// <param name="path">
+        /// The path to possibly mutate.  Upon return, this parameter may
+        /// contain a modified path.
+        /// </param>
+        /// <returns>
+        /// True if the specified path was modified by this method; otherwise,
+        /// false.
+        /// </returns>
         private static bool MaybeRemoveBinDirectory(
             ref string path /* in, out */
             )
@@ -4041,6 +5950,26 @@ namespace Eagle._Components.Private
         //       customizing (and/or skipping) the various
         //       internal behaviors of this method.
         //
+        /// <summary>
+        /// This method determines both the base path and the base suffix for
+        /// the specified path, accounting for the build configuration of the
+        /// specified assembly and various well-known directory layouts (e.g.
+        /// source tree, build output, and <c>bin</c> directories).
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose build configuration should be considered.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The path for which the base path and suffix are to be determined.
+        /// </param>
+        /// <param name="suffix">
+        /// Upon return, this parameter receives the base suffix (i.e. the
+        /// portion of the path that follows the base path), if any.
+        /// </param>
+        /// <returns>
+        /// The base path, or null if it cannot be determined.
+        /// </returns>
         public static string GetBasePathAndSuffix( /* MAY RETURN NULL */
             Assembly assembly, /* in: OPTIONAL */
             string path,       /* in */
@@ -4129,6 +6058,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified path into its component parts using
+        /// the available directory separator characters, falling back to a
+        /// single-element array containing the original path when the separator
+        /// characters cannot be determined.
+        /// </summary>
+        /// <param name="path">
+        /// The path to split.  This parameter cannot be null.
+        /// </param>
+        /// <returns>
+        /// An array containing the component parts of the specified path.
+        /// </returns>
         public static string[] MaybeSplit(
             string path /* in: CANNOT BE NULL */
             )
@@ -4138,6 +6079,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified path into its component parts using
+        /// the available directory separator characters.
+        /// </summary>
+        /// <param name="path">
+        /// The path to split.  This parameter cannot be null.
+        /// </param>
+        /// <param name="fallback">
+        /// Non-zero to return a single-element array containing the original
+        /// path when the directory separator characters cannot be determined;
+        /// otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// An array containing the component parts of the specified path, or
+        /// null if the directory separator characters cannot be determined and
+        /// fallback behavior is not requested.
+        /// </returns>
         private static string[] MaybeSplit(
             string path,  /* in: CANNOT BE NULL */
             bool fallback /* in */
@@ -4153,6 +6111,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims the trailing directory separator characters from
+        /// the specified path, when the directory separator characters can be
+        /// determined.
+        /// </summary>
+        /// <param name="path">
+        /// The path to trim.  This parameter cannot be null.
+        /// </param>
+        /// <returns>
+        /// The trimmed path, or the original path when the directory separator
+        /// characters cannot be determined.
+        /// </returns>
         public static string MaybeTrim(
             string path /* in: CANNOT BE NULL */
             )
@@ -4162,6 +6132,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims the directory separator characters from the
+        /// specified path, when the directory separator characters can be
+        /// determined.
+        /// </summary>
+        /// <param name="path">
+        /// The path to trim.  This parameter cannot be null.
+        /// </param>
+        /// <param name="both">
+        /// Selects which set of directory separator characters is used when
+        /// trimming; this value is passed through to the routine that resolves
+        /// the directory separator characters.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The trimmed path, or the original path when the directory separator
+        /// characters cannot be determined.
+        /// </returns>
         private static string MaybeTrim(
             string path, /* in: CANNOT BE NULL */
             bool? both   /* in */
@@ -4177,6 +6164,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims the leading directory separator characters from
+        /// the specified path, when the directory separator characters can be
+        /// determined.
+        /// </summary>
+        /// <param name="path">
+        /// The path to trim.  This parameter cannot be null.
+        /// </param>
+        /// <returns>
+        /// The trimmed path, or the original path when the directory separator
+        /// characters cannot be determined.
+        /// </returns>
         private static string MaybeTrimStart(
             string path /* in: CANNOT BE NULL */
             )
@@ -4191,6 +6190,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims the trailing directory separator characters from
+        /// the specified path, when the directory separator characters can be
+        /// determined.
+        /// </summary>
+        /// <param name="path">
+        /// The path to trim.  This parameter cannot be null.
+        /// </param>
+        /// <returns>
+        /// The trimmed path, or the original path when the directory separator
+        /// characters cannot be determined.
+        /// </returns>
         public static string MaybeTrimEnd(
             string path /* in: CANNOT BE NULL */
             )
@@ -4205,6 +6216,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims the trailing directory separator characters from
+        /// the end of the specified path and, optionally, appends a single
+        /// separator character in their place.  The path is returned unchanged
+        /// when it is null, empty, a single character, or does not end with a
+        /// directory separator character.
+        /// </summary>
+        /// <param name="path">
+        /// The path to trim.
+        /// </param>
+        /// <param name="separator">
+        /// The separator character to append to the trimmed path, or null to
+        /// append nothing.
+        /// </param>
+        /// <returns>
+        /// The trimmed path, with the specified separator character appended
+        /// when applicable.
+        /// </returns>
         private static string TrimEndOfPath(
             string path,    /* in */
             char? separator /* in */
@@ -4253,6 +6282,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified path string into its component
+        /// parts, using the directory separator character indicated by the
+        /// caller, or the first directory separator character found within the
+        /// path when none is specified.  Leading empty parts are collapsed into
+        /// a single separator entry.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the path itself.
+        /// </param>
+        /// <param name="path">
+        /// The path to split.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The list of path components, an empty list when the path is empty,
+        /// or null when the path is null.
+        /// </returns>
         public static StringList SplitPath(
             bool? unix, /* in */
             string path /* in */
@@ -4311,6 +6359,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the elements of the specified list into a
+        /// single path string, using the directory separator character
+        /// indicated by the caller, or the first directory separator character
+        /// found within the list when none is specified.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the list itself.
+        /// </param>
+        /// <param name="list">
+        /// The list of path components to combine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         private static string CombinePath(
             bool? unix,        /* in */
             IList<string> list /* in */
@@ -4322,6 +6387,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the elements within the specified range of the
+        /// specified list into a single path string, using the directory
+        /// separator character indicated by the caller, or the first directory
+        /// separator character found within the list when none is specified.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the list itself.
+        /// </param>
+        /// <param name="list">
+        /// The list of path components to combine.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element to combine, or
+        /// <see cref="Index.Invalid" /> to start with the first element.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last list element to combine, or
+        /// <see cref="Index.Invalid" /> to stop with the last element.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         private static string CombinePath(
             bool? unix,         /* in */
             IList<string> list, /* in */
@@ -4335,6 +6425,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the elements of the specified list into a
+        /// single path string, using the directory separator character
+        /// indicated by the caller, or the first directory separator character
+        /// found within the list when none is specified.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the list itself.
+        /// </param>
+        /// <param name="list">
+        /// The list of path components to combine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         public static string CombinePath(
             bool? unix, /* in */
             IList list  /* in */
@@ -4346,6 +6453,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the elements within the specified range of the
+        /// specified list into a single path string, using the directory
+        /// separator character indicated by the caller, or the first directory
+        /// separator character found within the list when none is specified.
+        /// Null and empty parts are skipped and surrounding whitespace is
+        /// trimmed.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the list itself.
+        /// </param>
+        /// <param name="list">
+        /// The list of path components to combine.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element to combine, or
+        /// <see cref="Index.Invalid" /> to start with the first element.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last list element to combine, or
+        /// <see cref="Index.Invalid" /> to stop with the last element.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         private static string CombinePath(
             bool? unix,     /* in */
             IList list,     /* in */
@@ -4449,6 +6583,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of paths from the environment variables
+        /// with the specified names, splitting the value of each environment
+        /// variable on the platform path separator character.  Each resulting
+        /// entry pairs the originating environment variable name with one of
+        /// its path values.
+        /// </summary>
+        /// <param name="names">
+        /// The environment variable names to query.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The list of environment variable name and path value pairs.
+        /// </returns>
         public static StringPairList GetPathList(
             IEnumerable<string> names /* in */
             )
@@ -4487,6 +6635,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified path components into a single
+        /// path string, using the directory separator character indicated by
+        /// the caller, or the first directory separator character found within
+        /// the components when none is specified.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the components themselves.
+        /// </param>
+        /// <param name="paths">
+        /// The array of path components to combine.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         public static string CombinePath(
             bool? unix,           /* in */
             params string[] paths /* in */
@@ -4497,6 +6663,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the path components within the specified range
+        /// of the specified array into a single path string, using the
+        /// directory separator character indicated by the caller, or the first
+        /// directory separator character found within the components when none
+        /// is specified.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use the Unix directory separator character, zero to use
+        /// the Windows directory separator character, or null to detect the
+        /// separator character from the components themselves.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first path component to combine, or
+        /// <see cref="Index.Invalid" /> to start with the first component.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last path component to combine, or
+        /// <see cref="Index.Invalid" /> to stop with the last component.
+        /// </param>
+        /// <param name="paths">
+        /// The array of path components to combine.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The combined path string.
+        /// </returns>
         private static string CombinePath(
             bool? unix,           /* in */
             int startIndex,       /* in */
@@ -4510,6 +6703,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a
+        /// directory separator character.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a directory separator character; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsDirectoryChar(
             char character /* in */
             )
@@ -4525,6 +6729,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the <see cref="PathType" /> of the specified
+        /// path, treating a null or empty path as
+        /// <see cref="PathType.Relative" />.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The <see cref="PathType" /> of the path.
+        /// </returns>
         public static PathType GetPathType(
             string path /* in */
             )
@@ -4534,6 +6749,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the <see cref="PathType" /> of the specified
+        /// path.  On Windows, paths beginning with a directory separator
+        /// character or a drive letter without a following separator are
+        /// treated as volume relative.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.  This parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The <see cref="PathType" /> to return when the path is null or
+        /// empty.
+        /// </param>
+        /// <returns>
+        /// The <see cref="PathType" /> of the path.
+        /// </returns>
         private static PathType GetPathType(
             string path,      /* in */
             PathType @default /* in */
@@ -4577,6 +6808,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a hash code for the specified path, normalizing
+        /// it to its native form and, when path comparisons are case
+        /// insensitive, to lower case beforehand.
+        /// </summary>
+        /// <param name="path">
+        /// The path to hash.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The hash code for the path, or zero when the path is null.
+        /// </returns>
         public static int GetHashCode(
             string path /* in */
             )
@@ -4596,6 +6838,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path contains a
+        /// directory separator character.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the path contains a directory separator character;
+        /// otherwise, false.
+        /// </returns>
         public static bool HasDirectory(
             string path /* in */
             )
@@ -4607,6 +6860,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the extension, if any, from the specified path
+        /// by removing everything from the final period character onward.
+        /// </summary>
+        /// <param name="path">
+        /// The path from which to remove the extension.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The path without its extension, or the original path when it is
+        /// null, empty, or contains no period character.
+        /// </returns>
         public static string RemoveExtension(
             string path /* in */
             )
@@ -4624,6 +6889,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the extension, if any, of the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path from which to extract the extension.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The extension of the path, including its leading period character,
+        /// or null when the path has no extension or an error is encountered.
+        /// </returns>
         public static string GetExtension(
             string path /* in */
             )
@@ -4642,6 +6918,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file name might refer
+        /// to a bundle file, based on whether its extension matches the
+        /// database file extension.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the file name might refer to a bundle file; otherwise,
+        /// false.
+        /// </returns>
         public static bool MightBeBundleFile(
             string fileName /* in */
             )
@@ -4660,6 +6948,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path has an extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the path has an extension; otherwise, false.
+        /// </returns>
         public static bool HasExtension(
             string path /* in */
             )
@@ -4671,6 +6968,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path has an extension,
+        /// also returning the extension itself.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <param name="extension">
+        /// Upon return, receives the extension of the path, including its
+        /// leading period character, or null when the path has no extension.
+        /// </param>
+        /// <returns>
+        /// True if the path has an extension; otherwise, false.
+        /// </returns>
         private static bool HasExtension(
             string path,         /* in */
             out string extension /* out */
@@ -4683,6 +6994,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path has an extension
+        /// that is in the list of well-known file extensions.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the path has a well-known extension; otherwise, false.
+        /// </returns>
         public static bool HasKnownExtension(
             string path /* in */
             )
@@ -4705,6 +7026,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the extension of the specified path
+        /// matches the specified extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path whose extension is to be compared.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="extension">
+        /// The extension to compare against.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the path has an extension and it matches the specified
+        /// extension; otherwise, false.
+        /// </returns>
         public static bool MatchExtension(
             string path,
             string extension
@@ -4726,6 +7062,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path contains a
+        /// directory separator character, returning the index of the first one
+        /// found.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, receives the index of the first directory separator
+        /// character found within the path.  This parameter is left unchanged
+        /// upon failure.
+        /// </param>
+        /// <returns>
+        /// True if the path contains a directory separator character;
+        /// otherwise, false.
+        /// </returns>
         public static bool StartsWithDirectory(
             string path,  /* in */
             ref int index /* out */
@@ -4745,6 +7098,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path contains a
+        /// directory separator character, returning the index of the last one
+        /// found.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.  This parameter may be null.
+        /// </param>
+        /// <param name="index">
+        /// Upon success, receives the index of the last directory separator
+        /// character found within the path.  This parameter is left unchanged
+        /// upon failure.
+        /// </param>
+        /// <returns>
+        /// True if the path contains a directory separator character;
+        /// otherwise, false.
+        /// </returns>
         public static bool EndsWithDirectory(
             string path,  /* in */
             ref int index /* out */
@@ -4764,6 +7134,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified path to the specified dictionary,
+        /// creating the dictionary when necessary and ignoring null, empty, or
+        /// duplicate paths.
+        /// </summary>
+        /// <param name="path">
+        /// The path to add.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary to which the path is added.  When null, a new
+        /// dictionary is created and returned via this parameter.
+        /// </param>
         private static void AddPathToDictionary(
             string path,                          /* in */
             ref PathDictionary<object> dictionary /* in, out */
@@ -4783,6 +7165,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each of the specified paths to the specified
+        /// dictionary, creating the dictionary when necessary and ignoring
+        /// null, empty, or duplicate paths.
+        /// </summary>
+        /// <param name="paths">
+        /// The paths to add.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary to which the paths are added.  When null, a new
+        /// dictionary is created and returned via this parameter.
+        /// </param>
         private static void AddPathsToDictionary(
             IEnumerable<string> paths,            /* in */
             ref PathDictionary<object> dictionary /* in, out */
@@ -4797,6 +7191,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the per-path variable mappings configured within
+        /// the specified interpreter for the specified path, its directory
+        /// name, and its file name, adding any resulting mapped paths to the
+        /// specified dictionary.  Path mappings are always ignored for safe
+        /// interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose path mappings are queried.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="path">
+        /// The path whose mappings are queried.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary to which any mapped paths are added.  When null, a
+        /// new dictionary is created and returned via this parameter.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter could be used to query path mappings;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetMappedPaths(
             Interpreter interpreter,              /* in */
             string path,                          /* in */
@@ -4874,6 +7290,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the Tcl auto-source-path variable within the
+        /// specified interpreter and adds any resulting paths to the specified
+        /// dictionary.  The auto-source-path is always ignored for safe
+        /// interpreters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose auto-source-path is queried.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary to which any auto-source paths are added.  When null,
+        /// a new dictionary is created and returned via this parameter.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter could be used to query the auto-source-path;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetAutoSourcePaths(
             Interpreter interpreter,              /* in */
             ref PathDictionary<object> dictionary /* in, out */
@@ -4936,6 +7370,87 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the individual boolean options represented by
+        /// the specified <see cref="FileSearchFlags" /> value into separate
+        /// output parameters.
+        /// </summary>
+        /// <param name="fileSearchFlags">
+        /// The file search flags to extract.
+        /// </param>
+        /// <param name="specificPath">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.SpecificPath" /> flag is set.
+        /// </param>
+        /// <param name="mapped">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Mapped" /> flag is set.
+        /// </param>
+        /// <param name="autoSourcePath">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.AutoSourcePath" /> flag is set.
+        /// </param>
+        /// <param name="current">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Current" /> flag is set.
+        /// </param>
+        /// <param name="user">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.User" /> flag is set.
+        /// </param>
+        /// <param name="externals">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Externals" /> flag is set.
+        /// </param>
+        /// <param name="application">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Application" /> flag is set.
+        /// </param>
+        /// <param name="applicationBase">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.ApplicationBase" /> flag is set.
+        /// </param>
+        /// <param name="vendor">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Vendor" /> flag is set.
+        /// </param>
+        /// <param name="nullOnNotFound">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.NullOnNotFound" /> flag is set.
+        /// </param>
+        /// <param name="directoryLocation">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.DirectoryLocation" /> flag is set.
+        /// </param>
+        /// <param name="fileLocation">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.FileLocation" /> flag is set.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.FullPath" /> flag is set.
+        /// </param>
+        /// <param name="stripBasePath">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.StripBasePath" /> flag is set.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.TailOnly" /> flag is set.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Verbose" /> flag is set.
+        /// </param>
+        /// <param name="isolated">
+        /// Upon return, non-zero when the
+        /// <see cref="FileSearchFlags.Isolated" /> flag is set.
+        /// </param>
+        /// <param name="unix">
+        /// Upon return, non-zero when the directory separator should be the
+        /// Unix separator, zero when it should be the Windows separator, or
+        /// null when no directory separator preference is specified.
+        /// </param>
         private static void ExtractFileSearchFlags(
             FileSearchFlags fileSearchFlags, /* in */
             out bool specificPath,           /* out */
@@ -5023,6 +7538,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a human-readable description of the file search
+        /// mode, for use in trace and error messages.
+        /// </summary>
+        /// <param name="isolated">
+        /// Non-zero when the search is performed in isolated mode, zero when it
+        /// is performed in standard mode.
+        /// </param>
+        /// <returns>
+        /// A string describing the search mode.
+        /// </returns>
         private static string GetSearchMode(
             bool isolated
             )
@@ -5033,6 +7559,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the file system path of the specified special
+        /// folder, returning null when the path cannot be determined.
+        /// </summary>
+        /// <param name="folder">
+        /// The <see cref="Environment.SpecialFolder" /> whose path is to be
+        /// returned.
+        /// </param>
+        /// <returns>
+        /// The path of the special folder, or null when it cannot be
+        /// determined.
+        /// </returns>
         private static string GetSpecialFolder(
             Environment.SpecialFolder folder /* in */
             )
@@ -5068,6 +7606,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured override path for the specified
+        /// special folder, falling back to the actual path of the special
+        /// folder when no override has been configured.
+        /// </summary>
+        /// <param name="folder">
+        /// The <see cref="Environment.SpecialFolder" /> whose path is to be
+        /// returned.
+        /// </param>
+        /// <returns>
+        /// The configured override path, or the actual path of the special
+        /// folder when no override is configured.
+        /// </returns>
         private static string GetOverrideOrSpecialFolder(
             Environment.SpecialFolder folder /* in */
             )
@@ -5084,6 +7635,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current working directory of the process.
+        /// </summary>
+        /// <returns>
+        /// The current working directory, or null if it cannot be queried.
+        /// </returns>
         public static string GetCurrentDirectory()
         {
             try
@@ -5102,6 +7659,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds various categories of file system paths to the
+        /// specified path dictionary, based on the supplied flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="path">
+        /// The base path to consider when adding specific and mapped paths.
+        /// </param>
+        /// <param name="specificPath">
+        /// Non-zero to add <paramref name="path" /> itself when it is fully
+        /// rooted.
+        /// </param>
+        /// <param name="mapped">
+        /// Non-zero to add any mapped paths associated with
+        /// <paramref name="path" />.
+        /// </param>
+        /// <param name="autoSourcePath">
+        /// Non-zero to add the configured auto-source paths.
+        /// </param>
+        /// <param name="current">
+        /// Non-zero to add the current working directory.
+        /// </param>
+        /// <param name="user">
+        /// Non-zero to add the various user-specific directories.
+        /// </param>
+        /// <param name="externals">
+        /// Non-zero to add the externals directory.
+        /// </param>
+        /// <param name="application">
+        /// Non-zero to add the various application-specific directories.
+        /// </param>
+        /// <param name="applicationBase">
+        /// Non-zero to add the various application base directories.
+        /// </param>
+        /// <param name="dictionary">
+        /// Upon entry, the path dictionary to populate; it is created if null.
+        /// Upon return, it contains the added paths.
+        /// </param>
         private static void AddPathsToDictionary(
             Interpreter interpreter,              /* in */
             string path,                          /* in */
@@ -5239,6 +7836,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the specified path with any leading drive
+        /// letter and colon removed.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.
+        /// </param>
+        /// <returns>
+        /// The path with the leading drive letter and colon removed, or null
+        /// if it does not begin with a drive letter and colon.
+        /// </returns>
         private static string MaybeGetPathNoDrive(
             string path /* in */
             )
@@ -5258,6 +7866,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified base path prefix from the start
+        /// of the specified path, when present.
+        /// </summary>
+        /// <param name="path">
+        /// The path to process. This parameter is optional and may be null.
+        /// </param>
+        /// <param name="basePath">
+        /// The base path prefix to remove. This parameter is optional and may
+        /// be null.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when the base path cannot be removed. This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="separator">
+        /// Non-zero to trim any leading directory separator from the result.
+        /// </param>
+        /// <returns>
+        /// The path with the base path prefix removed, or
+        /// <paramref name="default" /> when the prefix is absent or cannot be
+        /// removed.
+        /// </returns>
         public static string MaybeRemoveBase(
             string path,     /* in: OPTIONAL */
             string basePath, /* in: OPTIONAL */
@@ -5286,6 +7917,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the candidate file names to be used when
+        /// searching for the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path to search for.
+        /// </param>
+        /// <param name="basePath">
+        /// The base path used to strip an absolute path prefix, when enabled.
+        /// </param>
+        /// <param name="fullPath">
+        /// Non-zero to compute the full path file name.
+        /// </param>
+        /// <param name="stripBasePath">
+        /// Non-zero to strip <paramref name="basePath" /> from an absolute
+        /// path.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Non-zero to compute the tail-only (file name only) file name.
+        /// </param>
+        /// <param name="fileName1">
+        /// Upon return, the computed full path file name, or null when not
+        /// applicable. This parameter is optional.
+        /// </param>
+        /// <param name="fileName2">
+        /// Upon return, the computed tail-only file name, or null when not
+        /// applicable. This parameter is optional.
+        /// </param>
         private static void GetSearchFileNames(
             string path,          /* in */
             string basePath,      /* in */
@@ -5337,6 +7996,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks for the existence of the specified file name
+        /// within the specified location, optionally including a vendor
+        /// sub-path.
+        /// </summary>
+        /// <param name="unix">
+        /// Non-zero to use Unix-style path combining, zero to use the native
+        /// style, or null to use the default. This parameter is optional.
+        /// </param>
+        /// <param name="location">
+        /// The directory location in which to check for the file.
+        /// </param>
+        /// <param name="vendorPath">
+        /// The vendor sub-path to check, or null to skip the vendor check.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name to check for.
+        /// </param>
+        /// <param name="mode">
+        /// A string describing the mode, used only for diagnostic tracing.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to emit verbose diagnostic tracing.
+        /// </param>
+        /// <param name="count">
+        /// Upon entry, the running count of file names checked. Upon return,
+        /// it is incremented by the number of file names checked.
+        /// </param>
+        /// <returns>
+        /// The native path of the located file, or null if no matching file
+        /// was found.
+        /// </returns>
         private static string CheckForFileName(
             bool? unix,
             string location,
@@ -5419,6 +8110,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified directory and each of its parent
+        /// directories for files matching the specified search patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context. This parameter is not used.
+        /// </param>
+        /// <param name="directory">
+        /// The directory at which to begin the upward search.
+        /// </param>
+        /// <param name="subParts">
+        /// The sub-directory parts to append to each directory before
+        /// searching. This parameter is optional and may be null.
+        /// </param>
+        /// <param name="searchPatterns">
+        /// The list of file name search patterns to match.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of matching paths to collect, or a negative
+        /// value for no limit.
+        /// </param>
+        /// <param name="unix">
+        /// Non-zero to use Unix-style path combining, zero to use the native
+        /// style, or null to use the default. This parameter is optional.
+        /// </param>
+        /// <param name="paths">
+        /// Upon entry, the list of matching paths to add to; it is created if
+        /// null. Upon return, it contains any newly matched paths.
+        /// </param>
+        /// <returns>
+        /// The number of matching paths that were found.
+        /// </returns>
         public static int SearchParents(
             Interpreter interpreter,   /* in: NOT USED */
             string directory,          /* in */
@@ -5571,6 +8294,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches for a file using the specified interpreter
+        /// context, candidate path, and search behavior flags.  This overload
+        /// does not report the number of candidate names that were checked.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The optional interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The (possibly qualified) file name to search for.
+        /// </param>
+        /// <param name="fileSearchFlags">
+        /// The flags that control the search behavior.
+        /// </param>
+        /// <returns>
+        /// The resolved file name if it was found; otherwise, either null or
+        /// the original input path, depending on the search flags.
+        /// </returns>
         public static string Search(
             Interpreter interpreter,        /* in: OPTIONAL */
             string path,                    /* in */
@@ -5584,6 +8325,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches for a file using the specified interpreter
+        /// context, candidate path, and search behavior flags, reporting how
+        /// many candidate names were checked during the search.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The optional interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The (possibly qualified) file name to search for.
+        /// </param>
+        /// <param name="fileSearchFlags">
+        /// The flags that control the search behavior.
+        /// </param>
+        /// <param name="count">
+        /// Upon return, this value is incremented by the number of candidate
+        /// names that were checked during the search.
+        /// </param>
+        /// <returns>
+        /// The resolved file name if it was found; otherwise, either null or
+        /// the original input path, depending on the search flags.
+        /// </returns>
         public static string Search(
             Interpreter interpreter,         /* in: optional interpreter context to use. */
             string path,                     /* in: [qualified?] file name to search for. */
@@ -5827,6 +8590,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the directory considered to be the current
+        /// user's home directory, preferring the legacy home directory and
+        /// then the user profile directory.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to return null when no existing user directory can be
+        /// found; otherwise, the legacy home directory is returned even if it
+        /// does not exist.
+        /// </param>
+        /// <returns>
+        /// The user home directory if one was found; otherwise, null or the
+        /// legacy home directory, depending on the value of
+        /// <paramref name="strict" />.
+        /// </returns>
         public static string GetUserDirectory( /* NOTE: Used by [cd] and TildeSubstitution() only. */
             bool strict /* in */
             )
@@ -5856,6 +8634,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured user profile directory, as
+        /// obtained from the associated environment variable.
+        /// </summary>
+        /// <returns>
+        /// The user profile directory, or null if it is not configured.
+        /// </returns>
         private static string GetUserProfileDirectory()
         {
             return GlobalConfiguration.GetValue(
@@ -5864,6 +8649,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method overrides one of the default cloud path entries,
+        /// selecting the entry to replace based on the specified priority.
+        /// </summary>
+        /// <param name="priority">
+        /// The priority that determines which default cloud path entry is
+        /// overridden.
+        /// </param>
+        /// <param name="value">
+        /// The new value to store for the selected default cloud path entry.
+        /// </param>
+        /// <returns>
+        /// True if the cloud path entry was overridden, or no override was
+        /// necessary; otherwise, false.
+        /// </returns>
         private static bool OverrideCloudPath(
             Priority priority,
             string value
@@ -5902,6 +8702,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured user rule set directory, as
+        /// obtained from the associated environment variable.
+        /// </summary>
+        /// <returns>
+        /// The user rule set directory, or null if it is not configured.
+        /// </returns>
         public static string GetUserRuleSetDirectory()
         {
             return GlobalConfiguration.GetValue(
@@ -5910,6 +8717,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the first existing cloud directory found beneath
+        /// the user profile directory, using the configured default cloud
+        /// paths.
+        /// </summary>
+        /// <returns>
+        /// The fully combined cloud directory if an existing one was found;
+        /// otherwise, null.
+        /// </returns>
         private static string GetUserCloudDirectory()
         {
             string directory = GetUserProfileDirectory();
@@ -5943,6 +8759,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the vendor path "offset" to be appended to
+        /// search directories when looking for files.
+        /// </summary>
+        /// <returns>
+        /// The configured vendor path, or null if it is not configured.
+        /// </returns>
         public static string GetVendorPath()
         {
             //
@@ -5955,6 +8778,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the vendor path "offset" to be appended to search
+        /// directories when looking for files.
+        /// </summary>
+        /// <param name="path">
+        /// The vendor path to store.
+        /// </param>
         public static void SetVendorPath(
             string path
             )
@@ -5969,6 +8799,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects a single home directory flags and path pair from
+        /// the set of configured home directories matching the specified flags,
+        /// using the supplied priority to choose among the available entries.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags used to determine the set of candidate home
+        /// directories to consider.
+        /// </param>
+        /// <param name="priority">
+        /// The priority used as an index into the candidate list, selecting which
+        /// matching home directory pair to return; values out of range are clamped
+        /// to the nearest valid entry.
+        /// </param>
+        /// <param name="reverse">
+        /// Non-zero to reverse the order of the candidate list before applying the
+        /// priority based selection.
+        /// </param>
+        /// <returns>
+        /// The selected <c>IAnyPair&lt;HomeFlags, string&gt;</c> containing the home
+        /// directory flags and associated path, or null if no matching home
+        /// directory was found.
+        /// </returns>
         public static IAnyPair<HomeFlags, string> GetAnyHomeDirectoryPair(
             HomeFlags flags,   /* in */
             Priority priority, /* in */
@@ -6012,6 +8865,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a home directory is configured for the
+        /// specified home directory flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags identifying which home directory to check for.
+        /// </param>
+        /// <returns>
+        /// True if a home directory is configured for the specified flags;
+        /// otherwise, false.
+        /// </returns>
         public static bool HaveHomeDirectory(
             HomeFlags flags /* in */
             )
@@ -6021,6 +8885,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the directory that should be used for storing
+        /// document files, preferring the appropriate special folder and falling
+        /// back to the configured home directories when necessary.
+        /// </summary>
+        /// <param name="common">
+        /// Non-zero to use the common (shared, all users) documents folder; zero
+        /// to use the per-user documents folder.
+        /// </param>
+        /// <returns>
+        /// The full path of the document directory, or null if no suitable
+        /// directory could be determined.
+        /// </returns>
         public static string GetDocumentDirectory(
             bool common /* in */
             )
@@ -6059,6 +8936,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the configured home directory associated with a
+        /// single home directory kind, as identified by the specified flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags identifying which home directory to retrieve;
+        /// any flags portion is masked off and an exact match on the remaining
+        /// value is required.
+        /// </param>
+        /// <returns>
+        /// The configured home directory path for the specified flags, or null if
+        /// no matching home directory is configured.
+        /// </returns>
         private static string GetHomeDirectory(
             HomeFlags flags /* in */
             )
@@ -6104,6 +8994,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the configured home directory associated with a single
+        /// home directory kind, as identified by the specified flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags identifying which home directory to set; any
+        /// flags portion is masked off and an exact match on the remaining value
+        /// is required.
+        /// </param>
+        /// <param name="value">
+        /// The home directory path to store for the specified flags.
+        /// </param>
         public static void SetHomeDirectory(
             HomeFlags flags, /* in */
             string value     /* in */
@@ -6158,6 +9060,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified home directory flags to the supplied
+        /// list, creating the list if necessary, unless the flags are empty.
+        /// </summary>
+        /// <param name="list">
+        /// A reference to the list of home directory flags to add to. If this is
+        /// null and the flags are non-empty, a new list is created and returned
+        /// via this parameter.
+        /// </param>
+        /// <param name="flags">
+        /// The home directory flags to add to the list; nothing is added when this
+        /// is <see cref="HomeFlags.None" />.
+        /// </param>
         private static void MaybeAddHomeFlags(
             ref IList<HomeFlags> list, /* in, out */
             HomeFlags flags            /* in */
@@ -6174,6 +9089,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a single home directory flags and path pair to the
+        /// supplied list, creating the list if necessary, optionally skipping the
+        /// entry when the directory does not exist.
+        /// </summary>
+        /// <param name="list">
+        /// A reference to the list of home directory pairs to add to. If this is
+        /// null and an entry is to be added, a new list is created and returned
+        /// via this parameter.
+        /// </param>
+        /// <param name="flags">
+        /// The home directory flags associated with the path being added.
+        /// </param>
+        /// <param name="value">
+        /// The home directory path to add; nothing is added when this is null or
+        /// an empty string.
+        /// </param>
+        /// <param name="exists">
+        /// Non-zero to require that the directory actually exists before it is
+        /// added to the list; zero to add it unconditionally.
+        /// </param>
         private static void MaybeAddHomeDirectory(
             ref IList<IAnyPair<HomeFlags, string>> list, /* in, out */
             HomeFlags flags,                             /* in */
@@ -6195,6 +9131,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified value into individual paths using the
+        /// platform path separator and adds each one to the supplied list of home
+        /// directory pairs, optionally skipping entries whose directories do not
+        /// exist.
+        /// </summary>
+        /// <param name="list">
+        /// A reference to the list of home directory pairs to add to. If this is
+        /// null and entries are to be added, a new list is created and returned
+        /// via this parameter.
+        /// </param>
+        /// <param name="flags">
+        /// The home directory flags associated with the paths being added.
+        /// </param>
+        /// <param name="value">
+        /// The value containing zero or more paths separated by the platform path
+        /// separator; nothing is added when this is null or an empty string.
+        /// </param>
+        /// <param name="exists">
+        /// Non-zero to require that each directory actually exists before it is
+        /// added to the list; zero to add them unconditionally.
+        /// </param>
         private static void MaybeAddHomeDirectories(
             ref IList<IAnyPair<HomeFlags, string>> list, /* in, out */
             HomeFlags flags,                             /* in */
@@ -6219,6 +9177,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an ordered list of the individual home directory
+        /// flags present in the specified flags value, in priority order from the
+        /// startup directory down to the legacy directory.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags to decompose into a list of individual flags.
+        /// </param>
+        /// <returns>
+        /// A list of the individual home directory flags present in the specified
+        /// value, or null if none are present.
+        /// </returns>
         private static IList<HomeFlags> MakeListOfHomeFlags(
             HomeFlags flags /* in */
             )
@@ -6240,6 +9210,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the list of home directory paths matching the
+        /// specified flags, discarding the associated flags from each pair.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags used to determine the set of home directories
+        /// to return.
+        /// </param>
+        /// <returns>
+        /// A list of home directory paths matching the specified flags, or null if
+        /// none were found.
+        /// </returns>
         private static IList<string> GetHomeDirectories(
             HomeFlags flags /* in */
             )
@@ -6268,6 +9250,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the complete list of home directory flags and path
+        /// pairs matching the specified flags, including both the individual home
+        /// directories and the associated lists of additional directories from the
+        /// relevant environment configuration values.
+        /// </summary>
+        /// <param name="flags">
+        /// The home directory flags used to determine which home directories and
+        /// directory lists to include; the existence requirement is also derived
+        /// from these flags.
+        /// </param>
+        /// <returns>
+        /// A list of home directory flags and path pairs matching the specified
+        /// flags, or null if the flags were invalid or no directories were found.
+        /// </returns>
         private static IList<IAnyPair<HomeFlags, string>> GetHomeDirectoryPairs(
             HomeFlags flags /* in */
             )
@@ -6348,6 +9345,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scrubs a path for display or logging by replacing the
+        /// portion matching the specified base path with a base directory token,
+        /// or otherwise reducing it to just its file name.
+        /// </summary>
+        /// <param name="basePath">
+        /// The base path to look for at the start of the specified path; when it
+        /// matches, that portion is replaced with the base directory token.
+        /// </param>
+        /// <param name="path">
+        /// The path to scrub.
+        /// </param>
+        /// <returns>
+        /// The scrubbed path: the base directory token (optionally followed by the
+        /// remaining path) when the base path matches, the file name component
+        /// otherwise, or the original path when it is null or empty.
+        /// </returns>
         public static string ScrubPath(
             string basePath, /* in */
             string path      /* in */
@@ -6409,6 +9423,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value represents an
+        /// absolute URI.
+        /// </summary>
+        /// <param name="value">
+        /// The value to test.
+        /// </param>
+        /// <returns>
+        /// True if the value represents an absolute URI; otherwise, false.
+        /// </returns>
         public static bool IsUri(
             string value /* in */
             )
@@ -6418,6 +9442,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value represents a URI of
+        /// the specified kind.
+        /// </summary>
+        /// <param name="value">
+        /// The value to test.
+        /// </param>
+        /// <param name="uriKind">
+        /// The kind of URI to test for; when this is
+        /// <see cref="UriKind.RelativeOrAbsolute" />, any URI is accepted,
+        /// otherwise the detected kind must match this value.
+        /// </param>
+        /// <returns>
+        /// True if the value represents a URI of the specified kind; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsUri(
             string value,   /* in */
             UriKind uriKind /* in */
@@ -6437,6 +9477,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the specified strings into a single string for
+        /// use as part of a URI, skipping any null elements.
+        /// </summary>
+        /// <param name="values">
+        /// The strings to concatenate; null elements are skipped.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or null if the array of values itself is null.
+        /// </returns>
         private static string CombineStringsForUri(
             params string[] values /* in */
             )
@@ -6459,6 +9509,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified path segments into a single URI path
+        /// using the forward slash directory separator, skipping invalid segments
+        /// and optionally trimming and normalizing each segment.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to replace any contained native directory separators with the
+        /// forward slash separator used by URI paths.
+        /// </param>
+        /// <param name="both">
+        /// Controls how each path segment is trimmed before being combined; passed
+        /// through to the trimming helper to select leading, trailing, or both
+        /// ends, or null to disable trimming.
+        /// </param>
+        /// <param name="paths">
+        /// The path segments to combine; null and empty segments are skipped.
+        /// </param>
+        /// <returns>
+        /// The combined URI path, or null if the array of paths itself is null.
+        /// </returns>
         private static string CombinePathsForUri(
             bool normalize,       /* in */
             bool? both,           /* in */
@@ -6509,6 +9579,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if WEB
+        /// <summary>
+        /// This method parses a URI query string into a collection of name and
+        /// value pairs, optionally using the specified encoding.
+        /// </summary>
+        /// <param name="query">
+        /// The query string to parse.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when parsing the query string, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <returns>
+        /// A <see cref="NameValueCollection" /> containing the parsed name and
+        /// value pairs, or null if the query string is null.
+        /// </returns>
         private static NameValueCollection ParseQueryString(
             string query,     /* in */
             Encoding encoding /* in */
@@ -6524,6 +9609,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method URL-encodes the specified value for safe inclusion in a URI,
+        /// optionally using the specified encoding.
+        /// </summary>
+        /// <param name="value">
+        /// The value to URL-encode.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when URL-encoding the value, or null to use the
+        /// default encoding.
+        /// </param>
+        /// <returns>
+        /// The URL-encoded value, or null if the value is null.
+        /// </returns>
         private static string UrlEncode(
             string value,     /* in */
             Encoding encoding /* in */
@@ -6539,6 +9638,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the name and value pairs from the specified
+        /// dictionary to a URI query string, URL-encoding each name and value and
+        /// separating successive pairs with ampersands.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary of name and value pairs to append; nothing is appended
+        /// when this is null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when URL-encoding the names and values, or null to
+        /// use the default encoding.
+        /// </param>
+        /// <param name="builder">
+        /// A reference to the string builder that receives the query string. If
+        /// this is null, a new string builder is created and returned via this
+        /// parameter.
+        /// </param>
         public static void QueryFromDictionary(
             StringDictionary dictionary, /* in */
             Encoding encoding,           /* in */
@@ -6564,6 +9681,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines two URI query strings into a single query string,
+        /// parsing each one and re-emitting all of their name and value pairs with
+        /// the names and values URL-encoded and separated by ampersands.
+        /// </summary>
+        /// <param name="query1">
+        /// The first query string to combine.
+        /// </param>
+        /// <param name="query2">
+        /// The second query string to combine.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when parsing the query strings and URL-encoding the
+        /// names and values, or null to use the default encoding.
+        /// </param>
+        /// <returns>
+        /// The combined query string, or null if both query strings are null or
+        /// could not be parsed.
+        /// </returns>
         private static string CombineQueriesForUri(
             string query1,    /* in */
             string query2,    /* in */
@@ -6609,6 +9745,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the absolute auxiliary <see cref="Uri" /> for a
+        /// named resource, relative to the assembly auxiliary base
+        /// <see cref="Uri" />.  The resource name is first normalized (a
+        /// default text suffix may be appended) and then validated against the
+        /// expected pattern before being combined with the base
+        /// <see cref="Uri" />.
+        /// </summary>
+        /// <param name="resourceName">
+        /// Upon entry, the original resource name.  Upon return, the resolved
+        /// (and possibly suffixed) resource name that was used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The combined absolute <see cref="Uri" /> for the resource, or null
+        /// if it could not be built.
+        /// </returns>
         public static Uri BuildAuxiliaryUri(
             ref string resourceName, /* in, out */
             ref Result error         /* out */
@@ -6660,6 +9815,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to combine a base <see cref="Uri" /> with a
+        /// relative <see cref="Uri" /> string, producing a new absolute
+        /// <see cref="Uri" />.  The selected components (scheme, path, query,
+        /// fragment, etc.) from each <see cref="Uri" /> are combined according
+        /// to the specified flags and formatting.
+        /// </summary>
+        /// <param name="baseUri">
+        /// The absolute base <see cref="Uri" /> to combine.  This cannot be
+        /// null and must be absolute.
+        /// </param>
+        /// <param name="relativeUri">
+        /// The relative <see cref="Uri" /> string to combine with the base
+        /// <see cref="Uri" />.  If null or empty, the base <see cref="Uri" />
+        /// is returned unchanged.
+        /// </param>
+        /// <param name="encoding">
+        /// The <see cref="Encoding" /> to use when combining query name/value
+        /// pairs.  This is only used when compiled with web support enabled.
+        /// </param>
+        /// <param name="components">
+        /// The <see cref="UriComponents" /> to include from the source URIs
+        /// when building the combined <see cref="Uri" />.
+        /// </param>
+        /// <param name="format">
+        /// The <see cref="UriFormat" /> used when extracting components.  This
+        /// may be replaced with the default format unless the appropriate flag
+        /// is set.
+        /// </param>
+        /// <param name="flags">
+        /// The <see cref="UriFlags" /> that control how the URIs are combined
+        /// (e.g. path separator handling, normalization, and any "allow"
+        /// scheme constraints).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The combined absolute <see cref="Uri" />, or null if the URIs could
+        /// not be combined.
+        /// </returns>
         public static Uri TryCombineUris(
             Uri baseUri,              /* in */
             string relativeUri,       /* in */
@@ -6970,6 +10166,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to create a <see cref="Uri" /> from a string,
+        /// trying an absolute <see cref="Uri" /> first and then falling back to
+        /// a relative one.
+        /// </summary>
+        /// <param name="value">
+        /// The string value from which to create the <see cref="Uri" />.
+        /// </param>
+        /// <param name="uri">
+        /// Upon success, this contains the created <see cref="Uri" />.
+        /// </param>
+        /// <param name="uriKind">
+        /// Upon success, this contains the <see cref="UriKind" /> of the
+        /// created <see cref="Uri" /> (absolute or relative).
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Uri" /> was created; otherwise, false.
+        /// </returns>
         public static bool TryCreateUri(
             string value,       /* in */
             ref Uri uri,        /* out */
@@ -6994,6 +10208,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the "allow" scheme bits of a
+        /// <see cref="UriFlags" /> value into their corresponding "was" scheme
+        /// bits (e.g. <c>AllowHttp</c> becomes <c>WasHttp</c>).
+        /// </summary>
+        /// <param name="flags">
+        /// The <see cref="UriFlags" /> value containing the "allow" scheme
+        /// bits to translate.
+        /// </param>
+        /// <returns>
+        /// A <see cref="UriFlags" /> value containing the "was" scheme bits
+        /// that correspond to the set "allow" scheme bits.
+        /// </returns>
         private static UriFlags AllowUriFlagsToWasUriFlags(
             UriFlags flags /* in */
             )
@@ -7017,6 +10244,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified <see cref="Uri" /> is
+        /// a supported web <see cref="Uri" />, based on the schemes permitted
+        /// by the supplied flags.  This overload does not return the host name.
+        /// </summary>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to check.  This cannot be null and must be
+        /// absolute.
+        /// </param>
+        /// <param name="flags">
+        /// Upon entry, the <see cref="UriFlags" /> specifying which schemes are
+        /// allowed.  Upon return, the "was" scheme bits are updated to reflect
+        /// the detected scheme.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Uri" /> uses one of the allowed schemes;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWebUri(
             Uri uri,            /* in */
             ref UriFlags flags, /* in, out */
@@ -7030,6 +10278,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified <see cref="Uri" /> is
+        /// a supported web <see cref="Uri" />, based on the schemes permitted
+        /// by the supplied flags, and optionally returns the host name.
+        /// </summary>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to check.  This cannot be null and must be
+        /// absolute.
+        /// </param>
+        /// <param name="flags">
+        /// Upon entry, the <see cref="UriFlags" /> specifying which schemes are
+        /// allowed (and whether the host is required).  Upon return, the "was"
+        /// scheme bits are updated to reflect the detected scheme.
+        /// </param>
+        /// <param name="host">
+        /// Upon success, and unless the no-host flag is set, this contains the
+        /// DNS-safe host name of the <see cref="Uri" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Uri" /> uses one of the allowed schemes;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWebUri(
             Uri uri,            /* in */
             ref UriFlags flags, /* in, out */
@@ -7133,6 +10406,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified scheme string is the
+        /// HTTPS <see cref="Uri" /> scheme.
+        /// </summary>
+        /// <param name="scheme">
+        /// The <see cref="Uri" /> scheme string to check.
+        /// </param>
+        /// <returns>
+        /// True if the scheme is the HTTPS scheme; otherwise, false.
+        /// </returns>
         private static bool IsHttpsUriScheme(
             string scheme /* in */
             )
@@ -7142,6 +10425,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified scheme string is the
+        /// HTTP <see cref="Uri" /> scheme.
+        /// </summary>
+        /// <param name="scheme">
+        /// The <see cref="Uri" /> scheme string to check.
+        /// </param>
+        /// <returns>
+        /// True if the scheme is the HTTP scheme; otherwise, false.
+        /// </returns>
         private static bool IsHttpUriScheme(
             string scheme /* in */
             )
@@ -7151,6 +10444,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified scheme string is the
+        /// FTP <see cref="Uri" /> scheme.
+        /// </summary>
+        /// <param name="scheme">
+        /// The <see cref="Uri" /> scheme string to check.
+        /// </param>
+        /// <returns>
+        /// True if the scheme is the FTP scheme; otherwise, false.
+        /// </returns>
         private static bool IsFtpUriScheme(
             string scheme /* in */
             )
@@ -7160,6 +10463,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified scheme string is the
+        /// file <see cref="Uri" /> scheme.
+        /// </summary>
+        /// <param name="scheme">
+        /// The <see cref="Uri" /> scheme string to check.
+        /// </param>
+        /// <returns>
+        /// True if the scheme is the file scheme; otherwise, false.
+        /// </returns>
         private static bool IsFileUriScheme(
             string scheme /* in */
             )
@@ -7169,6 +10482,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified <see cref="Uri" /> uses
+        /// the HTTPS scheme.
+        /// </summary>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to check.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Uri" /> is non-null and uses the HTTPS
+        /// scheme; otherwise, false.
+        /// </returns>
         public static bool IsHttpsUriScheme(
             Uri uri /* in */
             )
@@ -7178,6 +10502,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified <see cref="Uri" /> uses
+        /// the file scheme.
+        /// </summary>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to check.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Uri" /> is non-null and uses the file
+        /// scheme; otherwise, false.
+        /// </returns>
         public static bool IsFileUriScheme(
             Uri uri /* in */
             )
@@ -7187,6 +10522,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is a remote
+        /// (non-file) absolute <see cref="Uri" />.  This overload does not
+        /// return the parsed <see cref="Uri" /> and does not treat existing
+        /// local files as a match.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.
+        /// </param>
+        /// <returns>
+        /// True if the value is an absolute <see cref="Uri" /> that does not
+        /// use the file scheme; otherwise, false.
+        /// </returns>
         public static bool IsRemoteUri(
             string value /* in */
             )
@@ -7198,6 +10546,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is a remote
+        /// (non-file) absolute <see cref="Uri" />, returning the parsed
+        /// <see cref="Uri" />.  This overload does not treat existing local
+        /// files as a match.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.
+        /// </param>
+        /// <param name="uri">
+        /// Upon return, this contains the parsed absolute <see cref="Uri" />,
+        /// or null if the value could not be parsed.
+        /// </param>
+        /// <returns>
+        /// True if the value is an absolute <see cref="Uri" /> that does not
+        /// use the file scheme; otherwise, false.
+        /// </returns>
         public static bool IsRemoteUri(
             string value, /* in */
             ref Uri uri   /* out */
@@ -7208,6 +10573,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is a remote
+        /// (non-file) absolute <see cref="Uri" /> or the name of an existing
+        /// local file.  This overload does not return the parsed
+        /// <see cref="Uri" />.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.
+        /// </param>
+        /// <returns>
+        /// True if the value is an absolute <see cref="Uri" /> that does not
+        /// use the file scheme, or names an existing local file; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsRemoteUriOrFile(
             string value /* in */
             )
@@ -7219,6 +10598,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is a remote
+        /// (non-file) absolute <see cref="Uri" /> and, optionally, whether it
+        /// names an existing local file, returning the parsed
+        /// <see cref="Uri" />.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to check.
+        /// </param>
+        /// <param name="allowFile">
+        /// Non-zero to treat the name of an existing local file as a match when
+        /// the value is not a remote <see cref="Uri" />; otherwise, zero.
+        /// </param>
+        /// <param name="uri">
+        /// Upon return, this contains the parsed absolute <see cref="Uri" />,
+        /// or null if the value could not be parsed.
+        /// </param>
+        /// <returns>
+        /// True if the value is an absolute <see cref="Uri" /> that does not
+        /// use the file scheme, or (when permitted) names an existing local
+        /// file; otherwise, false.
+        /// </returns>
         private static bool IsRemoteUriOrFile(
             string value,   /* in */
             bool allowFile, /* in */
@@ -7245,6 +10646,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the portion of an absolute file name that is
+        /// relative to one of the well-known package paths for the current
+        /// AppDomain.
+        /// </summary>
+        /// <param name="fileName">
+        /// The absolute file name to make relative to a package path.
+        /// </param>
+        /// <param name="keepLib">
+        /// Non-zero to retain a trailing library directory component from the
+        /// matched package path as part of the resulting relative file name;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="verbatim">
+        /// Non-zero to return the relative file name exactly as computed;
+        /// otherwise, zero to remove an intermediate platform (framework)
+        /// directory component, when present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The file name relative to the matched package path, or null if the
+        /// file name is not relative to any of the package paths or another
+        /// error is encountered.
+        /// </returns>
         public static string GetPackageRelativeFileName(
             string fileName, /* in */
             bool keepLib,    /* in */
@@ -7372,6 +10800,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines a relative file name with the directory that
+        /// contains the file for the specified plugin.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin whose containing directory will be used as the base for
+        /// the relative file name.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the operation.  This parameter is
+        /// not used.
+        /// </param>
+        /// <param name="fileName">
+        /// The relative file name to combine with the directory of the plugin.
+        /// </param>
+        /// <returns>
+        /// The combined file name, or null if the plugin is invalid, the file
+        /// name is invalid or already rooted, the plugin file name cannot be
+        /// determined, or an error is encountered.
+        /// </returns>
         public static string GetPluginRelativeFileName(
             IPlugin plugin,         /* in */
             IClientData clientData, /* in: NOT USED */
@@ -7414,6 +10862,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the file name portion of the specified script
+        /// path, omitting any directory information.
+        /// </summary>
+        /// <param name="path">
+        /// The script path from which to extract the file name.
+        /// </param>
+        /// <returns>
+        /// The file name portion of the path, the original path when it does
+        /// not contain any directory information, or null if an error is
+        /// encountered.
+        /// </returns>
         public static string ScriptFileNameOnly(
             string path /* in */
             )
@@ -7438,6 +10898,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the directory information for the specified
+        /// path, accounting for paths that refer to a remote
+        /// <see cref="Uri" />.
+        /// </summary>
+        /// <param name="path">
+        /// The path from which to extract the directory information.
+        /// </param>
+        /// <returns>
+        /// The directory information for the path, the original path when it is
+        /// null or empty, or null if an error is encountered.
+        /// </returns>
         public static string GetDirectoryName(
             string path /* in */
             )
@@ -7482,6 +10954,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current working directory, optionally for a
+        /// specific drive letter on Windows.
+        /// </summary>
+        /// <param name="path">
+        /// The optional path whose leading drive letter selects the drive for
+        /// which the current directory is returned; when null, empty, or not a
+        /// drive-qualified path on Windows, the overall current working
+        /// directory is returned instead.
+        /// </param>
+        /// <returns>
+        /// The current directory for the selected drive, the overall current
+        /// working directory, or null if an error is encountered.
+        /// </returns>
         private static string GetCurrentDirectory(
             string path /* in: OPTIONAL */
             )
@@ -7514,6 +11000,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified path into its drive prefix,
+        /// directory, and file name components.
+        /// </summary>
+        /// <param name="path">
+        /// The path to split into its component parts.
+        /// </param>
+        /// <param name="separator">
+        /// The directory separator string to use when normalizing the
+        /// resulting directory component, or null to leave the native
+        /// separators in place.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to recognize a leading drive letter and colon as a drive
+        /// prefix; otherwise, zero.
+        /// </param>
+        /// <param name="allowCurrent">
+        /// Non-zero to resolve a bare drive prefix to its current directory;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="prefix">
+        /// Upon return, this contains the drive prefix component of the path,
+        /// or null if there is none.
+        /// </param>
+        /// <param name="directory">
+        /// Upon return, this contains the directory component of the path, or
+        /// null if there is none.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon return, this contains the file name component of the path, or
+        /// null if there is none.
+        /// </param>
         public static void SplitPathRaw(
             string path,          /* in */
             string separator,     /* in */
@@ -7633,6 +11151,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the first directory separator character that
+        /// appears in the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path to search for a directory separator character.
+        /// </param>
+        /// <param name="separator">
+        /// Upon success, this contains the first directory separator character
+        /// found in the path; otherwise, it is left unchanged.
+        /// </param>
+        /// <returns>
+        /// True if a directory separator character was found; otherwise, false.
+        /// </returns>
         private static bool GetFirstDirectorySeparator(
             string path,       /* in */
             ref char separator /* out */
@@ -7671,6 +11203,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the first directory separator character that
+        /// appears in the specified path, falling back to the native directory
+        /// separator character when none is present.
+        /// </summary>
+        /// <param name="path">
+        /// The path to search for a directory separator character.
+        /// </param>
+        /// <returns>
+        /// The first directory separator character found in the path, or the
+        /// native directory separator character if none is present.
+        /// </returns>
         public static char GetFirstDirectorySeparator(
             string path /* in */
             )
@@ -7685,6 +11229,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the first directory separator character that
+        /// appears in any of the paths contained in the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list of paths to search for a directory separator character.
+        /// </param>
+        /// <param name="separator">
+        /// Upon finding a directory separator character in one of the paths,
+        /// this contains that character; otherwise, it is left unchanged.
+        /// </param>
         private static void GetFirstDirectorySeparator(
             IList list,        /* in */
             ref char separator /* out */
@@ -7707,6 +11262,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the leading drive letter prefix (e.g. "C:")
+        /// from a Windows-style path, optionally also removing any leading
+        /// directory separator characters, in order to produce a relative
+        /// path.
+        /// </summary>
+        /// <param name="path">
+        /// The path to convert into a relative path.
+        /// </param>
+        /// <param name="separator">
+        /// Non-zero to also remove any leading directory separator characters
+        /// from the resulting path; zero to leave them intact.
+        /// </param>
+        /// <returns>
+        /// The relative path with the drive letter prefix removed, or the
+        /// original path if it is null, empty, too short, or does not begin
+        /// with a drive letter prefix.
+        /// </returns>
         public static string MakeRelativePath(
             string path,   /* in */
             bool separator /* in: Also remove leading separator? */
@@ -7739,6 +11312,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a directory separator character to the end of
+        /// the specified path.  If the path already contains a directory
+        /// separator character, that same character is used; otherwise, the
+        /// default directory separator character is appended.
+        /// </summary>
+        /// <param name="path">
+        /// The path to which a directory separator character should be
+        /// appended.
+        /// </param>
+        /// <returns>
+        /// The path with a directory separator character appended, or the
+        /// original path if it is null or empty.
+        /// </returns>
         public static string AppendSeparator(
             string path /* in */
             )
@@ -7764,6 +11351,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the path specified via
+        /// <paramref name="path1" /> is contained within (i.e. is under) the
+        /// path specified via <paramref name="path2" />.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path1">
+        /// The candidate child path to check.
+        /// </param>
+        /// <param name="path2">
+        /// The candidate parent path.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="path1" /> is under
+        /// <paramref name="path2" />; otherwise, false.
+        /// </returns>
         public static bool IsUnderPath(
             Interpreter interpreter, /* in: OPTIONAL */
             string path1,            /* in */
@@ -7811,6 +11417,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively collects the directories contained within
+        /// the specified path (and all of its subdirectories) that match the
+        /// specified search pattern, adding them to the specified list.
+        /// </summary>
+        /// <param name="path">
+        /// The directory path to search.
+        /// </param>
+        /// <param name="searchPattern">
+        /// The search pattern used to match directory names.
+        /// </param>
+        /// <param name="paths">
+        /// A reference to the list of directory paths.  Each matching
+        /// directory found is added to this list, which is created if it is
+        /// null.
+        /// </param>
+        /// <param name="errors">
+        /// A reference to the list of errors.  If an exception is encountered,
+        /// it is added to this list, which is created if it is null.
+        /// </param>
         private static void GetDirectories( /* RECURSIVE */
             string path,          /* in */
             string searchPattern, /* in */
@@ -7857,6 +11483,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively collects the files contained within the
+        /// specified path (and all of its subdirectories) that match the
+        /// specified search pattern, adding them to the specified list.
+        /// </summary>
+        /// <param name="path">
+        /// The directory path to search.
+        /// </param>
+        /// <param name="searchPattern">
+        /// The search pattern used to match file names.
+        /// </param>
+        /// <param name="paths">
+        /// A reference to the list of file paths.  Each matching file found is
+        /// added to this list, which is created if it is null.
+        /// </param>
+        /// <param name="errors">
+        /// A reference to the list of errors.  If an exception is encountered,
+        /// it is added to this list, which is created if it is null.
+        /// </param>
         private static void GetFiles( /* RECURSIVE */
             string path,          /* in */
             string searchPattern, /* in */
@@ -7918,6 +11563,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an entry, associating the specified path with the
+        /// specified path type and optional full path, to the specified
+        /// dictionary.
+        /// </summary>
+        /// <param name="paths">
+        /// A reference to the dictionary of paths to add the entry to, which
+        /// is created if it is null.
+        /// </param>
+        /// <param name="path">
+        /// The path used as the key for the entry.
+        /// </param>
+        /// <param name="pathType">
+        /// The type of path being added.
+        /// </param>
+        /// <param name="fullPath">
+        /// The full path associated with the entry.  This parameter may be
+        /// null.
+        /// </param>
         private static void MaybeAddUnderPathToList(
             ref UnderDictionary paths, /* in, out */
             string path,               /* in */
@@ -7952,6 +11616,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified path and adds it (optionally
+        /// at every directory level) to the specified dictionary, removing the
+        /// specified base path from its start if present.
+        /// </summary>
+        /// <param name="paths">
+        /// A reference to the dictionary of paths to add the entry (or
+        /// entries) to, which is created if it is null.
+        /// </param>
+        /// <param name="path1">
+        /// The base path to be removed from the start of
+        /// <paramref name="path2" />, if present.  This parameter may be null.
+        /// </param>
+        /// <param name="path2">
+        /// The path to add.
+        /// </param>
+        /// <param name="pathType">
+        /// The type of path being added.
+        /// </param>
+        /// <param name="anyLevel">
+        /// Non-zero to add an entry for every level of the path (i.e. each
+        /// trailing sub-path); zero to add only the full path.
+        /// </param>
         private static void MaybeAddUnderPathToList(
             ref UnderDictionary paths, /* in, out */
             string path1,              /* in */
@@ -8013,6 +11700,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enumerates the directories and/or files (according to
+        /// the specified path type) contained within the specified path that
+        /// match the specified search pattern, adding the results to the
+        /// specified dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path">
+        /// The primary directory path to enumerate.
+        /// </param>
+        /// <param name="searchPattern">
+        /// The search pattern used to match directory and/or file names.  If
+        /// this parameter is null, a pattern matching all names is used.
+        /// </param>
+        /// <param name="searchOption">
+        /// The option that controls whether the search includes only the top
+        /// directory or all subdirectories.
+        /// </param>
+        /// <param name="pathType">
+        /// The flags that control whether directories, files, or both are
+        /// enumerated, as well as whether the search is robust and whether
+        /// entries are added at any level.
+        /// </param>
+        /// <param name="paths">
+        /// A reference to the dictionary of paths to add the results to, which
+        /// is created if it is null.
+        /// </param>
+        /// <param name="errors">
+        /// A reference to the list of errors.  If an error is encountered, it
+        /// is added to this list, which is created if it is null.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetDirectoriesAndFiles(
             Interpreter interpreter,   /* in: OPTIONAL */
             string path,               /* in */
@@ -8144,6 +11869,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enumerates the directories and/or files under the
+        /// specified primary path and determines which of them match the
+        /// specified relative path or pattern, adding the matching pairs to
+        /// the specified list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path1">
+        /// The primary directory path to enumerate.
+        /// </param>
+        /// <param name="path2">
+        /// The relative path or pattern to match against the entries found
+        /// under the primary path.  When the match mode is
+        /// <see cref="MatchMode.None" />, this must be a relative path that is
+        /// looked up exactly; otherwise, it is used as a matching pattern.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used to compare entries against
+        /// <paramref name="path2" />.  A value of <see cref="MatchMode.None" />
+        /// requests an exact lookup.
+        /// </param>
+        /// <param name="searchOption">
+        /// The option that controls whether the search includes only the top
+        /// directory or all subdirectories.
+        /// </param>
+        /// <param name="pathType">
+        /// The flags that control whether directories, files, or both are
+        /// enumerated.
+        /// </param>
+        /// <param name="matches">
+        /// A reference to the list of matching pairs to add the results to,
+        /// which is created if it is null.
+        /// </param>
+        /// <param name="errors">
+        /// A reference to the list of errors.  If an error is encountered, it
+        /// is added to this list, which is created if it is null.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode IsNameUnderPath(
             Interpreter interpreter,        /* in */
             string path1,                   /* in */
@@ -8222,6 +11991,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first specified path begins with
+        /// (i.e. is located under) the second specified path, after both paths
+        /// have been resolved to their full native forms.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path1">
+        /// A reference to the candidate path that is tested for being located
+        /// under the other path.  Upon a successful match, it is updated to its
+        /// resolved full path.
+        /// </param>
+        /// <param name="path2">
+        /// A reference to the candidate containing path.  Upon a successful
+        /// match, it is updated to its resolved full path.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="path1" /> is located under
+        /// <paramref name="path2" />; otherwise, false.
+        /// </returns>
         public static bool IsUnderPathSimple(
             Interpreter interpreter, /* in: OPTIONAL */
             ref string path1,        /* in, out */
@@ -8314,6 +12105,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first specified path part begins
+        /// with the second specified path part, using filesystem-appropriate
+        /// string comparison.
+        /// </summary>
+        /// <param name="part1">
+        /// The path part to be examined.
+        /// </param>
+        /// <param name="part2">
+        /// The path part to look for at the start of <paramref name="part1" />.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="part1" /> begins with
+        /// <paramref name="part2" />; otherwise, false.
+        /// </returns>
         private static bool StartsWithPart(
             string part1, /* in */
             string part2  /* in */
@@ -8333,6 +12139,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compares two path parts using filesystem-appropriate
+        /// string comparison.
+        /// </summary>
+        /// <param name="part1">
+        /// The first path part to compare.
+        /// </param>
+        /// <param name="part2">
+        /// The second path part to compare.
+        /// </param>
+        /// <returns>
+        /// Zero if the two path parts are equal, a negative number if
+        /// <paramref name="part1" /> sorts before <paramref name="part2" />, or
+        /// a positive number if <paramref name="part1" /> sorts after
+        /// <paramref name="part2" />.
+        /// </returns>
         public static int CompareParts(
             string part1, /* in */
             string part2  /* in */
@@ -8343,6 +12165,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two path parts are equal, using
+        /// filesystem-appropriate string comparison.
+        /// </summary>
+        /// <param name="path1">
+        /// The first path part to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path part to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two path parts are equal; otherwise, false.
+        /// </returns>
         public static bool IsEqualParts(
             string path1, /* in */
             string path2  /* in */
@@ -8353,6 +12188,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compares two file names, after converting each one to
+        /// its native form, using filesystem-appropriate string comparison.
+        /// </summary>
+        /// <param name="path1">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second file name to compare.
+        /// </param>
+        /// <returns>
+        /// Zero if the two file names are equal, a negative number if
+        /// <paramref name="path1" /> sorts before <paramref name="path2" />, or
+        /// a positive number if <paramref name="path1" /> sorts after
+        /// <paramref name="path2" />.
+        /// </returns>
         public static int CompareFileNames(
             string path1, /* in */
             string path2  /* in */
@@ -8364,6 +12215,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two file names are equal, after
+        /// converting each one to its native form, using filesystem-appropriate
+        /// string comparison.
+        /// </summary>
+        /// <param name="path1">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second file name to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two file names are equal; otherwise, false.
+        /// </returns>
         public static bool IsEqualFileName(
             string path1, /* in */
             string path2  /* in */
@@ -8375,6 +12240,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the leading portions of two file
+        /// names are equal, after converting each one to its native form, using
+        /// filesystem-appropriate string comparison.
+        /// </summary>
+        /// <param name="path1">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second file name to compare.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters, from the start of each native file name,
+        /// to compare.
+        /// </param>
+        /// <returns>
+        /// True if the leading portions of the two file names are equal;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsEqualFileName(
             string path1, /* in */
             string path2, /* in */
@@ -8388,6 +12272,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first specified file name begins
+        /// with the second specified file name, after converting each one to
+        /// its native form, using filesystem-appropriate string comparison.
+        /// </summary>
+        /// <param name="path1">
+        /// The file name to be examined.
+        /// </param>
+        /// <param name="path2">
+        /// The file name to look for at the start of
+        /// <paramref name="path1" />.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="path1" /> begins with
+        /// <paramref name="path2" />; otherwise, false.
+        /// </returns>
         private static bool StartsWithFileName(
             string path1, /* in */
             string path2  /* in */
@@ -8409,6 +12309,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && (WINDOWS || UNIX)
+        /// <summary>
+        /// This method computes a hash value for the specified path, for use as
+        /// part of a file serial number, using the filesystem encoding.
+        /// </summary>
+        /// <param name="path">
+        /// The path to hash.  This parameter may be null or an empty string.
+        /// </param>
+        /// <returns>
+        /// The computed hash value, or zero if the path is null or empty, or if
+        /// a suitable encoding cannot be obtained.
+        /// </returns>
         private static ulong MaybeHashForSerialNumber(
             string path
             )
@@ -8428,6 +12339,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified seed value and additional values
+        /// into a single hash value, for use as a file serial number.
+        /// </summary>
+        /// <param name="value">
+        /// An optional seed value to include in the combined hash.  When zero,
+        /// it is omitted.
+        /// </param>
+        /// <param name="values">
+        /// The array of additional values to include in the combined hash.
+        /// </param>
+        /// <returns>
+        /// The combined hash value, or zero if there are no additional values.
+        /// </returns>
         private static ulong CombineForSerialNumber(
             ulong value,
             params ulong[] values
@@ -8458,6 +12383,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the serial number string for the specified
+        /// path, using the specified path flags and component values.
+        /// </summary>
+        /// <param name="path">
+        /// The path associated with the serial number.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the serial number is calculated, such as
+        /// whether the raw component values are used, whether a stable serial
+        /// number is produced, or whether the values are hashed.
+        /// </param>
+        /// <param name="values">
+        /// The array of component values used to calculate the serial number.
+        /// </param>
+        /// <returns>
+        /// The calculated serial number string.
+        /// </returns>
         private static string CalculateSerialNumber(
             string path,
             PathFlags flags,
@@ -8486,6 +12429,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method attempts to obtain a serial number that uniquely
+        /// identifies the file or directory at the specified path, using the
+        /// Windows native file information.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to obtain a serial number for.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the serial number is calculated.
+        /// </param>
+        /// <param name="serialNumber">
+        /// A reference to receive the calculated serial number.  Upon success,
+        /// it is set to the serial number string.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// True if the serial number was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool WindowsTryGetSerialNumber(
             string path,
             PathFlags flags,
@@ -8538,6 +12504,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && UNIX
+        /// <summary>
+        /// This method attempts to obtain a serial number that uniquely
+        /// identifies the file or directory at the specified path, using the
+        /// Linux native file status information.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to obtain a serial number for.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the serial number is calculated.
+        /// </param>
+        /// <param name="serialNumber">
+        /// A reference to receive the calculated serial number.  Upon success,
+        /// it is set to the serial number string.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// True if the serial number was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool LinuxTryGetSerialNumber(
             string path,
             PathFlags flags,
@@ -8594,6 +12583,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain a serial number that uniquely
+        /// identifies the file or directory at the specified path, using the
+        /// macOS native file status information.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to obtain a serial number for.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the serial number is calculated.
+        /// </param>
+        /// <param name="serialNumber">
+        /// A reference to receive the calculated serial number.  Upon success,
+        /// it is set to the serial number string.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// True if the serial number was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool MacintoshTryGetSerialNumber(
             string path,
             PathFlags flags,
@@ -8652,6 +12664,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && (WINDOWS || UNIX)
+        /// <summary>
+        /// This method attempts to obtain a serial number that uniquely
+        /// identifies the file or directory at the specified path, dispatching
+        /// to the appropriate platform-specific implementation for the current
+        /// operating system.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to obtain a serial number for.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the serial number is calculated.
+        /// </param>
+        /// <param name="serialNumber">
+        /// A reference to receive the calculated serial number.  Upon success,
+        /// it is set to the serial number string.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// True if the serial number was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool TryGetSerialNumber(
             string path,
             PathFlags flags,
@@ -8689,6 +12725,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method determines whether two paths refer to the same
+        /// underlying file or directory, using the Windows native file
+        /// information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="path1">
+        /// The first path to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path to compare.
+        /// </param>
+        /// <param name="match">
+        /// A reference to receive the result of the comparison.  Upon success,
+        /// it is set to true if the two paths refer to the same file or
+        /// directory; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode WindowsIsSameFile(
             Interpreter interpreter, /* in: NOT USED */
             string path1,            /* in */
@@ -8741,6 +12804,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && UNIX
+        /// <summary>
+        /// This method determines whether two paths refer to the same
+        /// underlying file or directory, using the Linux native file status
+        /// information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="path1">
+        /// The first path to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path to compare.
+        /// </param>
+        /// <param name="match">
+        /// A reference to receive the result of the comparison.  Upon success,
+        /// it is set to true if the two paths refer to the same file or
+        /// directory; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode LinuxIsSameFile(
             Interpreter interpreter, /* in: NOT USED */
             string path1,            /* in */
@@ -8784,6 +12874,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two paths refer to the same
+        /// underlying file or directory, using the macOS native file status
+        /// information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="path1">
+        /// The first path to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path to compare.
+        /// </param>
+        /// <param name="match">
+        /// A reference to receive the result of the comparison.  Upon success,
+        /// it is set to true if the two paths refer to the same file or
+        /// directory; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode MacintoshIsSameFile(
             Interpreter interpreter, /* in: NOT USED */
             string path1,            /* in */
@@ -8828,6 +12945,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two paths refer to the same file or
+        /// directory by resolving each one to its full path and comparing the
+        /// results, without using any platform-specific file information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path1">
+        /// The first path to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path to compare.
+        /// </param>
+        /// <param name="match">
+        /// A reference to receive the result of the comparison.  Upon success,
+        /// it is set to true if the two resolved paths are equal; otherwise,
+        /// false.
+        /// </param>
+        /// <param name="error">
+        /// A reference to receive error information.  Upon failure, it is set to
+        /// the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GenericIsSameFile(
             Interpreter interpreter, /* in: OPTIONAL */
             string path1,            /* in */
@@ -8861,6 +13006,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path appears to refer
+        /// to a script file, based on its file extension and, optionally, the
+        /// content of any associated markup (XML) file.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path">
+        /// The path to examine.
+        /// </param>
+        /// <param name="viaGetScript">
+        /// Non-zero if this method is being called via the <c>GetScript</c>
+        /// pipeline, which affects how an otherwise unverifiable XML file path
+        /// is treated; null to disable that assumption.
+        /// </param>
+        /// <param name="noXml">
+        /// Non-zero to skip treating a markup (XML) file as a possible script
+        /// file.
+        /// </param>
+        /// <param name="noValidate">
+        /// Non-zero to skip validating a candidate XML file against the script
+        /// schema.
+        /// </param>
+        /// <returns>
+        /// True if the path appears to refer to a script file; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsScriptFile(
             Interpreter interpreter, /* in */
             string path,             /* in */
@@ -8977,6 +13151,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path appears to refer
+        /// to a signature file, based on its file extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.
+        /// </param>
+        /// <returns>
+        /// True if the path appears to refer to a signature file; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsSignatureFile(
             string path /* in */
             )
@@ -9000,6 +13185,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two paths refer to the same
+        /// underlying file or directory, preferring native platform file
+        /// information when available and falling back to a generic comparison.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="path1">
+        /// The first path to compare.
+        /// </param>
+        /// <param name="path2">
+        /// The second path to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two paths refer to the same file or directory;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSameFile(
             Interpreter interpreter, /* in: OPTIONAL */
             string path1,            /* in */
@@ -9129,6 +13333,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path consists of just a
+        /// single tilde character, ignoring any trailing path separators.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.
+        /// </param>
+        /// <returns>
+        /// True if the path is just a tilde; otherwise, false.
+        /// </returns>
         public static bool IsJustTilde(
             string path /* in */
             )
@@ -9153,6 +13367,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first path ends with the second
+        /// path, comparing both the original strings and their native and
+        /// non-native translations.
+        /// </summary>
+        /// <param name="path1">
+        /// The path to examine.
+        /// </param>
+        /// <param name="path2">
+        /// The suffix to look for at the end of <paramref name="path1" />.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="path1" /> ends with
+        /// <paramref name="path2" />; otherwise, false.
+        /// </returns>
         public static bool MatchSuffix(
             string path1, /* in */
             string path2  /* in */
@@ -9187,6 +13416,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path exists as either a
+        /// directory or a regular file.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.
+        /// </param>
+        /// <returns>
+        /// True if the path exists as a directory or a file; otherwise, false.
+        /// </returns>
         public static bool PathExists(
             string path /* in */
             )
@@ -9199,6 +13438,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path exists as either a
+        /// directory or a regular file, reporting which of those it is.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.
+        /// </param>
+        /// <param name="isDirectory">
+        /// Upon return, set to true if the path exists as a directory;
+        /// otherwise, false.
+        /// </param>
+        /// <param name="isFile">
+        /// Upon return, set to true if the path exists as a regular file;
+        /// otherwise, false.
+        /// </param>
+        /// <returns>
+        /// True if the path exists as a directory or a file; otherwise, false.
+        /// </returns>
         public static bool PathExists(
             string path,          /* in */
             out bool isDirectory, /* out */
@@ -9217,6 +13474,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified path to use the directory
+        /// separator style indicated by the translation type.
+        /// </summary>
+        /// <param name="path">
+        /// The path to translate.
+        /// </param>
+        /// <param name="translationType">
+        /// The kind of path translation to perform.
+        /// </param>
+        /// <returns>
+        /// The translated path, or the original path if no translation applies.
+        /// </returns>
         public static string TranslatePath(
             string path,                        /* in */
             PathTranslationType translationType /* in */
@@ -9239,6 +13509,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified path to use the directory
+        /// separator style native to the current operating system.
+        /// </summary>
+        /// <param name="path">
+        /// The path to translate.
+        /// </param>
+        /// <returns>
+        /// The path using the native directory separator style.
+        /// </returns>
         public static string GetNativePath(
             string path /* in */
             )
@@ -9251,6 +13531,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified path to use the directory
+        /// separator style that is not native to the current operating system.
+        /// </summary>
+        /// <param name="path">
+        /// The path to translate.
+        /// </param>
+        /// <returns>
+        /// The path using the non-native directory separator style.
+        /// </returns>
         private static string GetNonNativePath(
             string path /* in */
             )
@@ -9263,6 +13553,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified path to use the Windows
+        /// directory separator style.
+        /// </summary>
+        /// <param name="path">
+        /// The path to translate.
+        /// </param>
+        /// <returns>
+        /// The path using the Windows directory separator style.
+        /// </returns>
         private static string GetWindowsPath(
             string path /* in */
             )
@@ -9281,6 +13581,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified path to use the Unix directory
+        /// separator style.
+        /// </summary>
+        /// <param name="path">
+        /// The path to translate.
+        /// </param>
+        /// <returns>
+        /// The path using the Unix directory separator style.
+        /// </returns>
         public static string GetUnixPath(
             string path /* in */
             )
@@ -9299,6 +13609,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the directory separators in the specified
+        /// path, replacing each one with the supplied separator string (or with
+        /// the native directory separator when none is supplied).
+        /// </summary>
+        /// <param name="path">
+        /// The path whose separators are to be normalized.
+        /// </param>
+        /// <param name="separator">
+        /// The separator string to substitute for each directory separator
+        /// character; null to use the native directory separator.
+        /// </param>
+        /// <returns>
+        /// The path with its directory separators normalized.
+        /// </returns>
         private static string NormalizeSeparators(
             string path,     /* in */
             string separator /* in */
@@ -9330,6 +13655,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to normalize the specified path, returning the
+        /// original path unchanged if it is invalid or cannot be normalized.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="path">
+        /// The path to normalize.
+        /// </param>
+        /// <returns>
+        /// The normalized path, or the original path if it is invalid or cannot
+        /// be normalized.
+        /// </returns>
         public static string RobustNormalizePath(
             Interpreter interpreter, /* in */
             string path              /* in */
@@ -9364,6 +13703,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path is valid for use
+        /// as a file, optionally requiring it to be rooted and/or to exist (and,
+        /// on non-Windows operating systems, to be a normal file).
+        /// </summary>
+        /// <param name="path">
+        /// The path to validate.
+        /// </param>
+        /// <param name="rooted">
+        /// Non-zero to require the path to be rooted, zero to require it not to
+        /// be rooted; null to skip this check.
+        /// </param>
+        /// <param name="exists">
+        /// Non-zero to require the path to exist as a file, zero to require that
+        /// it not exist as a file or directory; null to skip this check.
+        /// </param>
+        /// <returns>
+        /// True if the path is valid for use as a file; otherwise, false.
+        /// </returns>
         public static bool ValidatePathAsFile(
             string path,  /* in */
             bool? rooted, /* in */
@@ -9427,6 +13785,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path is valid for use
+        /// as a directory, optionally requiring it to be rooted and/or to
+        /// exist.
+        /// </summary>
+        /// <param name="path">
+        /// The path to validate.
+        /// </param>
+        /// <param name="rooted">
+        /// Non-zero to require the path to be rooted, zero to require it not to
+        /// be rooted; null to skip this check.
+        /// </param>
+        /// <param name="exists">
+        /// Non-zero to require the path to exist as a directory, zero to require
+        /// that it not exist as a directory or file; null to skip this check.
+        /// </param>
+        /// <returns>
+        /// True if the path is valid for use as a directory; otherwise, false.
+        /// </returns>
         public static bool ValidatePathAsDirectory(
             string path,  /* in */
             bool? rooted, /* in */
@@ -9468,6 +13845,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path begins with a
+        /// tilde character, also reporting the length of the path.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.  This parameter may be null.
+        /// </param>
+        /// <param name="length">
+        /// Upon return, set to the length of the path, or an invalid length if
+        /// the path is null.
+        /// </param>
+        /// <returns>
+        /// True if the path begins with a tilde character; otherwise, false.
+        /// </returns>
         private static bool CheckForTilde(
             string path,    /* in */
             out int length  /* out */
@@ -9529,6 +13920,33 @@ namespace Eagle._Components.Private
         //       actually contains the specified file name (i.e. if the
         //       noSearch flag is false).
         //
+        /// <summary>
+        /// This method performs Unix-style leading tilde substitution on the
+        /// specified path, replacing a leading tilde with the home directory of
+        /// the current user -OR- with the directory that actually contains the
+        /// specified file name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path on which to perform leading tilde substitution.
+        /// </param>
+        /// <param name="noSearch">
+        /// Non-zero to skip searching standard user/application profile
+        /// locations for the file name; otherwise, such a search may be
+        /// performed.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to return null when the path uses an unsupported tilde
+        /// form; otherwise, the original path is returned verbatim in that
+        /// case.
+        /// </param>
+        /// <returns>
+        /// The path with any leading tilde substituted, the original path when
+        /// no substitution applies, or null when strict mode rejects the path.
+        /// </returns>
         public static string TildeSubstitution(
             Interpreter interpreter, /* in: OPTIONAL */
             string path,             /* in */
@@ -9708,6 +14126,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces a leading base-directory token in the specified
+        /// path with the actual base path of the currently executing assembly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter is not used.
+        /// </param>
+        /// <param name="path">
+        /// The path on which to perform base-directory substitution.
+        /// </param>
+        /// <returns>
+        /// The path with the leading base-directory token replaced, or the
+        /// original path when no substitution applies.
+        /// </returns>
         public static string BaseDirectorySubstitution(
             Interpreter interpreter, /* in: NOT USED */
             string path              /* in */
@@ -9732,6 +14164,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method expands any environment variable references contained
+        /// within the specified path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter is not used.
+        /// </param>
+        /// <param name="path">
+        /// The path on which to perform environment variable expansion.
+        /// </param>
+        /// <returns>
+        /// The path with its environment variable references expanded, or the
+        /// original value when it is null or empty.
+        /// </returns>
         private static string EnvironmentSubstitution(
             Interpreter interpreter, /* in: NOT USED */
             string path              /* in */
@@ -9747,6 +14193,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs base-directory, environment, and (optionally)
+        /// leading tilde substitution on the specified path, optionally fully
+        /// resolving it, while detecting whether it refers to a remote URI.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to substitute or resolve.
+        /// </param>
+        /// <param name="resolve">
+        /// Non-zero to fully resolve a local path; otherwise, only perform
+        /// leading tilde substitution and normalize its directory separators.
+        /// </param>
+        /// <param name="remoteUri">
+        /// Upon return, set to non-zero if the path refers to a remote URI;
+        /// otherwise, set to zero.
+        /// </param>
+        /// <returns>
+        /// The substituted or resolved path.
+        /// </returns>
         public static string SubstituteOrResolvePath(
             Interpreter interpreter,  /* in: OPTIONAL */
             string path,              /* in */
@@ -9834,6 +14303,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified path to a fully qualified path
+        /// without performing environment variable substitution.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <returns>
+        /// The resolved path, or null if the path could not be resolved.
+        /// </returns>
         private static string ResolvePathNoEnvironment(
             Interpreter interpreter, /* in: OPTIONAL */
             string path              /* in */
@@ -9845,6 +14328,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified path to a fully qualified path,
+        /// performing environment variable and leading tilde substitution.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <returns>
+        /// The resolved path, or null if the path could not be resolved.
+        /// </returns>
         public static string ResolvePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string path              /* in */
@@ -9856,6 +14353,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified path to a fully qualified path,
+        /// performing environment variable and leading tilde substitution and
+        /// normalizing its directory separators.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <param name="unix">
+        /// Non-zero to normalize directory separators to the Unix forward
+        /// slash, zero to normalize them to the Windows backslash; null to
+        /// leave them unchanged.
+        /// </param>
+        /// <returns>
+        /// The resolved path, or null if the path could not be resolved.
+        /// </returns>
         public static string ResolvePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string path,             /* in */
@@ -9868,6 +14385,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fully resolves the specified path to an absolute path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <returns>
+        /// The fully resolved path, or null if the path could not be resolved.
+        /// </returns>
         public static string ResolveFullPath(
             Interpreter interpreter, /* in: OPTIONAL */
             string path              /* in */
@@ -9880,6 +14410,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fully resolves the specified path to an absolute path,
+        /// capturing any error that prevents resolution.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, set to information about the error that prevented
+        /// resolution.
+        /// </param>
+        /// <returns>
+        /// The fully resolved path, or null if the path could not be resolved.
+        /// </returns>
         public static string ResolveFullPath(
             Interpreter interpreter, /* in: OPTIONAL */
             string path,             /* in */
@@ -9901,6 +14449,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally transforms a path that refers to the Eagle
+        /// source library or test suite directory layout into its installed
+        /// "lib" equivalent.
+        /// </summary>
+        /// <param name="path">
+        /// The path to transform.
+        /// </param>
+        /// <param name="skipLibraryToLib">
+        /// Non-zero to skip the "Library" to "lib" transformation.
+        /// </param>
+        /// <param name="skipTestsToLib">
+        /// Non-zero to skip the "Tests" to "lib" transformation.
+        /// </param>
+        /// <param name="relative">
+        /// Non-zero to return only the relative matched portion of the path;
+        /// otherwise, return the entire transformed path.
+        /// </param>
+        /// <returns>
+        /// The transformed path, or the original path when no transformation
+        /// applies.
+        /// </returns>
         public static string MaybeToLib(
             string path,           /* in */
             bool skipLibraryToLib, /* in */
@@ -9932,6 +14502,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method transforms a path ending in a "Tests" directory into one
+        /// with a "lib" directory inserted just before it.
+        /// </summary>
+        /// <param name="path">
+        /// The path to transform.
+        /// </param>
+        /// <param name="relative">
+        /// Non-zero to return only the relative matched portion of the path;
+        /// otherwise, return the entire transformed path.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to non-zero if a transformation was performed;
+        /// otherwise, set to zero.
+        /// </param>
+        /// <returns>
+        /// The transformed path, or the original path when no transformation
+        /// applies.
+        /// </returns>
         private static string TestsToLib(
             string path,   /* in */
             bool relative, /* in */
@@ -10080,6 +14669,28 @@ namespace Eagle._Components.Private
         //       "<dirName>" part exists).  The returned path may not actually exist on the
         //       file system -AND- that is perfectly OK.
         //
+        /// <summary>
+        /// This method transforms a path matching the Eagle source library
+        /// directory layout (e.g. "Library/Tests" or "Library/Resources",
+        /// optionally followed by a "data" or "tcl" directory) into its
+        /// installed equivalent, replacing the "Library" part with "lib" and
+        /// the "Resources" part with the binary plugin loader directory.
+        /// </summary>
+        /// <param name="path">
+        /// The path to transform.
+        /// </param>
+        /// <param name="relative">
+        /// Non-zero to return only the relative matched portion of the path;
+        /// otherwise, return the entire transformed path.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to non-zero if a transformation was performed;
+        /// otherwise, set to zero.
+        /// </param>
+        /// <returns>
+        /// The transformed path, or the original path when no transformation
+        /// applies.
+        /// </returns>
         private static string LibraryToLib(
             string path,   /* in */
             bool relative, /* in */
@@ -10241,6 +14852,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables, and queries, diagnostic tracing for
+        /// path normalization.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable tracing, zero to disable it; null to query the
+        /// current state without changing it.
+        /// </param>
+        /// <returns>
+        /// True if path normalization tracing is currently enabled; otherwise,
+        /// false.
+        /// </returns>
         private static bool EnableTraceForNormalize(
             bool? enable /* in */
             )
@@ -10263,6 +14886,23 @@ namespace Eagle._Components.Private
         //       the specified path to contain illegal characters, e.g.
         //       the "?" and "*" characters, for use in glob patterns.
         //
+        /// <summary>
+        /// This method returns the fully qualified form of the specified path
+        /// while leaving any trailing tail component (which may contain illegal
+        /// characters, such as the "?" and "*" glob characters) unresolved.
+        /// </summary>
+        /// <param name="path">
+        /// The path to resolve.
+        /// </param>
+        /// <param name="unix">
+        /// Non-zero to use Unix-style directory separators, zero to use
+        /// Windows-style directory separators; null to use the native
+        /// separator.
+        /// </param>
+        /// <returns>
+        /// The fully qualified path with its tail component preserved, or the
+        /// original value when it is null or empty.
+        /// </returns>
         private static string GetFullPath(
             string path, /* in */
             bool? unix   /* in */
@@ -10285,6 +14925,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified path, returning the resulting
+        /// path or null on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="rootPath">
+        /// The root path against which to resolve a relative path, or null to
+        /// use the current directory.
+        /// </param>
+        /// <param name="path">
+        /// The path to normalize.
+        /// </param>
+        /// <param name="unix">
+        /// Non-zero to normalize directory separators to Unix forward slashes,
+        /// zero to normalize them to Windows backslashes; null to leave them
+        /// unchanged.
+        /// </param>
+        /// <param name="environment">
+        /// Non-zero to perform environment variable substitution on the path.
+        /// </param>
+        /// <param name="tilde">
+        /// Non-zero to perform leading tilde substitution on the path.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to fully resolve the path, zero to never resolve it; null
+        /// to resolve only when the path is already rooted.
+        /// </param>
+        /// <param name="legacyResolve">
+        /// Non-zero to use the legacy full-path resolution method.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to normalize the resulting path to lower case.
+        /// </param>
+        /// <returns>
+        /// The normalized path, or null if the path could not be normalized.
+        /// </returns>
         private static string NormalizePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string rootPath,         /* in */
@@ -10313,6 +14992,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified path, placing the result into
+        /// an output parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may be null.  This parameter
+        /// is optional.
+        /// </param>
+        /// <param name="rootPath">
+        /// The root path against which to resolve a relative path, or null to
+        /// use the current directory.
+        /// </param>
+        /// <param name="path">
+        /// The path to normalize.
+        /// </param>
+        /// <param name="unix">
+        /// Non-zero to normalize directory separators to Unix forward slashes,
+        /// zero to normalize them to Windows backslashes; null to leave them
+        /// unchanged.
+        /// </param>
+        /// <param name="environment">
+        /// Non-zero to perform environment variable substitution on the path.
+        /// </param>
+        /// <param name="tilde">
+        /// Non-zero to perform leading tilde substitution on the path.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to fully resolve the path, zero to never resolve it; null
+        /// to resolve only when the path is already rooted.
+        /// </param>
+        /// <param name="legacyResolve">
+        /// Non-zero to use the legacy full-path resolution method.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to normalize the resulting path to lower case.
+        /// </param>
+        /// <param name="newPath">
+        /// Upon success, set to the normalized path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, set to information about the error that prevented
+        /// normalization.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode NormalizePath(
             Interpreter interpreter, /* in: OPTIONAL */
             string rootPath,         /* in */

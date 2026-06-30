@@ -3384,5 +3384,1326 @@ runTest {test basic-1.110 {script evaluation in remote sandbox} -setup {
 {^Ok \{\d{4}\.\d{2}\.\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,3} \+\d{4}\}$}}
 
 ###############################################################################
+############################# COMPATIBILITY TESTS #############################
+###############################################################################
+
+runTest {test basic-1.115 {integer (-1) raised to odd/even powers} \
+    -constraints {tcl85Feature} -body {
+  #
+  # NOTE: Regression for MathOps.Pow(int): (-1)**n was returning 1 for odd
+  #       exponents >= 3 because the general loop's "result != 1" early-exit
+  #       truncated the -1/1 oscillation.
+  #
+  list [expr {(-1)**2}] [expr {(-1)**3}] [expr {(-1)**4}] [expr {(-1)**5}]
+} -result {1 -1 1 -1}}
+
+###############################################################################
+
+runTest {test basic-1.116 {wide (-1) raised to odd/even powers} \
+    -constraints {tcl85Feature} -body {
+  #
+  # NOTE: Regression for MathOps.Pow(long); same defect as basic-1.115.
+  #
+  list [expr {wide(-1)**3}] [expr {wide(-1)**4}] [expr {wide(-1)**7}]
+} -result {-1 1 -1}}
+
+###############################################################################
+
+runTest {test basic-1.117 {general integer exponentiation} \
+    -constraints {tcl85Feature} -body {
+  list [expr {2**10}] [expr {(-2)**3}] [expr {0**0}] [expr {3**0}] \
+      [expr {5**1}] [expr {7**2}]
+} -result {1024 -8 1 1 5 49}}
+
+###############################################################################
+
+runTest {test basic-1.118 {ternary short-circuits untaken branch} -body {
+  #
+  # NOTE: Characterization test for the "?:" operator: only the taken branch
+  #       is evaluated, so the [error] in the untaken branch must not fire.
+  #
+  list [expr {1 ? 2 : [error NOPE]}] [expr {0 ? [error NOPE] : 3}] \
+      [expr {1 ? 0 ? 10 : 20 : 30}]
+} -result {2 3 20}}
+
+###############################################################################
+
+runTest {test basic-1.119.1 {round() rounds halves away from zero} -body {
+  #
+  # NOTE: Regression for the round() function: it must round halves AWAY FROM
+  #       ZERO (Tcl semantics), not use .NET banker's (to-even) rounding.
+  #
+  list [expr {round(0.5)}] [expr {round(2.5)}] [expr {round(-0.5)}] \
+      [expr {round(-2.5)}]
+} -constraints {tcl} -result {1 3 -1 -3}}
+
+###############################################################################
+
+runTest {test basic-1.119.2 {round() rounds halves away from zero} -body {
+  list [expr {round(0.5)}] [expr {round(2.5)}] [expr {round(-0.5)}] \
+      [expr {round(-2.5)}]
+} -constraints {eagle} -match regexp \
+    -result {^1(?:\.0)? 3(?:\.0)? -1(?:\.0)? -3(?:\.0)?$}}
+
+###############################################################################
+
+runTest {test basic-1.121.1 {fmod() is C fmod, not IEEE remainder} -body {
+  #
+  # NOTE: Regression for the fmod() function: it must be the C fmod()
+  #       (truncated quotient, sign of dividend), not Math.IEEERemainder
+  #       (which would make fmod(5.5,2) == -0.5 instead of 1.5).
+  #
+  list [expr {fmod(5.5,2)}] [expr {fmod(-5.5,2)}] [expr {fmod(10,3)}] \
+      [expr {fmod(10,-3)}]
+} -constraints {tcl} -result {1.5 -1.5 1.0 1.0}}
+
+###############################################################################
+
+runTest {test basic-1.121.2 {fmod() is C fmod, not IEEE remainder} -body {
+  list [expr {fmod(5.5,2)}] [expr {fmod(-5.5,2)}] [expr {fmod(10,3)}] \
+      [expr {fmod(10,-3)}]
+} -constraints {eagle} -match regexp \
+    -result {^1\.5 -1\.5 1(?:\.0)? 1(?:\.0)?$}}
+
+###############################################################################
+
+runTest {test basic-1.123 {hypot() basic correctness} -body {
+  list [expr {hypot(3,4) == 5.0 ? 1 : 0}] [expr {hypot(0,0) == 0.0 ? 1 : 0}] \
+      [expr {hypot(-3,-4) == 5.0 ? 1 : 0}]
+} -result {1 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.124 {hypot() is overflow/underflow safe} -body {
+  #
+  # NOTE: Regression for hypot(): the naive sqrt(x*x + y*y) overflowed to
+  #       +Inf (and underflowed to 0) for extreme operands; hypot(1e200,
+  #       1e200) is ~1.41e200, not Inf, and hypot(1e-200,1e-200) is nonzero.
+  #
+  list [expr {hypot(1e200,1e200) > 1.4e200 && \
+      hypot(1e200,1e200) < 1.5e200 ? 1 : 0}] \
+      [expr {hypot(1e-200,1e-200) > 0.0 ? 1 : 0}]
+} -result {1 1}}
+
+###############################################################################
+
+runTest {test basic-1.125 {math functions characterization} \
+    -constraints {tcl85Feature} -body {
+  #
+  # NOTE: Guard tests for functions audited as correct: min/max coerce mixed
+  #       types, int() truncates toward zero, ceil/floor round outward, atan2
+  #       takes (y, x).  Comparisons keep this robust to double rendering.
+  #
+  list [expr {min(2,3.5)==2.0 ? 1 : 0}] [expr {max(2,3.5)==3.5 ? 1 : 0}] \
+      [expr {int(-2.7)==-2 ? 1 : 0}] [expr {ceil(2.1)==3.0 ? 1 : 0}] \
+      [expr {floor(-2.1)==-3.0 ? 1 : 0}] \
+      [expr {atan2(1,0)>1.57 && atan2(1,0)<1.58 ? 1 : 0}]
+} -result {1 1 1 1 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.126 {string map/repeat characterization} -body {
+  #
+  # NOTE: Guard tests for string map (empty key is skipped, not an infinite
+  #       loop; longest multi-char key matches) and string repeat (zero and
+  #       negative counts yield empty).
+  #
+  list [string map {{} X a b} abca] [string map {a b c d} abcd] \
+      [string repeat abc 3] [string repeat x 0] [string repeat x -1] \
+      [string map {ab X} ababab]
+} -result {bbcb bbdd abcabcabc {} {} XXX}}
+
+###############################################################################
+
+runTest {test basic-1.127 {list element quoting round-trips} -setup {
+  unset -nocomplain bad x
+} -body {
+  #
+  # NOTE: Each tricky element must survive a list round-trip, exercising
+  #       Parser.ScanElement/ConvertElement and the list parser together
+  #       (spaces, empty, balanced/unbalanced braces, trailing backslash,
+  #       leading "#", quote, bracket, semicolon, newline).
+  #
+  set bad 0
+
+  foreach x [list "a b" "" "a{b}c" "x;y" {[a]} "a\"b" "\{x" "a\}b" "a\\" \
+      "  " "#foo" "a\nb" "\}\{"] {
+    if {[lindex [list $x] 0] ne $x} {
+      incr bad
+    }
+  }
+
+  set bad
+} -cleanup {
+  unset -nocomplain bad x
+} -result {0}}
+
+###############################################################################
+
+runTest {test basic-1.128 {list element quoting picks braces} \
+    -constraints {tcl85Feature} -body {
+  list [expr {[string equal [list "a b"] "{a b}"] ? 1 : 0}] \
+      [expr {[string equal [list ""] "{}"] ? 1 : 0}] \
+      [expr {[string equal [list "#foo"] "{#foo}"] ? 1 : 0}] \
+      [expr {[string equal [list "x;y"] "{x;y}"] ? 1 : 0}]
+} -result {1 1 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.129 {lsort ascii/dictionary/integer modes} -body {
+  #
+  # NOTE: Guards for lsort: default (-ascii) is ordinal (upper before lower);
+  #       -dictionary compares embedded numbers by value (x9 < x10) with more
+  #       leading zeros sorting later as a secondary key, and folds case
+  #       (case as a secondary key); -integer sorts numerically.  All ASCII,
+  #       so locale-independent.
+  #
+  list [lsort -dictionary {x10 x9 x100 x1 x2}] \
+      [lsort -dictionary {B a C b A c}] \
+      [lsort -dictionary {a010 a10 a0010}] \
+      [lsort {B a C b A c}] \
+      [lsort -integer {10 9 100 1 2 -5}]
+} -result {{x1 x2 x9 x10 x100} {A a B b C c} {a10 a010 a0010}\
+ {A B C a b c} {-5 1 2 9 10 100}}}
+
+###############################################################################
+
+runTest {test basic-1.130 {decimal literal arithmetic is exact} -setup {
+  unset -nocomplain y
+} -constraints {eagle} -body {
+  #
+  # NOTE: Eagle has special handling that uses decimal (not IEEE-754 binary
+  #       double) for appropriate values, so decimal literals are exact:
+  #       0.1 + 0.2 IS 0.3 (their difference is exactly 0.0), and 0.3 is a
+  #       distinct value from 0.30000000000000004.  (Tcl 8.6, using binary
+  #       doubles, gives 0.30000000000000004 and a 5.55e-17 diff -- hence
+  #       the "eagle" constraint.)  This characterizes the decimal behavior.
+  #
+  set y [expr {0.1 + 0.2}]
+
+  list $y [expr {0.1 + 0.2 == 0.3 ? 1 : 0}] \
+      [expr {(0.1 + 0.2) - 0.3 == 0.0 ? 1 : 0}] \
+      [expr {0.3 == 0.30000000000000004 ? 1 : 0}]
+} -cleanup {
+  unset -nocomplain y
+} -result {0.3 1 1 0}}
+
+###############################################################################
+
+runTest {test basic-1.131 {integer radix prefixes 0x/0o/0b} \
+    -constraints {tcl86Feature} -body {
+  #
+  # NOTE: Guard for CheckRadixPrefix handling of the explicit radix prefixes
+  #       (hex/octal/binary), upper- and lower-case.  (Leading-zero octal,
+  #       e.g. "010", and signed radix literals, e.g. "-0x10", are open
+  #       questions -- see CHECKLIST.md A3 -- and are intentionally NOT
+  #       asserted here.)
+  #
+  #       (Bare "expr {0x1F}" preserves the literal form; "+ 0" forces
+  #       arithmetic so the parsed numeric value is observed.)
+  #
+  list [expr {0x1F + 0}] [expr {0o17 + 0}] [expr {0b1010 + 0}] \
+      [expr {0X1f + 0}] [expr {0O17 + 0}] [expr {0B10 + 0}]
+} -result {31 15 10 31 15 2}}
+
+###############################################################################
+
+runTest {test basic-1.132 {format integer specifiers} -body {
+  list [format %d 42] [format %x 255] [format %X 255] [format %o 8] \
+      [format %05d 42] [format |%-5d| 42] [format %+d 42] [format %08x 255]
+} -result {42 ff FF 10 00042 {|42   |} +42 000000ff}}
+
+###############################################################################
+
+runTest {test basic-1.133 {format float specifiers (C printf)} -setup {
+  unset -nocomplain result
+} -body {
+  #
+  # NOTE: Probe for C/Tcl printf compatibility of %e and %g, which differ from
+  #       .NET's native float formatting: %e uses a lowercase "e" and %g
+  #       switches to exponential at 1e6 ("1e+06").  The exponent WIDTH is
+  #       platform-dependent -- .NET Framework emits three digits ("e+004")
+  #       while .NET Core and Tcl emit two ("e+04") -- so it is normalized to
+  #       two digits below, keeping this a cross-framework check.
+  #
+  set result [list [format %.3f 1.5] [format %e 12345.678] [format %g 0.0001] \
+      [format %g 100000] [format %g 1000000]]
+  regsub -all {([eE][-+])0*(\d\d)} $result {\1\2} result
+  set result
+} -cleanup {
+  unset -nocomplain result
+} -result {1.500 1.234568e+04 0.0001 100000 1e+06}}
+
+###############################################################################
+
+runTest {test basic-1.134 {format string/char/percent specifiers} -body {
+  list [format %.3s abcdef] [format %c 65] [format 100%%]
+} -result {abc A 100%}}
+
+###############################################################################
+
+runTest {test basic-1.135 {end-relative and out-of-range list indices} \
+    -constraints {tcl85Feature} -setup {
+  unset -nocomplain l
+} -body {
+  set l {a b c d e}
+  list [lindex $l end] [lindex $l end-1] [lindex $l end+1] \
+      [lindex $l -1] [lindex $l 0+2] [lrange $l 1 end] \
+      [lrange $l end-2 end] [lrange $l -3 1] [lrange $l 2 100]
+} -cleanup {
+  unset -nocomplain l
+} -result {e d {} {} c {b c d e} {c d e} {a b} {c d e}}}
+
+###############################################################################
+
+runTest {test basic-1.136 {lreplace/linsert bounds and insertion} -setup {
+  unset -nocomplain l
+} -body {
+  set l {a b c d}
+  list [lreplace $l 1 1 X] [lreplace $l 1 0 X] [lreplace $l 0 -1 X] \
+      [lreplace $l end end] [lreplace $l 1 2] [lreplace $l 2 99] \
+      [linsert {a b c} 5 X] [linsert {a b c} -1 X] [linsert {} 0 X] \
+      [linsert {a b c} 1 X Y]
+} -cleanup {
+  unset -nocomplain l
+} -result {{a X c d} {a X b c d} {X a b c d} {a b c} {a d} {a b} {a b c X}\
+ {X a b c} X {a X Y b c}}}
+
+###############################################################################
+
+runTest {test basic-1.137 {lsearch -sorted uses ordinal comparison} -setup {
+  unset -nocomplain l
+} -body {
+  set l [lsort {b a B A}]
+  list $l [lsearch -sorted $l A] [lsearch -sorted $l B] \
+      [lsearch -sorted $l a] [lsearch -sorted $l b] \
+      [lsearch -exact $l a] [lsearch -exact $l b] [lsearch -sorted $l z]
+} -cleanup {
+  unset -nocomplain l
+} -result {{A B a b} 0 1 2 3 2 3 -1}}
+
+###############################################################################
+
+runTest {test basic-1.138 {split/join empty elements/separators} -body {
+  list [split "a b c"] [split "a..b.." .] [split "hello" {}] \
+      [split "a  b"] [split "" .] [join {a b c} -] [join {a b c} {}] \
+      [join {{a b} c}] [join {} :]
+} -result {{a b c} {a {} b {} {}} {h e l l o} {a {} b} {} a-b-c abc\
+ {a b c} {}}}
+
+###############################################################################
+
+runTest {test basic-1.139 {string is empty/-strict + ASCII classes} -body {
+  list [expr {[string is alpha ""] ? 1 : 0}] \
+      [expr {[string is alpha -strict ""] ? 1 : 0}] \
+      [expr {[string is alpha abc] ? 1 : 0}] \
+      [expr {[string is alpha abc1] ? 1 : 0}] \
+      [expr {[string is digit 123] ? 1 : 0}] \
+      [expr {[string is digit 12a] ? 1 : 0}] \
+      [expr {[string is upper ABC] ? 1 : 0}] \
+      [expr {[string is lower abc] ? 1 : 0}] \
+      [expr {[string is space "   "] ? 1 : 0}] \
+      [expr {[string is alnum abc123] ? 1 : 0}] \
+      [expr {[string is integer -strict ""] ? 1 : 0}] \
+      [expr {[string is double -strict ""] ? 1 : 0}]
+} -result {1 0 1 0 1 0 1 1 1 1 0 0}}
+
+###############################################################################
+
+runTest {test basic-1.140 {clock format numeric codes with -gmt} -body {
+  list [clock format 0 -gmt 1 -format "%Y-%m-%d %H:%M:%S"] \
+      [clock format 86400 -gmt 1 -format "%Y-%m-%d"] \
+      [clock format 1000000000 -gmt 1 -format "%Y-%m-%d %H:%M:%S"] \
+      [clock format 0 -gmt 1 -format "%H:%M:%S"]
+} -result {{1970-01-01 00:00:00} 1970-01-02 {2001-09-09 01:46:40} 00:00:00}}
+
+###############################################################################
+
+runTest {test basic-1.141 {concat/lreverse/lrepeat/lassign behavior} \
+    -constraints {command.lassign command.lrepeat command.lreverse} -body {
+  list [concat a {} b] [concat a "  " b] [concat {a b} {c d}] \
+      [lreverse {a b c}] [lrepeat 3 x] [lrepeat 2 a b] \
+      [lassign {a b c} p q]
+} -cleanup {
+  unset -nocomplain p q
+} -result {{a b} {a b} {a b c d} {c b a} {x x x} {a b a b} c}}
+
+###############################################################################
+
+runTest {test basic-1.142 {dict insert/delete/resize membership} \
+    -constraints {command.dict} -body {
+  set d [dict create]
+  for {set i 0} {$i < 100} {incr i} {dict set d k$i $i}
+  for {set i 0} {$i < 100} {incr i 2} {dict unset d k$i}
+  set sz [dict size $d]
+  set ok 1
+  for {set i 1} {$i < 100} {incr i 2} {
+    if {![dict exists $d k$i] || [dict get $d k$i] != $i} {set ok 0}
+  }
+  for {set i 0} {$i < 100} {incr i 2} {
+    if {[dict exists $d k$i]} {set ok 0}
+  }
+  list $sz $ok
+} -cleanup {
+  unset -nocomplain d i sz ok
+} -result {50 1}}
+
+###############################################################################
+
+runTest {test basic-1.143 {lsort -integer no overflow misorder} -body {
+  list [lsort -integer {4611686018427387904 -4611686018427387904 0}] \
+      [lsort -integer {3 1 2 -9223372036854775808 9223372036854775807}]
+} -result {{-4611686018427387904 0 4611686018427387904}\
+ {-9223372036854775808 1 2 3 9223372036854775807}}}
+
+###############################################################################
+
+runTest {test basic-1.144 {string reverse/index/range/first/last} \
+    -constraints {tcl85Feature} -body {
+  set s "hello world"
+  list [string reverse $s] [string length $s] [string index $s 0] \
+      [string index $s end] [string index $s end-2] [string range $s 0 4] \
+      [string range $s 6 end] [string range $s -3 2] [string range $s 6 100] \
+      [string first o $s] [string last o $s] [string first o $s 5]
+} -cleanup {
+  unset -nocomplain s
+} -result {{dlrow olleh} 11 h d r hello world hel world 4 7 7}}
+
+###############################################################################
+
+runTest {test basic-1.145 {string match glob */?/[...]/escape} -body {
+  list [expr {[string match {a*c} abc] ? 1 : 0}] \
+      [expr {[string match {a*c} ac] ? 1 : 0}] \
+      [expr {[string match {a?c} abc] ? 1 : 0}] \
+      [expr {[string match {a?c} ac] ? 1 : 0}] \
+      [expr {[string match {[a-c]*} bzz] ? 1 : 0}] \
+      [expr {[string match {\*} *] ? 1 : 0}] \
+      [expr {[string match {\*} x] ? 1 : 0}] \
+      [expr {[string match {a[bc]d} abd] ? 1 : 0}] \
+      [expr {[string match {a[bc]d} aed] ? 1 : 0}] \
+      [expr {[string match -nocase {ABC} abc] ? 1 : 0}] \
+      [expr {[string match {*} ""] ? 1 : 0}] \
+      [expr {[string match {?} ""] ? 1 : 0}] \
+      [expr {[string match {a**c} abc] ? 1 : 0}]
+} -result {1 1 1 0 1 1 0 1 0 1 1 0 1}}
+
+###############################################################################
+
+runTest {test basic-1.146 {switch fallthrough/default/modes/--} -setup {
+  unset -nocomplain r
+} -body {
+  list [switch -exact b {a {expr 1} b {expr 2} c {expr 3}}] \
+      [switch a {a - b {set r 12} c {set r 3}}] \
+      [switch z {a {expr 1} default {expr 99}}] \
+      [switch -glob abc {a* {expr 1} b* {expr 2}}] \
+      [switch x {a {expr 1} b {expr 2}}] \
+      [switch -- -x {-x {expr 7} default {expr 8}}] \
+      [switch default {default {expr 100} foo {expr 200}}]
+} -cleanup {
+  unset -nocomplain r
+} -result {2 12 99 1 {} 7 100}}
+
+###############################################################################
+
+runTest {test basic-1.147 {integer literals: leading zero not octal} \
+    -constraints {eagle} -body {
+  #
+  # NOTE: Eagle does NOT treat a leading zero as octal -- "010" is decimal 10
+  #       and "08" is decimal 8 (matching Tcl 9.0, which dropped leading-zero
+  #       octal; Tcl 8.6 makes "010" == 8 and errors on "08", hence the
+  #       "eagle" constraint).  Explicit "0o" octal and signed radix literals
+  #       (-0x.., -0o..) work and match Tcl.  "+ 0" forces arithmetic.
+  #
+  list [expr {010 + 0}] [expr {08 + 0}] [expr {-0x10 + 0}] \
+      [expr {-0o10 + 0}] [expr {0o10 + 0}] [expr {0xFF + 0}]
+} -result {10 8 -16 -8 8 255}}
+
+###############################################################################
+
+runTest {test basic-1.148 {string trim/trimleft/trimright charsets} -body {
+  list [string trim "xxabcxx" x] [string trimleft "xxabc" x] \
+      [string trimright "abcxx" x] [string trim "  abc  "] \
+      [string trim "abcba" ab] [string trimleft "12.34" "0123456789"] \
+      [string trim "xyz" ""] [string trim "" x] \
+      [string trimright "a.b.c..." .] [string trim "aXbXc" X]
+} -result {abc abc abc abc c .34 xyz {} a.b.c aXbXc}}
+
+###############################################################################
+
+runTest {test basic-1.149 {string map order/overlap/nocase/empty} -body {
+  list [string map {a 1 b 2} abc] [string map {ab X} abab] \
+      [string map {a X ab Y} abab] [string map {ab Y a X} abab] \
+      [string map -nocase {ABC X} abcabc] [string map {} abc] \
+      [string map {aa X} aaaa] [string map {a b b a} ab] \
+      [string map {"" Z a Q} aa]
+} -result {12c XX XbXb YY XX abc XX ba QQ}}
+
+###############################################################################
+
+runTest {test basic-1.150 {string replace index handling} -body {
+  list [string replace abcde 1 3 X] [string replace abcde 1 3] \
+      [string replace abcde 0 0 Z] [string replace abcde -1 1 X] \
+      [string replace abcde 2 100 X] [string replace abcde 3 1 X] \
+      [string replace abcde end end Q] [string replace abcde 0 end]
+} -result {aXe ae Zbcde Xcde abX abcde abcdQ {}}}
+
+###############################################################################
+
+runTest {test basic-1.151 {string is integer/double/wideinteger edges} \
+    -constraints {tcl85Feature} -body {
+  list [expr {[string is integer "  5  "] ? 1 : 0}] \
+      [expr {[string is integer 0x10] ? 1 : 0}] \
+      [expr {[string is integer +5] ? 1 : 0}] \
+      [expr {[string is integer " "] ? 1 : 0}] \
+      [expr {[string is integer 99999999999999999999] ? 1 : 0}] \
+      [expr {[string is integer 5.0] ? 1 : 0}] \
+      [expr {[string is integer 5x] ? 1 : 0}] \
+      [expr {[string is double 5] ? 1 : 0}] \
+      [expr {[string is double 1e3] ? 1 : 0}] \
+      [expr {[string is double .5] ? 1 : 0}] \
+      [expr {[string is double Inf] ? 1 : 0}] \
+      [expr {[string is wideinteger 99999999999999999999] ? 1 : 0}]
+} -result {1 1 1 0 0 0 0 1 1 1 1 0}}
+
+###############################################################################
+
+runTest {test basic-1.152 {regexp uses .NET dialect, not Tcl ARE} \
+    -constraints {eagle} -body {
+  #
+  # NOTE: Eagle's regexp/regsub use the .NET regex engine.  Common syntax
+  #       matches Tcl, but POSIX classes ([[:digit:]]) don't match and ARE
+  #       word-boundary escapes (\y \m \M) error here -- both work in Tcl's
+  #       ARE, hence the "eagle" constraint.  See DEVIATIONS.md.
+  #
+  list [regexp {[[:digit:]]+} ab12] [regexp {a(?=b)} ab] \
+      [regexp {\d+} ab12] [catch {regexp {\y} x}]
+} -result {0 1 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.153 {infinity symbol parses and round-trips} \
+    -constraints {eagle} -setup {
+  unset -nocomplain inf s
+} -body {
+  #
+  # NOTE: Eagle accepts the infinity symbol (U+221E) back in expressions and
+  #       still accepts Inf/-Inf, so computed infinity round-trips on every
+  #       platform.  Whether computed infinity is FORMATTED as the symbol is
+  #       platform-dependent (.NET Core/ICU uses U+221E; .NET Framework/NLS
+  #       uses "Infinity"), so that part is gated on [haveInfinitySymbol].
+  #       The symbol is written as the \u221E escape so the file stays ASCII.
+  #
+  set inf \u221E
+  set s [expr {Inf + 1}]
+  list [expr {$inf > 1e300 ? 1 : 0}] [expr {-$inf < -1e300 ? 1 : 0}] \
+      [expr {$s == $inf ? 1 : 0}] [expr {$s > 1e300 ? 1 : 0}] \
+      [expr {[haveInfinitySymbol] ? \
+          ([string equal $s $inf] ? 1 : 0) : \
+          ([string equal $s $inf] ? 0 : 1)}]
+} -cleanup {
+  unset -nocomplain inf s
+} -result {1 1 1 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.154 {lsort -unique deduplicates equal elements} \
+    -constraints {tcl85Feature} -body {
+  #
+  # NOTE: Per Tcl, [lsort -unique] keeps the LAST of each group of equal
+  #       elements (observable when "equal" elements differ, e.g. under
+  #       -nocase or -index).  Eagle's [lsort] uses .NET's UNSTABLE sort,
+  #       whose ordering of equal elements differs across frameworks (.NET
+  #       Core matches Tcl's "keep last"; .NET Framework may keep another),
+  #       so the impacted sections are matched with a regexp alternation
+  #       covering every valid representative.  See FINDINGS.md F41.
+  #
+  list [lsort -unique -nocase {A a B}] \
+      [lsort -unique -index 0 {{a X} {a Y} {a Z}}] \
+      [lsort -unique -nocase {a A B}]
+} -match regexp -result {^\{(?:a|A) B\} \{\{a (?:X|Y|Z)\}\} \{(?:a|A) B\}$}}
+
+###############################################################################
+
+runTest {test basic-1.155 {dict update/with/filter behavior} \
+    -constraints {command.dict} -body {
+  set d {a 1 b 2}
+  dict update d a x b y {set x [expr {$x + 10}]; set y [expr {$y + 10}]}
+  set r1 [list [dict get $d a] [dict get $d b]]
+  set d2 {a 1 b 2}
+  dict with d2 {set a [expr {$a + 100}]}
+  set r2 [list [dict get $d2 a] [dict get $d2 b]]
+  set fk [dict get [dict filter {a 1 b 2 ca 3} key a*] a]
+  set fs [lsort [dict keys [dict filter {a 1 b 2 c 3} script {k v} \
+      {expr {$v >= 2}}]]]
+  list $r1 $r2 $fk $fs
+} -cleanup {
+  unset -nocomplain d r1 d2 r2 fk fs a b x y k v
+} -result {{11 12} {101 2} 1 {b c}}}
+
+###############################################################################
+
+runTest {test basic-1.156 {foreach/lmap multiple lists, uneven lengths} \
+    -constraints {tcl86Feature} -body {
+  set r1 {}; foreach {a b} {1 2 3 4} {lappend r1 $a$b}
+  set r2 {}; foreach {a b} {1 2 3} {lappend r2 $a-$b}
+  set r3 {}; foreach a {1 2} b {x y z} {lappend r3 $a$b}
+  set r4 [lmap a {1 2 3} {expr {$a * 2}}]
+  set r5 [lmap {a b} {1 2 3 4} {list $b $a}]
+  set r6 [lmap a {1 2 3 4} {if {$a % 2} {continue}; set a}]
+  list $r1 $r2 $r3 $r4 $r5 $r6
+} -cleanup {
+  unset -nocomplain r1 r2 r3 r4 r5 r6 a b
+} -result {{12 34} {1-2 3-} {1x 2y z} {2 4 6} {{2 1} {4 3}} {2 4}}}
+
+###############################################################################
+
+runTest {test basic-1.157 {subst command/variable/backslash flags} -setup {
+  set x 5
+} -body {
+  list [subst {a$x b}] [subst {[expr 1 + 1]}] \
+      [subst -novariables {$x [expr 1 + 1]}] \
+      [subst -nocommands {$x [expr 1 + 1]}] \
+      [subst -nobackslashes {a\tb}] [string length [subst {a\tb}]] \
+      [subst {[set y 9]$y}]
+} -cleanup {
+  unset -nocomplain x y
+} -result {{a5 b} 2 {$x 2} {5 [expr 1 + 1]} {a\tb} 3 99}}
+
+###############################################################################
+
+runTest {test basic-1.158 {incr undefined var errors (by design)} \
+    -constraints {eagle} -setup {
+  unset -nocomplain n m
+} -body {
+  #
+  # NOTE: By design, Eagle's [incr] does NOT auto-create an undefined
+  #       variable; it must be initialized first (set n 0; incr n).  See
+  #       DEVIATIONS.md and FINDINGS.md F37 (RESOLVED, intentional).
+  #
+  list [catch {incr n} m] [catch {incr n 5} m]
+} -cleanup {
+  unset -nocomplain n m
+} -result {1 1}}
+
+###############################################################################
+
+runTest {test basic-1.159 {expr in/ni/eq/ne operators} \
+    -constraints {tcl85Feature} -body {
+  list [expr {2 in {1 2 3} ? 1 : 0}] [expr {5 in {1 2 3} ? 1 : 0}] \
+      [expr {2 ni {1 2 3} ? 1 : 0}] [expr {"b" in {a b c} ? 1 : 0}] \
+      [expr {1 eq "1" ? 1 : 0}] [expr {"a" ne "b" ? 1 : 0}] \
+      [expr {10 eq "10.0" ? 1 : 0}]
+} -result {1 0 0 1 1 1 0}}
+
+###############################################################################
+
+runTest {test basic-1.160 {expr lt/gt/le/ge string operators} \
+    -constraints {eagle} -body {
+  #
+  # NOTE: Eagle has lt/gt/le/ge string-comparison operators (Tcl 8.6 lacks
+  #       them; added in Tcl 8.7/9.0).  Comparison is lexicographic.
+  #
+  list [expr {"abc" lt "abd" ? 1 : 0}] [expr {"abd" gt "abc" ? 1 : 0}] \
+      [expr {"abc" le "abc" ? 1 : 0}] [expr {"abc" ge "abd" ? 1 : 0}] \
+      [expr {"10" lt "9" ? 1 : 0}]
+} -result {1 1 1 0 1}}
+
+###############################################################################
+
+runTest {test basic-1.161 {lsearch -all/-inline/-not/-start/-glob} -body {
+  list [lsearch -all {a b a c a} a] [lsearch -all -inline {a b a c} a] \
+      [lsearch -all -not {a b a c} a] [lsearch -all -inline -not {a b a c} a] \
+      [lsearch -start 2 {a b a c a} a] [lsearch -exact -all {1 2 1} 1] \
+      [lsearch -glob {abc abd xyz} ab*] [lsearch -inline {a b c} b] \
+      [lsearch {a b c} z] [lsearch -all -inline -glob {cat car dog} ca*]
+} -result {{0 2 4} {a a} {1 3} {b c} 2 {0 2} 0 b -1 {cat car}}}
+
+###############################################################################
+
+runTest {test basic-1.162 {clock scan ISO/datetime/format/round-trip -gmt} \
+    -constraints {eagle} -body {
+  list [clock scan "1970-01-01 00:00:00" -gmt 1] \
+      [clock scan "2001-09-09 01:46:40" -gmt 1] \
+      [clock scan "2001-09-09T01:46:40" -gmt 1] \
+      [clock scan "Sep 9, 2001" -gmt 1] \
+      [clock scan "09/09/2001" -gmt 1 -format "%m/%d/%Y"] \
+      [clock format [clock scan "2001-09-09" -gmt 1] -gmt 1 -format "%Y-%m-%d"]
+} -result {0 1000000000 1000000000 999993600 999993600 2001-09-09}}
+
+###############################################################################
+
+runTest {test basic-1.163 {split/join/string map/string repeat matrix} -body {
+  list [split "a,b,,c" ,] [split axbyc xy] [join {a b c} -] \
+      [join {a {b c} d} ,] [string map {a 1 b 2} ababab] \
+      [string map {ab X} abab] [string map -nocase {AB X} abab] \
+      [string map {{} Z a 1} aa] [string map {a b b a} ab] \
+      [string repeat ab 3]
+} -result {{a b {} c} {a b c} a-b-c {a,b c,d} 121212 XX XX 11 ba ababab}}
+
+###############################################################################
+
+runTest {test basic-1.164 {string first/last/index/range/compare} -body {
+  list [string first a abracadabra 3] [string last a abracadabra 5] \
+      [string index abc end-1] [string range abcde 2 end] \
+      [string range abcde -3 2] [string compare -length 3 abcX abcY] \
+      [string compare -nocase ABC abc] [string compare abc abcd]
+} -result {3 5 b cde abc 0 0 -1}}
+
+###############################################################################
+
+runTest {test basic-1.165 {format integer/char/width/flag specifiers} -body {
+  list [format %d 42] [format %5d 42] [format %-5d| 42] [format %05d 42] \
+      [format %x 255] [format %#x 255] [format %o 8] [format %c 65] \
+      [format %+d 5] [format %i 42]
+} -result {42 {   42} {42   |} 00042 ff 0xff 10 A +5 42}}
+
+###############################################################################
+
+runTest {test basic-1.166 {format float via managed path (no native printf)} \
+    -setup {
+  set savedFlags [enableInterpreterFlags]
+  enableInterpreterFlags UsePrintfForDouble false
+} -body {
+  list [format %f 3.5] [format %.2f 3.14159] [format %e 12345.678] \
+      [format %g 0.0001234]
+} -cleanup {
+  enableInterpreterFlags $savedFlags
+  unset -nocomplain savedFlags
+} -constraints {eagle} -result {3.500000 3.14 1.234568e+04 0.0001234}}
+
+###############################################################################
+
+runTest {test basic-1.167 {scan return/width/types/charset matrix} -body {
+  set n1 [scan {12 34} {%d %d} a b]
+  set n2 [scan 12345 {%2d%3d} c d]
+  set n3 [scan ff {%x} e]
+  set n4 [scan 777 {%o} f]
+  set n5 [scan A {%c} g]
+  set n6 [scan 3.14159 {%f} h]
+  set n7 [scan abc123 {%[a-z]} i]
+  list $n1 $a $b $n2 $c $d $n3 $e $n4 $f $n5 $g $n6 $h $n7 $i
+} -cleanup {
+  unset -nocomplain n1 n2 n3 n4 n5 n6 n7 a b c d e f g h i
+} -constraints {command.scan} -result \
+{2 12 34 2 12 345 1 255 1 511 1 65 1 3.14159 1 abc}}
+
+###############################################################################
+
+runTest {test basic-1.168 {scan inline mode and return-value semantics} -body {
+  list [scan {inline mode} {%s %s}] [scan 5 {%d %d} x y] \
+      [scan xyz {%d} z] [scan {} {%d} w] [scan {12 99} {%d %*d %d} p q]
+} -cleanup {
+  unset -nocomplain x y z w p q
+} -constraints {command.scan} -result {{inline mode} 1 0 -1 1}}
+
+###############################################################################
+
+runTest {test basic-1.169 {scan XPG/charset-neg/literal/ws} -body {
+  set r1 [scan key=val {%[^=]=%s} k v]
+  list [scan {10 20 30} {%3$d %1$d}] $r1 $k $v [scan {  42} {%d} nn; set nn]
+} -cleanup {
+  unset -nocomplain r1 k v nn
+} -constraints {command.scan} -result {{20 {} 10} 2 key val 42}}
+
+###############################################################################
+
+runTest {test basic-1.170 {scan %f renders integral floats Eagle-canonically} \
+    -setup {
+  unset -nocomplain a b
+} -body {
+  scan 3.14e2 {%f} a
+  scan 1.5e1 {%f} b
+  list $a $b
+} -cleanup {
+  unset -nocomplain a b
+} -constraints {command.scan} -result {314 15}}
+
+###############################################################################
+
+runTest {test basic-1.171 {scan var/spec count mismatch errors} -body {
+  list [catch {scan ffg {%x} a b} m1] $m1 \
+      [catch {scan {1 2} {%d %d %d} c d} m2] $m2 \
+      [catch {scan {1 2} {%d %*d %d} e f} m3] $m3
+} -cleanup {
+  unset -nocomplain m1 m2 m3 a b c d e f
+} -constraints {command.scan} -result {1 {variable is not assigned by any\
+conversion specifiers} 1 {different numbers of variable names and field\
+specifiers} 0 1}}
+
+###############################################################################
+
+runTest {test basic-1.172 {clock scan -base fills missing date fields} \
+    -constraints {eagle} -body {
+  set b [clock scan "2000-06-15 09:30:45" -gmt 1]
+  list [clock format [clock scan 01:02:03 -gmt 1 -base $b \
+          -format %H:%M:%S] -gmt 1 -format "%Y-%m-%d %H:%M:%S"] \
+      [clock format [clock scan 08-07 -gmt 1 -base $b -format %m-%d] \
+          -gmt 1 -format %Y-%m-%d] \
+      [clock format [clock scan 20 -gmt 1 -base $b -format %d] \
+          -gmt 1 -format %Y-%m-%d] \
+      [clock format [clock scan 2021 -gmt 1 -base $b -format %Y] \
+          -gmt 1 -format %Y-%m-%d] \
+      [clock scan 12:00:00 -gmt 1 -base 0 -format %H:%M:%S]
+} -cleanup {
+  unset -nocomplain b
+} -result {{2000-06-15 01:02:03} 2000-08-07 2000-06-20 2000-06-15 43200}}
+
+###############################################################################
+
+runTest {test basic-1.173 {dict incr/append/lappend/merge/remove} \
+    -constraints {command.dict} -body {
+  set d {a 1}
+  dict incr d a 5
+  dict incr d b
+  dict append d a X
+  dict lappend d c 2 3
+  set m [dict merge {x 1 y 2} {y 9 z 3}]
+  set r [dict remove {p 1 q 2} q]
+  set rp [dict replace {p 1 q 2} q 9]
+  list [dict get $d a] [dict get $d b] [dict get $d c] [dict size $d] \
+      [dict get $m y] [dict size $m] [expr {[dict exists $r q] ? 1 : 0}] \
+      [dict get $rp q] [dict get {a {x 1 y 2}} a y]
+} -cleanup {
+  unset -nocomplain d m r rp
+} -result {6X 1 {2 3} 3 9 3 0 9 2}}
+
+###############################################################################
+
+runTest {test basic-1.174 {regsub -all -start honors the start index} -body {
+  set n2 [regsub -start 2 -all a aaaa X a2]
+  regsub -start 1 -all a aaaa X a1
+  regsub -start 3 -all a aaaa X a3
+  regsub -start 2 -all {[0-9]} 12345 # d2
+  regsub -all a abcabc X aa
+  list $n2 $a2 $a1 $a3 $d2 $aa
+} -cleanup {
+  unset -nocomplain n2 a2 a1 a3 d2 aa
+} -result {2 aaXX aXXX aaaX 12### XbcXbc}}
+
+###############################################################################
+
+runTest {test basic-1.175 {array set/get/names/size/unset/exists} -setup {
+  unset -nocomplain a
+} -body {
+  array set a {apple 1 apricot 2 banana 3}
+  set r1 [array size a]
+  set r2 [lsort [array names a a*]]
+  set r3 [lsort [array get a a*]]
+  array unset a apricot
+  set r4 [lsort [array names a]]
+  set r5 [expr {[array exists a] ? 1 : 0}]
+  set r6 [expr {[info exists a(apple)] ? 1 : 0}]
+  array unset a *
+  list $r1 $r2 $r3 $r4 $r5 $r6 [array size a]
+} -cleanup {
+  unset -nocomplain a r1 r2 r3 r4 r5 r6
+} -result {3 {apple apricot} {1 2 apple apricot} {apple banana} 1 1 0}}
+
+###############################################################################
+
+runTest {test basic-1.176 {linsert end-relative index = append point} \
+    -constraints {command.linsert} -body {
+  list [linsert {a b c} end X] [linsert {a b c} end-1 X] \
+      [linsert {a b c} end-2 X] [linsert {a} end Z] \
+      [linsert {a b c} end+1 Z] [linsert {a b c} 1 X Y] \
+      [linsert {} end Z]
+} -result {{a b c X} {a b X c} {a X b c} {a Z} {a b c Z} {a X Y b c} Z}}
+
+###############################################################################
+
+runTest {test basic-1.177 {lreplace/lset end-relative indices} -setup {
+  unset -nocomplain l
+} -body {
+  set l {a b c d}
+  lset l end W
+  lset l end-1 X
+  list [lreplace {a b c d} end end Z] [lreplace {a b c d} end-1 end Z] \
+      [lreplace {a b c d} 2 end P Q] [lreplace {a b c d} 0 end] \
+      [lreplace {a b c} 1 0 Y] $l
+} -cleanup {
+  unset -nocomplain l
+} -result {{a b c Z} {a b Z} {a b P Q} {} {a Y b c} {a b X W}}}
+
+###############################################################################
+
+runTest {test basic-1.178 {string replace first>=length is a no-op} -body {
+  list [string replace abc 3 3 X] [string replace "" 0 0 X] \
+      [string replace abcde 5 7 ZZ] [string replace abc 2 2 X] \
+      [string replace abcde 1 3 X] [string replace abc 3 3]
+} -result {abc {} abcde abX aXe abc}}
+
+###############################################################################
+
+runTest {test basic-1.179 {expr bitwise operators} -body {
+  list [expr {5 & 3}] [expr {5 | 2}] [expr {5 ^ 1}] [expr {~0}] [expr {~5}] \
+      [expr {-1 & 255}] [expr {0xFF & 0x0F}] [expr {1 << 10}] \
+      [expr {-8 >> 1}] [expr {~(-1)}] [expr {wide(1) << 40}] \
+      [expr {0xFFFFFFFF & 0xFFFFFFFF}]
+} -result {1 7 4 -1 -6 255 15 1024 -4 0 1099511627776 4294967295}}
+
+###############################################################################
+
+runTest {test basic-1.180 {string match glob patterns} -body {
+  list [expr {[string match a*c abc] ? 1 : 0}] \
+      [expr {[string match {a[bx]c} abc] ? 1 : 0}] \
+      [expr {[string match {[a-z]*} hello] ? 1 : 0}] \
+      [expr {[string match {[A-Z]*} hello] ? 1 : 0}] \
+      [expr {[string match {a\*c} a*c] ? 1 : 0}] \
+      [expr {[string match -nocase ABC abc] ? 1 : 0}] \
+      [expr {[string match {[^a]bc} xbc] ? 1 : 0}] \
+      [expr {[string match * {}] ? 1 : 0}] \
+      [expr {[string match ? {}] ? 1 : 0}] \
+      [expr {[string match {\[} {[}] ? 1 : 0}]
+} -result {1 1 1 0 1 1 0 1 0 1}}
+
+###############################################################################
+
+runTest {test basic-1.181 {info args/default/procs/commands/exists} -setup {
+  catch {rename demo181 ""}
+} -body {
+  proc demo181 {a {b 5} args} {return [expr {$a + $b}]}
+  list [info args demo181] [info default demo181 b bb; set bb] \
+      [expr {[info default demo181 a aa] ? 1 : 0}] \
+      [lsort [info procs demo181]] [info commands demo181] \
+      [expr {[info exists demo181] ? 1 : 0}]
+} -cleanup {
+  catch {rename demo181 ""}
+  unset -nocomplain bb aa
+} -result {{a b args} 5 0 demo181 demo181 0}}
+
+###############################################################################
+
+runTest {test basic-1.182 {string trim/totitle/case with charset/range} -body {
+  list [string trim "  hi  "] [string trim xxhixx x] \
+      [string trimleft xxhi x] [string trimright hixx x] \
+      [string trim abchiabc abc] [string trim hello ""] \
+      [string totitle "hello world"] [string toupper hello 0 0] \
+      [string tolower HELLO 1 3] [string trim {[hi]} {[]}]
+} -result {hi hi hi hi hi hello {Hello world} Hello HellO hi}}
+
+###############################################################################
+
+runTest {test basic-1.183 {concat/string repeat whitespace and edges} -body {
+  list [concat a b c] [concat {a b} {c d}] [concat " a " " b "] \
+      [concat {a  b} c] [string repeat ab 3] [string repeat ab 0] \
+      [string repeat x -1] [llength [concat {a b} {c d e}]] \
+      [concat 1 {2 3} 4]
+} -result {{a b c} {a b c d} {a b} {a  b c} ababab {} {} 5 {1 2 3 4}}}
+
+###############################################################################
+
+runTest {test basic-1.184 {lsearch -start, string first/last bounds} -body {
+  list [lsearch -start 2 {a b a c a} a] \
+      [lsearch -all -start 2 {a b a c a} a] \
+      [lsearch -start end-1 {a b a c a} a] [lsearch -start 10 {a b c} a] \
+      [lsearch -start 2 -all -inline {x a x a x} a] \
+      [string first a abracadabra 4] [string last a abracadabra 3] \
+      [string first ab ababab 1]
+} -result {2 {2 4} 4 -1 a 5 3 2}}
+
+###############################################################################
+
+runTest {test basic-1.185 {clock format specifiers -gmt} -body {
+  set t 1000000000
+  list [clock format $t -gmt 1 -format %Y-%m-%d] \
+      [clock format $t -gmt 1 -format %H:%M:%S] \
+      [clock format $t -gmt 1 -format %j] [clock format $t -gmt 1 -format %A] \
+      [clock format $t -gmt 1 -format %B] [clock format $t -gmt 1 -format %p] \
+      [clock format 0 -gmt 1 -format "%Y-%m-%d %H:%M:%S"]
+} -cleanup {
+  unset -nocomplain t
+} -result {2001-09-09 01:46:40 252 Sunday September AM\
+ {1970-01-01 00:00:00}}}
+
+###############################################################################
+
+runTest {test basic-1.186 {expr ** is right-associative} \
+    -constraints {tcl85Feature} -body {
+  list [expr {2**3**2}] [expr {2**2**3}] [expr {4**3**2}] [expr {2**2}] \
+      [expr {-2**2}] [expr {2**2**2}]
+} -result {512 256 262144 4 4 16}}
+
+###############################################################################
+
+runTest {test basic-1.187 {expr % result has the divisor's sign} -body {
+  list [expr {5 % -3}] [expr {-5 % 3}] [expr {7 % -3}] [expr {-7 % 3}] \
+      [expr {7 % 3}] [expr {-7 % -3}] [expr {10 % -3}]
+} -result {-1 1 -2 2 1 -1 -2}}
+
+###############################################################################
+
+runTest {test basic-1.187.1 {expr integer / is floored (Tcl-compatible) and the\
+    division/modulo identity (a/b)*b+(a%b)==a holds for negative operands} -body {
+  #
+  # NOTE: The ternary "? 1 : 0" normalizes the identity check to 1/0 (Eagle's
+  #       "==" yields a True/False boolean otherwise).  Each triple is the
+  #       quotient, the remainder, and the identity result.
+  #
+  set out [list]
+
+  foreach {a b} {-7 2  -7 3  5 -3  -9 -2  15 -4  -15 4} {
+    set q [expr {$a / $b}]
+    set r [expr {$a % $b}]
+
+    lappend out $q $r [expr {$q * $b + $r == $a ? 1 : 0}]
+  }
+
+  set out
+} -cleanup {
+  unset -nocomplain out q r a b
+} -result {-4 1 1 -3 2 1 -2 -1 1 4 -1 1 -4 -1 1 -4 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.188 {expr trig/transcendental identities} -body {
+  expr {(abs(sin(1.0)*sin(1.0) + cos(1.0)*cos(1.0) - 1.0) < 1e-9) && \
+        (abs(atan2(1.0, 1.0) * 4.0 - acos(-1.0)) < 1e-9) && \
+        (abs(exp(log(5.0)) - 5.0) < 1e-9) ? 1 : 0}
+} -result 1}
+
+###############################################################################
+
+runTest {test basic-1.189 {format floating-point with default flags} -setup {
+  unset -nocomplain result
+} -body {
+  #
+  # NOTE: The %e exponent width is platform-dependent (.NET Framework
+  #       "e+004" vs .NET Core / Tcl "e+04"); normalize to two digits.
+  #
+  set result [list [format %f 3.5] [format %.2f 3.14159] [format %e 12345.678] \
+      [format %g 0.0001234] [format %.0f 2.7]]
+  regsub -all {([eE][-+])0*(\d\d)} $result {\1\2} result
+  set result
+} -cleanup {
+  unset -nocomplain result
+} -result {3.500000 3.14 1.234568e+04 0.0001234 3}}
+
+###############################################################################
+
+runTest {test basic-1.190 {namespace qualifiers/tail/eval/exists} -setup {
+  catch {namespace delete ::nsq}
+} -body {
+  list [namespace qualifiers ::a::b::c] [namespace tail ::a::b::c] \
+      [namespace qualifiers single] [namespace tail ::x] \
+      [namespace eval ::nsq {namespace current}] \
+      [namespace eval ::nsq {variable v 42; set v}] \
+      [expr {[namespace exists ::nsq] ? 1 : 0}] \
+      [expr {[namespace exists ::nope_xyz] ? 1 : 0}]
+} -cleanup {
+  catch {namespace delete ::nsq}
+} -result {::a::b c {} x ::nsq 42 1 0}}
+
+###############################################################################
+
+runTest {test basic-1.191 {uplevel/upvar/apply scope} -setup {
+  catch {rename inc191 ""}; catch {rename swap191 ""}
+  unset -nocomplain v1 v2 c191
+} -body {
+  proc inc191 {n} {upvar $n x; incr x}
+  set c191 5
+  inc191 c191
+  proc swap191 {a b} {upvar $a x $b y; set t $x; set x $y; set y $t}
+  set v1 1; set v2 2
+  swap191 v1 v2
+  list $c191 $v1 $v2 [apply {{a b} {expr {$a + $b}}} 3 4] \
+      [apply {{{x 10}} {set x}}] [apply {args {llength $args}} 1 2 3] \
+      [uplevel 0 {expr {2 * 3}}]
+} -cleanup {
+  catch {rename inc191 ""}; catch {rename swap191 ""}
+  unset -nocomplain v1 v2 c191
+} -result {6 2 1 7 10 3 6}}
+
+###############################################################################
+
+runTest {test basic-1.192 {lset requires existing var + in-range index} \
+    -constraints {eagle} -setup {
+  unset -nocomplain l1 undef1
+} -body {
+  #
+  # NOTE: By design, Eagle's [lset] does NOT auto-create the variable, accept
+  #       the zero-index "lset var value" form, or auto-append at one past the
+  #       end of the list (all footguns).  See FINDINGS.md F40.
+  #
+  set l1 {a b c}
+  list [catch {lset l1 W}] [catch {lset undef1 v}] [catch {lset l1 3 X}] \
+      [catch {lset l1 5 X}] [lset l1 1 Z]
+} -cleanup {
+  unset -nocomplain l1 undef1
+} -result {1 1 1 1 {a Z c}}}
+
+###############################################################################
+
+runTest {test basic-1.193 {lsort -unique deduplicates equal elements} \
+    -constraints {tcl85Feature} -body {
+  #
+  # NOTE: [lsort] uses .NET's unstable sort, so which representative of each
+  #       equal group survives -unique is platform-dependent (see F41 and
+  #       basic-1.154); the impacted sections use a regexp alternation.
+  #
+  list [lsort -unique -nocase {A a B b}] \
+      [lsort -unique -index 0 {{a 1} {a 2} {a 3}}] \
+      [lsort -unique -nocase -decreasing {A a B b}] \
+      [lsort -unique {c a b a c}]
+} -match regexp -result {^\{(?:a|A) (?:b|B)\} \{\{a (?:1|2|3)\}\} \{(?:b|B)\
+(?:a|A)\} \{a b c\}$}}
+
+###############################################################################
+
+runTest {test basic-1.194 {regexp -start does not re-anchor ^/$} -body {
+  #
+  # NOTE: -start changes where the search begins but must keep "^"/"$"
+  #       anchored to the true string boundaries.  See FINDINGS.md F31.
+  #
+  list [regexp -start 2 {^a} aaa] [regexp -start 1 {^a} aaa] \
+      [regexp -start 2 {^} abc] [regexp -start 2 -inline {^.} abcd] \
+      [regexp -start 3 a abcabc] [regexp -start 2 {a$} aaa]
+} -result {0 0 0 {} 1 1}}
+
+###############################################################################
+
+runTest {test basic-1.195 {clock format %e/%k/%l are space-padded} -setup {
+  unset -nocomplain t1 t2
+} -body {
+  #
+  # NOTE: Tcl space-pads "%e" (day), "%k" (hour 0-23), and "%l" (hour
+  #       1-12) to a width of two.  See FINDINGS.md F28.
+  #
+  set t1 [clock scan "2024-01-09 01:05:00" -gmt true]
+  set t2 [clock scan "2024-01-13 13:05:00" -gmt true]
+  list [clock format $t1 -format {%e} -gmt true] \
+      [clock format $t1 -format {%k} -gmt true] \
+      [clock format $t1 -format {%l} -gmt true] \
+      [clock format $t2 -format {%e} -gmt true] \
+      [clock format $t2 -format {%k} -gmt true] \
+      [clock format $t2 -format {%l} -gmt true]
+} -cleanup {
+  unset -nocomplain t1 t2
+} -result {{ 9} { 1} { 1} 13 13 { 1}}}
+
+###############################################################################
+
+runTest {test basic-1.196 {lset {} wholesale replaces (not appends)} \
+    -constraints {eagle} -setup {
+  unset -nocomplain a b c d e
+} -body {
+  #
+  # NOTE: The empty-index "wholesale" form must REPLACE the (sub)list with
+  #       the value, regardless of whether the value is internally a string
+  #       or a list object (no shimmering-dependent append).  See FINDINGS.md
+  #       F43.
+  #
+  set a {a b c}; lset a {} {x y z}
+  set b {a b c}; lset b {} P
+  set c {a b c}; lset c {} [list x y z]
+  set d {{a b} {c d}}; lset d 0 {} R
+  set e {{a b} {c d}}; lset e 1 {} [list X Y]
+  list $a $b $c $d $e
+} -cleanup {
+  unset -nocomplain a b c d e
+} -result {{x y z} P {x y z} {R {c d}} {{a b} {X Y}}}}
+
+###############################################################################
+
+runTest {test basic-1.197 {regexp -length windows the match} \
+    -constraints {eagle} -body {
+  #
+  # NOTE: -length is an Eagle extension that limits matching to the window
+  #       [start, start+length).  Guards against the F31 fix (2-arg Match
+  #       overload) regressing -length back to "ignored".  See FINDINGS.md
+  #       F31/F45.
+  #
+  list [regexp -length 2 c abcde] [regexp -length 3 c abcde] \
+      [regexp -length 0 a abcde] [regexp -length 4 -inline {cd} abcde] \
+      [regexp -start 1 -length 2 b abcde]
+} -result {0 1 0 cd 1}}
+
+###############################################################################
+
+runTest {test basic-1.198 {regexp look-ahead and look-behind assertions} \
+    -constraints {eagle} -body {
+  #
+  # NOTE: Eagle's [regexp] uses the .NET regex engine, which supports both
+  #       positive/negative look-AHEAD ((?=...) / (?!...), also in Tcl ARE)
+  #       AND positive/negative look-BEHIND ((?<=...) / (?<!...), a .NET
+  #       feature beyond Tcl's ARE) -- hence the "eagle" constraint.
+  #
+  list [regexp {foo(?=bar)} foobar] \
+      [regexp -inline {foo(?=bar)} foobar] \
+      [regexp {foo(?!bar)} foobaz] \
+      [regexp {foo(?!bar)} foobar] \
+      [regexp -inline {(?<=foo)bar} foobar] \
+      [regexp {(?<!foo)bar} xxbar] \
+      [regexp {(?<!foo)bar} foobar] \
+      [regexp -all -inline {(?<=@)\w+} {a@x b@yz}]
+} -result {1 foo 1 0 bar 1 0 {x yz}}}
+
+###############################################################################
+
+runTest {test basic-1.199 {
+  crlf input keeps a trailing lone carriage-return (F47)
+} -setup {
+  set fileName [file join [getTemporaryPath] basic-1.199.bin]
+
+  set fd [open $fileName w]
+  fconfigure $fd -translation binary
+  puts -nonewline $fd "a\rb\r"
+  close $fd
+} -body {
+  #
+  # NOTE: Under "crlf" input translation a carriage-return NOT followed by
+  #       a line-feed is a "naked" carriage-return and must be preserved --
+  #       even when it is the very last byte of the stream (previously it
+  #       was silently dropped because its output had been deferred for a
+  #       follow-up read that never came).
+  #
+  set fd [open $fileName r]
+  fconfigure $fd -translation crlf
+  set data [read $fd]
+  close $fd
+
+  list [string length $data] [string map [list \r CR \n LF] $data]
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $fileName}
+
+  unset -nocomplain fd data fileName
+} -result {4 aCRbCR}}
+
+###############################################################################
+
+runTest {test basic-1.200 {
+  crlf input keeps carriage-returns at read-buffer boundaries (F47)
+} -setup {
+  set fileName [file join [getTemporaryPath] basic-1.200.bin]
+
+  set fd [open $fileName w]
+  fconfigure $fd -translation binary
+  for {set i 0} {$i < 50} {incr i} {puts -nonewline $fd "a\r"}
+  close $fd
+} -body {
+  #
+  # NOTE: Reading in small chunks forces lone carriage-returns to land on the
+  #       channel's internal read-buffer boundaries; all of them must survive
+  #       the "crlf" translation (this is the deterministic form of the
+  #       intermittent socket/channel carriage-return loss).
+  #
+  set fd [open $fileName r]
+  fconfigure $fd -translation crlf
+
+  set data ""
+  while {![eof $fd]} {append data [read $fd 3]}
+  close $fd
+
+  set crCount 0
+  foreach ch [split $data ""] {if {$ch eq "\r"} {incr crCount}}
+
+  list [string length $data] $crCount
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $fileName}
+
+  unset -nocomplain fd data fileName i ch crCount
+} -result {100 50}}
+
+###############################################################################
+
+runTest {test basic-1.201 {
+  crlf pair split across a read boundary collapses (F47)
+} -setup {
+  set fileName [file join [getTemporaryPath] basic-1.201.bin]
+
+  set fd [open $fileName w]
+  fconfigure $fd -translation binary
+  puts -nonewline $fd "ab\r\ncd\r\n"
+  close $fd
+} -body {
+  #
+  # NOTE: A carriage-return / line-feed pair whose carriage-return is the
+  #       last byte of one chunk and whose line-feed begins the next must
+  #       still collapse to a single newline (the deferred carriage-return
+  #       is consumed by the following line-feed, not emitted separately).
+  #
+  set fd [open $fileName r]
+  fconfigure $fd -translation crlf
+
+  set data ""
+  while {![eof $fd]} {append data [read $fd 3]}
+  close $fd
+
+  list [string length $data] [string map [list \r CR \n LF] $data]
+} -cleanup {
+  catch {close $fd}
+  catch {file delete $fileName}
+
+  unset -nocomplain fd data fileName
+} -result {6 abLFcdLF}}
+
+###############################################################################
+
+runTest {test basic-1.202 {
+  string map -eval evaluates replacement (F52)
+} -body {
+  #
+  # NOTE: With -eval the replacement value is evaluated as a script and its
+  #       result is substituted.  This was a silent no-op prior to the F52
+  #       fix (the Evaluate mode bit survived the simple-mode guard in
+  #       MatchForStrMap), returning the input unchanged.
+  #
+  string map -eval [list a {expr {6 * 7}}] "xax"
+} -result {x42x}}
+
+###############################################################################
+
+runTest {test basic-1.203 {
+  string map -regexp -eval evaluates per match (F52)
+} -body {
+  #
+  # NOTE: The regular-expression flavor of -eval was likewise a no-op before
+  #       the F52 fix.  Each single-digit match is replaced by the result of
+  #       evaluating the replacement script.
+  #
+  string map -regexp -eval [list {\d} {expr {6 * 7}}] "a1b2"
+} -result {a42b42}}
+
+###############################################################################
+
+runTest {test basic-1.204 {
+  string map -regexp keeps text between 2+ matches (F53)
+} -body {
+  #
+  # NOTE: Before the F53 fix the char-by-char [string map] driver honored a
+  #       forward regular-expression match, dropping the text it skipped over
+  #       and garbling two-or-more matches (this produced "NN c3").
+  #
+  string map -regexp [list {\d+} N] "a1 b2 c3"
+} -result {aN bN cN}}
+
+###############################################################################
+
+runTest {
+  test basic-1.205 {string map -regexp variable-length runs (F53)
+} -body {
+  #
+  # NOTE: Multi-character matches separated by literal text must preserve both
+  #       the leading and the intervening unmatched runs.
+  #
+  string map -regexp [list {[0-9]+} #] "ab12cd345ef"
+} -result {ab#cd#ef}}
+
+###############################################################################
+
+runTest {
+  test basic-1.206 {string map -multipass -regexp no over-wrap (F54)
+} -body {
+  #
+  # NOTE: Before the F54 fix the multipass replace driver (StrMultiMap)
+  #       under-advanced past a forward regular-expression match, re-scanning
+  #       the skipped text and part of the just-inserted replacement (this
+  #       produced "[one] [two] [th[ree]]").
+  #
+  string map -multipass -regexp -subspec [list {\w+} {[&]}] "one two three"
+} -result {[one] [two] [three]}}
+
+###############################################################################
 
 source [file join [file normalize [file dirname [info script]]] epilogue.eagle]

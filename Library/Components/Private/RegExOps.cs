@@ -25,6 +25,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods that support the regular
+    /// expression handling used by Eagle, including pattern mutation for the
+    /// "advanced" and "literal" prefixes, regular expression creation, match
+    /// value and group extraction, and the substitution-specification
+    /// translation and match-evaluator callback machinery used by the
+    /// <c>regsub</c> command.
+    /// </summary>
     [ObjectId("b45f7d61-390b-4aae-a80b-cd88a1444bdf")]
     internal static class RegExOps
     {
@@ -34,12 +42,21 @@ namespace Eagle._Components.Private
         //       since almost all .NET regular expressions already have these
         //       features, this is simply ignored and removed.
         //
+        /// <summary>
+        /// This prefix indicates the regular expression is "advanced"; since almost
+        /// all .NET regular expressions already have these features, it is simply
+        /// ignored and removed.
+        /// </summary>
         private const string AdvancedPrefix = "***:";
 
         //
         // NOTE: This prefix indicates the regular expression is actually a
         //       literal string to be matched.
         //
+        /// <summary>
+        /// This prefix indicates the regular expression is actually a literal string
+        /// to be matched.
+        /// </summary>
         private const string LiteralPrefix = "***=";
         #endregion
 
@@ -49,13 +66,34 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the <see cref="RegexOptions.Compiled" /> option is added
+        /// when creating a regular expression via the single-argument <c>Create</c>
+        /// method.
+        /// </summary>
         private static bool ForceCompiled1 = true;
+        /// <summary>
+        /// When non-zero, the <see cref="RegexOptions.Compiled" /> option is added
+        /// when creating a regular expression via the <c>Create</c> method that
+        /// accepts options.
+        /// </summary>
         private static bool ForceCompiled2 = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Regular Expression Support Methods
+        /// <summary>
+        /// This method examines the specified regular expression pattern and, when it
+        /// begins with the "advanced" or "literal" prefix, removes that prefix
+        /// (escaping the remainder for the literal prefix) so the pattern is suitable
+        /// for use with the .NET regular expression engine.
+        /// </summary>
+        /// <param name="pattern">
+        /// Upon input, the regular expression pattern to examine, which may be null.
+        /// Upon output, the pattern with any recognized prefix removed and, for the
+        /// literal prefix, with its remaining characters escaped.
+        /// </param>
         private static void MaybeMutatePattern(
             ref string pattern /* in, out */
             )
@@ -81,6 +119,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves and validates the interpreter and regsub client data
+        /// associated with the active <c>regsub</c> command invocation, for use by the
+        /// match-evaluator callback methods.  It throws a
+        /// <see cref="ScriptException" /> when the required data is missing or invalid,
+        /// or when the interpreter is not ready.
+        /// </summary>
+        /// <param name="interpreter">
+        /// Upon success, receives the interpreter associated with the active
+        /// <c>regsub</c> command.
+        /// </param>
+        /// <param name="regsubClientData">
+        /// Upon success, receives the client data associated with the active
+        /// <c>regsub</c> command.
+        /// </param>
         private static void RegsubMatchCallbackPrologue(
             out Interpreter interpreter,
             out RegsubClientData regsubClientData
@@ -122,6 +175,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a decimal match group index from the
+        /// specified text, starting at the given index.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within <paramref name="text" /> at which to begin parsing.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to consider while parsing.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index immediately following the last parsed
+        /// digit.
+        /// </param>
+        /// <param name="groupIndex">
+        /// Upon success, receives the parsed match group index.
+        /// </param>
+        /// <returns>
+        /// True if a match group index was successfully parsed; otherwise, false.
+        /// </returns>
         private static bool ParseGroupIndex(
             string text,
             int startIndex,
@@ -170,6 +246,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a match group name, delimited by the
+        /// less-than and greater-than signs, from the specified text starting at the
+        /// given index.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within <paramref name="text" /> at which to begin parsing, which
+        /// must refer to the opening less-than sign.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to consider while parsing.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index immediately following the closing
+        /// greater-than sign.
+        /// </param>
+        /// <param name="groupName">
+        /// Upon success, receives the parsed match group name.
+        /// </param>
+        /// <returns>
+        /// True if a match group name was successfully parsed; otherwise, false.
+        /// </returns>
         private static bool ParseGroupName(
             string text,
             int startIndex,
@@ -211,6 +312,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the value of the entire match (group zero) for the
+        /// specified regular expression match.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <returns>
+        /// The value of the entire match, or null if it is not available.
+        /// </returns>
         private static string GetMatchValue(
             Match match
             )
@@ -220,6 +331,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the value of the named match group for the specified
+        /// regular expression match.
+        /// </summary>
+        /// <param name="regEx">
+        /// The regular expression used to resolve the group name to a group number,
+        /// which may be null.
+        /// </param>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <param name="groupName">
+        /// The name of the match group whose value is returned, which may be null.
+        /// </param>
+        /// <returns>
+        /// The value of the named match group, or null if it is not available.
+        /// </returns>
         private static string GetMatchValue(
             Regex regEx,
             Match match,
@@ -234,6 +362,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list containing the value of every match group for the
+        /// specified regular expression match.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <returns>
+        /// A list of match group values, or null if the match or its group collection
+        /// is not available.
+        /// </returns>
         private static StringList GetMatchList(
             Match match
             )
@@ -261,6 +400,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles a backslash escape sequence or meta-character within a
+        /// <c>regsub</c> substitution specification that is not one of the specially
+        /// recognized sequences, appending the appropriate text to the output builder.
+        /// A backslash followed by a digit selects the corresponding match group.
+        /// </summary>
+        /// <param name="match">
+        /// The current regular expression match, if any, which may be null.
+        /// </param>
+        /// <param name="builder">
+        /// The builder receiving the partially translated substitution specification.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to apply list element quoting to appended match values.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to conform strictly to the Tcl documentation when handling
+        /// unrecognized escape sequences.
+        /// </param>
+        /// <param name="character">
+        /// The current character being processed.
+        /// </param>
+        /// <param name="nextCharacter">
+        /// The character immediately following <paramref name="character" />.
+        /// </param>
         private static void HandleSubSpecOtherEscapeOrMetaChar(
             Match match,           // current Regex match, if any.
             StringBuilder builder, // [regsub] subSpec, partially translated.
@@ -367,6 +531,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the character immediately following a backslash within
+        /// a <c>regsub</c> substitution specification, appending the appropriate
+        /// replacement text to the output builder and advancing the processing index
+        /// as needed.
+        /// </summary>
+        /// <param name="regEx">
+        /// The original regular expression, which may be null.
+        /// </param>
+        /// <param name="match">
+        /// The current regular expression match, if any, which may be null.
+        /// </param>
+        /// <param name="builder">
+        /// The builder receiving the partially translated substitution specification.
+        /// </param>
+        /// <param name="pattern">
+        /// The original pattern string, which may be null.
+        /// </param>
+        /// <param name="input">
+        /// The original input string, which may be null.
+        /// </param>
+        /// <param name="replacement">
+        /// The original replacement string, which may be null.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to apply list element quoting to appended match values.
+        /// </param>
+        /// <param name="extra">
+        /// Non-zero to permit the non-standard <c>\P</c>, <c>\I</c>, <c>\S</c>,
+        /// <c>\M#</c>, and <c>\N&lt;n&gt;</c> substitutions.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to conform strictly to the Tcl documentation when handling
+        /// unrecognized escape sequences.
+        /// </param>
+        /// <param name="character">
+        /// The current character being processed (the backslash).
+        /// </param>
+        /// <param name="nextCharacter">
+        /// The character immediately following <paramref name="character" />.
+        /// </param>
+        /// <param name="index">
+        /// Upon input, the index of the current character within the text being
+        /// processed.  Upon output, the index may be advanced past any additional
+        /// characters consumed by an extended substitution.
+        /// </param>
         private static void HandleSubSpecEscapeOrMetaChar(
             Regex regEx,           // original regular expression.
             Match match,           // current Regex match, if any.
@@ -533,6 +743,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles a single character within a <c>regsub</c> substitution
+        /// specification, translating ampersand and backslash escape sequences into
+        /// their replacement text and appending the result to the output builder,
+        /// while passing any other character through verbatim.
+        /// </summary>
+        /// <param name="regEx">
+        /// The original regular expression, which may be null.
+        /// </param>
+        /// <param name="match">
+        /// The current regular expression match, if any, which may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The original pattern string, which may be null.
+        /// </param>
+        /// <param name="input">
+        /// The original input string, which may be null.
+        /// </param>
+        /// <param name="replacement">
+        /// The original replacement string, which may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string containing the substitution specifications to process.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to apply list element quoting to appended match values.
+        /// </param>
+        /// <param name="extra">
+        /// Non-zero to permit the non-standard <c>\P</c>, <c>\I</c>, <c>\S</c>,
+        /// <c>\M#</c>, and <c>\N&lt;n&gt;</c> substitutions.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to conform strictly to the Tcl documentation when handling
+        /// unrecognized escape sequences.
+        /// </param>
+        /// <param name="builder">
+        /// The builder receiving the partially translated substitution specification.
+        /// </param>
+        /// <param name="character">
+        /// The current character being processed.
+        /// </param>
+        /// <param name="index">
+        /// Upon input, the index of the current character within
+        /// <paramref name="text" />.  Upon output, the index may be advanced past any
+        /// additional characters consumed while handling an escape sequence.
+        /// </param>
         private static void HandleSubSpecChar(
             Regex regEx,           // original regular expression.
             Match match,           // current Regex match, if any.
@@ -683,6 +939,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates an entire <c>regsub</c> substitution specification,
+        /// processing each character in turn and producing the final replacement text.
+        /// </summary>
+        /// <param name="regEx">
+        /// The original regular expression, which may be null.
+        /// </param>
+        /// <param name="match">
+        /// The current regular expression match, if any, which may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The original pattern string, which may be null.
+        /// </param>
+        /// <param name="input">
+        /// The original input string, which may be null.
+        /// </param>
+        /// <param name="replacement">
+        /// The original replacement string, which may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string containing the substitution specifications to process.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to apply list element quoting to appended match values.
+        /// </param>
+        /// <param name="extra">
+        /// Non-zero to permit the non-standard <c>\P</c>, <c>\I</c>, <c>\S</c>,
+        /// <c>\M#</c>, and <c>\N&lt;n&gt;</c> substitutions.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to conform strictly to the Tcl documentation when handling
+        /// unrecognized escape sequences.
+        /// </param>
+        /// <returns>
+        /// The translated substitution specification, or the original text when it is
+        /// null or empty.
+        /// </returns>
         private static string TranslateSubSpec(
             Regex regEx,        // original regular expression.
             Match match,        // current Regex match, if any.
@@ -723,6 +1016,17 @@ namespace Eagle._Components.Private
         //
         // TODO: In the future, perhaps consider pulling from a cache here?
         //
+        /// <summary>
+        /// This method creates a regular expression from the specified pattern, first
+        /// applying any recognized "advanced" or "literal" prefix handling and
+        /// optionally forcing the compiled option.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern, which may begin with a recognized prefix.
+        /// </param>
+        /// <returns>
+        /// The newly created regular expression.
+        /// </returns>
         public static Regex Create(string pattern)
         {
             MaybeMutatePattern(ref pattern);
@@ -740,6 +1044,20 @@ namespace Eagle._Components.Private
         //
         // TODO: In the future, perhaps consider pulling from a cache here?
         //
+        /// <summary>
+        /// This method creates a regular expression from the specified pattern and
+        /// options, first applying any recognized "advanced" or "literal" prefix
+        /// handling and optionally forcing the compiled option.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern, which may begin with a recognized prefix.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used to create the regular expression.
+        /// </param>
+        /// <returns>
+        /// The newly created regular expression.
+        /// </returns>
         public static Regex Create(
             string pattern,
             RegexOptions regExOptions
@@ -757,6 +1075,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Regular Expression Support Methods
+        /// <summary>
+        /// This method gets the match group with the specified index from the
+        /// specified regular expression match.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <param name="groupIndex">
+        /// The index of the match group to return.
+        /// </param>
+        /// <returns>
+        /// The match group with the specified index, or null if it is not available.
+        /// </returns>
         public static Group GetMatchGroup(
             Match match,
             int groupIndex
@@ -775,6 +1106,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the match group with the specified index
+        /// participated in the specified regular expression match.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <param name="groupIndex">
+        /// The index of the match group to query.
+        /// </param>
+        /// <returns>
+        /// True if the specified match group participated in the match; otherwise,
+        /// false.
+        /// </returns>
         public static bool GetMatchSuccess(
             Match match,
             int groupIndex
@@ -790,6 +1135,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the match group with the specified index
+        /// participated in the specified regular expression match, also returning its
+        /// starting index, length, and value.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <param name="groupIndex">
+        /// The index of the match group to query.
+        /// </param>
+        /// <param name="startIndex">
+        /// Upon success, receives the starting index of the match group; upon failure,
+        /// receives an invalid index.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the length of the match group; upon failure, receives
+        /// an invalid length.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the match group; upon failure, receives
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the specified match group participated in the match; otherwise,
+        /// false.
+        /// </returns>
         public static bool GetMatchSuccess(
             Match match,
             int groupIndex,
@@ -818,6 +1190,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the value of the match group with the specified index from
+        /// the specified regular expression match.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match, which may be null.
+        /// </param>
+        /// <param name="groupIndex">
+        /// The index of the match group whose value is returned.
+        /// </param>
+        /// <returns>
+        /// The value of the specified match group, or null if it is not available.
+        /// </returns>
         public static string GetMatchValue(
             Match match,
             int groupIndex
@@ -833,6 +1218,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a <c>regsub</c> substitution specification using
+        /// default options, producing the final replacement text.
+        /// </summary>
+        /// <param name="regEx">
+        /// The original regular expression, which may be null.
+        /// </param>
+        /// <param name="match">
+        /// The current regular expression match, if any, which may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string containing the substitution specifications to process.
+        /// </param>
+        /// <returns>
+        /// The translated substitution specification, or the original text when it is
+        /// null or empty.
+        /// </returns>
         public static string TranslateSubSpec(
             Regex regEx,        /* in */
             Match match,        /* in */
@@ -845,6 +1247,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the "no match" value into each of the variables named by
+        /// the remaining arguments, for use when a regular expression match did not
+        /// succeed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the variables are set.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments whose elements, starting at
+        /// <paramref name="nextIndex" />, name the variables to set.
+        /// </param>
+        /// <param name="nextIndex">
+        /// Upon input, the index of the first argument naming a variable to set.  Upon
+        /// output, the index immediately following the last argument that was
+        /// processed.
+        /// </param>
+        /// <param name="indexes">
+        /// Non-zero to store a pair of invalid indexes as the "no match" value;
+        /// otherwise, the empty string is stored.
+        /// </param>
+        /// <param name="noEmpty">
+        /// Non-zero to skip setting a variable when the "no match" value is null or
+        /// empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate error
+        /// code.
+        /// </returns>
         public static ReturnCode NoMatchVariableValues(
             Interpreter interpreter, /* in */
             ArgumentList arguments,  /* in */
@@ -902,13 +1336,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Text.RegularExpressions.MatchEvaluator Callback Methods
+        /// <summary>
+        /// This method is the match-evaluator callback used by the <c>regsub</c>
+        /// command for normal (non-command, non-evaluated) replacements, producing the
+        /// replacement text for the specified match based on the active regsub client
+        /// data.
+        /// </summary>
+        /// <param name="match">
+        /// The current regular expression match.
+        /// </param>
+        /// <returns>
+        /// The replacement text for the specified match.
+        /// </returns>
         public static string RegsubNormalMatchCallback(
             Match match
             )
         {
             //
             // NOTE: Attempt to obtain the parameters that were passed in
-            ///      from the [regsub] command caller and verify them.
+            //       from the [regsub] command caller and verify them.
             //
             Interpreter interpreter;
             RegsubClientData regsubClientData;
@@ -960,13 +1406,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the match-evaluator callback used by the <c>regsub</c>
+        /// command when a command prefix is supplied, building and evaluating the
+        /// command with the match values and returning its result as the replacement
+        /// text.
+        /// </summary>
+        /// <param name="match">
+        /// The current regular expression match.
+        /// </param>
+        /// <returns>
+        /// The replacement text for the specified match.
+        /// </returns>
         public static string RegsubCommandMatchCallback(
             Match match
             )
         {
             //
             // NOTE: Attempt to obtain the parameters that were passed in
-            ///      from the [regsub] command caller and verify them.
+            //       from the [regsub] command caller and verify them.
             //
             Interpreter interpreter;
             RegsubClientData regsubClientData;
@@ -1039,13 +1497,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the match-evaluator callback used by the <c>regsub</c>
+        /// command when a script is to be evaluated, translating and evaluating the
+        /// script for the specified match and returning its result as the replacement
+        /// text.
+        /// </summary>
+        /// <param name="match">
+        /// The current regular expression match.
+        /// </param>
+        /// <returns>
+        /// The replacement text for the specified match.
+        /// </returns>
         public static string RegsubEvaluateMatchCallback(
             Match match
             )
         {
             //
             // NOTE: Attempt to obtain the parameters that were passed in
-            ///      from the [regsub] command caller and verify them.
+            //       from the [regsub] command caller and verify them.
             //
             Interpreter interpreter;
             RegsubClientData regsubClientData;

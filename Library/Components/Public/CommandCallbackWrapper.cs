@@ -28,6 +28,16 @@ namespace Eagle._Components.Public
     //          the Eagle core library itself.  In the future, it may change
     //          in completely incompatible ways.  You have been warned.
     //
+    /// <summary>
+    /// This class provides the static plumbing used to dispatch dynamically
+    /// generated delegates back to their associated <see cref="ICallback" />
+    /// instances.  It maintains a lookup that maps the first argument of a
+    /// dynamic invocation (the object or type the delegate was created for) to
+    /// the command callback that should service it, and exposes the well-known
+    /// static method that emitted delegate wrappers call into.  This class
+    /// cannot be instantiated and is intended for use by the Eagle core library
+    /// only.
+    /// </summary>
     [ObjectId("a6ec2541-13ec-4f07-ab59-70d5d8fd52b4")]
     public sealed class CommandCallbackWrapper
     {
@@ -36,6 +46,10 @@ namespace Eagle._Components.Public
         // NOTE: This is used to synchronize access to both the MethodInfo
         //       and the static callback lookup dictionary (both below).
         //
+        /// <summary>
+        /// This object is used to synchronize access to the method information
+        /// and the static callback lookup dictionary maintained by this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -45,6 +59,10 @@ namespace Eagle._Components.Public
         //       make much sense to change it to another value (except perhaps
         //       null?) because it will be looked up relative to this class.
         //
+        /// <summary>
+        /// The name of the static method on this class that emitted delegate
+        /// wrappers call into in order to dispatch a dynamic invocation.
+        /// </summary>
         private static string DynamicInvokeMethodName =
             "StaticFireDynamicInvokeCallback";
 
@@ -53,6 +71,10 @@ namespace Eagle._Components.Public
         //
         // NOTE: This is for use by GetDynamicInvokeMethodInfo() only.
         //
+        /// <summary>
+        /// The cached reflected method information for the static method named
+        /// by <see cref="DynamicInvokeMethodName" />.
+        /// </summary>
         private static MethodInfo dynamicInvokeMethodInfo;
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,6 +84,11 @@ namespace Eagle._Components.Public
         //       CommandCallbackWrapper instances to their CommandCallback
         //       (as ICallback) instances.
         //
+        /// <summary>
+        /// The static callback lookup dictionary.  It maps each first argument
+        /// (object or type) to its associated command callback, represented as
+        /// an <see cref="ICallback" /> instance.
+        /// </summary>
         private static readonly CallbackDictionary callbacks =
             new CallbackDictionary();
         #endregion
@@ -69,6 +96,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class.  This constructor is private
+        /// because the class is not designed to be instantiated.
+        /// </summary>
         private CommandCallbackWrapper()
         {
             // do nothing.
@@ -81,6 +112,19 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds diagnostic information about the state of this
+        /// class (the dynamic invoke method name and information, plus the
+        /// number of registered callbacks) to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to add the diagnostic information to.  If this parameter is
+        /// null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control how much detail is included and whether
+        /// empty values are emitted.
+        /// </param>
         internal static void AddInfo(
             StringPairList list,    /* in */
             DetailFlags detailFlags /* in */
@@ -125,6 +169,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate the command callback associated with
+        /// the specified first argument.  The first argument itself is checked
+        /// first, followed by a lookup of the argument and then its type within
+        /// the static callback lookup dictionary.
+        /// </summary>
+        /// <param name="firstArgument">
+        /// The object or type to find the associated command callback for.
+        /// </param>
+        /// <param name="callback">
+        /// Upon success, receives the command callback associated with the
+        /// first argument; otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if a command callback was found; otherwise, false.
+        /// </returns>
         private static bool TryGetCallback(
             object firstArgument,  /* in */
             out ICallback callback /* out */
@@ -166,6 +226,15 @@ namespace Eagle._Components.Public
         // NOTE: This is for use by CommandCallback.GetDynamicDelegate()
         //       only.
         //
+        /// <summary>
+        /// This method returns the reflected method information for the static
+        /// dynamic invoke method on this class, looking it up and caching it on
+        /// first use.
+        /// </summary>
+        /// <returns>
+        /// The reflected method information for the static dynamic invoke
+        /// method, or null if it could not be resolved.
+        /// </returns>
         internal static MethodInfo GetDynamicInvokeMethodInfo()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -194,6 +263,19 @@ namespace Eagle._Components.Public
         //
         // NOTE: This is for use by CommandCallback.Dispose(bool) only.
         //
+        /// <summary>
+        /// This method removes registered callbacks from the static callback
+        /// lookup dictionary.  When a specific callback is supplied, only the
+        /// entries referring to it are removed; otherwise, all entries are
+        /// removed.
+        /// </summary>
+        /// <param name="callback">
+        /// The command callback whose entries should be removed.  If this
+        /// parameter is null, all registered callbacks are removed.
+        /// </param>
+        /// <returns>
+        /// The number of entries that were removed from the dictionary.
+        /// </returns>
         internal static int Cleanup(
             ICallback callback /* in */
             )
@@ -242,6 +324,21 @@ namespace Eagle._Components.Public
         //       destination).  Quite similar handling also applies to
         //       the CommandCallback.GetMethod method.
         //
+        /// <summary>
+        /// This method is the well-known entry point that emitted delegate
+        /// wrappers call into.  It locates the command callback associated with
+        /// the specified first argument and fires it using the supplied
+        /// arguments.
+        /// </summary>
+        /// <param name="firstArgument">
+        /// The object or type used to locate the command callback to fire.
+        /// </param>
+        /// <param name="args">
+        /// The arguments to pass to the located command callback.
+        /// </param>
+        /// <returns>
+        /// The value returned by the fired command callback.
+        /// </returns>
         public static object StaticFireDynamicInvokeCallback(
             object firstArgument, /* in */
             object[] args         /* in */
@@ -284,6 +381,25 @@ namespace Eagle._Components.Public
         // NOTE: This is for use by the CommandCallback.GetDynamicDelegate
         //       and CommandCallback.GetMethod methods only.
         //
+        /// <summary>
+        /// This method registers a command callback in the static callback
+        /// lookup dictionary, associating it with the specified first argument.
+        /// </summary>
+        /// <param name="firstArgument">
+        /// The object or type to associate with the command callback.  This
+        /// parameter cannot be null.
+        /// </param>
+        /// <param name="callback">
+        /// The command callback to register.  This parameter cannot be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the
+        /// callback could not be registered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode Create(
             object firstArgument, /* in */
             ICallback callback,   /* in */

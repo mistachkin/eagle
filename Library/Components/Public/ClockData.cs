@@ -17,12 +17,49 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class holds the contextual data used by Eagle's clock subsystem
+    /// when formatting and scanning dates and times -- the culture, time zone,
+    /// format string, reference date/time, and epoch that govern a clock
+    /// operation.  It implements <see cref="IClockData" /> and carries the
+    /// standard identifier and client data associated with such an object.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("280fe1b6-d4cd-42c0-94ba-6c547402e0cc")]
     public class ClockData : IClockData
     {
+        /// <summary>
+        /// Constructs a clock data instance from the fully specified set of
+        /// identity, culture, time zone, format, and date/time parameters.
+        /// </summary>
+        /// <param name="name">
+        /// The name of this clock data instance.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when formatting and scanning dates and times.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="timeZone">
+        /// The time zone used when interpreting dates and times.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="format">
+        /// The format string used when formatting or scanning dates and times.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="dateTime">
+        /// The reference date and time associated with this clock data instance.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch (origin) date and time associated with this clock data
+        /// instance.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with this clock data instance, if any.
+        /// This parameter may be null.
+        /// </param>
         public ClockData(
             string name,
             CultureInfo cultureInfo,
@@ -47,7 +84,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// The name of this clock data instance.
+        /// </summary>
         private string name;
+
+        /// <summary>
+        /// Gets or sets the name of this clock data instance.
+        /// </summary>
         public virtual string Name
         {
             get { return name; }
@@ -58,7 +102,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// The kind of identifier represented by this clock data instance.
+        /// </summary>
         private IdentifierKind kind;
+
+        /// <summary>
+        /// Gets or sets the kind of identifier represented by this clock data
+        /// instance.
+        /// </summary>
         public virtual IdentifierKind Kind
         {
             get { return kind; }
@@ -67,7 +119,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The unique identifier of this clock data instance.
+        /// </summary>
         private Guid id;
+
+        /// <summary>
+        /// Gets or sets the unique identifier of this clock data instance.
+        /// </summary>
         public virtual Guid Id
         {
             get { return id; }
@@ -78,7 +137,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this clock data instance.
+        /// </summary>
         private IClientData clientData;
+
+        /// <summary>
+        /// Gets or sets the client data associated with this clock data
+        /// instance.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -89,7 +156,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// The group of this clock data instance.
+        /// </summary>
         private string group;
+
+        /// <summary>
+        /// Gets or sets the group of this clock data instance.
+        /// </summary>
         public virtual string Group
         {
             get { return group; }
@@ -98,7 +172,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The description of this clock data instance.
+        /// </summary>
         private string description;
+
+        /// <summary>
+        /// Gets or sets the description of this clock data instance.
+        /// </summary>
         public virtual string Description
         {
             get { return description; }
@@ -109,7 +190,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveCultureInfo Members
+        /// <summary>
+        /// The culture used when formatting and scanning dates and times.
+        /// </summary>
         private CultureInfo cultureInfo;
+
+        /// <summary>
+        /// Gets or sets the culture used when formatting and scanning dates and
+        /// times.
+        /// </summary>
         public virtual CultureInfo CultureInfo
         {
             get { return cultureInfo; }
@@ -120,7 +209,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IClockData Members
+        /// <summary>
+        /// The time zone used when interpreting dates and times.
+        /// </summary>
         private TimeZone timeZone;
+
+        /// <summary>
+        /// Gets or sets the time zone used when interpreting dates and times.
+        /// </summary>
         public virtual TimeZone TimeZone
         {
             get { return timeZone; }
@@ -129,7 +225,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used when formatting or scanning dates and times.
+        /// </summary>
         private string format;
+
+        /// <summary>
+        /// Gets or sets the format string used when formatting or scanning dates
+        /// and times.
+        /// </summary>
         public virtual string Format
         {
             get { return format; }
@@ -138,7 +242,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The reference date and time associated with this clock data instance.
+        /// </summary>
         private DateTime dateTime;
+
+        /// <summary>
+        /// Gets or sets the reference date and time associated with this clock
+        /// data instance.
+        /// </summary>
         public virtual DateTime DateTime
         {
             get { return dateTime; }
@@ -147,7 +259,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The epoch (origin) date and time associated with this clock data
+        /// instance.
+        /// </summary>
         private DateTime epoch;
+
+        /// <summary>
+        /// Gets or sets the epoch (origin) date and time associated with this
+        /// clock data instance.
+        /// </summary>
         public virtual DateTime Epoch
         {
             get { return epoch; }
@@ -158,6 +279,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns the string representation of this clock data
+        /// instance.
+        /// </summary>
+        /// <returns>
+        /// The name of this clock data instance, or an empty string if it has
+        /// no name.
+        /// </returns>
         public override string ToString()
         {
             return (name != null) ? name : String.Empty;

@@ -3590,6 +3590,22 @@ if {![info exists no([file tail [info script]])]} then {
     checkForCommand $test_channel library
   }
 
+  if {![info exists no(lassignCommand)]} then {
+    checkForCommand $test_channel lassign
+  }
+
+  if {![info exists no(lmapCommand)]} then {
+    checkForCommand $test_channel lmap
+  }
+
+  if {![info exists no(lrepeatCommand)]} then {
+    checkForCommand $test_channel lrepeat
+  }
+
+  if {![info exists no(lreverseCommand)]} then {
+    checkForCommand $test_channel lreverse
+  }
+
   if {![info exists no(lremoveCommand)]} then {
     checkForCommand $test_channel lremove
   }
@@ -3608,6 +3624,10 @@ if {![info exists no([file tail [info script]])]} then {
 
   if {![info exists no(parseCommand)]} then {
     checkForCommand $test_channel parse
+  }
+
+  if {![info exists no(scanCommand)]} then {
+    checkForCommand $test_channel scan
   }
 
   if {![info exists no(scopeCommand)]} then {

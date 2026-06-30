@@ -32,6 +32,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a list of variable traces (<see cref="ITrace" />),
+    /// each describing a callback invoked when a traced variable is read,
+    /// written, or unset.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -39,6 +44,9 @@ namespace Eagle._Containers.Public
     public sealed class TraceList : List<ITrace>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty list of traces.
+        /// </summary>
         public TraceList()
             : base()
         {
@@ -47,6 +55,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of traces that contains the traces copied from the
+        /// specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of traces whose elements are copied into the new
+        /// list.
+        /// </param>
         public TraceList(
             IEnumerable<ITrace> collection
             )
@@ -57,6 +73,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of traces by wrapping each trace callback in the
+        /// specified collection in a new core trace.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of trace callbacks to wrap and add to the new list.
+        /// </param>
         public TraceList(
             IEnumerable<TraceCallback> collection
             )
@@ -66,6 +89,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of traces by wrapping each trace callback in the
+        /// specified collection in a new core trace, using the supplied client
+        /// data, trace flags, and plugin.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data to associate with each created trace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceFlags">
+        /// The trace flags to associate with each created trace.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to associate with each created trace.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of trace callbacks to wrap and add to the new list.
+        /// </param>
         public TraceList(
             IClientData clientData,
             TraceFlags traceFlags,
@@ -80,6 +122,26 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method wraps each trace callback in the specified collection in
+        /// a new core trace and adds it to this list, using the supplied client
+        /// data, trace flags, and plugin.  Callbacks that cannot be wrapped are
+        /// reported and skipped.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data to associate with each created trace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="traceFlags">
+        /// The trace flags to associate with each created trace.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to associate with each created trace.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of trace callbacks to wrap and add to this list.
+        /// </param>
         private void AddRange(
             IClientData clientData,
             TraceFlags traceFlags,
@@ -111,6 +173,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Methods (Interpreter Class Only)
+        /// <summary>
+        /// This method adds the non-null trace wrappers from the specified
+        /// dictionary to this list.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose trace wrapper values are added to this list.
+        /// </param>
         internal void AddRange(
             IDictionary<string, TraceWrapper> dictionary
             )
@@ -128,6 +197,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this list contains a trace whose
+        /// callback is equal to the specified callback, performing a linear
+        /// search.  Traces that are transparent proxies are skipped.
+        /// </summary>
+        /// <param name="item">
+        /// The trace callback to search for.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if a trace with a matching callback is found; otherwise, false.
+        /// </returns>
         internal bool Contains( /* O(N) */
             TraceCallback item
             )
@@ -159,6 +239,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// traces separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the traces included in the
+        /// result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -173,6 +268,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// traces separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

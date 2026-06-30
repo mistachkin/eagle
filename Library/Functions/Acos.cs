@@ -17,6 +17,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>acos</c> expression function, which
+    /// returns the arc cosine (inverse cosine), in radians, of its single
+    /// numeric argument.  See <c>core_language.md</c> for expression and
+    /// function semantics.
+    /// </summary>
     [ObjectId("70b7aadd-6f79-4f40-b304-cfa94a9a4db8")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
@@ -25,6 +31,13 @@ namespace Eagle._Functions
     internal sealed class Acos : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>acos</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Acos(
             IFunctionData functionData /* in */
             )
@@ -37,6 +50,37 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>acos</c> function.  It validates the
+        /// arguments using the base implementation, converts the single
+        /// argument to a double, and produces its arc cosine, in radians.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value whose arc cosine is
+        /// computed.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the computed arc cosine.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing or not
+        /// numeric, or a math exception occurs, with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

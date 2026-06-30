@@ -64,6 +64,12 @@ using STARTUP_FLAGS = Eagle._Components.Private.AppDomainOps.UnsafeNativeMethods
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the central set of helper methods used to query,
+    /// create, configure, and unload application domains, as well as to detect
+    /// and reason about cross-application-domain (remoting) boundaries used by
+    /// isolated interpreters and isolated plugins.
+    /// </summary>
 #if NATIVE && WINDOWS
 #if NET_40
     [SecurityCritical()]
@@ -80,14 +86,29 @@ namespace Eagle._Components.Private
 
 #if !NET_STANDARD_20 && NATIVE && WINDOWS
         #region Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the native (P/Invoke) declarations, COM
+        /// interface definitions, and related constants needed to host the CLR
+        /// and obtain the default application domain on the full .NET Framework
+        /// running on Windows.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("5857d617-b3fa-4ce6-89f8-3961ad6aa50c")]
         internal static class UnsafeNativeMethods
         {
             #region COM Identifiers for CLR Hosting
+            /// <summary>
+            /// The string form of the COM class identifier (CLSID) for the CLR
+            /// runtime host object, as defined in mscoree.h.
+            /// </summary>
             internal const string CLSID_CorRuntimeHost_String =
                 "cb2f6723-ab3a-11d2-9c40-00c04fa30a3e"; /* mscoree.h */
 
+            /// <summary>
+            /// The string form of the COM interface identifier (IID) for the
+            /// <see cref="ICorRuntimeHost" /> interface, as defined in
+            /// mscoree.h.
+            /// </summary>
             internal const string IID_ICorRuntimeHost_String =
                 "cb2f6722-ab3a-11d2-9c40-00c04fa30a3e"; /* mscoree.h */
             #endregion
@@ -95,30 +116,101 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region CLR Hosting Enumerations
+            /// <summary>
+            /// This enumeration contains the CLR startup flags, as defined in
+            /// mscoree.h, used when binding to and initializing the CLR runtime
+            /// host.
+            /// </summary>
             [ObjectId("a1cd61e4-857d-4ee1-b3b7-216d4d5de3f6")]
             internal enum STARTUP_FLAGS /* mscoree.h */
             {
+                /// <summary>
+                /// No startup flags are set.
+                /// </summary>
                 STARTUP_NONE = 0x0,
 
+                /// <summary>
+                /// Enable concurrent (background) garbage collection.
+                /// </summary>
                 STARTUP_CONCURRENT_GC = 0x1,
+
+                /// <summary>
+                /// The bit mask covering the loader optimization flags.
+                /// </summary>
                 STARTUP_LOADER_OPTIMIZATION_MASK = 0x3 << 1,
+
+                /// <summary>
+                /// Optimize assembly loading for a single application domain.
+                /// </summary>
                 STARTUP_LOADER_OPTIMIZATION_SINGLE_DOMAIN = 0x1 << 1,
+
+                /// <summary>
+                /// Optimize assembly loading for multiple application domains.
+                /// </summary>
                 STARTUP_LOADER_OPTIMIZATION_MULTI_DOMAIN = 0x2 << 1,
+
+                /// <summary>
+                /// Optimize assembly loading for multiple application domains
+                /// that share host (GAC) assemblies.
+                /// </summary>
                 STARTUP_LOADER_OPTIMIZATION_MULTI_DOMAIN_HOST = 0x3 << 1,
 
+                /// <summary>
+                /// Run the loader in safe mode.
+                /// </summary>
                 STARTUP_LOADER_SAFEMODE = 0x10,
+
+                /// <summary>
+                /// Honor the loader version preference.
+                /// </summary>
                 STARTUP_LOADER_SETPREFERENCE = 0x100,
 
+                /// <summary>
+                /// Use the server (rather than workstation) garbage collector.
+                /// </summary>
                 STARTUP_SERVER_GC = 0x1000,
+
+                /// <summary>
+                /// Allow the garbage collector to hoard virtual memory.
+                /// </summary>
                 STARTUP_HOARD_GC_VM = 0x2000,
 
+                /// <summary>
+                /// Use a single-version hosting interface.
+                /// </summary>
                 STARTUP_SINGLE_VERSION_HOSTING_INTERFACE = 0x4000,
+
+                /// <summary>
+                /// Use legacy impersonation behavior.
+                /// </summary>
                 STARTUP_LEGACY_IMPERSONATION = 0x10000,
+
+                /// <summary>
+                /// Disable committing the entire thread stack at thread
+                /// creation.
+                /// </summary>
                 STARTUP_DISABLE_COMMITTHREADSTACK = 0x20000,
+
+                /// <summary>
+                /// Always flow the impersonation context across asynchronous
+                /// points.
+                /// </summary>
                 STARTUP_ALWAYSFLOW_IMPERSONATION = 0x40000,
+
+                /// <summary>
+                /// Trim the committed memory of the garbage collector.
+                /// </summary>
                 STARTUP_TRIM_GC_COMMIT = 0x80000,
 
+                /// <summary>
+                /// Enable Event Tracing for Windows (ETW).
+                /// </summary>
                 STARTUP_ETW = 0x100000,
+
+                /// <summary>
+                /// Indicate that the process is running on the ARM
+                /// architecture.
+                /// </summary>
                 STARTUP_ARM = 0x400000
             }
             #endregion
@@ -126,6 +218,38 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region CLR Static Functions
+            /// <summary>
+            /// This method binds to a specific version of the CLR runtime and
+            /// returns an interface pointer to the requested runtime host
+            /// object.  It corresponds to the native CorBindToRuntimeEx
+            /// function in mscoree.h.
+            /// </summary>
+            /// <param name="version">
+            /// The version of the CLR to bind to (e.g. the three-part version
+            /// prefixed with "v").
+            /// </param>
+            /// <param name="buildFlavor">
+            /// The build flavor (e.g. workstation or server) to bind to; this
+            /// is optional and may be null.
+            /// </param>
+            /// <param name="startupFlags">
+            /// The <see cref="STARTUP_FLAGS" /> controlling how the CLR is
+            /// started.
+            /// </param>
+            /// <param name="clsId">
+            /// The COM class identifier of the runtime host object to create.
+            /// </param>
+            /// <param name="iId">
+            /// The COM interface identifier of the interface to return.
+            /// </param>
+            /// <param name="pUnknown">
+            /// Upon success, this receives the IUnknown interface pointer for
+            /// the created runtime host object.
+            /// </param>
+            /// <returns>
+            /// An HRESULT value indicating success or failure of the bind
+            /// operation.
+            /// </returns>
             [DllImport(DllName.MsCorEe,
                 CallingConvention = CallingConvention.StdCall,
                 CharSet = CharSet.Unicode, BestFitMapping = false,
@@ -143,6 +267,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region CLR Hosting Interfaces
+            /// <summary>
+            /// This interface is a partial managed declaration of the native
+            /// ICorRuntimeHost COM interface (mscoree.h).  Only the slots
+            /// needed to obtain the default application domain are declared;
+            /// the other virtual table slots are represented by placeholder
+            /// methods so that the layout matches the native interface.
+            /// </summary>
             [ComImport]
             [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
             [Guid("cb2f6722-ab3a-11d2-9c40-00c04fa30a3e")]
@@ -150,19 +281,68 @@ namespace Eagle._Components.Private
             [ObjectId("b67eb5f1-e800-4f24-a4a0-afe1c74ad882")]
             internal interface ICorRuntimeHost /* mscoree.h */
             {
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void00();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void01();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void02();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void03();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void04();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void05();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void06();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void07();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void08();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void09();
 
                 ///////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// This method obtains the default application domain hosted by
+                /// the CLR runtime host.
+                /// </summary>
+                /// <param name="appDomain">
+                /// Upon success, this receives the default application domain.
+                /// </param>
+                /// <returns>
+                /// An HRESULT value indicating success or failure.
+                /// </returns>
                 [return: MarshalAs(UnmanagedType.U4)]
                 [MethodImpl(MethodImplOptions.InternalCall,
                     MethodCodeType = MethodCodeType.Runtime)]
@@ -171,13 +351,44 @@ namespace Eagle._Components.Private
 
                 ///////////////////////////////////////////////////////////////
 
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void10();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void11();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void12();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void13();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void14();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void15();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void16();
+
+                /// <summary>
+                /// Placeholder for an unused virtual table slot.
+                /// </summary>
                 void Void17();
             }
             #endregion
@@ -193,21 +404,37 @@ namespace Eagle._Components.Private
         //       to use zero for the default application domain; therefore,
         //       we must use a negative value here.
         //
+        /// <summary>
+        /// The sentinel value used to represent an invalid or unknown
+        /// application domain identifier.
+        /// </summary>
         private static readonly int InvalidId = -1;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the application domain data slot used to flag that an
+        /// application domain unload is pending.
+        /// </summary>
         private const string UnloadDataName = "_EAGLE_PENDING_UNLOAD";
 
         ///////////////////////////////////////////////////////////////////////
 
 #if REMOTING
+        /// <summary>
+        /// The name of the private field on the RealProxy type that holds the
+        /// application domain identifier, queried via reflection.
+        /// </summary>
         private const string domainIdFieldName = "_domainID";
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY && NET_40
+        /// <summary>
+        /// The name of the IsLegacyCasPolicyEnabled property on the AppDomain
+        /// type, queried via reflection.
+        /// </summary>
         private const string isLegacyCasPolicyEnabledPropertyName =
             "IsLegacyCasPolicyEnabled";
 #endif
@@ -218,6 +445,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of times to retry unloading an application
+        /// domain before giving up.
+        /// </summary>
         private static int UnloadRetryLimit = 3; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////
@@ -225,6 +456,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, an application domain that appears to be already
+        /// unloaded is treated as an error instead of being tolerated.
+        /// </summary>
         private static bool UnloadStrict = false; // TODO: Good default?
 #endif
 
@@ -234,9 +469,18 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The COM class identifier (CLSID) for the CLR runtime host object,
+        /// built from <see cref="UnsafeNativeMethods.CLSID_CorRuntimeHost_String" />.
+        /// </summary>
         private static Guid CLSID_CorRuntimeHost = new Guid(
             UnsafeNativeMethods.CLSID_CorRuntimeHost_String);
 
+        /// <summary>
+        /// The COM interface identifier (IID) for the
+        /// <see cref="UnsafeNativeMethods.ICorRuntimeHost" /> interface, built
+        /// from <see cref="UnsafeNativeMethods.IID_ICorRuntimeHost_String" />.
+        /// </summary>
         private static Guid IID_ICorRuntimeHost = new Guid(
             UnsafeNativeMethods.IID_ICorRuntimeHost_String);
 #endif
@@ -246,6 +490,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the application domain data slot used to save and
+        /// restore the log file name across application domains.
+        /// </summary>
         private static string SavedLogFileNameData = "SavedLogFileName";
         #endregion
 
@@ -257,23 +505,44 @@ namespace Eagle._Components.Private
         // HACK: How many application domains has this class been responsible
         //       for creating -OR- unloading?
         //
+        /// <summary>
+        /// The running total of application domains that this class has been
+        /// responsible for creating.
+        /// </summary>
         private static long createCount;
+
+        /// <summary>
+        /// The running total of application domains that this class has been
+        /// responsible for unloading.
+        /// </summary>
         private static long unloadCount;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if REMOTING
+        /// <summary>
+        /// The object used to synchronize access to the cached reflection
+        /// members within this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached reflection information for the private application domain
+        /// identifier field of the RealProxy type.
+        /// </summary>
         private static FieldInfo domainIdFieldInfo = null;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY && NET_40
+        /// <summary>
+        /// The cached reflection information for the IsLegacyCasPolicyEnabled
+        /// property of the AppDomain type.
+        /// </summary>
         private static PropertyInfo isLegacyCasPolicyEnabledPropertyInfo = null;
 #endif
         #endregion
@@ -281,6 +550,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region AppDomain / Remoting Support Methods
+        /// <summary>
+        /// This method retrieves the saved log file name from the data slot of
+        /// the current application domain.
+        /// </summary>
+        /// <returns>
+        /// The saved log file name, or null if none is set or it could not be
+        /// retrieved.
+        /// </returns>
         public static string GetSavedLogFileName()
         {
             AppDomain appDomain = GetCurrent();
@@ -305,6 +582,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the saved log file name in the data slot of the
+        /// current application domain.
+        /// </summary>
+        /// <param name="fileName">
+        /// The log file name to save; this is optional and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value was stored successfully; otherwise, false.
+        /// </returns>
         public static bool SetSavedLogFileName(
             string fileName /* in: OPTIONAL */
             )
@@ -334,6 +621,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method determines whether the default application domain can be
+        /// obtained on the current platform and runtime.  This is only
+        /// supported on the full .NET Framework running on Windows.
+        /// </summary>
+        /// <returns>
+        /// True if the default application domain can be obtained; otherwise,
+        /// false.
+        /// </returns>
         public static bool CanGetDefault()
         {
             if (!PlatformOps.IsWindowsOperatingSystem())
@@ -350,6 +646,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the default application domain by hosting the
+        /// CLR runtime via native COM interfaces.  On platforms or runtimes
+        /// where this is not supported, it falls back to returning the current
+        /// application domain.
+        /// </summary>
+        /// <returns>
+        /// The default application domain, or null if it could not be
+        /// obtained.
+        /// </returns>
         public static object GetDefault()
         {
 #if !NET_STANDARD_20
@@ -417,6 +723,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether it is appropriate to complain about
+        /// errors in the current context.  Complaints are suppressed when the
+        /// application domain or process is shutting down, or when running in a
+        /// non-default application domain.
+        /// </summary>
+        /// <returns>
+        /// True if complaining about errors is appropriate; otherwise, false.
+        /// </returns>
         public static bool ShouldComplain()
         {
             //
@@ -443,6 +758,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current application domain is the
+        /// primary (global) application domain.
+        /// </summary>
+        /// <returns>
+        /// True if the current application domain is the primary one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsPrimary()
         {
             return IsPrimary(AppDomain.CurrentDomain);
@@ -450,6 +773,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified application domain is
+        /// the primary (global) application domain.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified application domain is the primary one;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsPrimary(
             AppDomain appDomain
             ) /* GLOBAL */
@@ -462,6 +796,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified object is a transparent
+        /// proxy (i.e. a proxy to an object in another application domain).
+        /// </summary>
+        /// <param name="proxy">
+        /// The object to check.
+        /// </param>
+        /// <returns>
+        /// True if the object is a transparent proxy; otherwise, false.
+        /// </returns>
         public static bool IsTransparentProxy(
             object proxy
             )
@@ -475,6 +819,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the object wrapped by the specified
+        /// wrapper is a transparent proxy.
+        /// </summary>
+        /// <param name="wrapper">
+        /// The wrapper whose contained object should be checked.
+        /// </param>
+        /// <returns>
+        /// True if the wrapped object is a transparent proxy; otherwise, false.
+        /// </returns>
         public static bool IsTransparentProxy(
             IWrapper wrapper
             )
@@ -487,6 +841,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two objects have the same transparent
+        /// proxy status (i.e. both are proxies or both are not).  When remoting
+        /// support is not available, the supplied default value is returned.
+        /// </summary>
+        /// <param name="proxy1">
+        /// The first object to check.
+        /// </param>
+        /// <param name="proxy2">
+        /// The second object to check.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when remoting support is not available.
+        /// </param>
+        /// <returns>
+        /// True if both objects have the same transparent proxy status;
+        /// otherwise, false.
+        /// </returns>
         public static bool MatchIsTransparentProxy(
             object proxy1,
             object proxy2,
@@ -504,6 +876,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if REMOTING
+        /// <summary>
+        /// This method obtains the remoting type information for the specified
+        /// object, if it is a remoted (marshal-by-reference) object.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose remoting type information should be obtained.
+        /// </param>
+        /// <returns>
+        /// The remoting type information for the object, or null if it is not
+        /// available.
+        /// </returns>
         private static IRemotingTypeInfo GetRemotingTypeInfo(
             object value
             )
@@ -528,6 +911,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate a type by name within the current
+        /// application domain.
+        /// </summary>
+        /// <param name="typeName">
+        /// The fully qualified name of the type to locate.
+        /// </param>
+        /// <returns>
+        /// The located type, or null if it could not be found.
+        /// </returns>
         private static Type FindType(
             string typeName
             )
@@ -537,6 +930,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to locate a type by name, searching the
+        /// assemblies loaded into the specified application domain.
+        /// </summary>
+        /// <param name="typeName">
+        /// The fully qualified name of the type to locate.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies should be searched.
+        /// </param>
+        /// <returns>
+        /// The located type, or null if it could not be found.
+        /// </returns>
         private static Type FindType(
             string typeName,
             AppDomain appDomain
@@ -584,6 +990,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified remoted
+        /// object is present (i.e. loadable) in the current application domain.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type presence should be checked.
+        /// </param>
+        /// <returns>
+        /// True if the type of the object is present in the current application
+        /// domain; otherwise, false.
+        /// </returns>
         public static bool IsTypePresent(
             object value
             )
@@ -610,6 +1027,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type name of the specified object
+        /// when it is a transparent proxy.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type name should be obtained.
+        /// </param>
+        /// <param name="typeName">
+        /// Upon return, this contains the type name of the object when it is a
+        /// transparent proxy; otherwise, null.
+        /// </param>
+        /// <returns>
+        /// True if the object is a transparent proxy (and the type name was
+        /// produced); otherwise, false.
+        /// </returns>
         public static bool MaybeGetTypeName(
             object value,
             out string typeName
@@ -636,6 +1068,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object,
+        /// complaining if an exception is thrown during the attempt.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or null if it could not be determined.
+        /// </returns>
         public static Type MaybeGetTypeOrComplain(
             object value
             )
@@ -653,6 +1095,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object,
+        /// returning the object type for transparent proxies whose underlying
+        /// type cannot be resolved, and null for a null value.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or null when the object is null.
+        /// </returns>
         public static Type MaybeGetType(
             object value
             )
@@ -662,6 +1115,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object,
+        /// returning null both for a null value and for transparent proxies
+        /// whose underlying type cannot be resolved.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or null if it could not be determined.
+        /// </returns>
         public static Type MaybeGetTypeOrNull(
             object value
             )
@@ -671,6 +1135,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object,
+        /// returning the object type both for a null value and for transparent
+        /// proxies whose underlying type cannot be resolved.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or the object type as a fallback.
+        /// </returns>
         public static Type MaybeGetTypeOrObject(
             object value
             )
@@ -680,6 +1155,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object,
+        /// returning the supplied default type both for a null value and for
+        /// transparent proxies whose underlying type cannot be resolved.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <param name="defaultType">
+        /// The type to return when the object is null or its type cannot be
+        /// resolved.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or the supplied default type as a fallback.
+        /// </returns>
         public static Type MaybeGetType(
             object value,
             Type defaultType
@@ -690,6 +1180,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type of the specified object.
+        /// For a null value the null type is returned, and for a transparent
+        /// proxy whose underlying type cannot be resolved the proxy type is
+        /// returned.
+        /// </summary>
+        /// <param name="value">
+        /// The object whose type should be obtained.
+        /// </param>
+        /// <param name="nullType">
+        /// The type to return when the object is null.
+        /// </param>
+        /// <param name="proxyType">
+        /// The type to return when the object is a transparent proxy whose
+        /// underlying type cannot be resolved.
+        /// </param>
+        /// <returns>
+        /// The type of the object, or one of the supplied fallback types.
+        /// </returns>
         private static Type MaybeGetType(
             object value,
             Type nullType,
@@ -725,6 +1234,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the application domain associated with the
+        /// specified interpreter, locking the interpreter for the duration of
+        /// the query.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose application domain should be obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain associated with the interpreter, or null if
+        /// it could not be obtained.
+        /// </returns>
         private static AppDomain GetFrom(
             Interpreter interpreter
             )
@@ -768,6 +1289,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the application domain associated with the
+        /// specified plugin data.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data whose application domain should be obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain associated with the plugin data, or null if
+        /// it is not available.
+        /// </returns>
         private static AppDomain GetFrom(
             IPluginData pluginData
             )
@@ -780,6 +1312,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the current application domain.
+        /// </summary>
+        /// <returns>
+        /// The current application domain.
+        /// </returns>
         public static AppDomain GetCurrent()
         {
             return AppDomain.CurrentDomain;
@@ -787,6 +1325,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the current application
+        /// domain.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the current application domain.
+        /// </returns>
         public static int GetCurrentId()
         {
             return GetId(AppDomain.CurrentDomain);
@@ -794,6 +1339,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the primary (global)
+        /// application domain.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the primary application domain.
+        /// </returns>
         public static int GetPrimaryId() /* GLOBAL */
         {
             return GetId(GlobalState.GetAppDomain());
@@ -801,6 +1353,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the current application domain
+        /// as a string.
+        /// </summary>
+        /// <param name="display">
+        /// When non-zero, a display-friendly placeholder is returned for a null
+        /// or invalid identifier instead of null.
+        /// </param>
+        /// <returns>
+        /// The string form of the current application domain identifier.
+        /// </returns>
         public static string GetIdString(
             bool display
             )
@@ -810,6 +1373,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the specified application
+        /// domain as a string.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain whose identifier should be obtained.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero, a display-friendly placeholder is returned for a null
+        /// or invalid identifier instead of null.
+        /// </param>
+        /// <returns>
+        /// The string form of the application domain identifier.
+        /// </returns>
         public static string GetIdString(
             AppDomain appDomain,
             bool display
@@ -828,6 +1405,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an application domain identifier string into a
+        /// display form prefixed with "AppDomain:".
+        /// </summary>
+        /// <param name="idString">
+        /// The application domain identifier string to format.
+        /// </param>
+        /// <returns>
+        /// The formatted application domain string.
+        /// </returns>
         public static string FormatAppDomain(
             string idString
             )
@@ -837,6 +1424,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the identifier of the specified application
+        /// domain into a string, accounting for whether the application domain
+        /// has been disposed and whether a display form is requested.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain whose identifier should be formatted.
+        /// </param>
+        /// <param name="disposed">
+        /// Non-zero if the application domain has been disposed.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero, a display-friendly form is produced.
+        /// </param>
+        /// <returns>
+        /// The formatted application domain identifier string.
+        /// </returns>
         public static string FormatIdString(
             AppDomain appDomain,
             bool disposed,
@@ -852,6 +1456,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the application domain
+        /// associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose application domain identifier should be
+        /// obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain identifier, or the invalid identifier if it
+        /// could not be obtained.
+        /// </returns>
         public static int GetId(
             Interpreter interpreter
             )
@@ -861,6 +1477,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the specified application
+        /// domain.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain whose identifier should be obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain identifier, or the invalid identifier if the
+        /// application domain is null.
+        /// </returns>
         private static int GetId(
             AppDomain appDomain
             )
@@ -873,6 +1500,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the identifier of the specified application
+        /// domain, or null if the application domain is null.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain whose identifier should be obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain identifier, or null if the application domain
+        /// is null.
+        /// </returns>
         private static int? GetIdOrNull(
             AppDomain appDomain
             )
@@ -885,6 +1523,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the application domain identifier associated
+        /// with the specified object when it is a remoting proxy, querying the
+        /// private identifier field via reflection.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose application domain identifier should be obtained.
+        /// </param>
+        /// <returns>
+        /// The application domain identifier of the proxy, or the invalid
+        /// identifier when it cannot be determined.
+        /// </returns>
         private static int GetId(
             object @object
             )
@@ -932,6 +1582,21 @@ namespace Eagle._Components.Private
         //
         // BUGBUG: Should this just use the IsTransparentProxy method instead?
         //
+        /// <summary>
+        /// This method determines whether two interpreters reside in different
+        /// application domains (i.e. whether calls between them would cross an
+        /// application domain boundary).
+        /// </summary>
+        /// <param name="interpreter1">
+        /// The first interpreter to compare.
+        /// </param>
+        /// <param name="interpreter2">
+        /// The second interpreter to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two interpreters are in different application domains;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsCross(
             Interpreter interpreter1,
             Interpreter interpreter2
@@ -954,6 +1619,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified plugin resides in a
+        /// different application domain than the current one (i.e. whether
+        /// calls to it would cross an application domain boundary).
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.
+        /// </param>
+        /// <returns>
+        /// True if the plugin is in a different application domain (or is
+        /// isolated); otherwise, false.
+        /// </returns>
         public static bool IsCross(
             IPluginData pluginData
             )
@@ -963,6 +1640,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified plugin resides in a
+        /// different application domain than the current one (i.e. whether
+        /// calls to it would cross an application domain boundary), with an
+        /// explicit result to use when an application domain is null.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.
+        /// </param>
+        /// <param name="resultOnNull">
+        /// The value to return when either application domain involved is null;
+        /// when null, the comparison proceeds normally.
+        /// </param>
+        /// <returns>
+        /// True if the plugin is in a different application domain (or is
+        /// isolated); otherwise, false.
+        /// </returns>
         public static bool IsCross(
             IPluginData pluginData,
             bool? resultOnNull
@@ -978,6 +1672,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified plugin resides in a
+        /// different application domain than the current one, without treating
+        /// an isolated plugin as automatically cross-domain.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.
+        /// </param>
+        /// <returns>
+        /// True if the plugin is in a different application domain; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsCrossNoIsolated(
             IPluginData pluginData
             )
@@ -991,6 +1697,23 @@ namespace Eagle._Components.Private
         // BUGBUG: Should this method just use the IsTransparentProxy
         //         method instead?
         //
+        /// <summary>
+        /// This method determines whether the specified plugin resides in a
+        /// different application domain than the current one, without treating
+        /// an isolated plugin as automatically cross-domain, with an explicit
+        /// result to use when an application domain is null.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.
+        /// </param>
+        /// <param name="resultOnNull">
+        /// The value to return when either application domain involved is null;
+        /// when null, the comparison proceeds normally.
+        /// </param>
+        /// <returns>
+        /// True if the plugin is in a different application domain; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsCrossNoIsolated(
             IPluginData pluginData,
             bool? resultOnNull
@@ -1025,6 +1748,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter and plugin
+        /// reside in different application domains (i.e. whether calls between
+        /// them would cross an application domain boundary).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to compare.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data to compare.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter and plugin are in different application
+        /// domains (or the plugin is isolated); otherwise, false.
+        /// </returns>
         public static bool IsCross(
             Interpreter interpreter,
             IPluginData pluginData
@@ -1035,6 +1773,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter and plugin
+        /// reside in different application domains, with an explicit result to
+        /// use when an application domain is null.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to compare.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data to compare.
+        /// </param>
+        /// <param name="resultOnNull">
+        /// The value to return when either application domain involved is null;
+        /// when null, the comparison proceeds normally.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter and plugin are in different application
+        /// domains (or the plugin is isolated); otherwise, false.
+        /// </returns>
         public static bool IsCross(
             Interpreter interpreter,
             IPluginData pluginData,
@@ -1051,6 +1808,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter and plugin
+        /// reside in different application domains, without treating an isolated
+        /// plugin as automatically cross-domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to compare.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data to compare.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter and plugin are in different application
+        /// domains; otherwise, false.
+        /// </returns>
         public static bool IsCrossNoIsolated(
             Interpreter interpreter,
             IPluginData pluginData
@@ -1065,6 +1837,28 @@ namespace Eagle._Components.Private
         // BUGBUG: Should this method just use the IsTransparentProxy
         //         method instead?
         //
+        /// <summary>
+        /// This method determines whether the specified interpreter and plugin
+        /// reside in different application domains, without treating an isolated
+        /// plugin as automatically cross-domain, with an explicit result to use
+        /// when an application domain is null.  A non-orphan interpreter running
+        /// in a non-default application domain is always treated as
+        /// cross-domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to compare.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data to compare.
+        /// </param>
+        /// <param name="resultOnNull">
+        /// The value to return when either application domain involved is null;
+        /// when null, the comparison proceeds normally.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter and plugin are in different application
+        /// domains; otherwise, false.
+        /// </returns>
         public static bool IsCrossNoIsolated(
             Interpreter interpreter,
             IPluginData pluginData,
@@ -1126,6 +1920,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the primary (global) application
+        /// domain is the default application domain.
+        /// </summary>
+        /// <returns>
+        /// True if the primary application domain is the default one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsPrimaryDefault() /* GLOBAL */
         {
             return IsDefault(GlobalState.GetAppDomain());
@@ -1133,6 +1935,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current application domain is the
+        /// default application domain.
+        /// </summary>
+        /// <returns>
+        /// True if the current application domain is the default one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsCurrentDefault()
         {
             return IsDefault(AppDomain.CurrentDomain);
@@ -1140,6 +1950,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified application domain is
+        /// the default application domain.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified application domain is the default one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsDefault(
             AppDomain appDomain
             )
@@ -1149,6 +1970,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified application domain is
+        /// the current application domain.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified application domain is the current one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsCurrent(
             AppDomain appDomain
             )
@@ -1158,6 +1990,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the application domain associated
+        /// with the specified interpreter is the current application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose application domain should be checked.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter application domain is the current one;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsCurrent(
             Interpreter interpreter
             )
@@ -1171,6 +2014,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two application domains are the same,
+        /// comparing them by identifier.  Two null application domains are
+        /// considered the same.
+        /// </summary>
+        /// <param name="appDomain1">
+        /// The first application domain to compare.
+        /// </param>
+        /// <param name="appDomain2">
+        /// The second application domain to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two application domains are the same; otherwise, false.
+        /// </returns>
         public static bool IsSame(
             AppDomain appDomain1,
             AppDomain appDomain2
@@ -1186,6 +2043,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the application domain associated
+        /// with the specified interpreter is the same as the current
+        /// application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose application domain should be compared.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter application domain is the same as the
+        /// current one; otherwise, false.
+        /// </returns>
         public static bool IsSame(
             Interpreter interpreter
             )
@@ -1195,6 +2064,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the application domain associated
+        /// with the specified interpreter is the same as the specified
+        /// application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose application domain should be compared.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to compare against.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter application domain is the same as the
+        /// specified one; otherwise, false.
+        /// </returns>
         public static bool IsSame(
             Interpreter interpreter,
             AppDomain appDomain
@@ -1210,6 +2094,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two plugins reside in the same
+        /// application domain, comparing them by application domain identifier.
+        /// </summary>
+        /// <param name="pluginData1">
+        /// The first plugin data to compare.
+        /// </param>
+        /// <param name="pluginData2">
+        /// The second plugin data to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two plugins are in the same application domain;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSame(
             IPluginData pluginData1,
             IPluginData pluginData2
@@ -1220,6 +2118,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the application domain identifier of
+        /// the specified object (when it is a proxy) matches that of the
+        /// specified application domain.  A non-proxy object is considered to
+        /// match the current application domain.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose application domain identifier should be compared.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to compare against.
+        /// </param>
+        /// <returns>
+        /// True if the application domain identifiers match; otherwise, false.
+        /// </returns>
         public static bool IsSameId(
             object @object,
             AppDomain appDomain
@@ -1250,6 +2163,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two objects share the same
+        /// application domain identifier (as obtained when they are proxies).
+        /// </summary>
+        /// <param name="object1">
+        /// The first object to compare.
+        /// </param>
+        /// <param name="object2">
+        /// The second object to compare.
+        /// </param>
+        /// <returns>
+        /// True if the application domain identifiers of the objects match;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSameId(
             object object1,
             object object2
@@ -1265,6 +2192,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current application domain or the
+        /// process as a whole is shutting down soon (e.g. a shutdown has
+        /// started, an unload is pending, or finalization is in progress).
+        /// </summary>
+        /// <returns>
+        /// True if the application domain or process is stopping soon;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsStoppingSoon()
         {
 #if NATIVE_PACKAGE
@@ -1292,6 +2228,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        /// <summary>
+        /// This method obtains the running totals of application domains
+        /// created and unloaded, either limited to this class instance or
+        /// drawn from the process-wide reference counts.
+        /// </summary>
+        /// <param name="localOnly">
+        /// Non-zero to report only the counts tracked by this class; zero to
+        /// report the process-wide counts.
+        /// </param>
+        /// <param name="createCount">
+        /// Upon return, this contains the total number of application domains
+        /// created.
+        /// </param>
+        /// <param name="unloadCount">
+        /// Upon return, this contains the total number of application domains
+        /// unloaded.
+        /// </param>
         public static void GetCounts(
             bool localOnly,
             ref long createCount,
@@ -1346,6 +2299,19 @@ namespace Eagle._Components.Private
         //          leak checking code only.  Please do not use it for
         //          anything else.
         //
+        /// <summary>
+        /// This method obtains the process-wide lists of created and unloaded
+        /// application domain identifiers.  It is intended for use by the test
+        /// suite application domain leak checking code only.
+        /// </summary>
+        /// <param name="createList">
+        /// Upon return, this contains the list of created application domain
+        /// identifiers.
+        /// </param>
+        /// <param name="unloadList">
+        /// Upon return, this contains the list of unloaded application domain
+        /// identifiers.
+        /// </param>
         private static void GetLists(
             ref StringList createList,
             ref StringList unloadList
@@ -1383,6 +2349,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that another application domain has been
+        /// created, updating both the process-wide tracking and the local
+        /// counter.
+        /// </summary>
+        /// <param name="id">
+        /// The identifier of the created application domain, or null to skip
+        /// recording.
+        /// </param>
+        /// <returns>
+        /// The updated local count of created application domains.
+        /// </returns>
         private static long AnotherOneCreated(
             int? id
             )
@@ -1419,6 +2397,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that another application domain has been
+        /// unloaded, updating both the process-wide tracking and the local
+        /// counter.
+        /// </summary>
+        /// <param name="id">
+        /// The identifier of the unloaded application domain, or null to skip
+        /// recording.
+        /// </param>
+        /// <returns>
+        /// The updated local count of unloaded application domains.
+        /// </returns>
         private static long AnotherOneUnloaded(
             int? id
             )
@@ -1457,6 +2447,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY && NET_40
+        /// <summary>
+        /// This method determines whether legacy Code Access Security (CAS)
+        /// policy is enabled for the current application domain.
+        /// </summary>
+        /// <returns>
+        /// True if legacy CAS policy is enabled; otherwise, false.
+        /// </returns>
         public static bool IsLegacyCasPolicyEnabled()
         {
             return IsLegacyCasPolicyEnabled(AppDomain.CurrentDomain);
@@ -1464,6 +2461,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether legacy Code Access Security (CAS)
+        /// policy is enabled for the specified application domain, querying the
+        /// relevant property via reflection.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if legacy CAS policy is enabled; otherwise, false.
+        /// </returns>
         private static bool IsLegacyCasPolicyEnabled(
             AppDomain appDomain
             )
@@ -1507,6 +2515,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an unload is pending for the
+        /// specified application domain, as indicated by its data slot.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if an unload is pending for the application domain; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsPendingUnload(
             AppDomain appDomain
             )
@@ -1530,6 +2549,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks the specified application domain as having an
+        /// unload pending, by setting its data slot.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to mark.
+        /// </param>
+        /// <returns>
+        /// True if the application domain was marked successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool MarkPendingUnload(
             AppDomain appDomain
             )
@@ -1554,6 +2584,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified application domain is
+        /// currently being finalized for unload.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to check.
+        /// </param>
+        /// <returns>
+        /// True if the application domain is finalizing for unload; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsFinalizing(
             AppDomain appDomain
             )
@@ -1566,6 +2607,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified delegate inside the specified
+        /// application domain.  On runtimes that do not support cross-domain
+        /// callbacks, the application domain must be the current one and the
+        /// delegate is simply invoked directly.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain in which to execute the delegate.
+        /// </param>
+        /// <param name="delegate">
+        /// The delegate to execute.
+        /// </param>
         public static void DoCallBack(
             AppDomain appDomain,
 #if !NET_STANDARD_20
@@ -1597,6 +2650,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// This method clears the isolated host stored on the specified
+        /// interpreter, when the interpreter is running in the same application
+        /// domain as its parent.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose isolated host should be cleared.
+        /// </param>
+        /// <returns>
+        /// True if the isolated host was cleared; otherwise, false.
+        /// </returns>
         public static bool MaybeClearIsolatedHost(
             Interpreter interpreter
             )
@@ -1606,6 +2670,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the specified host as the isolated host on the
+        /// specified interpreter, when the interpreter is running in the same
+        /// application domain as its parent.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter on which to store the isolated host.
+        /// </param>
+        /// <param name="host">
+        /// The host to store, or null to clear it.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite any existing isolated host; zero to set it
+        /// only when one is not already present.
+        /// </param>
+        /// <returns>
+        /// True if the isolated host was stored; otherwise, false.
+        /// </returns>
         public static bool MaybeSetIsolatedHost(
             Interpreter interpreter,
             IHost host,
@@ -1631,6 +2713,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter is isolated
+        /// (i.e. running in a different application domain than the current
+        /// one).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter is isolated; otherwise, false.
+        /// </returns>
         public static bool IsIsolated(
             Interpreter interpreter
             )
@@ -1655,6 +2748,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified plugin is isolated
+        /// (i.e. loaded in isolated mode), based on its flags.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.
+        /// </param>
+        /// <returns>
+        /// True if the plugin is isolated; otherwise, false.
+        /// </returns>
         public static bool IsIsolated(
             IPluginData pluginData
             )
@@ -1665,6 +2768,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps an integral type code to the option flags that
+        /// require an option value of the corresponding integral type.
+        /// </summary>
+        /// <param name="typeCode">
+        /// The integral type code to map.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to return no flags for an unsupported type code; zero to
+        /// fall back to the unsigned wide integer flag.
+        /// </param>
+        /// <returns>
+        /// The option flags corresponding to the type code.
+        /// </returns>
         private static OptionFlags GetEnumOptionFlags(
             TypeCode typeCode,
             bool strict
@@ -1724,6 +2841,30 @@ namespace Eagle._Components.Private
         //       application domain when the plugin has been loaded in isolated
         //       mode.
         //
+        /// <summary>
+        /// This method fixes up the enumerated-type options that refer to types
+        /// defined within an isolated plugin assembly, converting them so that
+        /// they can be used from the primary application domain.  For flags
+        /// enumerations a placeholder type is substituted; for ordinary
+        /// enumerations the option is converted to its integral type.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data whose options should be fixed up.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary to fix up.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat missing plugin data or options as an error; zero
+        /// to treat them as a successful no-op.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode FixupOptions(
             IPluginData pluginData,
             OptionDictionary options,
@@ -1868,6 +3009,63 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains an existing application domain for the specified
+        /// interpreter or creates a new isolated one, depending on whether
+        /// isolation is requested.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is obtained or
+        /// created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name to use for a newly created application domain.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory to use for a newly created application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path of a newly
+        /// created application domain.
+        /// </param>
+        /// <param name="evidence">
+        /// The Code Access Security evidence to associate with a newly created
+        /// application domain.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero to create a new isolated application domain; zero to reuse
+        /// the application domain configured for the interpreter.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path when configuring the new application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero to refresh and use the entry assembly within the new
+        /// application domain.
+        /// </param>
+        /// <param name="optionalEntryAssembly">
+        /// Non-zero to treat failures involving the entry assembly as
+        /// non-fatal.
+        /// </param>
+        /// <param name="appDomain">
+        /// Upon success, this contains the obtained or created application
+        /// domain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetOrCreate(
             Interpreter interpreter,
             string friendlyName,
@@ -1936,6 +3134,52 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_INTERPRETERS
+        /// <summary>
+        /// This method creates a new isolated application domain for use by the
+        /// test suite (isolated interpreters).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name to use for the new application domain.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory to use for the new application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path of the new
+        /// application domain.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path when configuring the new application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero to refresh and use the entry assembly within the new
+        /// application domain.
+        /// </param>
+        /// <param name="optionalEntryAssembly">
+        /// Non-zero to treat failures involving the entry assembly as
+        /// non-fatal.
+        /// </param>
+        /// <param name="appDomain">
+        /// Upon success, this contains the created application domain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CreateForTest(
             Interpreter interpreter,
             string friendlyName,
@@ -1965,6 +3209,12 @@ namespace Eagle._Components.Private
 
 #if APPDOMAINS
         #region TransferHelper Class (Serializable)
+        /// <summary>
+        /// This class is a serializable helper used to capture the static
+        /// property and field values of a type in one application domain and
+        /// reapply them within another application domain via a cross-domain
+        /// callback.
+        /// </summary>
 #if SERIALIZATION
         [Serializable()]
 #endif
@@ -1972,6 +3222,10 @@ namespace Eagle._Components.Private
         private sealed class TransferHelper
         {
             #region Private Constants
+            /// <summary>
+            /// The binding flags used when reflecting over the static
+            /// properties and fields to be transferred.
+            /// </summary>
             private static BindingFlags bindingFlags =
                 ObjectOps.GetBindingFlags(
                     MetaBindingFlags.TransferHelper, true);
@@ -1980,20 +3234,64 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Private Data
+            /// <summary>
+            /// The type whose static property and field values are being
+            /// transferred.
+            /// </summary>
             private Type type;
+
+            /// <summary>
+            /// The optional glob patterns used to select which member names to
+            /// include in the transfer.
+            /// </summary>
             private StringList includeNames;
+
+            /// <summary>
+            /// The optional glob patterns used to select which member names to
+            /// exclude from the transfer.
+            /// </summary>
             private StringList excludeNames;
+
+            /// <summary>
+            /// When non-zero, exceptions encountered during the transfer are
+            /// rethrown instead of being ignored.
+            /// </summary>
             private bool failOnError;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The captured static property values, keyed by property name.
+            /// </summary>
             private ObjectDictionary properties;
+
+            /// <summary>
+            /// The captured static field values, keyed by field name.
+            /// </summary>
             private ObjectDictionary fields;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="type">
+            /// The type whose static property and field values are to be
+            /// transferred.
+            /// </param>
+            /// <param name="includeNames">
+            /// The optional glob patterns selecting which member names to
+            /// include.
+            /// </param>
+            /// <param name="excludeNames">
+            /// The optional glob patterns selecting which member names to
+            /// exclude.
+            /// </param>
+            /// <param name="failOnError">
+            /// Non-zero to rethrow exceptions encountered during the transfer.
+            /// </param>
             public TransferHelper(
                 Type type,
                 StringList includeNames,
@@ -2011,6 +3309,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method determines whether the specified member name should
+            /// be transferred, based on the configured include and exclude
+            /// glob patterns.
+            /// </summary>
+            /// <param name="name">
+            /// The member name to test.
+            /// </param>
+            /// <returns>
+            /// True if the member name should be transferred; otherwise, false.
+            /// </returns>
             private bool Match(
                 string name
                 )
@@ -2055,6 +3364,11 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method captures the current values of the matching static
+            /// properties and fields of the configured type into this helper
+            /// instance.
+            /// </summary>
             public void Save()
             {
                 if (type == null)
@@ -2160,6 +3474,11 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method applies the previously captured static property and
+            /// field values to the configured type in the current application
+            /// domain.  Literal and read-only fields are skipped.
+            /// </summary>
             public void Load()
             {
                 if (type == null)
@@ -2229,6 +3548,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method transfers the matching static property and field values
+        /// of the specified type from the current application domain into the
+        /// specified target application domain via a cross-domain callback.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The target application domain to receive the transferred values.
+        /// </param>
+        /// <param name="type">
+        /// The type whose static property and field values are to be
+        /// transferred.
+        /// </param>
+        /// <param name="includeNames">
+        /// The optional glob patterns selecting which member names to include.
+        /// </param>
+        /// <param name="excludeNames">
+        /// The optional glob patterns selecting which member names to exclude.
+        /// </param>
+        /// <param name="failOnError">
+        /// Non-zero to rethrow exceptions encountered during the transfer.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode TransferStaticInformation(
             AppDomain appDomain,
             Type type,
@@ -2260,6 +3607,12 @@ namespace Eagle._Components.Private
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
         #region PostCreateHelper Class (Serializable)
+        /// <summary>
+        /// This class is a serializable helper used to perform post-creation
+        /// initialization within a newly created application domain via
+        /// cross-domain callbacks, such as refreshing the entry assembly and
+        /// performing static initialization.
+        /// </summary>
 #if SERIALIZATION
         [Serializable()]
 #endif
@@ -2267,12 +3620,23 @@ namespace Eagle._Components.Private
         private sealed class PostCreateHelper
         {
             #region Private Data
+            /// <summary>
+            /// The entry assembly to be refreshed within the target application
+            /// domain.
+            /// </summary>
             private Assembly entryAssembly;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Private Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="entryAssembly">
+            /// The entry assembly to be refreshed within the target application
+            /// domain.
+            /// </param>
             private PostCreateHelper(
                 Assembly entryAssembly
                 )
@@ -2284,6 +3648,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Static "Factory" Methods
+            /// <summary>
+            /// This method creates a new instance of this class for the
+            /// specified entry assembly.
+            /// </summary>
+            /// <param name="entryAssembly">
+            /// The entry assembly to be refreshed within the target application
+            /// domain.
+            /// </param>
+            /// <returns>
+            /// The newly created helper instance.
+            /// </returns>
             public static PostCreateHelper Create(
                 Assembly entryAssembly
                 )
@@ -2295,6 +3670,11 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method refreshes the global entry assembly using the entry
+            /// assembly captured by this helper.  It is intended to be invoked
+            /// within the target application domain.
+            /// </summary>
             public void RefreshEntryAssembly()
             {
                 GlobalState.RefreshEntryAssembly(entryAssembly);
@@ -2302,6 +3682,11 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method performs interpreter static initialization, if it
+            /// has not already been performed.  It is intended to be invoked
+            /// within the target application domain.
+            /// </summary>
             public void MaybeStaticInitialize()
             {
                 Interpreter.MaybeStaticInitialize();
@@ -2312,6 +3697,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a friendly name for an application domain from a
+        /// prefix and two values.  Each value may be a string used directly or
+        /// a byte array that is hashed to produce a name component.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to use for the friendly name.
+        /// </param>
+        /// <param name="value1">
+        /// The first value, either a string or a byte array to be hashed.
+        /// </param>
+        /// <param name="value2">
+        /// The second value, either a string or a byte array to be hashed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The constructed friendly name, or null if it could not be produced.
+        /// </returns>
         public static string GetFriendlyName(
             string prefix,
             object value1,
@@ -2358,6 +3763,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines a usable base path for a new application
+        /// domain, such that the path contains the core library assembly (and,
+        /// optionally, the package path) somewhere underneath it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter providing context for path resolution; this is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path that must also reside under the chosen base path,
+        /// or null if there is none.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The usable base path, or null if one could not be determined.
+        /// </returns>
         private static string GetBasePath(
             Interpreter interpreter, /* OPTIONAL */
             string packagePath,
@@ -2426,6 +3850,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the path to the core library assembly.
+        /// </summary>
+        /// <returns>
+        /// The path to the core library assembly.
+        /// </returns>
         private static string GetAssemblyPath()
         {
             return GlobalState.GetAssemblyPath();
@@ -2433,6 +3863,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends descriptive information about an application
+        /// domain setup, along with the current create and unload counts, to
+        /// the specified list.
+        /// </summary>
+        /// <param name="appDomainSetup">
+        /// The application domain setup whose information should be added, or
+        /// null.
+        /// </param>
+        /// <param name="list">
+        /// The list to which the information should be appended.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The detail flags controlling how much information is included.
+        /// </param>
         private static void AddInfo(
             AppDomainSetup appDomainSetup,
             StringPairList list,
@@ -2483,6 +3928,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace describing an application
+        /// domain setup and the parameters used to create it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is being created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain being created.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory used for the application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path used for the application domain.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero if the base path is being used to configure the application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero if the core library assembly is being verified.
+        /// </param>
+        /// <param name="appDomainSetup">
+        /// The application domain setup to describe.
+        /// </param>
         private static void DumpSetup(
             Interpreter interpreter,
             string friendlyName,
@@ -2513,6 +3984,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the application base directory to use for an
+        /// application domain setup, preferring the base path, then the package
+        /// path, and finally the assembly path.
+        /// </summary>
+        /// <param name="basePath">
+        /// The base path to use when the base path is preferred.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to use when the base path is not preferred.
+        /// </param>
+        /// <param name="assemblyPath">
+        /// The assembly path to use as a final fallback.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path; zero to use the package or assembly
+        /// path.
+        /// </param>
+        /// <returns>
+        /// The selected application base directory.
+        /// </returns>
         private static string GetSetupApplicationBase(
             string basePath,
             string packagePath,
@@ -2531,6 +4023,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the portion of a path relative to a base path,
+        /// when the path is known to reside under that base path.
+        /// </summary>
+        /// <param name="basePath">
+        /// The base path to make the path relative to.
+        /// </param>
+        /// <param name="path">
+        /// The path to make relative.
+        /// </param>
+        /// <param name="underBasePath">
+        /// Non-zero if the path is known to reside under the base path.
+        /// </param>
+        /// <returns>
+        /// The relative path, or null if it could not be computed.
+        /// </returns>
         private static string MakeRelativePath(
             string basePath,
             string path,
@@ -2550,6 +4058,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs and configures an application domain setup
+        /// for a new application domain, computing the application base and
+        /// private binary path so that both the core library assembly and the
+        /// package can be located.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter providing context; this is optional and may be null.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain being configured.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory to use, or null to derive one.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path, or null.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use and verify a base path; zero to skip base path
+        /// handling.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The configured application domain setup, or null on failure.
+        /// </returns>
         private static AppDomainSetup CreateSetup(
             Interpreter interpreter, /* OPTIONAL */
             string friendlyName,
@@ -2679,6 +4219,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new application domain using a default base
+        /// directory and no Code Access Security evidence or client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name to use for the new application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path of the new
+        /// application domain.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path when configuring the new application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero to refresh and use the entry assembly within the new
+        /// application domain.
+        /// </param>
+        /// <param name="optionalEntryAssembly">
+        /// Non-zero to treat failures involving the entry assembly as
+        /// non-fatal.
+        /// </param>
+        /// <param name="appDomain">
+        /// Upon success, this contains the created application domain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Create(
             Interpreter interpreter,
             string friendlyName,
@@ -2703,6 +4283,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and configures a new application domain, records
+        /// the create count, and optionally performs entry assembly handling
+        /// inside the new application domain.  On failure, any partially
+        /// created application domain is unloaded.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name to use for the new application domain; an empty
+        /// name is allowed but a null name is not.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory to use for the new application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path of the new
+        /// application domain.
+        /// </param>
+        /// <param name="evidence">
+        /// The Code Access Security evidence to associate with the new
+        /// application domain.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path when configuring the new application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero to refresh and use the entry assembly within the new
+        /// application domain.
+        /// </param>
+        /// <param name="optionalEntryAssembly">
+        /// Non-zero to treat failures involving the entry assembly as
+        /// non-fatal.
+        /// </param>
+        /// <param name="appDomain">
+        /// Upon success, this contains the created application domain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Create(
             Interpreter interpreter,
             string friendlyName,
@@ -2830,6 +4463,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and configures a new application domain and,
+        /// optionally, copies static configuration (such as the trace
+        /// operations configuration) into the new application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the application domain is created.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name to use for the new application domain.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory to use for the new application domain.
+        /// </param>
+        /// <param name="packagePath">
+        /// The package path to include in the private binary path of the new
+        /// application domain.
+        /// </param>
+        /// <param name="evidence">
+        /// The Code Access Security evidence to associate with the new
+        /// application domain.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
+        /// <param name="useBasePath">
+        /// Non-zero to use the base path when configuring the new application
+        /// domain.
+        /// </param>
+        /// <param name="verifyCoreAssembly">
+        /// Non-zero to verify that the core library assembly resides under the
+        /// chosen base directory.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero to refresh and use the entry assembly within the new
+        /// application domain.
+        /// </param>
+        /// <param name="optionalEntryAssembly">
+        /// Non-zero to treat failures involving the entry assembly as
+        /// non-fatal.
+        /// </param>
+        /// <param name="copyConfiguration">
+        /// Non-zero to copy static configuration into the new application
+        /// domain after it is created.
+        /// </param>
+        /// <param name="appDomain">
+        /// Upon success, this contains the created application domain.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Create(
             Interpreter interpreter,
             string friendlyName,
@@ -2879,6 +4567,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the elapsed time, in microseconds, since the
+        /// specified performance counter value into a display string.
+        /// </summary>
+        /// <param name="startCount">
+        /// The performance counter value captured at the start of the elapsed
+        /// interval.
+        /// </param>
+        /// <returns>
+        /// The formatted elapsed time string.
+        /// </returns>
         private static string FormatTime(
             long startCount
             )
@@ -2890,6 +4589,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unloads the specified application domain, retrying up to
+        /// the configured retry limit and tolerating cases where the
+        /// application domain is already unloaded (unless strict unloading is
+        /// enabled).
+        /// </summary>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain, used for diagnostics;
+        /// this may be null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to unload.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Unload(
             string friendlyName,
             AppDomain appDomain,
@@ -3012,6 +4734,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unloads the specified application domain, complaining if
+        /// the unload operation fails.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used for complaint context.
+        /// </param>
+        /// <param name="friendlyName">
+        /// The friendly name of the application domain, used for diagnostics;
+        /// this may be null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to unload.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the operation.
+        /// </param>
         public static void UnloadOrComplain(
             Interpreter interpreter,
             string friendlyName,

@@ -22,24 +22,48 @@ using CertificateDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for loading, caching, and
+    /// verifying X.509 certificates used by the Eagle library.
+    /// </summary>
     [ObjectId("acaf57c4-509f-4953-b43b-2222a40d6d33")]
     internal static class CertificateOps
     {
         #region Private Data
+        /// <summary>
+        /// Stores the object used to synchronize access to the certificate
+        /// cache and the associated chain verification settings.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the cache mapping signed file names to their loaded X.509
+        /// certificates.
+        /// </summary>
         private static CertificateDictionary certificates = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the X.509 chain verification flags used when verifying a
+        /// certificate chain.
+        /// </summary>
         private static X509VerificationFlags verificationFlags =
             X509VerificationFlags.NoFlag;
 
+        /// <summary>
+        /// Stores the X.509 revocation mode used when verifying a certificate
+        /// chain.
+        /// </summary>
         private static X509RevocationMode revocationMode =
             X509RevocationMode.Online;
 
+        /// <summary>
+        /// Stores the X.509 revocation flag used when verifying a certificate
+        /// chain.
+        /// </summary>
         private static X509RevocationFlag revocationFlag =
             X509RevocationFlag.ExcludeRoot;
         #endregion
@@ -50,6 +74,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds the certificate-related introspection information
+        /// to the specified list of name/value pairs.
+        /// </summary>
+        /// <param name="list">
+        /// The list of name/value pairs to add the information to.  If this
+        /// parameter is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail in the resulting
+        /// information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -107,6 +143,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Certificate Methods
+        /// <summary>
+        /// This method queries the X.509 chain verification settings currently
+        /// in effect.
+        /// </summary>
+        /// <param name="verificationFlags">
+        /// Upon return, this parameter will be set to the X.509 chain
+        /// verification flags currently in effect.
+        /// </param>
+        /// <param name="revocationMode">
+        /// Upon return, this parameter will be set to the X.509 revocation
+        /// mode currently in effect.
+        /// </param>
+        /// <param name="revocationFlag">
+        /// Upon return, this parameter will be set to the X.509 revocation
+        /// flag currently in effect.
+        /// </param>
         public static void QueryFlags(
             out X509VerificationFlags verificationFlags,
             out X509RevocationMode revocationMode,
@@ -123,6 +175,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the certificate cache, optionally forcing a
+        /// new, empty cache to be created.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to always create a new, empty cache, even if one already
+        /// exists.
+        /// </param>
         public static void Initialize(
             bool force
             )
@@ -136,6 +196,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the certificate cache, discarding all cached
+        /// certificates.
+        /// </summary>
+        /// <returns>
+        /// The number of certificates that were removed from the cache.
+        /// </returns>
         public static int ClearCache()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -156,6 +223,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads the X.509 certificate associated with the
+        /// specified signed file, optionally consulting and updating the
+        /// certificate cache.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the signed file whose certificate is to be loaded.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass the certificate cache, always loading the
+        /// certificate directly from the file.  This parameter should be
+        /// non-zero in any context that makes security decisions based on the
+        /// loaded certificate.
+        /// </param>
+        /// <param name="certificate">
+        /// Upon success, this parameter will be set to the loaded certificate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an error message that
+        /// describes why the certificate could not be loaded.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetCertificate(
             string fileName,
             bool noCache,
@@ -240,6 +332,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads the <see cref="X509Certificate2" /> associated
+        /// with the specified signed file, optionally consulting and updating
+        /// the certificate cache.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the signed file whose certificate is to be loaded.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass the certificate cache, always loading the
+        /// certificate directly from the file.  This parameter should be
+        /// non-zero in any context that makes security decisions based on the
+        /// loaded certificate.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, this parameter will be set to the loaded certificate.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetCertificate2(
             string fileName,
             bool noCache,
@@ -254,6 +367,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads the <see cref="X509Certificate2" /> associated
+        /// with the specified signed file, optionally consulting and updating
+        /// the certificate cache.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the signed file whose certificate is to be loaded.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass the certificate cache, always loading the
+        /// certificate directly from the file.  This parameter should be
+        /// non-zero in any context that makes security decisions based on the
+        /// loaded certificate.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, this parameter will be set to the loaded certificate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an error message that
+        /// describes why the certificate could not be loaded.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetCertificate2(
             string fileName,
             bool noCache,
@@ -303,6 +441,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies the X.509 certificate chain for the specified
+        /// certificate using the specified chain policy settings.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly associated with the certificate, used only to provide
+        /// additional context in verbose error messages.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="certificate2">
+        /// The certificate whose chain is to be verified.
+        /// </param>
+        /// <param name="verificationFlags">
+        /// The X.509 chain verification flags to use.
+        /// </param>
+        /// <param name="revocationMode">
+        /// The X.509 revocation mode to use.
+        /// </param>
+        /// <param name="revocationFlag">
+        /// The X.509 revocation flag to use.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional context, such as the associated
+        /// assembly, in the resulting error message.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an error message that
+        /// describes why the certificate chain could not be verified.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode VerifyChain(
             Assembly assembly,
             X509Certificate2 certificate2,

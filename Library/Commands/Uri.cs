@@ -34,11 +34,28 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>uri</c> command, which provides access to
+    /// Uniform Resource Identifier (URI) handling and network transfer
+    /// operations.  It is an ensemble whose sub-commands cover comparing,
+    /// creating, and parsing URIs, escaping and unescaping URI text,
+    /// downloading and uploading data, querying host and scheme validity,
+    /// pinging hosts, and managing offline, security, and software update
+    /// state.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("ca27d807-1636-4d17-bbf2-ebbe91aed44f")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard)]
     [ObjectGroup("network")]
     internal sealed class _Uri : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>uri</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _Uri(
             ICommandData commandData
             )
@@ -50,6 +67,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "compare", "create", "download", "escape", "get", "host",
             "isvalid", "join", "offline", "parse", "ping", "post",
@@ -59,6 +81,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -68,11 +94,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedUriSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -82,6 +117,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>uri</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>compare</c>,
+        /// <c>create</c>, <c>download</c>, <c>get</c>, <c>escape</c>,
+        /// <c>parse</c>, <c>ping</c>, <c>post</c>, or <c>upload</c>) in order
+        /// to compare, build, parse, escape, or transfer Uniform Resource
+        /// Identifiers, honoring the recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

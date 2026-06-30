@@ -21,33 +21,66 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class manages the per-interpreter, per-thread engine, interactive, test, and variable contexts used by the Eagle engine, creating them on demand and releasing them during disposal.
+    /// </summary>
     [ObjectId("53f5f2e0-ea9c-46a8-b584-779ef217beb5")]
     internal sealed class ContextManager :
             IContextManager, IHaveInterpreter, IDisposable
     {
         #region Private Static Data
+        /// <summary>
+        /// The object used to synchronize access to the thread-local storage slots.
+        /// </summary>
         private static object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The thread-local storage slot holding the per-interpreter engine contexts.
+        /// </summary>
         private static LocalDataStoreSlot engineSlot;
+        /// <summary>
+        /// The thread-local storage slot holding the per-interpreter interactive contexts.
+        /// </summary>
         private static LocalDataStoreSlot interactiveSlot;
+        /// <summary>
+        /// The thread-local storage slot holding the per-interpreter test contexts.
+        /// </summary>
         private static LocalDataStoreSlot testSlot;
+        /// <summary>
+        /// The thread-local storage slot holding the per-interpreter variable contexts.
+        /// </summary>
         private static LocalDataStoreSlot variableSlot;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The most recently used engine context, cached to avoid repeated lookups.
+        /// </summary>
         private IEngineContext previousEngineContext;
+        /// <summary>
+        /// The most recently used interactive context, cached to avoid repeated lookups.
+        /// </summary>
         private IInteractiveContext previousInteractiveContext;
+        /// <summary>
+        /// The most recently used test context, cached to avoid repeated lookups.
+        /// </summary>
         private ITestContext previousTestContext;
+        /// <summary>
+        /// The most recently used variable context, cached to avoid repeated lookups.
+        /// </summary>
         private IVariableContext previousVariableContext;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method allocates the thread-local storage slots used to hold the per-interpreter contexts; it must be called prior to evaluating any scripts or performing any call frame handling.
+        /// </summary>
         public static void Initialize()
         {
             //
@@ -76,6 +109,21 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method is called via the interpreter disposal pipeline.
         //
+        /// <summary>
+        /// This method purges the engine, interactive, test, and variable contexts associated with the specified interpreter from all threads; it is called via the interpreter disposal pipeline.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The total number of contexts that were purged.
+        /// </returns>
         public static int Purge(
             Interpreter interpreter,
             bool nonPrimary,
@@ -96,6 +144,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a context manager associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns this context manager.
+        /// </param>
         public ContextManager(
             Interpreter interpreter
             )
@@ -107,6 +161,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method frees the specified variable context, using its special Free method so that the global call frame is handled correctly.
+        /// </summary>
+        /// <param name="variableContext">
+        /// The variable context to free.  This parameter may be null.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter that owns the global call frame is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the variable context was freed; otherwise, false.
+        /// </returns>
         private static bool FreeVariableContext(
             IVariableContext variableContext,
             bool global
@@ -139,6 +205,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the engine contexts for the matching interpreters from the engine context slot on the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.  This parameter is not used.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The number of engine contexts that were purged.
+        /// </returns>
         private static int PrivatePurgeEngineContexts(
             Interpreter interpreter, /* NOT USED */
             bool nonPrimary,
@@ -262,6 +343,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the interactive contexts for the matching interpreters from the interactive context slot on the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.  This parameter is not used.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The number of interactive contexts that were purged.
+        /// </returns>
         private static int PrivatePurgeInteractiveContexts(
             Interpreter interpreter, /* NOT USED */
             bool nonPrimary,
@@ -385,6 +481,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the test contexts for the matching interpreters from the test context slot on the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.  This parameter is not used.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The number of test contexts that were purged.
+        /// </returns>
         private static int PrivatePurgeTestContexts(
             Interpreter interpreter, /* NOT USED */
             bool nonPrimary,
@@ -508,6 +619,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the variable contexts for the matching interpreters from the variable context slot on the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter that owns the global call frame is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The number of variable contexts that were purged.
+        /// </returns>
         private static int PrivatePurgeVariableContexts(
             Interpreter interpreter,
             bool nonPrimary,
@@ -628,6 +754,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of engine contexts present in the engine context slot on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of engine contexts; zero if none are present.
+        /// </returns>
         private static int PrivateGetEngineContextCount()
         {
             try
@@ -659,6 +791,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of interactive contexts present in the interactive context slot on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of interactive contexts; zero if none are present.
+        /// </returns>
         private static int PrivateGetInteractiveContextCount()
         {
             try
@@ -690,6 +828,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of test contexts present in the test context slot on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of test contexts; zero if none are present.
+        /// </returns>
         private static int PrivateGetTestContextCount()
         {
             try
@@ -721,6 +865,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of variable contexts present in the variable context slot on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of variable contexts; zero if none are present.
+        /// </returns>
         private static int PrivateGetVariableContextCount()
         {
             try
@@ -754,6 +904,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method releases the engine context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the engine context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseEngineContext(
             bool global
             )
@@ -765,6 +924,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the engine context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the engine context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the engine context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseEngineContext(
             bool global, /* NOT USED */
             ref Result error
@@ -856,6 +1027,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the engine context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the engine context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The engine context, or null if it is not available.
+        /// </returns>
         private IEngineContext PrivateGetEngineContext(
             bool create
             )
@@ -867,6 +1047,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the engine context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the engine context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the engine context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The engine context, or null if it is not available.
+        /// </returns>
         private IEngineContext PrivateGetEngineContext(
             bool create,
             ref Result error
@@ -973,6 +1165,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the interactive context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the interactive context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseInteractiveContext(
             bool global
             )
@@ -984,6 +1185,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the interactive context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the interactive context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the interactive context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseInteractiveContext(
             bool global, /* NOT USED */
             ref Result error
@@ -1075,6 +1288,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interactive context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the interactive context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The interactive context, or null if it is not available.
+        /// </returns>
         private IInteractiveContext PrivateGetInteractiveContext(
             bool create
             )
@@ -1086,6 +1308,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interactive context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the interactive context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the interactive context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The interactive context, or null if it is not available.
+        /// </returns>
         private IInteractiveContext PrivateGetInteractiveContext(
             bool create,
             ref Result error
@@ -1198,6 +1432,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the test context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the test context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseTestContext(
             bool global
             )
@@ -1209,6 +1452,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the test context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the test context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the test context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseTestContext(
             bool global, /* NOT USED */
             ref Result error
@@ -1300,6 +1555,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the test context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the test context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The test context, or null if it is not available.
+        /// </returns>
         private ITestContext PrivateGetTestContext(
             bool create
             )
@@ -1311,6 +1575,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the test context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the test context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the test context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The test context, or null if it is not available.
+        /// </returns>
         private ITestContext PrivateGetTestContext(
             bool create,
             ref Result error
@@ -1417,6 +1693,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the variable context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the variable context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseVariableContext(
             bool global
             )
@@ -1428,6 +1713,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the variable context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter that owns the global call frame is also being disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the variable context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the variable context was released; otherwise, false.
+        /// </returns>
         private bool PrivateReleaseVariableContext(
             bool global,
             ref Result error
@@ -1514,6 +1811,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the variable context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The variable context, or null if it is not available.
+        /// </returns>
         private IVariableContext PrivateGetVariableContext(
             bool create
             )
@@ -1525,6 +1831,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the variable context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the variable context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The variable context, or null if it is not available.
+        /// </returns>
         private IVariableContext PrivateGetVariableContext(
             bool create,
             ref Result error
@@ -1694,7 +2012,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The interpreter associated with this context manager.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets or sets the interpreter associated with this context manager.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); return interpreter; }
@@ -1708,6 +2032,12 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method is called via the interpreter disposal pipeline.
         //
+        /// <summary>
+        /// This method returns the largest number of contexts of any single kind (engine, interactive, test, or variable) present on the current thread; it is called via the interpreter disposal pipeline.
+        /// </summary>
+        /// <returns>
+        /// The largest per-kind context count on the current thread.
+        /// </returns>
         public int GetInterpreterContextCount()
         {
             // CheckDisposed(); /* EXEMPT */
@@ -1721,6 +2051,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the engine context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the engine context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseEngineContext(
             bool global
             )
@@ -1732,6 +2071,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the engine context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the engine context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the engine context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseEngineContext(
             bool global,
             ref Result error
@@ -1744,6 +2095,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the engine context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the engine context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The engine context, or null if it is not available.
+        /// </returns>
         public IEngineContext GetEngineContext(
             bool create
             )
@@ -1755,6 +2115,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the engine context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the engine context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the engine context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The engine context, or null if it is not available.
+        /// </returns>
         public IEngineContext GetEngineContext(
             bool create,
             ref Result error
@@ -1767,6 +2139,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of engine contexts present on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of engine contexts; zero if none are present.
+        /// </returns>
         public int GetEngineContextCount()
         {
             CheckDisposed();
@@ -1776,6 +2154,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the engine contexts associated with the specified interpreter from all threads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The number of engine contexts that were purged.
+        /// </returns>
         public int PurgeEngineContexts(
             Interpreter interpreter,
             bool nonPrimary,
@@ -1790,6 +2183,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the interactive context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the interactive context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseInteractiveContext(
             bool global
             )
@@ -1801,6 +2203,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the interactive context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the interactive context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the interactive context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseInteractiveContext(
             bool global,
             ref Result error
@@ -1813,6 +2227,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interactive context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the interactive context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The interactive context, or null if it is not available.
+        /// </returns>
         public IInteractiveContext GetInteractiveContext(
             bool create
             )
@@ -1824,6 +2247,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the interactive context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the interactive context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the interactive context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The interactive context, or null if it is not available.
+        /// </returns>
         public IInteractiveContext GetInteractiveContext(
             bool create,
             ref Result error
@@ -1836,6 +2271,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of interactive contexts present on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of interactive contexts; zero if none are present.
+        /// </returns>
         public int GetInteractiveContextCount()
         {
             CheckDisposed();
@@ -1845,6 +2286,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the interactive contexts associated with the specified interpreter from all threads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The number of interactive contexts that were purged.
+        /// </returns>
         public int PurgeInteractiveContexts(
             Interpreter interpreter,
             bool nonPrimary,
@@ -1859,6 +2315,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the test context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the test context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseTestContext(
             bool global
             )
@@ -1870,6 +2335,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the test context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the test context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the test context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseTestContext(
             bool global,
             ref Result error
@@ -1882,6 +2359,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the test context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the test context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The test context, or null if it is not available.
+        /// </returns>
         public ITestContext GetTestContext(
             bool create
             )
@@ -1893,6 +2379,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the test context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the test context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the test context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The test context, or null if it is not available.
+        /// </returns>
         public ITestContext GetTestContext(
             bool create,
             ref Result error
@@ -1905,6 +2403,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of test contexts present on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of test contexts; zero if none are present.
+        /// </returns>
         public int GetTestContextCount()
         {
             CheckDisposed();
@@ -1914,6 +2418,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the test contexts associated with the specified interpreter from all threads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The number of test contexts that were purged.
+        /// </returns>
         public int PurgeTestContexts(
             Interpreter interpreter,
             bool nonPrimary,
@@ -1928,6 +2447,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the variable context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// True if the variable context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseVariableContext(
             bool global
             )
@@ -1939,6 +2467,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the variable context for the current interpreter on the current thread.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the variable context could not be released.
+        /// </param>
+        /// <returns>
+        /// True if the variable context was released; otherwise, false.
+        /// </returns>
         public bool ReleaseVariableContext(
             bool global,
             ref Result error
@@ -1951,6 +2491,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the variable context if it does not already exist.
+        /// </param>
+        /// <returns>
+        /// The variable context, or null if it is not available.
+        /// </returns>
         public IVariableContext GetVariableContext(
             bool create
             )
@@ -1962,6 +2511,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable context for the current interpreter on the current thread, optionally creating it.
+        /// </summary>
+        /// <param name="create">
+        /// Non-zero to create the variable context if it does not already exist.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the variable context could not be returned.
+        /// </param>
+        /// <returns>
+        /// The variable context, or null if it is not available.
+        /// </returns>
         public IVariableContext GetVariableContext(
             bool create,
             ref Result error
@@ -1974,6 +2535,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of variable contexts present on the current thread.
+        /// </summary>
+        /// <returns>
+        /// The number of variable contexts; zero if none are present.
+        /// </returns>
         public int GetVariableContextCount()
         {
             CheckDisposed();
@@ -1983,6 +2550,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method purges the variable contexts associated with the specified interpreter from all threads.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose contexts should be purged.
+        /// </param>
+        /// <param name="nonPrimary">
+        /// Non-zero to also purge contexts belonging to non-primary interpreters.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
+        /// <returns>
+        /// The number of variable contexts that were purged.
+        /// </returns>
         public int PurgeVariableContexts(
             Interpreter interpreter,
             bool nonPrimary,
@@ -2001,6 +2583,12 @@ namespace Eagle._Components.Private
         // NOTE: This method is called via the interpreter disposal pipeline
         //       as well as during the disposal of this class.
         //
+        /// <summary>
+        /// This method releases the engine, interactive, test, and variable contexts for the current interpreter and, when disposing globally, clears the interpreter reference; it is called via the interpreter disposal pipeline and during disposal of this class.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero if the interpreter itself is also being disposed.
+        /// </param>
         public void Free(
             bool global
             )
@@ -2024,7 +2612,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this context manager has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this context manager has been disposed and the interpreter is configured to throw on disposed access.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -2035,6 +2629,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this context manager.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the Dispose method rather than from the finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -2070,6 +2670,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this context manager.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -2080,6 +2683,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this context manager, releasing any resources that were not explicitly disposed.
+        /// </summary>
         ~ContextManager()
         {
             Dispose(false);

@@ -18,16 +18,49 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class accumulates script fragments -- literal command text, string
+    /// lists of arguments, scripts, and other script builders -- and combines
+    /// them, in insertion order, into a single well-formed Eagle script.  It
+    /// implements <see cref="IScriptBuilder" /> and can produce either a plain
+    /// string form (optionally nested as a bracketed command) or a complete
+    /// <see cref="IScript" /> instance.
+    /// </summary>
     [ObjectId("18ec6c5a-4225-4336-8885-1e4ddcc40c42")]
     public sealed class ScriptBuilder : IScriptBuilder
     {
         #region Private Data
+        /// <summary>
+        /// Stores the accumulated script fragments, keyed by their insertion
+        /// order.
+        /// </summary>
         private SortedDictionary<long, object> items;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a script builder from the specified identity parameters.
+        /// This constructor provides internal support for the <c>Create</c>
+        /// static factory methods.
+        /// </summary>
+        /// <param name="id">
+        /// The globally unique identifier of the script builder.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the script builder.  This parameter
+        /// may be null.
+        /// </param>
         private ScriptBuilder(
             Guid id,
             string name,
@@ -49,6 +82,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new, empty script builder with no identity
+        /// information.
+        /// </summary>
+        /// <returns>
+        /// A new <see cref="IScriptBuilder" /> instance.
+        /// </returns>
         public static IScriptBuilder Create()
         {
             return Create(null, null, null, null);
@@ -56,6 +96,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, empty script builder with the specified
+        /// identity information.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script builder.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the script builder.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="IScriptBuilder" /> instance.
+        /// </returns>
         public static IScriptBuilder Create(
             string name,
             string group,
@@ -71,6 +131,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method computes the next key to use when adding a script
+        /// fragment, preserving the insertion order of the fragments.
+        /// </summary>
+        /// <returns>
+        /// The next key to use for an added script fragment.
+        /// </returns>
         private long GetNextKey()
         {
             long result = 0;
@@ -85,7 +152,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of the script builder.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of the script builder.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -96,7 +169,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// Stores the identifier kind of the script builder.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the identifier kind of the script builder.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { return kind; }
@@ -105,7 +184,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the globally unique identifier of the script builder.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the globally unique identifier of the script builder.
+        /// </summary>
         public Guid Id
         {
             get { return id; }
@@ -116,7 +201,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the client data associated with the script builder.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with the script builder.
+        /// </summary>
         public IClientData ClientData
         {
             get { return clientData; }
@@ -127,7 +218,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// Stores the group of the script builder.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group of the script builder.
+        /// </summary>
         public string Group
         {
             get { return group; }
@@ -136,7 +233,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the description of the script builder.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the description of the script builder.
+        /// </summary>
         public string Description
         {
             get { return description; }
@@ -147,6 +250,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IScriptBuilder Members
+        /// <summary>
+        /// Gets the number of script fragments currently accumulated by this
+        /// script builder, or an invalid count when the fragment collection is
+        /// not available.
+        /// </summary>
         public int Count
         {
             get
@@ -158,6 +266,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all of the accumulated script fragments from this
+        /// script builder.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public ReturnCode Clear(
             ref Result error
             )
@@ -174,6 +293,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified literal script text to this script
+        /// builder.
+        /// </summary>
+        /// <param name="text">
+        /// The literal script text to append.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public ReturnCode Add(
             string text,
             ref Result error
@@ -197,6 +331,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified list of arguments (a single
+        /// command) to this script builder.
+        /// </summary>
+        /// <param name="arguments">
+        /// The list of arguments to append.  This parameter should not be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public ReturnCode Add(
             IStringList arguments,
             ref Result error
@@ -220,6 +368,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified script to this script builder.
+        /// </summary>
+        /// <param name="script">
+        /// The script to append.  This parameter should not be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public ReturnCode Add(
             IScript script,
             ref Result error
@@ -243,6 +404,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the script fragments of the specified script
+        /// builder to this script builder.  A script builder cannot be added to
+        /// itself.
+        /// </summary>
+        /// <param name="builder">
+        /// The script builder whose fragments are appended.  This parameter
+        /// should not be null and must not refer to this same instance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public ReturnCode Add(
             IScriptBuilder builder,
             ref Result error
@@ -272,6 +449,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the accumulated script fragments, in insertion
+        /// order, into a single script string, normalizing line endings as
+        /// required by the script engine.
+        /// </summary>
+        /// <param name="nested">
+        /// Non-zero to render the combined script as a single nested,
+        /// bracketed command (using command separators between fragments); zero
+        /// to render it as top-level script text (using line separators).
+        /// </param>
+        /// <returns>
+        /// The combined script string, or null when the fragment collection is
+        /// not available.
+        /// </returns>
         public string GetString(
             bool nested
             )
@@ -336,6 +527,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the accumulated script fragments into a single
+        /// script and wraps it in a new <see cref="IScript" /> instance, using
+        /// the identity information of this script builder.
+        /// </summary>
+        /// <param name="nested">
+        /// Non-zero to render the combined script as a single nested,
+        /// bracketed command; zero to render it as top-level script text.
+        /// </param>
+        /// <returns>
+        /// A new <see cref="IScript" /> instance wrapping the combined script.
+        /// </returns>
         public IScript GetScript(
             bool nested
             )
@@ -353,6 +556,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string describing this script builder, which
+        /// is the combined, top-level script text of its accumulated fragments.
+        /// </summary>
+        /// <returns>
+        /// The combined, top-level script string for this script builder.
+        /// </returns>
         public override string ToString()
         {
             return GetString(false);

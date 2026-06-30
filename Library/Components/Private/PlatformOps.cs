@@ -42,6 +42,11 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static methods used to detect and describe the
+    /// platform, processor architecture, and operating system that the
+    /// current process is executing on.
+    /// </summary>
 #if NATIVE
 #if NET_40
     [SecurityCritical()]
@@ -54,65 +59,217 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
         #region Windows 10 Update Constants
+        /// <summary>
+        /// The operating system build number that corresponds to the original
+        /// (RTM) release of Windows 10.
+        /// </summary>
         private const int Windows10RtmBuildNumber = 10240;
+        /// <summary>
+        /// The operating system display name that corresponds to the original
+        /// (RTM) release of Windows 10.
+        /// </summary>
         private const string Windows10RtmName = "Windows 10, RTM";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the November
+        /// Update of Windows 10.
+        /// </summary>
         private const int Windows10NovemberUpdateBuildNumber = 10586;
+        /// <summary>
+        /// The operating system display name that corresponds to the November
+        /// Update of Windows 10.
+        /// </summary>
         private const string Windows10NovemberUpdateName = "Windows 10, November Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the
+        /// Anniversary Update of Windows 10.
+        /// </summary>
         private const int Windows10AnniversaryUpdateBuildNumber = 14393;
+        /// <summary>
+        /// The operating system display name that corresponds to the
+        /// Anniversary Update of Windows 10.
+        /// </summary>
         private const string Windows10AnniversaryUpdateName = "Windows 10, Anniversary Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the Creators
+        /// Update of Windows 10.
+        /// </summary>
         private const int Windows10CreatorsUpdateBuildNumber = 15063;
+        /// <summary>
+        /// The operating system display name that corresponds to the Creators
+        /// Update of Windows 10.
+        /// </summary>
         private const string Windows10CreatorsUpdateName = "Windows 10, Creators Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the Fall
+        /// Creators Update of Windows 10.
+        /// </summary>
         private const int Windows10FallCreatorsUpdateBuildNumber = 16299;
+        /// <summary>
+        /// The operating system display name that corresponds to the Fall
+        /// Creators Update of Windows 10.
+        /// </summary>
         private const string Windows10FallCreatorsUpdateName = "Windows 10, Fall Creators Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the April
+        /// 2018 Update of Windows 10.
+        /// </summary>
         private const int Windows10April2018UpdateBuildNumber = 17134;
+        /// <summary>
+        /// The operating system display name that corresponds to the April
+        /// 2018 Update of Windows 10.
+        /// </summary>
         private const string Windows10April2018UpdateName = "Windows 10, April 2018 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the October
+        /// 2018 Update of Windows 10.
+        /// </summary>
         private const int Windows10October2018UpdateBuildNumber = 17763;
+        /// <summary>
+        /// The operating system display name that corresponds to the October
+        /// 2018 Update of Windows 10.
+        /// </summary>
         private const string Windows10October2018UpdateName = "Windows 10, October 2018 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the May 2019
+        /// Update of Windows 10.
+        /// </summary>
         private const int Windows10May2019UpdateBuildNumber = 18362;
+        /// <summary>
+        /// The operating system display name that corresponds to the May 2019
+        /// Update of Windows 10.
+        /// </summary>
         private const string Windows10May2019UpdateName = "Windows 10, May 2019 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the November
+        /// 2019 Update of Windows 10.
+        /// </summary>
         private const int Windows10November2019UpdateBuildNumber = 18363;
+        /// <summary>
+        /// The operating system display name that corresponds to the November
+        /// 2019 Update of Windows 10.
+        /// </summary>
         private const string Windows10November2019UpdateName = "Windows 10, November 2019 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the May 2020
+        /// Update of Windows 10.
+        /// </summary>
         private const int Windows10May2020UpdateBuildNumber = 19041;
+        /// <summary>
+        /// The operating system display name that corresponds to the May 2020
+        /// Update of Windows 10.
+        /// </summary>
         private const string Windows10May2020UpdateName = "Windows 10, May 2020 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the October
+        /// 2020 Update of Windows 10.
+        /// </summary>
         private const int Windows10October2020UpdateBuildNumber = 19042;
+        /// <summary>
+        /// The operating system display name that corresponds to the October
+        /// 2020 Update of Windows 10.
+        /// </summary>
         private const string Windows10October2020UpdateName = "Windows 10, October 2020 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the May 2021
+        /// Update of Windows 10.
+        /// </summary>
         private const int Windows10May2021UpdateBuildNumber = 19043;
+        /// <summary>
+        /// The operating system display name that corresponds to the May 2021
+        /// Update of Windows 10.
+        /// </summary>
         private const string Windows10May2021UpdateName = "Windows 10, May 2021 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the November
+        /// 2021 Update of Windows 10.
+        /// </summary>
         private const int Windows10November2021UpdateBuildNumber = 19044;
+        /// <summary>
+        /// The operating system display name that corresponds to the November
+        /// 2021 Update of Windows 10.
+        /// </summary>
         private const string Windows10November2021UpdateName = "Windows 10, November 2021 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the October
+        /// 2022 Update of Windows 10.
+        /// </summary>
         private const int Windows10October2022UpdateBuildNumber = 19045;
+        /// <summary>
+        /// The operating system display name that corresponds to the October
+        /// 2022 Update of Windows 10.
+        /// </summary>
         private const string Windows10October2022UpdateName = "Windows 10, October 2022 Update";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Windows 11 Update Constants
+        /// <summary>
+        /// The operating system build number that corresponds to the original
+        /// (RTM) release of Windows 11.
+        /// </summary>
         private const int Windows11RtmBuildNumber = 22000;
+        /// <summary>
+        /// The operating system display name that corresponds to the original
+        /// (RTM) release of Windows 11.
+        /// </summary>
         private const string Windows11RtmName = "Windows 11, RTM";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the
+        /// September 2022 Update of Windows 11.
+        /// </summary>
         private const int Windows11September2022UpdateBuildNumber = 22621;
+        /// <summary>
+        /// The operating system display name that corresponds to the
+        /// September 2022 Update of Windows 11.
+        /// </summary>
         private const string Windows11September2022UpdateName = "Windows 11, September 2022 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the October
+        /// 2023 Update of Windows 11.
+        /// </summary>
         private const int Windows11October2023UpdateBuildNumber = 22631;
+        /// <summary>
+        /// The operating system display name that corresponds to the October
+        /// 2023 Update of Windows 11.
+        /// </summary>
         private const string Windows11October2023UpdateName = "Windows 11, October 2023 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the October
+        /// 2024 Update of Windows 11.
+        /// </summary>
         private const int Windows11October2024UpdateBuildNumber = 26100;
+        /// <summary>
+        /// The operating system display name that corresponds to the October
+        /// 2024 Update of Windows 11.
+        /// </summary>
         private const string Windows11October2024UpdateName = "Windows 11, October 2024 Update";
 
+        /// <summary>
+        /// The operating system build number that corresponds to the
+        /// September 2025 Update of Windows 11.
+        /// </summary>
         private const int Windows11September2025UpdateBuildNumber = 26200;
+        /// <summary>
+        /// The operating system display name that corresponds to the
+        /// September 2025 Update of Windows 11.
+        /// </summary>
         private const string Windows11September2025UpdateName = "Windows 11, September 2025 Update";
         #endregion
 
@@ -120,15 +277,47 @@ namespace Eagle._Components.Private
 
         #region Windows Version Registry Constants
 #if !NET_STANDARD_20
+        /// <summary>
+        /// The name of the registry subkey, under the local machine root key,
+        /// that contains the current operating system version information.
+        /// </summary>
         private const string OsVersionSubKeyName =
             "Software\\Microsoft\\Windows NT\\CurrentVersion";
 
+        /// <summary>
+        /// The name of the registry value that contains the operating system
+        /// product name.
+        /// </summary>
         private const string ProductNameValueName = "ProductName";
+        /// <summary>
+        /// The name of the registry value that contains the operating system
+        /// release identifier.
+        /// </summary>
         private const string ReleaseIdValueName = "ReleaseId";
+        /// <summary>
+        /// The name of the registry value that contains the current operating
+        /// system type.
+        /// </summary>
         private const string CurrentTypeValueName = "CurrentType";
+        /// <summary>
+        /// The name of the registry value that contains the operating system
+        /// installation type.
+        /// </summary>
         private const string InstallationTypeValueName = "InstallationType";
+        /// <summary>
+        /// The name of the registry value that contains the extended build
+        /// lab information.
+        /// </summary>
         private const string BuildLabExValueName = "BuildLabEx";
+        /// <summary>
+        /// The name of the registry value that contains the operating system
+        /// installation date.
+        /// </summary>
         private const string InstallDateValueName = "InstallDate";
+        /// <summary>
+        /// The name used when reporting the list of named operating system
+        /// updates.
+        /// </summary>
         private const string UpdateNamesValueName = "UpdateNames";
 #endif
         #endregion
@@ -139,11 +328,23 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The file name of the WMI command line utility used to query the
+        /// list of installed operating system updates.
+        /// </summary>
         private static string WmiQfeGetUpdatesCommandFileName =
             "%SystemRoot%\\System32\\wbem\\wmic.exe"; // BUGBUG: Constant?
 
+        /// <summary>
+        /// The name of the property emitted by the WMI command that contains
+        /// the hotfix identifier.
+        /// </summary>
         private static string WmiQfePropertyName = "HotFixID";
 
+        /// <summary>
+        /// The command line arguments passed to the WMI command line utility
+        /// to query the list of installed operating system updates.
+        /// </summary>
         private static string WmiQfeGetUpdatesCommandArguments =
             "QFE GET HotFixID";
         #endregion
@@ -154,58 +355,132 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The file name of the Windows PowerShell executable used to query
+        /// the list of installed operating system updates.
+        /// </summary>
         private static string PowerShellQfeGetUpdatesCommandFileName =
             "%SystemRoot%\\System32\\WindowsPowerShell\\v1.0\\PowerShell.exe"; // BUGBUG: Constant?
 
+        /// <summary>
+        /// The name of the property emitted by the PowerShell command that
+        /// contains the hotfix identifier.
+        /// </summary>
         private static string PowerShellQfePropertyName = "HotFixID";
 
+        /// <summary>
+        /// The separator used between a property name and its value in the
+        /// output produced by the PowerShell command.
+        /// </summary>
         private static string PowerShellQfeValueSeparator =
             Characters.Colon.ToString();
 
+        /// <summary>
+        /// The command line arguments passed to Windows PowerShell to query
+        /// the list of installed operating system updates.
+        /// </summary>
         private static string PowerShellQfeGetUpdatesCommandArguments =
             "Get-HotFix | Format-List -Property HotFixID";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default native memory page size, in bytes, to assume when it
+        /// cannot be otherwise determined.
+        /// </summary>
         private const uint defaultPageSize = 4096; /* COMPAT: x86. */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The display name used for the Win32s operating system.
+        /// </summary>
         private static readonly string Win32SubsetOperatingSystemName = "Win32s";
+        /// <summary>
+        /// The display name used for the Windows 9x operating system.
+        /// </summary>
         private static readonly string Windows9xOperatingSystemName = "Windows 9x";
+        /// <summary>
+        /// The display name used for the Windows NT operating system.
+        /// </summary>
         private static readonly string WindowsNtOperatingSystemName = "Windows NT";
+        /// <summary>
+        /// The display name used for the Windows CE operating system.
+        /// </summary>
         private static readonly string WindowsCeOperatingSystemName = "Windows CE";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The display name used for the Unix operating system.
+        /// </summary>
         private static readonly string UnixOperatingSystemName = "Unix";
+        /// <summary>
+        /// The display name used for the Xbox operating system.
+        /// </summary>
         private static readonly string XboxOperatingSystemName = "Xbox";
+        /// <summary>
+        /// The display name used for the Darwin (macOS) operating system.
+        /// </summary>
         private static readonly string DarwinOperatingSystemName = "Darwin";
+        /// <summary>
+        /// The display name used for the Linux operating system.
+        /// </summary>
         private static readonly string LinuxOperatingSystemName = "Linux";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The value used to represent a name that is not known.
+        /// </summary>
         private static readonly string UnknownName = "unknown";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The list of known processor names, indexed by processor
+        /// architecture.
+        /// </summary>
         private static StringList processorNames = null;
+        /// <summary>
+        /// The list of platform names, indexed by operating system
+        /// identifier.
+        /// </summary>
         private static StringList platformNames = null;
+        /// <summary>
+        /// The list of product type names, indexed by product type.
+        /// </summary>
         private static StringList productTypeNames = null;
+        /// <summary>
+        /// The list of operating system names, indexed by operating system
+        /// identifier.
+        /// </summary>
         private static StringList operatingSystemNames = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The mapping of platform or processor names to their normalized
+        /// machine names.
+        /// </summary>
         private static IDictionary<string, string> machineNames = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to extract the leading major and minor
+        /// version components from an operating system version string.
+        /// </summary>
         private static Regex majorMinorRegEx = RegExOps.Create("^\\d+\\.\\d+");
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// The mapping of platform or processor names to their alternate
+        /// processor names.
+        /// </summary>
         private static IDictionary<string, string> alternateProcessorNames = null;
 #endif
         #endregion
@@ -213,72 +488,157 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
+        /// <summary>
+        /// Non-zero if the static state of this class has been initialized.
+        /// </summary>
         private static bool initialized = false;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// The cached native system information for the current process.
+        /// </summary>
         private static UnsafeNativeMethods.SYSTEM_INFO systemInfo;
+        /// <summary>
+        /// The cached native operating system version information for the
+        /// current process.
+        /// </summary>
         private static UnsafeNativeMethods.OSVERSIONINFOEX versionInfo;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && UNIX
+        /// <summary>
+        /// The characters used to separate the individual fields within the
+        /// native uname buffer.
+        /// </summary>
         private static readonly char[] utsNameSeparators = {
             Characters.Null
         };
 
+        /// <summary>
+        /// The cached native uname information for the current process.
+        /// </summary>
         private static UnsafeNativeMethods.utsname utsName;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The detected processor architecture for the current process.
+        /// </summary>
         private static ProcessorArchitecture processorArchitecture =
             ProcessorArchitecture.Unknown;
 
+        /// <summary>
+        /// The detected operating system identifier for the current process.
+        /// </summary>
         private static OperatingSystemId operatingSystemId =
             OperatingSystemId.Unknown;
 
+        /// <summary>
+        /// The detected operating system product type for the current
+        /// process.
+        /// </summary>
         private static VER_PRODUCT_TYPE productType =
             VER_PRODUCT_TYPE.VER_NT_NONE;
 
+        /// <summary>
+        /// The detected native memory page size, in bytes.
+        /// </summary>
         private static uint pageSize = defaultPageSize;
 
+        /// <summary>
+        /// The lowest memory address available to applications.
+        /// </summary>
         private static IntPtr minimumApplicationAddress = IntPtr.Zero;
+        /// <summary>
+        /// The highest memory address available to applications.
+        /// </summary>
         private static IntPtr maximumApplicationAddress = IntPtr.Zero;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The operating system that the current process is executing on.
+        /// </summary>
         private static OperatingSystem operatingSystem = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The primary name of the processor that the current process is
+        /// executing on.
+        /// </summary>
         private static string processorName = null;
+        /// <summary>
+        /// The primary name of the machine that the current process is
+        /// executing on.
+        /// </summary>
         private static string machineName = null;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// The alternate name of the processor that the current process is
+        /// executing on.
+        /// </summary>
         private static string alternateProcessorName = null;
+        /// <summary>
+        /// The alternate name of the machine that the current process is
+        /// executing on.
+        /// </summary>
         private static string alternateMachineName = null;
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the platform that the current process is executing on.
+        /// </summary>
         private static string platformName = null;
+        /// <summary>
+        /// The name of the operating system product type that the current
+        /// process is executing on.
+        /// </summary>
         private static string productTypeName = null;
+        /// <summary>
+        /// The name of the operating system that the current process is
+        /// executing on.
+        /// </summary>
         private static string operatingSystemName = null;
+        /// <summary>
+        /// The version of the operating system that the current process is
+        /// executing on.
+        /// </summary>
         private static string operatingSystemVersion = null;
+        /// <summary>
+        /// The extra service pack, or version, information for the operating
+        /// system that the current process is executing on.
+        /// </summary>
         private static string operatingSystemServicePack = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the current process is a 32-bit process running on a
+        /// 64-bit version of Windows (WoW64).
+        /// </summary>
         private static bool isWin32onWin64 = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached list of installed operating system updates.
+        /// </summary>
         private static StringList installedUpdates = null;
         #endregion
 
@@ -288,25 +648,73 @@ namespace Eagle._Components.Private
 
 #if NATIVE
         #region Private Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the native methods, and related types, that
+        /// are used (via P/Invoke) by the platform detection logic in the
+        /// containing class.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("259417ba-e318-4982-b2c0-9f6fd4196b74")]
         private static class UnsafeNativeMethods
         {
 #if WINDOWS
+            /// <summary>
+            /// This structure contains information about the current computer
+            /// system, corresponding to the native SYSTEM_INFO structure.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("a858d038-1313-43d2-a9b0-7a00b2975933")]
             internal struct SYSTEM_INFO
             {
+                /// <summary>
+                /// The processor architecture of the installed operating
+                /// system.
+                /// </summary>
                 public ProcessorArchitecture wProcessorArchitecture;
+                /// <summary>
+                /// Reserved for future use.
+                /// </summary>
                 public ushort wReserved;
+                /// <summary>
+                /// The page size and the granularity of page protection and
+                /// commitment.
+                /// </summary>
                 public uint dwPageSize;
+                /// <summary>
+                /// The lowest memory address accessible to applications and
+                /// dynamic-link libraries (DLLs).
+                /// </summary>
                 public IntPtr lpMinimumApplicationAddress;
+                /// <summary>
+                /// The highest memory address accessible to applications and
+                /// dynamic-link libraries (DLLs).
+                /// </summary>
                 public IntPtr lpMaximumApplicationAddress;
+                /// <summary>
+                /// A mask representing the set of processors configured into
+                /// the system.
+                /// </summary>
                 public UIntPtr dwActiveProcessorMask;
+                /// <summary>
+                /// The number of logical processors in the current group.
+                /// </summary>
                 public uint dwNumberOfProcessors;
+                /// <summary>
+                /// The processor type, retained for compatibility.
+                /// </summary>
                 public uint dwProcessorType;
+                /// <summary>
+                /// The granularity for the starting address at which virtual
+                /// memory can be allocated.
+                /// </summary>
                 public uint dwAllocationGranularity;
+                /// <summary>
+                /// The architecture-dependent processor level.
+                /// </summary>
                 public ushort wProcessorLevel;
+                /// <summary>
+                /// The architecture-dependent processor revision.
+                /// </summary>
                 public ushort wProcessorRevision;
             }
 
@@ -316,26 +724,75 @@ namespace Eagle._Components.Private
             // NOTE: Yes, this has been tested and the size must be exactly
             //       148 bytes.
             //
+            /// <summary>
+            /// This structure contains operating system version information,
+            /// corresponding to the native OSVERSIONINFOEX structure.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
             [ObjectId("f33f3aa7-8ddc-48a0-8ac9-e950dcbaaac1")]
             internal struct OSVERSIONINFOEX
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public uint dwOSVersionInfoSize;
+                /// <summary>
+                /// The major version number of the operating system.
+                /// </summary>
                 public uint dwMajorVersion;
+                /// <summary>
+                /// The minor version number of the operating system.
+                /// </summary>
                 public uint dwMinorVersion;
+                /// <summary>
+                /// The build number of the operating system.
+                /// </summary>
                 public uint dwBuildNumber;
+                /// <summary>
+                /// The operating system platform identifier.
+                /// </summary>
                 public OperatingSystemId dwPlatformId;
+                /// <summary>
+                /// A string that contains the service pack, or other extra
+                /// version, information for the operating system.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
                 public string szCSDVersion;
+                /// <summary>
+                /// The major version number of the latest service pack
+                /// installed on the operating system.
+                /// </summary>
                 public ushort wServicePackMajor;
+                /// <summary>
+                /// The minor version number of the latest service pack
+                /// installed on the operating system.
+                /// </summary>
                 public ushort wServicePackMinor;
+                /// <summary>
+                /// A bit mask that identifies the product suites available on
+                /// the operating system.
+                /// </summary>
                 public short wSuiteMask;
+                /// <summary>
+                /// The product type of the operating system.
+                /// </summary>
                 public VER_PRODUCT_TYPE wProductType;
+                /// <summary>
+                /// Reserved for future use.
+                /// </summary>
                 public byte wReserved;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method retrieves information about the current computer
+            /// system.
+            /// </summary>
+            /// <param name="systemInfo">
+            /// Upon success, receives the system information for the current
+            /// computer.
+            /// </param>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi)]
             internal static extern void GetSystemInfo(
@@ -344,6 +801,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method retrieves information about the version of the
+            /// currently running operating system.
+            /// </summary>
+            /// <param name="versionInfo">
+            /// Upon success, receives the operating system version
+            /// information; the size field of this structure must be
+            /// initialized prior to the call.
+            /// </param>
+            /// <returns>
+            /// True if the version information was retrieved successfully;
+            /// otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 CharSet = CharSet.Auto, BestFitMapping = false,
@@ -355,6 +825,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether the specified process is
+            /// running under WOW64.
+            /// </summary>
+            /// <param name="hProcess">
+            /// The handle to the process to check.
+            /// </param>
+            /// <param name="wow64Process">
+            /// Upon success, set to non-zero if the process is running under
+            /// WOW64; otherwise, set to zero.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -369,24 +853,50 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if UNIX
+            /// <summary>
+            /// This structure contains operating system name and version
+            /// information, corresponding to the native utsname structure
+            /// used on Unix-like systems.
+            /// </summary>
             [ObjectId("4c41ee57-ee1d-4db6-8735-a4d78dd810b9")]
             internal struct utsname
             {
+                /// <summary>
+                /// The name of this implementation of the operating system.
+                /// </summary>
                 public string sysname;  /* Name of this implementation of
                                          * the operating system. */
+                /// <summary>
+                /// The name of this node within the communications network,
+                /// if any.
+                /// </summary>
                 public string nodename; /* Name of this node within the
                                          * communications network to which
                                          * this node is attached, if any. */
+                /// <summary>
+                /// The current release level of this implementation.
+                /// </summary>
                 public string release;  /* Current release level of this
                                          * implementation. */
+                /// <summary>
+                /// The current version level of this release.
+                /// </summary>
                 public string version;  /* Current version level of this
                                          * release. */
+                /// <summary>
+                /// The name of the hardware type on which the system is
+                /// running.
+                /// </summary>
                 public string machine;  /* Name of the hardware type on
                                          * which the system is running. */
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure is used to marshal the raw, native uname buffer
+            /// from unmanaged code.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("86669ff8-3031-46e1-a51b-6a0b837c0c14")]
             internal struct utsname_interop
@@ -401,12 +911,26 @@ namespace Eagle._Components.Private
                 //                      version
                 //                      machine
                 //
+                /// <summary>
+                /// The raw buffer containing the zero-terminated uname
+                /// fields.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4096)]
                 public byte[] buffer;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method obtains the native uname information for the
+            /// current system.
+            /// </summary>
+            /// <param name="name">
+            /// Upon success, receives the marshaled uname information.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a negative value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int uname(out utsname_interop name);
@@ -418,6 +942,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static Constructor
+        /// <summary>
+        /// This static constructor initializes the static state of this
+        /// class.
+        /// </summary>
         static PlatformOps()
         {
             Initialize(false);
@@ -427,6 +955,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Initialization Methods
+        /// <summary>
+        /// This method initializes, or re-initializes, the cached platform,
+        /// processor, and operating system information for the current
+        /// process.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force re-initialization even when the information has
+        /// already been initialized.
+        /// </param>
         public static void Initialize(
             bool force
             )
@@ -768,6 +1305,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Querying Methods
+        /// <summary>
+        /// This method gets the detected processor architecture for the
+        /// current process.
+        /// </summary>
+        /// <returns>
+        /// The detected processor architecture.
+        /// </returns>
         public static ProcessorArchitecture GetProcessorArchitecture()
         {
             lock (syncRoot)
@@ -778,6 +1322,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the detected processor architecture
+        /// is part of the Intel family.
+        /// </summary>
+        /// <returns>
+        /// True if the processor architecture is part of the Intel family;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsIntelProcessorArchitecture()
         {
             switch (GetProcessorArchitecture())
@@ -797,6 +1349,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the processor architecture for the current
+        /// process, falling back to the machine name when necessary.
+        /// </summary>
+        /// <returns>
+        /// The processor architecture name, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string QueryProcessorArchitecture()
         {
             //
@@ -812,6 +1372,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the detected native memory page size, in bytes.
+        /// </summary>
+        /// <returns>
+        /// The native memory page size, in bytes.
+        /// </returns>
         public static uint GetPageSize()
         {
             lock (syncRoot)
@@ -822,6 +1388,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the range of memory addresses available to
+        /// applications, formatted as a string.
+        /// </summary>
+        /// <returns>
+        /// The application address range, formatted as a string.
+        /// </returns>
         public static string GetApplicationAddressRange()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -836,6 +1409,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the primary name of the machine that the current
+        /// process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The primary machine name.
+        /// </returns>
         public static string GetMachineName()
         {
             lock (syncRoot)
@@ -850,6 +1430,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: For future test suite usage.  Do not remove.
         //
+        /// <summary>
+        /// This method gets the alternate name of the machine that the
+        /// current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The alternate machine name.
+        /// </returns>
         public static string GetAlternateMachineName()
         {
             lock (syncRoot)
@@ -861,6 +1448,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the primary name of the processor that the
+        /// current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The primary processor name.
+        /// </returns>
         public static string GetProcessorName()
         {
             lock (syncRoot)
@@ -872,6 +1466,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method gets the alternate name of the processor that the
+        /// current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The alternate processor name.
+        /// </returns>
         public static string GetAlternateProcessorName()
         {
             lock (syncRoot)
@@ -883,6 +1484,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name of the platform that the current process
+        /// is executing on.
+        /// </summary>
+        /// <returns>
+        /// The platform name.
+        /// </returns>
         public static string GetPlatformName()
         {
             lock (syncRoot)
@@ -893,6 +1501,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name of the operating system product type
+        /// that the current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The product type name.
+        /// </returns>
         public static string GetProductTypeName()
         {
             lock (syncRoot)
@@ -903,6 +1518,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the operating system that the current process is
+        /// executing on.
+        /// </summary>
+        /// <returns>
+        /// The operating system, or null if it is not available.
+        /// </returns>
         public static OperatingSystem GetOperatingSystem()
         {
             lock (syncRoot)
@@ -913,6 +1535,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the patch level (i.e. version or release) of the
+        /// operating system that the current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The operating system patch level, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string GetOperatingSystemPatchLevel()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -928,6 +1558,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the major and minor version components of the
+        /// operating system that the current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The major and minor version components, or null if they cannot be
+        /// determined.
+        /// </returns>
         public static string GetOperatingSystemMajorMinor()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -954,6 +1592,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the service pack, or other extra version,
+        /// information for the operating system that the current process is
+        /// executing on.
+        /// </summary>
+        /// <returns>
+        /// The service pack information, or null if it cannot be determined.
+        /// </returns>
         public static string GetOperatingSystemServicePack()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -975,6 +1621,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the release identifier of the operating system,
+        /// as recorded in the registry.
+        /// </summary>
+        /// <returns>
+        /// The operating system release identifier, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string GetOperatingSystemReleaseId()
         {
 #if !NET_STANDARD_20
@@ -1022,6 +1676,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method gets the extended operating system information,
+        /// including product details and the list of installed updates.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use; this parameter may be null.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero to allow expensive, time-consuming queries to be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// The extended operating system information, formatted as a string,
+        /// or null if it cannot be determined.
+        /// </returns>
         public static string GetOperatingSystemExtra(
             Interpreter interpreter, /* in: OPTIONAL */
             bool asynchronous        /* in: WARNING, Non-zero is expensive. */
@@ -1239,6 +1908,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the extended operating system
+        /// information should be populated for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check; this parameter may be null.
+        /// </param>
+        /// <param name="ignoreAppDomain">
+        /// Non-zero to skip the check for the default application domain.
+        /// </param>
+        /// <param name="ignoreFlags">
+        /// Non-zero to skip the check of the interpreter creation flags.
+        /// </param>
+        /// <param name="ignoreSafe">
+        /// Non-zero to skip the check for a safe interpreter.
+        /// </param>
+        /// <param name="ignoreSdk">
+        /// Non-zero to skip the check for an SDK interpreter.
+        /// </param>
+        /// <param name="ignoreInteractive">
+        /// Non-zero to skip the check for an interactive interpreter.
+        /// </param>
+        /// <returns>
+        /// True if the extended operating system information should be
+        /// populated; otherwise, false.
+        /// </returns>
         public static bool ShouldPopulateOperatingSystemExtra(
             Interpreter interpreter,
             bool ignoreAppDomain,
@@ -1293,6 +1988,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method asynchronously populates the extended operating system
+        /// information for the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to populate; this parameter may be null.
+        /// </param>
+        /// <param name="errorOnDisposed">
+        /// Non-zero to treat a deleted or disposed interpreter as an error.
+        /// </param>
+        /// <param name="unsignalOnStart">
+        /// Non-zero to reset the setup event when the work begins.
+        /// </param>
+        /// <param name="signalWhenDone">
+        /// Non-zero to signal the setup event when the work completes.
+        /// </param>
         public static void PopulateOperatingSystemExtra(
             Interpreter interpreter,
             bool errorOnDisposed,
@@ -1360,6 +2071,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the detected operating system identifier for the
+        /// current process.
+        /// </summary>
+        /// <returns>
+        /// The detected operating system identifier.
+        /// </returns>
         public static OperatingSystemId GetOperatingSystemId()
         {
             lock (syncRoot)
@@ -1370,6 +2088,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name of the operating system that the current
+        /// process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The operating system name.
+        /// </returns>
         public static string GetOperatingSystemName()
         {
             lock (syncRoot)
@@ -1380,6 +2105,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a value indicating whether the current process is
+        /// a 32-bit process running on a 64-bit version of Windows (WoW64).
+        /// </summary>
+        /// <returns>
+        /// True if the current process is running as WoW64; otherwise, false.
+        /// </returns>
         public static bool GetWin32onWin64()
         {
             lock (syncRoot)
@@ -1390,6 +2122,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name of the current user, optionally
+        /// qualified with the domain name.
+        /// </summary>
+        /// <param name="domain">
+        /// Non-zero to include the domain name in the returned user name.
+        /// </param>
+        /// <returns>
+        /// The current user name, optionally qualified with the domain name.
+        /// </returns>
         public static string GetUserName(
             bool domain
             )
@@ -1409,6 +2151,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a human-readable string describing the operating
+        /// system name, version, and related platform information for the
+        /// current process.
+        /// </summary>
+        /// <returns>
+        /// A string describing the operating system and platform.
+        /// </returns>
         public static string GetOperatingSystemNameAndVersion()
         {
             StringBuilder builder = StringBuilderFactory.Create();
@@ -1456,6 +2206,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Querying Methods
+        /// <summary>
+        /// This method queries the processor architecture from the
+        /// environment, optionally falling back to a default value.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to query the environment even when not running on a
+        /// Windows operating system.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the environment is not queried;
+        /// this parameter is optional.
+        /// </param>
+        /// <returns>
+        /// The processor architecture name, or the default value.
+        /// </returns>
         private static string QueryProcessorArchitecture(
             bool force,     /* in */
             string @default /* in: OPTIONAL */
@@ -1474,6 +2239,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method corrects the processor architecture when an impossible
+        /// combination of pointer size and architecture is detected.
+        /// </summary>
+        /// <param name="processorArchitecture">
+        /// The processor architecture to check and, if necessary, correct;
+        /// this parameter is optional.
+        /// </param>
         private static void CheckProcessorArchitecture(
             ref string processorArchitecture /* in, out: OPTIONAL */
             )
@@ -1521,6 +2294,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the cached processor and machine names
+        /// based on the specified processor architecture.
+        /// </summary>
+        /// <param name="processorArchitecture">
+        /// The processor architecture to use when initializing the names.
+        /// </param>
         private static void InitializeProcessorAndMachineNames(
             ProcessorArchitecture processorArchitecture /* in */
             )
@@ -1540,6 +2320,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the cached processor and machine names
+        /// based on the specified processor name.
+        /// </summary>
+        /// <param name="processorName">
+        /// The processor name to use when initializing the names.
+        /// </param>
         private static void InitializeProcessorAndMachineNames(
             string processorName /* in */
             )
@@ -1570,6 +2357,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse the specified name into a processor
+        /// architecture.
+        /// </summary>
+        /// <param name="name">
+        /// The name to parse.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the parsed processor architecture;
+        /// otherwise, set to null.
+        /// </param>
+        /// <returns>
+        /// True if the name was parsed successfully; otherwise, false.
+        /// </returns>
         private static bool TryParseProcessorArchitecture(
             string name,                     /* in */
             out ProcessorArchitecture? value /* out */
@@ -1594,6 +2395,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified name into a processor
+        /// architecture.
+        /// </summary>
+        /// <param name="name">
+        /// The name to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed processor architecture, or <see
+        /// cref="ProcessorArchitecture.Unknown" /> if the name cannot be
+        /// parsed.
+        /// </returns>
         private static ProcessorArchitecture ParseProcessorArchitecture(
             string name /* in */
             )
@@ -1608,6 +2421,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified processor
+        /// architecture is known.
+        /// </summary>
+        /// <param name="processorArchitecture">
+        /// The processor architecture to check.
+        /// </param>
+        /// <returns>
+        /// True if the processor architecture is known; otherwise, false.
+        /// </returns>
         private static bool IsKnownProcessorArchitecture(
             ProcessorArchitecture processorArchitecture /* in */
             )
@@ -1617,6 +2440,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method guesses the processor architecture based on the
+        /// pointer size of the current process.
+        /// </summary>
+        /// <returns>
+        /// The guessed processor architecture.
+        /// </returns>
         private static ProcessorArchitecture GuessProcessorArchitecture()
         {
             return Is64BitProcess() ?
@@ -1625,6 +2455,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method guesses the processor architecture based on the
+        /// specified operating system and/or platform or processor name.
+        /// </summary>
+        /// <param name="operatingSystem">
+        /// The operating system to use; this parameter may be null.
+        /// </param>
+        /// <param name="platformOrProcessorName">
+        /// The platform or processor name to use; this parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The guessed processor architecture, or <see
+        /// cref="ProcessorArchitecture.Unknown" /> if it cannot be guessed.
+        /// </returns>
         private static ProcessorArchitecture GuessProcessorArchitecture(
             OperatingSystem operatingSystem, /* in: OPTIONAL */
             string platformOrProcessorName   /* in: OPTIONAL */
@@ -1675,6 +2519,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified operating system
+        /// should be treated as Windows.
+        /// </summary>
+        /// <param name="operatingSystem">
+        /// The operating system to check.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the operating system is null.
+        /// </param>
+        /// <returns>
+        /// True if the operating system should be treated as Windows;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldTreatAsWindows(
             OperatingSystem operatingSystem, /* in */
             bool @default                    /* in */
@@ -1689,6 +2547,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified operating system
+        /// identifier should be treated as Windows.
+        /// </summary>
+        /// <param name="platformId">
+        /// The operating system identifier to check.
+        /// </param>
+        /// <param name="default">
+        /// The default value to return when the identifier is not recognized.
+        /// </param>
+        /// <returns>
+        /// True if the operating system identifier should be treated as
+        /// Windows; otherwise, false.
+        /// </returns>
         private static bool ShouldTreatAsWindows(
             OperatingSystemId platformId, /* in */
             bool @default                 /* in */
@@ -1715,6 +2587,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the platform identifier of the operating system
+        /// that the current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The operating system platform identifier.
+        /// </returns>
         private static PlatformID GetOperatingSystemPlatformId()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1728,6 +2607,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the version of the operating system that the
+        /// current process is executing on.
+        /// </summary>
+        /// <returns>
+        /// The operating system version, or null if it is not available.
+        /// </returns>
         private static Version GetOperatingSystemVersion()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1741,6 +2627,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the product type of the operating system using
+        /// only managed APIs.
+        /// </summary>
+        /// <returns>
+        /// The operating system product type.
+        /// </returns>
         private static VER_PRODUCT_TYPE GetOperatingSystemProductType()
         {
             //
@@ -1751,6 +2644,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the setup event for the specified interpreter,
+        /// complaining if the operation fails.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setup event should be reset.
+        /// </param>
         private static void UnSignalSetupEventOrComplain(
             Interpreter interpreter /* in */
             )
@@ -1781,6 +2681,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals the setup event for the specified interpreter,
+        /// complaining if the operation fails.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose setup event should be signaled.
+        /// </param>
         private static void SignalSetupEventOrComplain(
             Interpreter interpreter /* in */
             )
@@ -1813,6 +2720,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Operating System Detection Support Methods
+        /// <summary>
+        /// This method determines whether the current operating system is a
+        /// Unix operating system.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is a Unix operating system;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsUnixOperatingSystem()
         {
             // lock (syncRoot) /* EXEMPT: Possible hot-path (read-only). */
@@ -1825,6 +2740,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// macOS (Darwin) operating system.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the macOS (Darwin)
+        /// operating system; otherwise, false.
+        /// </returns>
         public static bool IsMacintoshOperatingSystem()
         {
             // lock (syncRoot) /* EXEMPT: Possible hot-path (read-only). */
@@ -1848,6 +2771,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// Linux operating system.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the Linux operating
+        /// system; otherwise, false.
+        /// </returns>
         public static bool IsLinuxOperatingSystem()
         {
             // lock (syncRoot) /* EXEMPT: Possible hot-path (read-only). */
@@ -1867,6 +2798,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is a
+        /// Windows operating system.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is a Windows operating
+        /// system; otherwise, false.
+        /// </returns>
         public static bool IsWindowsOperatingSystem()
         {
             // lock (syncRoot) /* EXEMPT: Possible hot-path (read-only). */
@@ -1878,6 +2817,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method guesses the operating system identifier based on the
+        /// detected operating system family.
+        /// </summary>
+        /// <returns>
+        /// The guessed operating system identifier.
+        /// </returns>
         public static OperatingSystemId GuessOperatingSystemId()
         {
             if (IsWindowsOperatingSystem())
@@ -1892,6 +2838,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Vista or higher.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Vista or higher;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindowsVistaOrHigher()
         {
             Version osVersion = null; /* NOT USED */
@@ -1901,6 +2855,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 8.1.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows 8.1; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsWindows81()
         {
             Version osVersion = null; /* NOT USED */
@@ -1910,6 +2872,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows 10; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsWindows10()
         {
             Version osVersion = null; /* NOT USED */
@@ -1919,6 +2889,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 10 or higher.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows 10 or higher;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindows10OrHigher()
         {
             Version osVersion = null; /* NOT USED */
@@ -1928,6 +2906,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// November Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the November Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10NovemberUpdate()
         {
             Version osVersion = null;
@@ -1954,6 +2940,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// Anniversary Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the Anniversary Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10AnniversaryUpdate()
         {
             Version osVersion = null;
@@ -1980,6 +2974,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// Creators Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the Creators Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10CreatorsUpdate()
         {
             Version osVersion = null;
@@ -2006,6 +3008,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// Fall Creators Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the Fall Creators Update
+        /// of Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10FallCreatorsUpdate()
         {
             Version osVersion = null;
@@ -2032,6 +3042,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// April 2018 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the April 2018 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10April2018Update()
         {
             Version osVersion = null;
@@ -2058,6 +3076,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// October 2018 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the October 2018 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10October2018Update()
         {
             Version osVersion = null;
@@ -2084,6 +3110,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// May 2019 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the May 2019 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10May2019Update()
         {
             Version osVersion = null;
@@ -2110,6 +3144,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// November 2019 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the November 2019 Update
+        /// of Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10November2019Update()
         {
             Version osVersion = null;
@@ -2136,6 +3178,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// May 2020 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the May 2020 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10May2020Update()
         {
             Version osVersion = null;
@@ -2162,6 +3212,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// October 2020 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the October 2020 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10October2020Update()
         {
             Version osVersion = null;
@@ -2188,6 +3246,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// May 2021 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the May 2021 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10May2021Update()
         {
             Version osVersion = null;
@@ -2214,6 +3280,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// November 2021 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the November 2021 Update
+        /// of Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10November2021Update()
         {
             Version osVersion = null;
@@ -2240,6 +3314,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// October 2022 Update of Windows 10.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the October 2022 Update of
+        /// Windows 10; otherwise, false.
+        /// </returns>
         public static bool IsWindows10October2022Update()
         {
             Version osVersion = null;
@@ -2266,6 +3348,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 11.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows 11; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsWindows11()
         {
             Version osVersion = null; /* NOT USED */
@@ -2275,6 +3365,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 11 or higher.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows 11 or higher;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindows11OrHigher()
         {
             Version osVersion = null; /* NOT USED */
@@ -2284,6 +3382,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// September 2022 Update of Windows 11.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the September 2022 Update
+        /// of Windows 11; otherwise, false.
+        /// </returns>
         public static bool IsWindows11September2022Update()
         {
             Version osVersion = null;
@@ -2310,6 +3416,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// October 2023 Update of Windows 11.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the October 2023 Update of
+        /// Windows 11; otherwise, false.
+        /// </returns>
         public static bool IsWindows11October2023Update()
         {
             Version osVersion = null;
@@ -2336,6 +3450,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// October 2024 Update of Windows 11.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the October 2024 Update of
+        /// Windows 11; otherwise, false.
+        /// </returns>
         public static bool IsWindows11October2024Update()
         {
             Version osVersion = null;
@@ -2362,6 +3484,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is the
+        /// September 2025 Update of Windows 11.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is the September 2025 Update
+        /// of Windows 11; otherwise, false.
+        /// </returns>
         public static bool IsWindows11September2025Update()
         {
             Version osVersion = null;
@@ -2388,6 +3518,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server 2012 R2.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server 2012 R2;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindowsServer2012R2()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2402,6 +3540,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server 2016.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server 2016;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindowsServer2016() /* IsWindowsServerVersion1607() */
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2415,6 +3561,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server, version 1709.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server, version
+        /// 1709; otherwise, false.
+        /// </returns>
         public static bool IsWindowsServerVersion1709()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2428,6 +3582,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server, version 1803.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server, version
+        /// 1803; otherwise, false.
+        /// </returns>
         public static bool IsWindowsServerVersion1803()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2441,6 +3603,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server, version 1809.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server, version
+        /// 1809; otherwise, false.
+        /// </returns>
         public static bool IsWindowsServerVersion1809()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2454,6 +3624,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server, version 1903.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server, version
+        /// 1903; otherwise, false.
+        /// </returns>
         public static bool IsWindowsServerVersion1903()
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2467,6 +3645,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Server 2022.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is Windows Server 2022;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsWindowsServer2022() /* IsWindowsServerVersion21H2() */
         {
             if (!IsWindowsServerOperatingSystem())
@@ -2481,6 +3667,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method determines whether the current operating system is at,
+        /// or above, the specified platform, version, and service pack.
+        /// </summary>
+        /// <param name="platformId">
+        /// The platform identifier that must match the current operating
+        /// system.
+        /// </param>
+        /// <param name="major">
+        /// The minimum required major version number.
+        /// </param>
+        /// <param name="minor">
+        /// The minimum required minor version number.
+        /// </param>
+        /// <param name="servicePackMajor">
+        /// The minimum required major service pack version number.
+        /// </param>
+        /// <param name="servicePackMinor">
+        /// The minimum required minor service pack version number.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is at, or above, the
+        /// specified version; otherwise, false.
+        /// </returns>
         public static bool CheckVersion(
             PlatformID platformId,
             int major,
@@ -2537,6 +3747,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Process Bits Querying Methods
+        /// <summary>
+        /// This method gets the number of bits (e.g. 32 or 64) for the
+        /// pointer size of the current process.
+        /// </summary>
+        /// <returns>
+        /// The number of bits for the pointer size of the current process.
+        /// </returns>
         public static int GetProcessBits() // (e.g. 32, 64, etc)
         {
             return (IntPtr.Size * ConversionOps.ByteBits);
@@ -2544,6 +3761,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current process is a 32-bit
+        /// process.
+        /// </summary>
+        /// <returns>
+        /// True if the current process is a 32-bit process; otherwise, false.
+        /// </returns>
         public static bool Is32BitProcess()
         {
             return (IntPtr.Size == sizeof(uint));
@@ -2551,6 +3775,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current process is a 64-bit
+        /// process.
+        /// </summary>
+        /// <returns>
+        /// True if the current process is a 64-bit process; otherwise, false.
+        /// </returns>
         public static bool Is64BitProcess()
         {
             return (IntPtr.Size == sizeof(ulong));
@@ -2561,6 +3792,20 @@ namespace Eagle._Components.Private
 
         #region Public Name Lookup Methods
 #if NATIVE
+        /// <summary>
+        /// This method looks up the alternate processor name for the
+        /// specified platform or processor name.
+        /// </summary>
+        /// <param name="platformOrProcessorName">
+        /// The platform or processor name to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The alternate processor name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         public static string GetAlternateProcessorName(
             string platformOrProcessorName,
             IfNotFoundType notFoundType
@@ -2593,6 +3838,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Operating System Detection Support Methods
+        /// <summary>
+        /// This method determines whether the current operating system is a
+        /// Windows Server operating system.
+        /// </summary>
+        /// <returns>
+        /// True if the current operating system is a Windows Server operating
+        /// system; otherwise, false.
+        /// </returns>
         private static bool IsWindowsServerOperatingSystem()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2604,6 +3857,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the release identifier of the
+        /// current operating system matches the specified value.
+        /// </summary>
+        /// <param name="releaseId">
+        /// The release identifier to compare against.
+        /// </param>
+        /// <returns>
+        /// True if the release identifier matches; otherwise, false.
+        /// </returns>
         private static bool IsWindowsReleaseId(
             string releaseId
             )
@@ -2618,6 +3881,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows Vista or higher, also returning the operating system
+        /// version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows Vista or higher;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsWindowsVistaOrHigher(
             ref Version osVersion
             )
@@ -2639,6 +3914,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 8.1, also returning the operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows 8.1; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsWindows81(
             ref Version osVersion
             )
@@ -2660,6 +3946,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 10, also returning the operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows 10; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsWindows10(
             ref Version osVersion
             )
@@ -2681,6 +3978,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 10 or higher, also returning the operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows 10 or higher;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsWindows10OrHigher(
             ref Version osVersion
             )
@@ -2702,6 +4010,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 11, also returning the operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows 11; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsWindows11(
             ref Version osVersion
             )
@@ -2726,6 +4045,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current operating system is
+        /// Windows 11 or higher, also returning the operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// Upon success, receives the operating system version.
+        /// </param>
+        /// <returns>
+        /// True if the current operating system is Windows 11 or higher;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsWindows11OrHigher(
             ref Version osVersion
             )
@@ -2759,6 +4089,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of installed operating system updates.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use; this parameter may be null.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero to allow expensive, time-consuming queries to be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// The list of installed operating system updates, or null if it
+        /// cannot be determined.
+        /// </returns>
         private static StringList GetInstalledUpdates(
             Interpreter interpreter, /* in: OPTIONAL */
             bool asynchronous        /* in */
@@ -2780,6 +4124,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the list of installed Windows
+        /// updates can be obtained, selecting the command to be used.
+        /// </summary>
+        /// <param name="type">
+        /// Upon success, receives the type of command that will be used.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the file name of the command that will be
+        /// used.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon success, receives the command line arguments that will be
+        /// used.
+        /// </param>
+        /// <returns>
+        /// True if the list of installed updates can be obtained; otherwise,
+        /// false.
+        /// </returns>
         private static bool CanGetWindowsInstalledUpdates(
             ref GetInstalledUpdatesType? type, /* out */
             ref string fileName,               /* out */
@@ -2824,6 +4187,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes header and separator elements from the raw
+        /// list of installed Windows updates.
+        /// </summary>
+        /// <param name="type">
+        /// The type of command that produced the list.
+        /// </param>
+        /// <param name="list">
+        /// The list of installed updates to fix up.
+        /// </param>
+        /// <returns>
+        /// True if the list was modified; otherwise, false.
+        /// </returns>
         private static bool FixupWindowsInstalledUpdates(
             GetInstalledUpdatesType? type, /* in */
             ref StringList list            /* in, out */
@@ -2881,6 +4257,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of installed Windows updates, optionally
+        /// using a cached result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use; this parameter may be null.
+        /// </param>
+        /// <param name="asynchronous">
+        /// Non-zero to perform the expensive query; otherwise, only a cached
+        /// result is returned.
+        /// </param>
+        /// <returns>
+        /// The list of installed Windows updates, or null if it cannot be
+        /// determined.
+        /// </returns>
         private static StringList WindowsGetInstalledUpdates(
             Interpreter interpreter, /* in: OPTIONAL */
             bool asynchronous        /* in */
@@ -3015,6 +4406,17 @@ namespace Eagle._Components.Private
         // BUGBUG: This method and its caller assume that there can be only
         //         one "named update" installed at a time.
         //
+        /// <summary>
+        /// This method gets the display name of the named Windows 10 update
+        /// that corresponds to the specified operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// The operating system version to look up.
+        /// </param>
+        /// <returns>
+        /// The display name of the named Windows 10 update, or null if there
+        /// is none.
+        /// </returns>
         private static string GetWindows10UpdateName(
             Version osVersion
             )
@@ -3063,6 +4465,17 @@ namespace Eagle._Components.Private
         // BUGBUG: This method and its caller assume that there can be only
         //         one "named update" installed at a time.
         //
+        /// <summary>
+        /// This method gets the display name of the named Windows 11 update
+        /// that corresponds to the specified operating system version.
+        /// </summary>
+        /// <param name="osVersion">
+        /// The operating system version to look up.
+        /// </param>
+        /// <returns>
+        /// The display name of the named Windows 11 update, or null if there
+        /// is none.
+        /// </returns>
         private static string GetWindows11UpdateName(
             Version osVersion
             )
@@ -3091,6 +4504,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Name Lookup Methods
+        /// <summary>
+        /// This method looks up the machine name for the specified platform
+        /// or processor name.
+        /// </summary>
+        /// <param name="platformOrProcessorName">
+        /// The platform or processor name to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The machine name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         private static string GetMachineName(
             string platformOrProcessorName,
             IfNotFoundType notFoundType
@@ -3120,6 +4547,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the processor name for the specified
+        /// processor architecture.
+        /// </summary>
+        /// <param name="processorArchitecture">
+        /// The processor architecture to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The processor name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         private static string GetProcessorName(
             ProcessorArchitecture processorArchitecture,
             IfNotFoundType notFoundType
@@ -3145,6 +4586,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the operating system name for the specified
+        /// operating system identifier.
+        /// </summary>
+        /// <param name="platformId">
+        /// The operating system identifier to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The operating system name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         private static string GetOperatingSystemName(
             OperatingSystemId platformId,
             IfNotFoundType notFoundType
@@ -3174,6 +4629,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the platform name for the specified operating
+        /// system identifier.
+        /// </summary>
+        /// <param name="platformId">
+        /// The operating system identifier to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The platform name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         private static string GetPlatformName(
             OperatingSystemId platformId,
             IfNotFoundType notFoundType
@@ -3198,6 +4667,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the product type name for the specified
+        /// product type.
+        /// </summary>
+        /// <param name="productType">
+        /// The product type to look up.
+        /// </param>
+        /// <param name="notFoundType">
+        /// The action to take when the name cannot be found.
+        /// </param>
+        /// <returns>
+        /// The product type name, or a value determined by <paramref
+        /// name="notFoundType" /> when it cannot be found.
+        /// </returns>
         private static string GetProductTypeName(
             VER_PRODUCT_TYPE productType,
             IfNotFoundType notFoundType
@@ -3223,6 +4706,17 @@ namespace Eagle._Components.Private
 
         #region Private Win32 Support Methods
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method retrieves the native system information for the
+        /// current computer.
+        /// </summary>
+        /// <param name="systemInfo">
+        /// Upon success, receives the system information.
+        /// </param>
+        /// <returns>
+        /// True if the system information was retrieved successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetSystemInfo(
             ref UnsafeNativeMethods.SYSTEM_INFO systemInfo
             )
@@ -3244,6 +4738,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the native operating system version
+        /// information.
+        /// </summary>
+        /// <param name="versionInfo">
+        /// Upon success, receives the operating system version information.
+        /// </param>
+        /// <returns>
+        /// True if the version information was retrieved successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetOsVersionInfo(
             ref UnsafeNativeMethods.OSVERSIONINFOEX versionInfo
             )
@@ -3265,6 +4770,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current process is a 32-bit
+        /// process running on a 64-bit version of Windows (WoW64).
+        /// </summary>
+        /// <returns>
+        /// True if the current process is running as WoW64; otherwise, false.
+        /// </returns>
         private static bool IsWin32onWin64()
         {
             try
@@ -3296,6 +4808,17 @@ namespace Eagle._Components.Private
 
         #region Private Unix Support Methods
 #if NATIVE && UNIX
+        /// <summary>
+        /// This method retrieves the native uname information for the current
+        /// system.
+        /// </summary>
+        /// <param name="utsName">
+        /// Upon success, receives the uname information.
+        /// </param>
+        /// <returns>
+        /// True if the uname information was retrieved successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetOsVersionInfo(
             ref UnsafeNativeMethods.utsname utsName
             )

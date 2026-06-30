@@ -25,11 +25,26 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>parse</c> command, which exposes the
+    /// engine parser as an ensemble of sub-commands (<c>command</c>,
+    /// <c>expression</c>, <c>options</c>, and <c>script</c>) that parse text
+    /// without evaluating it and return the resulting parse state or token
+    /// information.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("a4841c1c-f336-4060-9d1a-0e8544a42bd0")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard | CommandFlags.Diagnostic)]
     [ObjectGroup("string")]
     internal sealed class Parse : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>parse</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Parse(
             ICommandData commandData
             )
@@ -41,6 +56,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The dictionary of sub-commands supported by the <c>parse</c>
+        /// command ensemble, namely <c>command</c>, <c>expression</c>,
+        /// <c>options</c>, and <c>script</c>.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "command", "expression", "options", "script"
@@ -48,6 +68,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the dictionary of sub-commands supported by this command
+        /// ensemble.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -57,11 +81,45 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>parse</c> command.  It dispatches to the
+        /// requested sub-command (<c>command</c>, <c>expression</c>,
+        /// <c>options</c>, or <c>script</c>), parses the supplied text using the
+        /// engine parser without evaluating it, and returns the resulting parse
+        /// state or token information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the sub-command options and operands.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the parse result for the selected
+        /// sub-command (for example, the textual parse state, the round-trip
+        /// token list, or an empty string).  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an unknown sub-command or option is used, the text
+        /// cannot be parsed, the interpreter is null, or the argument list is
+        /// null, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

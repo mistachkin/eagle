@@ -19,6 +19,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>alias</c> command, which acts as a
+    /// transparent conduit that forwards an invocation to a target command,
+    /// procedure, or other executable entity, possibly residing in another
+    /// (target) interpreter.  The command itself provides no functionality of
+    /// its own; it merely redirects to the configured target, optionally
+    /// prepending fixed leading arguments.  See <c>core_language.md</c> for
+    /// the command syntax and semantics.
+    /// </summary>
     [ObjectId("b338e2c4-6e66-456e-93af-91b5c21b449c")]
     /*
      * POLICY: This "command" is "safe" because it provides no
@@ -34,6 +43,13 @@ namespace Eagle._Commands
     internal sealed class Alias : Core, IAlias
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>alias</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Alias(
             ICommandData commandData
             )
@@ -48,9 +64,26 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>alias</c> command, initializing
+        /// its alias-specific state from the supplied alias data.  When a
+        /// target interpreter is present, a disposal callback is registered so
+        /// that this alias (and its associated command) can be removed from
+        /// the source interpreter once the target interpreter is disposed.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
+        /// <param name="aliasData">
+        /// The alias-specific data used to configure this command, such as its
+        /// name token, source and target interpreters, namespaces, target,
+        /// arguments, options, flags, and starting index.  This parameter may
+        /// be null.
+        /// </param>
         public Alias(
-            ICommandData commandData,
-            IAliasData aliasData
+            ICommandData commandData, /* in */
+            IAliasData aliasData      /* in */
             )
             : this(commandData)
         {
@@ -90,6 +123,17 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method handles disposal of the target interpreter.  When the
+        /// disposed object is the target interpreter, it removes this alias
+        /// (and its associated command) from the source interpreter, provided
+        /// the source and target interpreters differ and a name token is
+        /// available, and then clears the cached target interpreter reference.
+        /// </summary>
+        /// <param name="object">
+        /// The object that was disposed; this is expected to be the target
+        /// interpreter being torn down.  This parameter may be null.
+        /// </param>
         private void TargetInterpreterDisposed(
             object @object
             )
@@ -119,7 +163,15 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IAliasData Members
+        /// <summary>
+        /// The unique name token that identifies this alias (and its
+        /// associated command) within the source interpreter.
+        /// </summary>
         private string nameToken;
+        /// <summary>
+        /// Gets or sets the unique name token that identifies this alias (and
+        /// its associated command) within the source interpreter.
+        /// </summary>
         public string NameToken
         {
             get { return nameToken; }
@@ -128,7 +180,15 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter in which this alias and its associated command are
+        /// defined.
+        /// </summary>
         private Interpreter sourceInterpreter;
+        /// <summary>
+        /// Gets or sets the interpreter in which this alias and its associated
+        /// command are defined.
+        /// </summary>
         public Interpreter SourceInterpreter
         {
             get { return sourceInterpreter; }
@@ -137,7 +197,16 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter in which the target of this alias is resolved and
+        /// executed.  This may be the same as the source interpreter.
+        /// </summary>
         private Interpreter targetInterpreter;
+        /// <summary>
+        /// Gets or sets the interpreter in which the target of this alias is
+        /// resolved and executed.  This may be the same as the source
+        /// interpreter.
+        /// </summary>
         public Interpreter TargetInterpreter
         {
             get { return targetInterpreter; }
@@ -146,7 +215,15 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The namespace within the source interpreter that this alias belongs
+        /// to, if any.
+        /// </summary>
         private INamespace sourceNamespace;
+        /// <summary>
+        /// Gets or sets the namespace within the source interpreter that this
+        /// alias belongs to, if any.
+        /// </summary>
         public INamespace SourceNamespace
         {
             get { return sourceNamespace; }
@@ -155,7 +232,15 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The namespace within the target interpreter that the target of this
+        /// alias is resolved in, if any.
+        /// </summary>
         private INamespace targetNamespace;
+        /// <summary>
+        /// Gets or sets the namespace within the target interpreter that the
+        /// target of this alias is resolved in, if any.
+        /// </summary>
         public INamespace TargetNamespace
         {
             get { return targetNamespace; }
@@ -164,7 +249,17 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The executable entity that this alias forwards invocations to.
+        /// This may be null when the alias is late-bound and resolved by name
+        /// at execution time.
+        /// </summary>
         private IExecute target;
+        /// <summary>
+        /// Gets or sets the executable entity that this alias forwards
+        /// invocations to.  This may be null when the alias is late-bound and
+        /// resolved by name at execution time.
+        /// </summary>
         public IExecute Target
         {
             get { return target; }
@@ -173,7 +268,16 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The fixed leading arguments that are prepended to the arguments
+        /// supplied at invocation time before being forwarded to the target.
+        /// </summary>
         private ArgumentList arguments;
+        /// <summary>
+        /// Gets or sets the fixed leading arguments that are prepended to the
+        /// arguments supplied at invocation time before being forwarded to the
+        /// target.
+        /// </summary>
         public ArgumentList Arguments
         {
             get { return arguments; }
@@ -182,7 +286,15 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The options associated with this alias that govern how it is
+        /// processed, if any.
+        /// </summary>
         private OptionDictionary options;
+        /// <summary>
+        /// Gets or sets the options associated with this alias that govern how
+        /// it is processed, if any.
+        /// </summary>
         public OptionDictionary Options
         {
             get { return options; }
@@ -191,7 +303,17 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags that control the behavior of this alias, such as whether
+        /// it is a system alias or whether its target is evaluated as a
+        /// script.
+        /// </summary>
         private AliasFlags aliasFlags;
+        /// <summary>
+        /// Gets or sets the flags that control the behavior of this alias, such
+        /// as whether it is a system alias or whether its target is evaluated
+        /// as a script.
+        /// </summary>
         public AliasFlags AliasFlags
         {
             get { return aliasFlags; }
@@ -200,7 +322,17 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The index into the invocation arguments at which the
+        /// caller-supplied arguments begin when they are combined with the
+        /// fixed leading arguments of this alias.
+        /// </summary>
         private int startIndex;
+        /// <summary>
+        /// Gets or sets the index into the invocation arguments at which the
+        /// caller-supplied arguments begin when they are combined with the
+        /// fixed leading arguments of this alias.
+        /// </summary>
         public int StartIndex
         {
             get { return startIndex; }
@@ -211,7 +343,15 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IAlias Members
+        /// <summary>
+        /// The callback registered with the target interpreter so that this
+        /// alias is notified after that interpreter has been disposed.
+        /// </summary>
         private DisposeCallback postInterpreterDisposed;
+        /// <summary>
+        /// Gets the callback registered with the target interpreter so that
+        /// this alias is notified after that interpreter has been disposed.
+        /// </summary>
         public DisposeCallback PostInterpreterDisposed
         {
             get { return postInterpreterDisposed; }
@@ -221,6 +361,15 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this alias.  It
+        /// returns the string form of the fixed leading arguments, or an empty
+        /// string when no such arguments are present.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the fixed leading arguments of this
+        /// alias, or an empty string when none are present.
+        /// </returns>
         public override string ToString()
         {
             return (arguments != null) ? arguments.ToString() : String.Empty;
@@ -230,10 +379,35 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IState Members
+        /// <summary>
+        /// This method terminates this alias when its associated command is
+        /// being deleted.  When a name token is present, the alias is removed
+        /// from the interpreter; otherwise it is assumed to have already been
+        /// deleted and the step is skipped.  The base class termination is then
+        /// performed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain a result value; upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the interpreter is null or the
+        /// alias could not be removed, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Terminate(
-            Interpreter interpreter,
-            IClientData clientData,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;
@@ -273,6 +447,14 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// Gets the sub-commands exposed by this alias.  When the target of
+        /// this alias is itself an ensemble, its sub-commands are returned;
+        /// otherwise, the target is resolved (when late-bound) through the
+        /// target interpreter and, if that resolved target is an ensemble, its
+        /// sub-commands are returned.  Returns null when no ensemble target can
+        /// be determined.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get
@@ -320,11 +502,46 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>alias</c> command.  It resolves the
+        /// target of the alias (looking it up by name when late-bound),
+        /// combines the fixed leading arguments with the supplied arguments,
+        /// pushes a tracking call frame, and forwards the invocation to the
+        /// target in the target interpreter.  The target arguments are either
+        /// evaluated as a script or executed directly, depending on the alias
+        /// flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements are forwarded to the target
+        /// after the fixed leading arguments of this alias.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the target of
+        /// the alias.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" /> when the target interpreter is
+        /// null or the target cannot be resolved) with details placed in
+        /// <paramref name="result" />.  The return code produced by the target
+        /// is propagated back to the caller.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (targetInterpreter == null)
@@ -437,6 +654,21 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method determines whether the specified executable entity is a
+        /// system alias.  It unwraps the entity when it is an
+        /// <see cref="IWrapper" /> around an <see cref="IAlias" />, and then
+        /// checks whether the resulting alias has the
+        /// <see cref="AliasFlags.System" /> flag set.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Non-zero when <paramref name="execute" /> is (or wraps) an alias
+        /// that has the <see cref="AliasFlags.System" /> flag set; otherwise,
+        /// zero.
+        /// </returns>
         public static bool IsSystemAlias(
             IExecute execute /* in */
             )

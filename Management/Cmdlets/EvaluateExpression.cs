@@ -17,6 +17,12 @@ using Eagle._Components.Public;
 
 namespace Eagle._Cmdlets
 {
+    /// <summary>
+    /// This class implements the PowerShell cmdlet that evaluates an Eagle
+    /// expression using the embedded interpreter managed by its
+    /// <see cref="Script" /> base class and writes the resulting value or
+    /// error to the pipeline.
+    /// </summary>
     [Cmdlet(
         _Constants.Verb.Evaluate,
         _Constants.Noun.Expression,
@@ -26,6 +32,13 @@ namespace Eagle._Cmdlets
     public sealed class EvaluateExpression : Script
     {
         #region System.Management.Automation.Cmdlet Overrides
+        /// <summary>
+        /// This method is called by the PowerShell runtime to process a single
+        /// pipeline record.  It checks the preconditions, evaluates the
+        /// configured expression using the embedded interpreter, and writes
+        /// either the successful result or an error record to the pipeline
+        /// (honoring any request to stop the pipeline).
+        /// </summary>
         protected override void ProcessRecord()
         {
             //

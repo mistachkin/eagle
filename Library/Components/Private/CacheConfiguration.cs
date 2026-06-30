@@ -26,6 +26,17 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the centralized, process-wide configuration and
+    /// runtime state for the various internal Eagle caches (for example, the
+    /// argument, string list, parse state, executable, type, COM type, and
+    /// string builder caches).  It holds the default per-level settings, the
+    /// limits that govern when items may be read from, written to, trimmed
+    /// from, or cleared from a cache, and (when native support is available)
+    /// the logic used to throttle caching activity in response to the current
+    /// system memory load.  All members are static; the class is not intended
+    /// to be instantiated.
+    /// </summary>
     [ObjectId("245051cd-4bae-45e2-ab31-adc247aa046e")]
     internal static class CacheConfiguration
     {
@@ -37,6 +48,11 @@ namespace Eagle._Components.Private
         //       always in the range of zero to one hundred percent, this
         //       could be any value outside of that range.
         //
+        /// <summary>
+        /// The sentinel memory load value used to indicate that the memory
+        /// load is not yet known; it is outside the valid range of zero to
+        /// one hundred percent.
+        /// </summary>
         private static readonly uint NoMemoryLoad = (uint)Percent.Invalid;
 #endif
 
@@ -46,6 +62,10 @@ namespace Eagle._Components.Private
         // NOTE: These are the delimiters used to split the settings text into
         //       its parts, which are then (currently) converted to integers.
         //
+        /// <summary>
+        /// The delimiter characters used to split the cache settings text into
+        /// its individual parts prior to converting them to integers.
+        /// </summary>
         private static readonly char[] Separators = {
             Characters.Space, Characters.Comma
         };
@@ -96,6 +116,12 @@ namespace Eagle._Components.Private
         //
         // HACK: *PERF* This is not read-only.
         //
+        /// <summary>
+        /// The hard-coded default cache settings, one string per caching
+        /// "level".  Within each string, the individual integer settings are
+        /// delimited by spaces or commas; null entries represent unused or
+        /// reserved levels.
+        /// </summary>
         private static string[] DefaultSettings = {
             /* Level 0: UNUSED */
             null,
@@ -149,6 +175,10 @@ namespace Eagle._Components.Private
         //       to the static cache settings, primarily the boolean that is
         //       used to determine if initialization was already completed.
         //
+        /// <summary>
+        /// The object used to synchronize access (within this class only) to
+        /// the static cache settings and state.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -157,6 +187,10 @@ namespace Eagle._Components.Private
         // NOTE: Have these (shared) cache settings already been initialized
         //       in the context of some created interpreter?
         //
+        /// <summary>
+        /// Non-zero if these shared cache settings have already been
+        /// initialized in the context of some created interpreter.
+        /// </summary>
         private static bool initialized;
 
         ///////////////////////////////////////////////////////////////////////
@@ -168,6 +202,11 @@ namespace Eagle._Components.Private
         //       are running the Eagle core library.  It will only be used
         //       to set the default cache level (i.e. its aggressiveness).
         //
+        /// <summary>
+        /// The amount of total physical memory, in bytes, at or below which a
+        /// machine is considered to be "bare bones"; used only when selecting
+        /// the default cache level.
+        /// </summary>
         private static ulong badMemoryThreshold = 1073741824; /* bytes */
 
         ///////////////////////////////////////////////////////////////////////
@@ -178,6 +217,11 @@ namespace Eagle._Components.Private
         //       are running the Eagle core library.  It will only be used
         //       to set the default cache level (i.e. its aggressiveness).
         //
+        /// <summary>
+        /// The amount of total physical memory, in bytes, at or above which a
+        /// machine is considered to have "quite a bit" of memory; used only
+        /// when selecting the default cache level.
+        /// </summary>
         private static ulong goodMemoryThreshold = 3221225472; /* bytes */
 
         ///////////////////////////////////////////////////////////////////////
@@ -192,6 +236,11 @@ namespace Eagle._Components.Private
         //       [3]: Maximum Average
         //       [4]: Average
         //
+        /// <summary>
+        /// The lowest, highest, and average memory loads seen so far.  The
+        /// elements are, in order: minimum current, maximum current, minimum
+        /// average, maximum average, and average.
+        /// </summary>
         private static uint[] memoryLoadBounds = {
             NoMemoryLoad, NoMemoryLoad, NoMemoryLoad, NoMemoryLoad,
             NoMemoryLoad
@@ -207,6 +256,12 @@ namespace Eagle._Components.Private
         //       [0]: Sum(MemoryLoad)
         //       [1]: Count(MemoryLoad)
         //
+        /// <summary>
+        /// The running totals used to compute the average memory load.  The
+        /// first element is the sum of all recorded memory load values and the
+        /// second element is the number of times the memory load has been
+        /// checked.
+        /// </summary>
         private static uint[] memoryCounts = { 0, 0 };
 
         ///////////////////////////////////////////////////////////////////////
@@ -215,6 +270,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the time, if any, that the memory load was queried
         //       successfully.
         //
+        /// <summary>
+        /// The time, if any, that the memory load was last queried
+        /// successfully; null means never.
+        /// </summary>
         private static DateTime? lastMemoryLoadQueried = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -223,6 +282,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the time, if any, that the memory load counts and/or
         //       stats were last reset.
         //
+        /// <summary>
+        /// The time, if any, that the memory load counts and statistics were
+        /// last reset; null means never.
+        /// </summary>
         private static DateTime? lastMemoryCountsReset = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -239,6 +302,12 @@ namespace Eagle._Components.Private
         //       [4]: Bump
         //       [5]: Compact
         //
+        /// <summary>
+        /// Per-operation flags tracking whether a warning has been traced
+        /// since the last low-memory condition was hit.  The elements
+        /// correspond, in order, to the unknown, clear, write, trim, bump, and
+        /// compact cache operations.
+        /// </summary>
         private static bool[] lowMemoryWarning = {
             false, false, false, false, false, false
         };
@@ -257,6 +326,12 @@ namespace Eagle._Components.Private
         //       [4]: Bump
         //       [5]: Compact
         //
+        /// <summary>
+        /// Per-operation flags tracking whether a warning has been traced
+        /// since the last low-memory condition was cleared.  The elements
+        /// correspond, in order, to the unknown, clear, write, trim, bump, and
+        /// compact cache operations.
+        /// </summary>
         private static bool[] okMemoryWarning = {
             false, false, false, false, false, false
         };
@@ -269,6 +344,10 @@ namespace Eagle._Components.Private
         // NOTE: Keep track of the number of times a cache is disabled via the
         //       MaybeEnableOrDisable method, on a per-cache (type) basis.
         //
+        /// <summary>
+        /// Tracks the number of times each cache (type) has been disabled via
+        /// the MaybeEnableOrDisable method, keyed by cache flags.
+        /// </summary>
         private static Dictionary<CacheFlags, int> maybeDisableCounts =
             new Dictionary<CacheFlags, int>();
 
@@ -278,6 +357,10 @@ namespace Eagle._Components.Private
         // NOTE: Keep track of the number of times a cache is enabled via the
         //       MaybeEnableOrDisable method, on a per-cache (type) basis.
         //
+        /// <summary>
+        /// Tracks the number of times each cache (type) has been enabled via
+        /// the MaybeEnableOrDisable method, keyed by cache flags.
+        /// </summary>
         private static Dictionary<CacheFlags, int> maybeEnableCounts =
             new Dictionary<CacheFlags, int>();
 
@@ -287,6 +370,10 @@ namespace Eagle._Components.Private
         // NOTE: Keep track of the total number of microseconds spent during
         //       cache trimming operations.
         //
+        /// <summary>
+        /// Tracks the total number of microseconds spent during cache trimming
+        /// operations.
+        /// </summary>
         private static PerformanceClientData trimPerformanceClientData =
             new PerformanceClientData("trim", true);
 #endif
@@ -296,6 +383,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Is the cache enabled for reading (i.e. can items be used)?
         //
+        /// <summary>
+        /// Non-zero if the cache is enabled for reading (i.e. cached items may
+        /// be used).
+        /// </summary>
         private static bool readEnabled;
 
         ///////////////////////////////////////////////////////////////////////
@@ -303,6 +394,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Is the cache enabled for writing (i.e. can items be added)?
         //
+        /// <summary>
+        /// Non-zero if the cache is enabled for writing (i.e. items may be
+        /// added).
+        /// </summary>
         private static bool writeEnabled;
 
         ///////////////////////////////////////////////////////////////////////
@@ -310,6 +405,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Is the cache enabled for deleting (i.e. can items be removed)?
         //
+        /// <summary>
+        /// Non-zero if the cache is enabled for deleting (i.e. items may be
+        /// removed).
+        /// </summary>
         private static bool deleteEnabled;
 
         ///////////////////////////////////////////////////////////////////////
@@ -319,6 +418,10 @@ namespace Eagle._Components.Private
         // NOTE: Should the cache track the last-accessed information on a
         //       per-entry basis?
         //
+        /// <summary>
+        /// Non-zero if the cache should track last-accessed information on a
+        /// per-entry basis.
+        /// </summary>
         private static bool accessedEnabled;
 #endif
 
@@ -328,6 +431,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum memory load, as a percentage, above which the cache is
+        /// cleared; zero means there is no maximum.
+        /// </summary>
         private static uint maximumClearMemoryLoad; /* percent */
 
         ///////////////////////////////////////////////////////////////////////
@@ -335,6 +442,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum memory load, as a percentage, above which items are no
+        /// longer written to the cache; zero means there is no maximum.
+        /// </summary>
         private static uint maximumWriteMemoryLoad; /* percent */
 
         ///////////////////////////////////////////////////////////////////////
@@ -342,6 +453,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum memory load, as a percentage, above which the cache is
+        /// trimmed; zero means there is no maximum.
+        /// </summary>
         private static uint maximumTrimMemoryLoad; /* percent */
 
         ///////////////////////////////////////////////////////////////////////
@@ -349,6 +464,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum memory load, as a percentage, above which the minimum
+        /// usage count is bumped; zero means there is no maximum.
+        /// </summary>
         private static uint maximumBumpMemoryLoad; /* percent */
 
         ///////////////////////////////////////////////////////////////////////
@@ -356,6 +475,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum memory load, as a percentage, above which the cache is
+        /// compacted; zero means there is no maximum.
+        /// </summary>
         private static uint maximumCompactMemoryLoad; /* percent */
 
         ///////////////////////////////////////////////////////////////////////
@@ -363,6 +486,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of milliseconds that must elapse between native
+        /// memory load queries; zero means there is no minimum.
+        /// </summary>
         private static int minimumMemoryLoadMilliseconds; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -370,6 +497,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of milliseconds that the memory load counts and
+        /// statistics are retained before being reset; zero means there is no
+        /// maximum.
+        /// </summary>
         private static int maximumMemoryCountsMilliseconds; /* milliseconds */
 #endif
 
@@ -378,6 +510,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum length, in characters, of a text item that may be read
+        /// from the cache; less than or equal to zero means there is no
+        /// maximum.
+        /// </summary>
         private static int maximumReadTextItemSize; /* characters */
 
         ///////////////////////////////////////////////////////////////////////
@@ -385,6 +522,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum length, in characters, of a text item that may be read
+        /// from the cache; less than or equal to zero means there is no
+        /// minimum.
+        /// </summary>
         private static int minimumReadTextItemSize; /* characters */
 
         ///////////////////////////////////////////////////////////////////////
@@ -392,6 +534,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum length, in characters, of a text item that may be
+        /// written to the cache; less than or equal to zero means there is no
+        /// maximum.
+        /// </summary>
         private static int maximumWriteTextItemSize; /* characters */
 
         ///////////////////////////////////////////////////////////////////////
@@ -399,6 +546,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum length, in characters, of a text item that may be
+        /// written to the cache; less than or equal to zero means there is no
+        /// minimum.
+        /// </summary>
         private static int minimumWriteTextItemSize; /* characters */
 
         ///////////////////////////////////////////////////////////////////////
@@ -406,6 +558,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of items in a list item that may be read from
+        /// the cache; less than or equal to zero means there is no maximum.
+        /// </summary>
         private static int maximumReadListItemSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -413,6 +569,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of items in a list item that may be read from
+        /// the cache; less than or equal to zero means there is no minimum.
+        /// </summary>
         private static int minimumReadListItemSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -420,6 +580,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of items in a list item that may be written to
+        /// the cache; less than or equal to zero means there is no maximum.
+        /// </summary>
         private static int maximumWriteListItemSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -427,6 +591,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of items in a list item that may be written to
+        /// the cache; less than or equal to zero means there is no minimum.
+        /// </summary>
         private static int minimumWriteListItemSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -434,6 +602,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than or equal to zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of items the cache may contain; less than or
+        /// equal to zero means there is no maximum.
+        /// </summary>
         private static int maximumSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -442,6 +614,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of items the cache should retain; less than zero
+        /// means there is no minimum.
+        /// </summary>
         private static int minimumSize; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -449,6 +625,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of items that may be removed during a single
+        /// trim operation; less than zero means there is no maximum.
+        /// </summary>
         private static int maximumTrimItemCount; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -456,6 +636,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of items that must be removed during a single
+        /// trim operation; less than zero means there is no minimum.
+        /// </summary>
         private static int minimumTrimItemCount; /* items */
 
         ///////////////////////////////////////////////////////////////////////
@@ -463,6 +647,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of milliseconds that must elapse between cache
+        /// trim operations; less than zero means there is no minimum.
+        /// </summary>
         private static int minimumTrimMilliseconds; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -470,6 +658,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of changes after which a cache is considered for
+        /// disabling; less than zero means there is no maximum.
+        /// </summary>
         private static int maximumChangeCount; /* occurrences */
 
         ///////////////////////////////////////////////////////////////////////
@@ -477,6 +669,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of changes below which a cache is considered for
+        /// enabling; less than zero means there is no minimum.
+        /// </summary>
         private static int minimumChangeCount; /* occurrences */
 
         ///////////////////////////////////////////////////////////////////////
@@ -484,6 +680,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no maximum.
         //
+        /// <summary>
+        /// The change-tracking window, in milliseconds, used when a cache is
+        /// enabled; less than zero means there is no maximum.
+        /// </summary>
         private static int maximumChangeMilliseconds; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -491,6 +691,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The change-tracking window, in milliseconds, used when a cache is
+        /// disabled; less than zero means there is no minimum.
+        /// </summary>
         private static int minimumChangeMilliseconds; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -498,17 +702,30 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The maximum usage count a cached item may have and still be
+        /// eligible for trimming; less than zero means there is no limit.
+        /// </summary>
         private static int maximumUsageCount; /* occurrences */
 
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum usage count a cached item must have to be retained
+        /// during trimming; less than zero means there is no minimum.
+        /// </summary>
         private static int minimumUsageCount; /* occurrences */
 
         //
         // NOTE: What was the originally configured value for the
         //       "minimumUsageCount" setting?
         //
+        /// <summary>
+        /// The originally configured value for the minimum usage count
+        /// setting, preserved so it can be restored after the running value is
+        /// adjusted.
+        /// </summary>
         private static int savedMinimumUsageCount; /* occurrences */
 
         ///////////////////////////////////////////////////////////////////////
@@ -517,6 +734,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no minimum.
         //
+        /// <summary>
+        /// The minimum number of milliseconds that must elapse between bumps
+        /// of the minimum usage count; less than zero means there is no
+        /// minimum.
+        /// </summary>
         private static int minimumUsageMilliseconds; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -525,6 +747,10 @@ namespace Eagle._Components.Private
         // NOTE: When was the configured minimum usage count bumped last?
         //       Null means never.
         //
+        /// <summary>
+        /// The time the configured minimum usage count was last bumped; null
+        /// means never.
+        /// </summary>
         private static DateTime? lastUsageCount;
 #endif
 
@@ -533,11 +759,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Less than zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of times a cache may be disabled before it is
+        /// locked; less than zero means there is no maximum.
+        /// </summary>
         private static int maximumMaybeDisableCount; /* occurrences */
 
         //
         // NOTE: Less than zero means there is no maximum.
         //
+        /// <summary>
+        /// The maximum number of times a cache may be enabled before it is
+        /// locked; less than zero means there is no maximum.
+        /// </summary>
         private static int maximumMaybeEnableCount; /* occurrences */
 #endif
 
@@ -550,6 +784,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of cache levels by which to adjust the default level for
+        /// a 64-bit process.  This is considered logically constant and cannot
+        /// be configured through the normal mechanisms of this class.
+        /// </summary>
         private static int sixtyFourBitAdjustment = 2; /* levels */
 
         ///////////////////////////////////////////////////////////////////////
@@ -561,12 +800,31 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of cache levels by which to adjust the default level for
+        /// a high-priority process.  This is considered logically constant and
+        /// cannot be configured through the normal mechanisms of this class.
+        /// </summary>
         private static int highPriorityAdjustment = 2; /* levels */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether the specified cache level is
+        /// invalid.
+        /// </summary>
+        /// <param name="level">
+        /// The zero-based cache level to check.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to test only for an exactly invalid level; otherwise, any
+        /// level at or below the invalid level is treated as invalid.
+        /// </param>
+        /// <returns>
+        /// True if the specified level is invalid; otherwise, false.
+        /// </returns>
         private static bool IsInvalidLevel(
             int level, /* in */
             bool exact /* in */
@@ -585,6 +843,18 @@ namespace Eagle._Components.Private
         //       entry will be skipped.  The value null is returned when
         //       the specified zero-based level is unavailable.
         //
+        /// <summary>
+        /// This method returns the default cache settings associated with the
+        /// specified zero-based level.  One is added to the level so that the
+        /// initial (null) entry is skipped.
+        /// </summary>
+        /// <param name="level">
+        /// The zero-based cache level whose default settings are requested.
+        /// </param>
+        /// <returns>
+        /// The default settings string for the specified level, or null if the
+        /// level is unavailable.
+        /// </returns>
         private static string GetDefaultSettings(
             int level /* in */
             )
@@ -615,6 +885,20 @@ namespace Eagle._Components.Private
         //       method return value actually results in the first level being
         //       used.
         //
+        /// <summary>
+        /// This method computes a zero-based default cache level, taking into
+        /// account any configured "bump" value, the total physical memory of
+        /// the machine (when native support is available), whether the process
+        /// is 64-bit, and the minimum and maximum cache levels.
+        /// </summary>
+        /// <param name="initialLevel">
+        /// The starting zero-based cache level, or null to begin from the
+        /// lowest level.
+        /// </param>
+        /// <returns>
+        /// The computed zero-based default cache level, clamped to the
+        /// available range.
+        /// </returns>
         private static int GetDefaultLevel(
             int? initialLevel /* in */
             )
@@ -731,6 +1015,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured cache level "bump" adjustment.
+        /// </summary>
+        /// <returns>
+        /// The configured cache level adjustment, or an invalid level if no
+        /// adjustment is configured.
+        /// </returns>
         private static int GetBumpLevel()
         {
             bool exact = false;
@@ -740,6 +1031,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured cache level "bump" adjustment,
+        /// reading it from the global configuration variable, if present.
+        /// </summary>
+        /// <param name="exact">
+        /// Upon return, non-zero if the returned level should be used verbatim
+        /// rather than as an adjustment to the calculated level.
+        /// </param>
+        /// <returns>
+        /// The configured cache level adjustment (or verbatim level), or an
+        /// invalid level if no adjustment is configured.
+        /// </returns>
         private static int GetBumpLevel(
             ref bool exact /* out */
             )
@@ -815,6 +1118,13 @@ namespace Eagle._Components.Private
         //       the default method return value will effectively disable all
         //       caching.
         //
+        /// <summary>
+        /// This method returns the zero-based minimum cache level.
+        /// </summary>
+        /// <returns>
+        /// The zero-based minimum cache level, or an invalid level if no
+        /// default settings are available.
+        /// </returns>
         private static int GetMinimumLevel()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -842,6 +1152,13 @@ namespace Eagle._Components.Private
         //       the default method return value will effectively disable all
         //       caching.
         //
+        /// <summary>
+        /// This method returns the zero-based maximum cache level.
+        /// </summary>
+        /// <returns>
+        /// The zero-based maximum cache level, or an invalid level if no
+        /// default settings are available.
+        /// </returns>
         private static int GetMaximumLevel()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -867,6 +1184,19 @@ namespace Eagle._Components.Private
         // TODO: Add future CacheFlags values here if they refer to a new type
         //       of cached object.
         //
+        /// <summary>
+        /// This method determines any extra cache flags that should be applied
+        /// when trimming the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being trimmed.
+        /// </param>
+        /// <param name="allCacheFlags">
+        /// The complete set of cache flags currently in effect.
+        /// </param>
+        /// <returns>
+        /// The extra cache flags to apply for the trim operation.
+        /// </returns>
         private static CacheFlags GetExtraTrimCacheFlags(
             CacheFlags cacheFlags,   /* in */
             CacheFlags allCacheFlags /* in */
@@ -965,6 +1295,25 @@ namespace Eagle._Components.Private
         // TODO: Add future CacheFlags values here if they refer to a new type
         //       of cached object.
         //
+        /// <summary>
+        /// This method determines any extra cache flags that should be applied
+        /// when enabling or disabling the cache identified by the specified
+        /// flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being enabled or
+        /// disabled.
+        /// </param>
+        /// <param name="allCacheFlags">
+        /// The complete set of cache flags currently in effect.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero if the cache is being enabled; zero if it is being
+        /// disabled.
+        /// </param>
+        /// <returns>
+        /// The extra cache flags to apply for the enable or disable operation.
+        /// </returns>
         private static CacheFlags GetExtraEnableCacheFlags(
             CacheFlags cacheFlags,    /* in */
             CacheFlags allCacheFlags, /* in */
@@ -1136,6 +1485,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records an attempt to enable or disable a particular
+        /// cache and indicates whether the configured maximum number of such
+        /// attempts has been reached.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being enabled or
+        /// disabled.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero if the cache is being enabled; zero if it is being
+        /// disabled.
+        /// </param>
+        /// <returns>
+        /// True if there have been too many attempts to enable or disable the
+        /// specified cache; otherwise, false.
+        /// </returns>
         private static bool RecordMaybeEnableOrDisable(
             CacheFlags cacheFlags, /* in */
             bool enable            /* in */
@@ -1192,6 +1558,15 @@ namespace Eagle._Components.Private
         //       zero is avoided unless all the "maximum memory load" values
         //       are zero.
         //
+        /// <summary>
+        /// This method returns the minimum of the configured "maximum memory
+        /// load" values, avoiding a result of zero unless all of those values
+        /// are zero.
+        /// </summary>
+        /// <returns>
+        /// The smallest non-zero configured maximum memory load, or zero if
+        /// none are configured.
+        /// </returns>
         private static uint GetMinimumMemoryLoad()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1223,6 +1598,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether enough time has elapsed since the
+        /// last memory load query to perform another one, updating the
+        /// last-queried time when appropriate.
+        /// </summary>
+        /// <returns>
+        /// True if the memory load may be queried again; otherwise, false.
+        /// </returns>
         private static bool CheckMemoryLoadMilliseconds()
         {
             try
@@ -1255,6 +1638,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the memory load counts and
+        /// statistics are still within their configured retention window.
+        /// </summary>
+        /// <returns>
+        /// True if the memory load counts are still valid; false if they
+        /// should be reset.
+        /// </returns>
         private static bool CheckMemoryCountsMilliseconds()
         {
             try
@@ -1288,6 +1679,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the running memory load sum and count used to
+        /// compute the average memory load.
+        /// </summary>
         private static void ResetMemoryCounts()
         {
             memoryCounts[0] = 0;
@@ -1296,6 +1691,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the specified memory load value, updates the
+        /// running totals, and recomputes the average memory load.
+        /// </summary>
+        /// <param name="memoryLoad">
+        /// The current memory load value to record.
+        /// </param>
+        /// <returns>
+        /// The average memory load after recording the specified value, or
+        /// zero if an error occurs.
+        /// </returns>
         private static uint RecordMemoryLoad(
             uint memoryLoad /* in */
             )
@@ -1335,6 +1741,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects which memory load value (current or average) to
+        /// use for a given operation, preferring the average for destructive
+        /// operations when it is available.
+        /// </summary>
+        /// <param name="currentMemoryLoad">
+        /// The current memory load value.
+        /// </param>
+        /// <param name="averageMemoryLoad">
+        /// The average memory load value.
+        /// </param>
+        /// <param name="isDestructive">
+        /// Non-zero if the operation is destructive (for example, clearing or
+        /// trimming the cache).
+        /// </param>
+        /// <param name="selectedAverage">
+        /// Upon return, non-zero if the average memory load was selected; zero
+        /// if the current memory load was selected.
+        /// </param>
+        /// <returns>
+        /// The selected memory load value.
+        /// </returns>
         private static uint SelectMemoryLoad(
             uint currentMemoryLoad,  /* in */
             uint averageMemoryLoad,  /* in */
@@ -1361,6 +1789,14 @@ namespace Eagle._Components.Private
         //
         // WARNING: Do not remove this method, it is used by the test suite.
         //
+        /// <summary>
+        /// This method determines whether the current memory load is below the
+        /// minimum of the configured maximum memory load values.  It is used
+        /// by the test suite.
+        /// </summary>
+        /// <returns>
+        /// True if the memory load is acceptable; otherwise, false.
+        /// </returns>
         private static bool IsMemoryLoadOk()
         {
             return IsMemoryLoadOk(
@@ -1369,6 +1805,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the memory load permits a cache
+        /// clear operation for the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the clear operation; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsClearMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -1379,6 +1826,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the memory load permits a cache
+        /// write operation for the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the write operation; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsWriteMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -1389,6 +1847,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the memory load permits a cache trim
+        /// operation for the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the trim operation; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsTrimMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -1399,6 +1868,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the memory load permits bumping the
+        /// minimum usage count for the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the bump operation; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsBumpMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -1412,6 +1892,32 @@ namespace Eagle._Components.Private
         //
         // TODO: Make this more cross-platform and possibly more flexible.
         //
+        /// <summary>
+        /// This method determines whether the current (or average) memory load
+        /// is below the specified maximum for a given cache operation,
+        /// updating the recorded memory load bounds and tracing warnings as
+        /// the low-memory condition is hit or cleared.
+        /// </summary>
+        /// <param name="operation">
+        /// The name of the cache operation being checked, used for tracing.
+        /// </param>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <param name="warningIndex">
+        /// The index into the per-operation warning arrays for this operation.
+        /// </param>
+        /// <param name="maximumMemoryLoad">
+        /// The maximum memory load, as a percentage, permitted for this
+        /// operation; zero means no check is performed.
+        /// </param>
+        /// <param name="isDestructive">
+        /// Non-zero if the operation is destructive (for example, clearing or
+        /// trimming the cache).
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the operation; otherwise, false.
+        /// </returns>
         private static bool IsMemoryLoadOk(
             string operation,       /* in */
             CacheFlags cacheFlags,  /* in */
@@ -1609,6 +2115,21 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the lock is already held.
         //
+        /// <summary>
+        /// This method possibly increases the minimum usage count required to
+        /// retain a cached item, taking the cache's maximum access count into
+        /// account.  This method assumes the lock is already held.
+        /// </summary>
+        /// <typeparam name="TKey">
+        /// The type of the keys in the cache dictionary.
+        /// </typeparam>
+        /// <typeparam name="TValue">
+        /// The type of the values in the cache dictionary.
+        /// </typeparam>
+        /// <param name="cacheDictionary">
+        /// The cache dictionary whose maximum access count is consulted.  This
+        /// parameter may be null.
+        /// </param>
         private static void MaybeChangeMinimumUsageCount<TKey, TValue>(
             CacheDictionary<TKey, TValue> cacheDictionary /* in */
             )
@@ -1646,6 +2167,23 @@ namespace Eagle._Components.Private
         // TODO: In the future, make this use settings other than the minimum
         //       and maximum write sizes.
         //
+        /// <summary>
+        /// This method determines whether the length of the specified text is
+        /// within the configured read or write text item size limits.
+        /// </summary>
+        /// <param name="text">
+        /// The text whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="text" /> is null.
+        /// </param>
+        /// <param name="reading">
+        /// Non-zero to check against the read size limits; zero to check
+        /// against the write size limits.
+        /// </param>
+        /// <returns>
+        /// True if the text size is acceptable; otherwise, false.
+        /// </returns>
         private static bool IsItemSizeOk(
             string text, /* in */
             bool nullOk, /* in */
@@ -1704,6 +2242,23 @@ namespace Eagle._Components.Private
         // TODO: In the future, make this use settings other than the minimum
         //       and maximum write sizes.
         //
+        /// <summary>
+        /// This method determines whether the length of the specified argument
+        /// is within the configured read or write text item size limits.
+        /// </summary>
+        /// <param name="argument">
+        /// The argument whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="argument" /> is null.
+        /// </param>
+        /// <param name="reading">
+        /// Non-zero to check against the read size limits; zero to check
+        /// against the write size limits.
+        /// </param>
+        /// <returns>
+        /// True if the argument size is acceptable; otherwise, false.
+        /// </returns>
         private static bool IsItemSizeOk(
             Argument argument, /* in */
             bool nullOk,       /* in */
@@ -1758,6 +2313,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if LIST_CACHE || PARSE_CACHE || COM_TYPE_CACHE
+        /// <summary>
+        /// This method determines whether the number of items in the specified
+        /// collection is within the configured read or write list item size
+        /// limits.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose item count is checked.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="collection" /> is null.
+        /// </param>
+        /// <param name="reading">
+        /// Non-zero to check against the read size limits; zero to check
+        /// against the write size limits.
+        /// </param>
+        /// <returns>
+        /// True if the collection size is acceptable; otherwise, false.
+        /// </returns>
         private static bool IsItemSizeOk(
             ICollection collection, /* in */
             bool nullOk,            /* in */
@@ -1812,6 +2386,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CACHE_DICTIONARY && NATIVE
+        /// <summary>
+        /// This method returns the number of milliseconds elapsed since the
+        /// minimum usage count was last bumped.
+        /// </summary>
+        /// <returns>
+        /// The number of milliseconds since the minimum usage count was last
+        /// bumped, or a value indicating "never" if it has never been bumped
+        /// or the check is disabled.
+        /// </returns>
         private static double GetUsageCountMilliseconds()
         {
             if ((minimumUsageMilliseconds >= 0) &&
@@ -1839,6 +2422,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the current time as the moment the minimum
+        /// usage count was last bumped.
+        /// </summary>
         private static void TouchUsageCount()
         {
             lastUsageCount = TimeOps.GetUtcNow();
@@ -1849,6 +2436,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method builds a string list describing the requested portions
+        /// of the cache configuration state and/or settings.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags specifying which sections (settings, memory, statistics,
+        /// and/or state) to include.
+        /// </param>
+        /// <returns>
+        /// A string list containing the requested sections, each preceded by
+        /// its section name.
+        /// </returns>
         public static StringList GetStateAndOrSettings(
             CacheInformationFlags flags /* in */
             )
@@ -2052,6 +2651,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the zero-based default cache level using the
+        /// lowest level as the starting point.
+        /// </summary>
+        /// <returns>
+        /// The computed zero-based default cache level.
+        /// </returns>
         public static int GetDefaultLevel()
         {
             return GetDefaultLevel(null);
@@ -2059,6 +2665,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the zero-based default cache level for a
+        /// high-priority process, applying the high-priority adjustment to the
+        /// specified starting level.
+        /// </summary>
+        /// <param name="level">
+        /// The starting zero-based cache level to which the high-priority
+        /// adjustment is applied.
+        /// </param>
+        /// <returns>
+        /// The computed zero-based default cache level for a high-priority
+        /// process.
+        /// </returns>
         public static int GetHighDefaultLevel(
             int level /* in */
             )
@@ -2073,6 +2692,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the cache management subsystem, if
+        /// necessary, based on the specified settings text or zero-based level.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used for value conversion and complaint reporting,
+        /// if any.  No script evaluation is performed.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The cache settings text to apply, or null to use the default
+        /// settings for <paramref name="level" />.
+        /// </param>
+        /// <param name="level">
+        /// The zero-based cache level whose default settings are used when
+        /// <paramref name="text" /> is null.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to re-apply the settings even if the subsystem has already
+        /// been initialized.
+        /// </param>
+        /// <returns>
+        /// True if the cache settings were applied; otherwise, false.
+        /// </returns>
         public static bool Initialize(
             Interpreter interpreter, /* in: No script evaluation. */
             string text,             /* in */
@@ -2095,6 +2738,36 @@ namespace Eagle._Components.Private
         //       subsystem is already initialized, nothing is done unless
         //       the refresh parameter is non-zero.
         //
+        /// <summary>
+        /// This method initializes the cache management subsystem, if
+        /// necessary, based on the specified settings text or zero-based level.
+        /// If the subsystem is already initialized, nothing is done unless
+        /// <paramref name="refresh" /> is non-zero.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used for value conversion and complaint reporting,
+        /// if any.  No script evaluation is performed.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The cache settings text to apply, or null to use the default
+        /// settings for <paramref name="level" />.
+        /// </param>
+        /// <param name="level">
+        /// The zero-based cache level whose default settings are used when
+        /// <paramref name="text" /> is null.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to re-apply the settings even if the subsystem has already
+        /// been initialized.
+        /// </param>
+        /// <param name="wasInitialized">
+        /// Upon return, non-zero if the subsystem had already been initialized
+        /// prior to this call.
+        /// </param>
+        /// <returns>
+        /// True if the cache settings were applied; otherwise, false.
+        /// </returns>
         public static bool Initialize(
             Interpreter interpreter, /* in: No script evaluation. */
             string text,             /* in */
@@ -2668,6 +3341,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured maximum cache capacity.
+        /// </summary>
+        /// <returns>
+        /// The maximum number of items the cache may contain.
+        /// </returns>
         public static int GetCapacity()
         {
             lock (syncRoot) { return maximumSize; }
@@ -2676,6 +3355,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CACHE_DICTIONARY
+        /// <summary>
+        /// This method applies the configured trim, change, and last-accessed
+        /// settings to the specified cache dictionary.
+        /// </summary>
+        /// <typeparam name="TKey">
+        /// The type of the keys in the cache dictionary.
+        /// </typeparam>
+        /// <typeparam name="TValue">
+        /// The type of the values in the cache dictionary.
+        /// </typeparam>
+        /// <param name="cacheDictionary">
+        /// The cache dictionary whose properties are set.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to use the enabled change milliseconds; zero to use the
+        /// disabled change milliseconds.
+        /// </param>
         public static void SetProperties<TKey, TValue>(
             CacheDictionary<TKey, TValue> cacheDictionary, /* in */
             bool enable                                    /* in */
@@ -2700,6 +3397,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if (NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20) && NATIVE
+        /// <summary>
+        /// This method determines whether the memory load permits a cache
+        /// compact operation for the cache identified by the specified flags.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <returns>
+        /// True if the memory load permits the compact operation; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsCompactMemoryLoadOk(
             CacheFlags cacheFlags /* in */
             )
@@ -2714,6 +3422,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the cache is currently enabled for
+        /// reading.
+        /// </summary>
+        /// <returns>
+        /// True if items may be read from the cache; otherwise, false.
+        /// </returns>
         public static bool CanRead()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2727,6 +3442,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the cache is currently enabled for
+        /// writing and, when native support is available, whether the system
+        /// memory load still permits writing.
+        /// </summary>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <param name="full">
+        /// Upon return, non-zero if writing is disallowed because the system
+        /// memory is too full; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if items may be written to the cache; otherwise, false.
+        /// </returns>
         public static bool CanWrite(
             CacheFlags cacheFlags, /* in */
             ref bool full          /* out */
@@ -2758,6 +3488,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the cache is currently enabled for
+        /// deleting.
+        /// </summary>
+        /// <returns>
+        /// True if items may be removed from the cache; otherwise, false.
+        /// </returns>
         public static bool CanDelete()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -2771,6 +3508,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the size of the specified cache
+        /// collection is acceptable, optionally taking the system memory load
+        /// into account when checking whether a trim is warranted.
+        /// </summary>
+        /// <param name="collection">
+        /// The cache collection whose size is checked.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being checked.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="collection" /> is null.
+        /// </param>
+        /// <param name="emptyOk">
+        /// The value to return when the collection is empty.
+        /// </param>
+        /// <param name="forTrim">
+        /// Non-zero if the check is being performed to decide whether the
+        /// cache should be trimmed.
+        /// </param>
+        /// <returns>
+        /// True if the collection size is acceptable; otherwise, false.
+        /// </returns>
         public static bool IsSizeOk(
             ICollection collection, /* in */
             CacheFlags cacheFlags,  /* in */
@@ -2829,6 +3591,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if LIST_CACHE || PARSE_CACHE || TYPE_CACHE
+        /// <summary>
+        /// This method determines whether the specified text is within the
+        /// configured read text item size limits.
+        /// </summary>
+        /// <param name="text">
+        /// The text whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="text" /> is null.
+        /// </param>
+        /// <returns>
+        /// True if the text size is acceptable for reading; otherwise, false.
+        /// </returns>
         public static bool IsItemReadSizeOk(
             string text, /* in */
             bool nullOk  /* in */
@@ -2841,6 +3616,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE
+        /// <summary>
+        /// This method determines whether the specified argument is within the
+        /// configured read text item size limits.
+        /// </summary>
+        /// <param name="argument">
+        /// The argument whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="argument" /> is null.
+        /// </param>
+        /// <returns>
+        /// True if the argument size is acceptable for reading; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsItemReadSizeOk(
             Argument argument, /* in */
             bool nullOk        /* in */
@@ -2853,6 +3642,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if LIST_CACHE || PARSE_CACHE || TYPE_CACHE
+        /// <summary>
+        /// This method determines whether the specified text is within the
+        /// configured write text item size limits.
+        /// </summary>
+        /// <param name="text">
+        /// The text whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="text" /> is null.
+        /// </param>
+        /// <returns>
+        /// True if the text size is acceptable for writing; otherwise, false.
+        /// </returns>
         public static bool IsItemWriteSizeOk(
             string text, /* in */
             bool nullOk  /* in */
@@ -2865,6 +3667,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if LIST_CACHE || PARSE_CACHE || COM_TYPE_CACHE
+        /// <summary>
+        /// This method determines whether the specified collection is within
+        /// the configured write list item size limits.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose item count is checked.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="collection" /> is null.
+        /// </param>
+        /// <returns>
+        /// True if the collection size is acceptable for writing; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsItemWriteSizeOk(
             ICollection collection, /* in */
             bool nullOk             /* in */
@@ -2877,6 +3694,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE
+        /// <summary>
+        /// This method determines whether the specified argument is within the
+        /// configured write text item size limits.
+        /// </summary>
+        /// <param name="argument">
+        /// The argument whose length is checked.  This parameter may be null.
+        /// </param>
+        /// <param name="nullOk">
+        /// The value to return when <paramref name="argument" /> is null.
+        /// </param>
+        /// <returns>
+        /// True if the argument size is acceptable for writing; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsItemWriteSizeOk(
             Argument argument, /* in */
             bool nullOk        /* in */
@@ -2889,6 +3720,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CACHE_DICTIONARY
+        /// <summary>
+        /// This method possibly enables or disables the specified cache based
+        /// on its recent change activity.
+        /// </summary>
+        /// <typeparam name="TKey">
+        /// The type of the keys in the cache dictionary.
+        /// </typeparam>
+        /// <typeparam name="TValue">
+        /// The type of the values in the cache dictionary.
+        /// </typeparam>
+        /// <param name="interpreter">
+        /// The interpreter whose caches are enabled or disabled.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="cacheDictionary">
+        /// The cache dictionary whose change activity is examined.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being considered.
+        /// </param>
+        /// <param name="allCacheFlags">
+        /// The complete set of cache flags currently in effect.
+        /// </param>
+        /// <returns>
+        /// True if the cache state was changed; otherwise, false.
+        /// </returns>
         public static bool MaybeEnableOrDisable<TKey, TValue>(
             Interpreter interpreter,                       /* in */
             CacheDictionary<TKey, TValue> cacheDictionary, /* in */
@@ -2905,6 +3763,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method possibly enables or disables the specified cache based
+        /// on its recent change activity, reporting whether the cache was
+        /// disabled.
+        /// </summary>
+        /// <typeparam name="TKey">
+        /// The type of the keys in the cache dictionary.
+        /// </typeparam>
+        /// <typeparam name="TValue">
+        /// The type of the values in the cache dictionary.
+        /// </typeparam>
+        /// <param name="interpreter">
+        /// The interpreter whose caches are enabled or disabled.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="cacheDictionary">
+        /// The cache dictionary whose change activity is examined.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being considered.
+        /// </param>
+        /// <param name="allCacheFlags">
+        /// The complete set of cache flags currently in effect.
+        /// </param>
+        /// <param name="disabled">
+        /// Upon return, non-zero if the cache was disabled by this call.
+        /// </param>
+        /// <returns>
+        /// True if the cache state was changed; otherwise, false.
+        /// </returns>
         public static bool MaybeEnableOrDisable<TKey, TValue>(
             Interpreter interpreter,                       /* in */
             CacheDictionary<TKey, TValue> cacheDictionary, /* in */
@@ -3003,6 +3892,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims (or, when the system memory load is too high,
+        /// clears) the specified cache dictionary according to the configured
+        /// size, item count, and usage count limits.
+        /// </summary>
+        /// <typeparam name="TKey">
+        /// The type of the keys in the cache dictionary.
+        /// </typeparam>
+        /// <typeparam name="TValue">
+        /// The type of the values in the cache dictionary.
+        /// </typeparam>
+        /// <param name="cacheDictionary">
+        /// The cache dictionary to trim.  This parameter may be null.
+        /// </param>
+        /// <param name="cacheFlags">
+        /// The flags identifying the specific cache (type) being trimmed.
+        /// </param>
+        /// <param name="allCacheFlags">
+        /// The complete set of cache flags currently in effect.
+        /// </param>
+        /// <param name="noClear">
+        /// Non-zero to prevent the cache from being fully cleared even under a
+        /// high memory load.
+        /// </param>
+        /// <param name="trimCount">
+        /// Upon return, incremented by the number of trim passes performed.
+        /// </param>
+        /// <param name="maybeClear">
+        /// Upon return, non-zero if the cache was cleared, zero if it was
+        /// trimmed, or null if no action was taken.
+        /// </param>
         public static void TrimExcess<TKey, TValue>(
             CacheDictionary<TKey, TValue> cacheDictionary, /* in */
             CacheFlags cacheFlags,                         /* in */
@@ -3138,6 +4058,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method appends a section describing the current cache memory
+        /// load status (for the various cache operations) to the specified
+        /// string pair list.
+        /// </summary>
+        /// <param name="list">
+        /// The string pair list to which the memory load information is added.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail included.
+        /// </param>
         public static void AddMemoryLoadInfo(
             StringPairList list,    /* in */
             DetailFlags detailFlags /* in */
@@ -3228,6 +4160,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a section describing the current cache
+        /// configuration and state to the specified string pair list.
+        /// </summary>
+        /// <param name="list">
+        /// The string pair list to which the cache information is added.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in */
             DetailFlags detailFlags /* in */

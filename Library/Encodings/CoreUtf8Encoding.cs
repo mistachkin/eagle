@@ -18,6 +18,11 @@ using Eagle._Attributes;
 
 namespace Eagle._Encodings
 {
+    /// <summary>
+    /// This class provides the UTF-8 encoding used internally by Eagle.  It
+    /// extends <see cref="UTF8Encoding" /> so that it never emits a
+    /// byte-order-mark and never throws exceptions for invalid bytes.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -25,12 +30,18 @@ namespace Eagle._Encodings
     public class CoreUtf8Encoding : UTF8Encoding
     {
         #region Public Constants
+        /// <summary>
+        /// A shared, pre-built instance of this encoding.
+        /// </summary>
         public static readonly Encoding CoreUtf8 = new CoreUtf8Encoding();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The registered (IANA) name reported for this encoding.
+        /// </summary>
         private static readonly string webName = "CoreUtf8";
         #endregion
 
@@ -41,6 +52,10 @@ namespace Eagle._Encodings
         // HACK: We never want the byte-order-mark and we never
         //       want to throw exceptions for invalid bytes.
         //
+        /// <summary>
+        /// Constructs an instance of this UTF-8 encoding that emits no
+        /// byte-order-mark and does not throw on invalid bytes.
+        /// </summary>
         public CoreUtf8Encoding()
             : base(false, false)
         {
@@ -51,6 +66,9 @@ namespace Eagle._Encodings
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Text.Encoding Overrides
+        /// <summary>
+        /// Gets the registered (IANA) name for this encoding.
+        /// </summary>
         public override string WebName
         {
             get { return webName; }

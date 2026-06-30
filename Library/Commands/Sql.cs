@@ -32,6 +32,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>sql</c> command, which provides access to
+    /// ADO.NET database connections and transactions from within the
+    /// interpreter.  It is an ensemble whose sub-commands cover opening and
+    /// closing connections, querying connection state, executing statements
+    /// and iterating over their result sets, and beginning, committing, and
+    /// rolling back transactions.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("dbc78d04-325d-4805-a118-3cfeeddfb8fc")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard
 #if NATIVE && WINDOWS
@@ -46,6 +55,11 @@ namespace Eagle._Commands
     internal sealed class Sql : Core
     {
         #region Private Constants
+        /// <summary>
+        /// The name of the event, raised by an underlying database connection,
+        /// that is hooked when a changed-event callback is supplied to the
+        /// <c>execute</c> or <c>foreach</c> sub-commands.
+        /// </summary>
         //
         // HACK: This is purposely not read-only.
         //
@@ -55,6 +69,12 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The collection of sub-command names supported by the
+        /// <c>transaction</c> sub-command of this ensemble command, used to
+        /// dispatch each transaction action (for example begin, commit, or
+        /// rollback) to the appropriate handler.
+        /// </summary>
         private readonly EnsembleDictionary transactionSubCommands =
         new EnsembleDictionary(new string[] {
             "begin", "commit", "rollback"
@@ -64,6 +84,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>sql</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Sql(
             ICommandData commandData
             )
@@ -76,6 +103,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "close", "connection", "execute", "foreach",
             "hasbegun", "isopen", "open", "transaction",
@@ -84,6 +116,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -93,6 +129,42 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>sql</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>open</c>,
+        /// <c>close</c>, <c>execute</c>, <c>foreach</c>, <c>transaction</c>,
+        /// <c>connection</c>, <c>isopen</c>, <c>hasbegun</c>, or <c>types</c>)
+        /// in order to open or close database connections, execute statements
+        /// and process their result sets, manage transactions, or query
+        /// connection and provider information, honoring the recognized options
+        /// for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

@@ -66,80 +66,299 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the central collection of static helper methods
+    /// used throughout the Eagle library to format values into human-readable
+    /// strings for display, tracing, logging, and diagnostic output.  It
+    /// handles formatting of dates and times (including Tcl-compatible clock
+    /// formatting), type and method names, numbers (including hexadecimal),
+    /// exceptions and stack traces, certificates, URIs, and many other kinds
+    /// of values, along with the related concerns of wrapping, ellipsis
+    /// limiting, and producing placeholder display strings for special cases
+    /// such as null, empty, invalid, or unavailable values.
+    /// </summary>
     [ObjectId("62feeba0-3df8-4395-b850-c4d307d021a7")]
     internal static class FormatOps
     {
         #region Private Constants
+        /// <summary>
+        /// The numeric format specifier used when formatting trace priority
+        /// values (hexadecimal).
+        /// </summary>
         private static readonly string TracePriorityFormat = "X";
 
+        /// <summary>
+        /// The separator placed between the runtime name and version when
+        /// formatting runtime information.
+        /// </summary>
         private const string RuntimeSeparator = " - ";
+
+        /// <summary>
+        /// The separator placed between configuration components when
+        /// formatting configuration information.
+        /// </summary>
         private const string ConfigurationSeparator = " - ";
 
+        /// <summary>
+        /// The placeholder string used when no platform name is available.
+        /// </summary>
         private static readonly string NoPlatformName = "none";
+
+        /// <summary>
+        /// The placeholder string used when a type name is unknown.
+        /// </summary>
         private static readonly string UnknownTypeName = "unknown";
 
+        /// <summary>
+        /// The display string used to represent an infinite value.
+        /// </summary>
         internal static readonly string DisplayInfinite = "<infinite>";
 
+        /// <summary>
+        /// The display string used to represent the absence of a message.
+        /// </summary>
         internal static readonly string DisplayNoMessage = "<noMessage>";
+
+        /// <summary>
+        /// The display string used to represent the absence of a category.
+        /// </summary>
         internal static readonly string DisplayNoCategory = "<noCategory>";
 
+        /// <summary>
+        /// The display string used to represent the absence of a time value.
+        /// </summary>
         private static readonly string DisplayNoTime = "<noTime>";
 
+        /// <summary>
+        /// The display string used to represent the absence of a type.
+        /// </summary>
         private static readonly string DisplayNoType = "<noType>";
+
+        /// <summary>
+        /// The display string used to represent the absence of an assembly.
+        /// </summary>
         private static readonly string DisplayNoAssembly = "<noAssembly>";
 
+        /// <summary>
+        /// The display string used to represent the absence of a result.
+        /// </summary>
         internal static readonly string DisplayNoResult = "<noResult>";
+
+        /// <summary>
+        /// The display string used to represent the absence of a value (none).
+        /// </summary>
         internal static readonly string DisplayNone = "<none>";
+
+        /// <summary>
+        /// The display string used to represent a value that is known to be
+        /// non-null.
+        /// </summary>
         private static readonly string DisplayNotNull = "<notNull>";
+
+        /// <summary>
+        /// The display string used to represent a null value.
+        /// </summary>
         internal static readonly string DisplayNull = "<null>";
+
+        /// <summary>
+        /// The display string used to represent a null dictionary key.
+        /// </summary>
         private static readonly string DisplayNullKey = "<nullKey>";
+
+        /// <summary>
+        /// The display string used to represent a transparent proxy object.
+        /// </summary>
         internal static readonly string DisplayProxy = "<proxy>";
 
 #if DEBUGGER || SHELL
+        /// <summary>
+        /// The display string used to represent a value whose type does not
+        /// match what was expected.
+        /// </summary>
         private static readonly string DisplayTypeMismatch = "<typeMismatch>";
 #endif
 
+        /// <summary>
+        /// The display string used to represent an object.
+        /// </summary>
         internal static readonly string DisplayObject = "<object>";
+
+        /// <summary>
+        /// The display string used to represent a null object reference.
+        /// </summary>
         private static readonly string DisplayNullObject = "<nullObject>";
+
+        /// <summary>
+        /// The display string used to represent a null string.
+        /// </summary>
         private static readonly string DisplayNullString = "<nullString>";
+
+        /// <summary>
+        /// The display string used to represent an empty string.
+        /// </summary>
         private static readonly string DisplayEmptyString = "<emptyString>";
+
+        /// <summary>
+        /// The display string used when an error occurs while converting a
+        /// value to its string representation.
+        /// </summary>
         private static readonly string DisplayToStringError = "<toStringError>";
+
+        /// <summary>
+        /// The display string used to represent an empty value.
+        /// </summary>
         internal static readonly string DisplayEmpty = "<empty>";
+
+        /// <summary>
+        /// The display string used to represent the absence of anything.
+        /// </summary>
         internal static readonly string DisplayNothing = "<nothing>";
+
+        /// <summary>
+        /// The display string used to represent an invalid value.
+        /// </summary>
         internal static readonly string DisplayInvalid = "<invalid>";
+
+        /// <summary>
+        /// The display string used to represent a null list.
+        /// </summary>
         private static readonly string DisplayNullList = "<nullList>";
+
+        /// <summary>
+        /// The display string used to represent an empty list.
+        /// </summary>
         private static readonly string DisplayEmptyList = "<emptyList>";
+
+        /// <summary>
+        /// The display string used to represent a single space character.
+        /// </summary>
         private static readonly string DisplaySpace = "<space>";
+
+        /// <summary>
+        /// The display string used to represent a disposed object.
+        /// </summary>
         internal static readonly string DisplayDisposed = "<disposed>";
+
+        /// <summary>
+        /// The format string used to represent a disposed object together with
+        /// additional detail.
+        /// </summary>
         internal static readonly string DisplayDisposedFormat = "<disposed:{0}>";
+
+        /// <summary>
+        /// The display string used to represent a busy object.
+        /// </summary>
         internal static readonly string DisplayBusy = "<busy>";
+
+        /// <summary>
+        /// The format string used to represent a busy object together with
+        /// additional detail.
+        /// </summary>
         internal static readonly string DisplayBusyFormat = "<busy:{0}>";
+
+        /// <summary>
+        /// The display string used to represent an error.
+        /// </summary>
         private static readonly string DisplayError = "<error>";
+
+        /// <summary>
+        /// The format string used to represent an error together with one
+        /// additional detail value.
+        /// </summary>
         private static readonly string DisplayErrorFormat0 = "<error:{0}>";
+
+        /// <summary>
+        /// The format string used to represent an error together with two
+        /// additional detail values.
+        /// </summary>
         private static readonly string DisplayErrorFormat1 = "<error:{0}:{1}>";
+
+        /// <summary>
+        /// The display string used to represent an unknown value.
+        /// </summary>
         internal static readonly string DisplayUnknown = "<unknown>";
+
+        /// <summary>
+        /// The display string used to represent a value that has been
+        /// obfuscated.
+        /// </summary>
         private static readonly string DisplayObfuscated = "<obfuscated>";
+
+        /// <summary>
+        /// The display string used to represent a value that is present.
+        /// </summary>
         internal static readonly string DisplayPresent = "<present>";
+
+        /// <summary>
+        /// The format string used to wrap an arbitrary value in angle brackets
+        /// for display.
+        /// </summary>
         internal static readonly string DisplayFormat = "<{0}>";
+
+        /// <summary>
+        /// The display string used to represent an anonymous value.
+        /// </summary>
         private static readonly string DisplayAnonymous = "<anonymous>";
+
+        /// <summary>
+        /// The display string used to represent a value that is unavailable.
+        /// </summary>
         internal static readonly string DisplayUnavailable = "<unavailable>";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The placeholder text used to represent the "is enabled" query
+        /// portion of a formatted enabled/disabled display string.
+        /// </summary>
         private static readonly string DisplayMaybeIsEnabled = "<isEnabled>";
+
+        /// <summary>
+        /// The placeholder text used to represent the "set enabled" portion of
+        /// a formatted enabled/disabled display string.
+        /// </summary>
         private static readonly string DisplayMaybeSetEnabled = "<setEnabled>";
+
+        /// <summary>
+        /// The placeholder text used to represent the "set disabled" portion of
+        /// a formatted enabled/disabled display string.
+        /// </summary>
         private static readonly string DisplayMaybeSetDisabled = "<setDisabled>";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The display text used when the present enabled state of something is
+        /// unknown.
+        /// </summary>
         private static readonly string DisplayIsUnknown = "is unknown";
+
+        /// <summary>
+        /// The display text used when something is presently enabled.
+        /// </summary>
         private static readonly string DisplayIsEnabled = "is enabled";
+
+        /// <summary>
+        /// The display text used when something is presently disabled.
+        /// </summary>
         private static readonly string DisplayIsDisabled = "is disabled";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The display text used when the former enabled state of something was
+        /// unknown.
+        /// </summary>
         private static readonly string DisplayWasUnknown = "was unknown";
+
+        /// <summary>
+        /// The display text used when something was formerly enabled.
+        /// </summary>
         private static readonly string DisplayWasEnabled = "was enabled";
+
+        /// <summary>
+        /// The display text used when something was formerly disabled.
+        /// </summary>
         private static readonly string DisplayWasDisabled = "was disabled";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -147,7 +366,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The prefix string used when wrapping a value for display.
+        /// </summary>
         private static string WrapPrefix = Characters.QuotationMark.ToString();
+
+        /// <summary>
+        /// The suffix string used when wrapping a value for display.
+        /// </summary>
         private static string WrapSuffix = Characters.QuotationMark.ToString();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -155,7 +381,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The alternate prefix string used when wrapping a value for display.
+        /// </summary>
         private static string AltWrapPrefix = Characters.OpenBrace.ToString();
+
+        /// <summary>
+        /// The alternate suffix string used when wrapping a value for display.
+        /// </summary>
         private static string AltWrapSuffix = Characters.CloseBrace.ToString();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -163,6 +396,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, method signatures are always shown when formatting
+        /// related output.
+        /// </summary>
         private static bool AlwaysShowSignatures = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -171,6 +408,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the seconds component of the build date and time is
+        /// included when formatting a package date and time.
+        /// </summary>
         private static bool IncludeBuildSecondsForPackageDateTime = true;
         #endregion
 
@@ -180,41 +421,109 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The maximum length, in characters, of a command result before it is
+        /// truncated with an ellipsis for display.
+        /// </summary>
         private static int ResultEllipsisLimit = 78;
 
 #if HISTORY
+        /// <summary>
+        /// The maximum length, in characters, of a command history entry before
+        /// it is truncated with an ellipsis for display.
+        /// </summary>
         private static int HistoryEllipsisLimit = 78;
 #endif
 
+        /// <summary>
+        /// The default maximum length, in characters, of a value before it is
+        /// truncated with an ellipsis for display.
+        /// </summary>
         private static int DefaultEllipsisLimit = 512;
+
+        /// <summary>
+        /// The maximum length, in characters, of a wrapped value before it is
+        /// truncated with an ellipsis for display.
+        /// </summary>
         private static int WrapEllipsisLimit = 512;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The ellipsis string appended when a command result is truncated for
+        /// display.
+        /// </summary>
         private const string ResultEllipsis = " ...";
 
 #if HISTORY
+        /// <summary>
+        /// The ellipsis string appended when a command history entry is
+        /// truncated for display.
+        /// </summary>
         private const string HistoryEllipsis = " ...";
 #endif
 
+        /// <summary>
+        /// The default ellipsis string appended when a value is truncated for
+        /// display.
+        /// </summary>
         private const string DefaultEllipsis = "...";
 
+        /// <summary>
+        /// The numeric format specifier used to produce compact hexadecimal
+        /// output.
+        /// </summary>
         private const string CompactOutputFormat = "x";
+
+        /// <summary>
+        /// The numeric format specifier used to produce two-digit hexadecimal
+        /// output for a byte value.
+        /// </summary>
         private const string ByteOutputFormat = "x2";
+
+        /// <summary>
+        /// The numeric format specifier used to produce four-digit hexadecimal
+        /// output for an unsigned short value.
+        /// </summary>
         private const string UShortOutputFormat = "x4";
+
+        /// <summary>
+        /// The numeric format specifier used to produce sixteen-digit
+        /// hexadecimal output for an unsigned long value.
+        /// </summary>
         private const string ULongOutputFormat = "x16";
 
+        /// <summary>
+        /// The prefix used to denote a hexadecimal number.
+        /// </summary>
         internal const string HexadecimalPrefix = "0x";
+
+        /// <summary>
+        /// The composite format string used to produce a prefixed hexadecimal
+        /// number.
+        /// </summary>
         private const string HexadecimalFormat = "{0}{1:X}";
 
+        /// <summary>
+        /// The composite format string used to produce the extra trace
+        /// indicators portion of formatted trace output.
+        /// </summary>
         private const string TraceIndicatorsFormat = "[f:{0}] {1}";
 
         // private const string HexavigesimalAlphabet = "0123456789ABCDEFGHIJKLMNOP";
+        /// <summary>
+        /// The set of digit characters used when formatting a value in the
+        /// hexavigesimal (base twenty-six) number system.
+        /// </summary>
         private const string HexavigesimalAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The regular expression used to match the short form of a release
+        /// name (e.g. "Beta 1.0").
+        /// </summary>
         private static readonly Regex releaseShortNameRegEx = RegExOps.Create(
             "(?:Pre-|Post-)?(?:Alpha|Beta|RC|Final|Release) \\d+(?:\\.\\d+)?",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -222,51 +531,140 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Clock Constants
+        /// <summary>
+        /// The name of the Greenwich Mean Time time zone.
+        /// </summary>
         private const string GmtTimeZoneName = "GMT";
+
+        /// <summary>
+        /// The name of the Coordinated Universal Time time zone.
+        /// </summary>
         private const string UtcTimeZoneName = "UTC";
 
+        /// <summary>
+        /// The format string used to produce a full (long) date and time
+        /// string.
+        /// </summary>
         private const string DefaultFullDateTimeFormat = "dddd, dd MMMM yyyy HH:mm:ss";
 
+        /// <summary>
+        /// The format string used to produce a zero-padded day-of-year value.
+        /// </summary>
         private const string DayOfYearFormat = "000"; // COMPAT: Tcl
+
+        /// <summary>
+        /// The format string used to produce a zero-padded week-of-year value.
+        /// </summary>
         private const string WeekOfYearFormat = "00"; // COMPAT: Tcl
+
+        /// <summary>
+        /// The format string used to produce a zero-padded two-digit ISO 8601
+        /// year value.
+        /// </summary>
         private const string Iso8601YearFormat = "00"; // COMPAT: Tcl
 
+        //
+        // NOTE: The Tcl clock specifiers "%e" (day of month), "%k" (hour 0-23),
+        //       and "%l" (hour 1-12) are space-padded to this width.  The .NET
+        //       DateTime format language has no space-padded field, so these are
+        //       handled by the clock delegates below (COMPAT: Tcl).
+        //
+        /// <summary>
+        /// The width, in characters, to which certain space-padded clock fields
+        /// are padded.
+        /// </summary>
+        private const int SpacePaddedFieldWidth = 2; // COMPAT: Tcl
+
+        /// <summary>
+        /// The number of hours in a half day, used when formatting a twelve-hour
+        /// clock value.
+        /// </summary>
+        private const int HoursPerHalfDay = 12; // COMPAT: Tcl ("%l")
+
 #if SHELL
+        /// <summary>
+        /// The format string used to produce the date and time portion of an
+        /// update check.
+        /// </summary>
         private const string UpdateDateTimeFormat = "yyyy-MM-ddTHH:mm:ss";
 #endif
 
 #if NETWORK
+        /// <summary>
+        /// The format string used to produce an ISO 8601 date and time with
+        /// seconds precision and a time zone designator.
+        /// </summary>
         private const string Iso8601DateTimeSecondsFormat = "yyyy-MM-ddTHH:mm:ssK";
 #endif
 
+        /// <summary>
+        /// The format string used to produce a full-precision ISO 8601 date and
+        /// time with a time zone designator.
+        /// </summary>
         private const string Iso8601FullDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffffK";
 
+        /// <summary>
+        /// The format string used to produce the date and time portion of
+        /// formatted trace output.
+        /// </summary>
         private const string TraceDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffff";
+
+        /// <summary>
+        /// The format string used to produce the date and time portion of
+        /// formatted interactive trace output.
+        /// </summary>
         private const string TraceInteractiveDateTimeFormat = "[MM-dd-yyyy hh:mm:ss tt]";
 
+        /// <summary>
+        /// The format string used to produce the date and time portion of an
+        /// ISO 8601 update value.
+        /// </summary>
         private const string Iso8601UpdateDateTimeFormat = "yyyy-MM-ddTHH:mm:ss.fffffff";
 
+        /// <summary>
+        /// The format string used to produce ISO 8601 date and time output.
+        /// </summary>
         private const string Iso8601DateTimeOutputFormat = "yyyy.MM.ddTHH:mm:ss.fff";
+
+        /// <summary>
+        /// The format string used to produce package date and time output.
+        /// </summary>
         private const string PackageDateTimeOutputFormat = "yyyy.MM.dd";
 
+        /// <summary>
+        /// The Tcl clock specifier used to parse a stardate input value.
+        /// </summary>
         private const string StardateInputFormat = "%Q"; // COMPAT: Tcl
+
+        /// <summary>
+        /// The composite format string used to produce a stardate output value.
+        /// </summary>
         private const string StardateOutputFormat = "Stardate {0:D2}{1:D3}{2}{3:D1}";
 
 #if UNIX
+        /// <summary>
+        /// The Tcl clock specifier used to parse a string (seconds since epoch)
+        /// input value.
+        /// </summary>
         internal static readonly string StringInputFormat = "%s";
 #endif
 
+        /// <summary>
+        /// The mapping of Tcl clock format specifiers to their equivalent .NET
+        /// date and time format strings.  A null value indicates the specifier
+        /// is handled by a delegate in <see cref="tclClockDelegates" /> instead.
+        /// </summary>
         private static readonly StringPairList tclClockFormats = new StringPairList(
             new StringPair(GmtTimeZoneName, "\\G\\M\\T"),
             new StringPair("%a", "ddd"), new StringPair("%A", "dddd"),
             new StringPair("%b", "MMM"), new StringPair("%B", "MMMM"),
             new StringPair("%c", GetFullDateTimeFormat()), new StringPair("%C", null),
             new StringPair("%d", "dd"), new StringPair("%D", "MM/dd/yy"),
-            new StringPair("%e", "%d"), new StringPair("%g", null),
+            new StringPair("%e", null), new StringPair("%g", null),
             new StringPair("%G", null), new StringPair("%h", "MMM"),
             new StringPair("%H", "HH"), new StringPair("%i", Iso8601DateTimeOutputFormat),
             new StringPair("%I", "hh"), new StringPair("%j", null),
-            new StringPair("%k", "%H"), new StringPair("%l", "%h"),
+            new StringPair("%k", null), new StringPair("%l", null),
             new StringPair("%m", "MM"), new StringPair("%M", "mm"),
             new StringPair("%n", Characters.NewLine.ToString()), new StringPair("%p", "tt"),
             new StringPair("%Q", null), new StringPair("%r", "hh:mm:ss tt"),
@@ -279,11 +677,19 @@ namespace Eagle._Components.Private
             new StringPair("%y", "yy"), new StringPair("%Y", "yyyy"),
             new StringPair("%Z", null), new StringPair("%%", "\\%"));
 
+        /// <summary>
+        /// The mapping of Tcl clock format specifiers to the delegates that
+        /// produce their formatted values, used for specifiers that have no
+        /// direct .NET date and time format string equivalent.
+        /// </summary>
         private static readonly DelegateDictionary tclClockDelegates = new DelegateDictionary(
             new ObjectPair("%C", new ClockTransformCallback(TclClockDelegates.GetCentury)),
+            new ObjectPair("%e", new ClockTransformCallback(TclClockDelegates.GetDayOfMonthSpacePadded)),
             new ObjectPair("%g", new ClockTransformCallback(TclClockDelegates.GetTwoDigitYearIso8601)),
             new ObjectPair("%G", new ClockTransformCallback(TclClockDelegates.GetFourDigitYearIso8601)),
             new ObjectPair("%j", new ClockTransformCallback(TclClockDelegates.GetDayOfYear)),
+            new ObjectPair("%k", new ClockTransformCallback(TclClockDelegates.GetHourOfDaySpacePadded)),
+            new ObjectPair("%l", new ClockTransformCallback(TclClockDelegates.GetHourOfHalfDaySpacePadded)),
             new ObjectPair("%Q", new ClockTransformCallback(TclClockDelegates.GetStardate)),
             new ObjectPair("%s", new ClockTransformCallback(TclClockDelegates.GetSecondsSinceEpoch)),
             new ObjectPair("%u", new ClockTransformCallback(TclClockDelegates.GetWeekdayNumberOneToSeven)),
@@ -299,7 +705,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the method name used for trace output may be obtained
+        /// from anywhere in the call stack by default.
+        /// </summary>
         private static bool DefaultGetMethodNameAnywhere = false;
+
+        /// <summary>
+        /// When non-zero, the full (type-qualified) method name is displayed in
+        /// trace output by default.
+        /// </summary>
         private static bool DefaultDisplayMethodFullName = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -307,7 +722,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The marker text used to delimit the start of a stack trace within
+        /// formatted output.
+        /// </summary>
         private static string StackTraceStart = "<stackTrace>";
+
+        /// <summary>
+        /// The marker text used to delimit the end of a stack trace within
+        /// formatted output.
+        /// </summary>
         private static string StackTraceEnd = "</stackTrace>";
         #endregion
 
@@ -323,6 +747,11 @@ namespace Eagle._Components.Private
         //       aspects of the final event name that ensure it is unique on
         //       this system).
         //
+        /// <summary>
+        /// The next unique event "serial number" within this application domain,
+        /// accessed only via an interlocked increment to help construct event
+        /// names that are unique within the entire application domain.
+        /// </summary>
         private static long nextEventId;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -331,6 +760,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the list of method names to skip when figuring out
         //       the "correct" method name to use for trace output.
         //
+        /// <summary>
+        /// The list of method names to skip when determining the "correct"
+        /// method name to use for trace output.
+        /// </summary>
         private static StringList skipNames = new StringList(
             "DebugTrace", "DebugWrite", "MaybeWritePolicyTrace",
             "MaybeEmitPolicyResults");
@@ -341,6 +774,10 @@ namespace Eagle._Components.Private
         // NOTE: If this field is non-zero, extra trace indicators will be
         //       included in the formatted trace output.
         //
+        /// <summary>
+        /// When non-zero, extra trace indicators will be included in the
+        /// formatted trace output.
+        /// </summary>
         private static bool useTraceIndicators;
 
         //
@@ -348,6 +785,10 @@ namespace Eagle._Components.Private
         //       included as the full text of the associated flag names in
         //       the formatted trace output.
         //
+        /// <summary>
+        /// When non-zero, extra trace indicators will be included as the full
+        /// text of the associated flag names in the formatted trace output.
+        /// </summary>
         private static bool rawTraceIndicators;
 
         //
@@ -355,6 +796,10 @@ namespace Eagle._Components.Private
         //       be checked and the resulting flags will be included in the
         //       extra trace indicators.
         //
+        /// <summary>
+        /// When non-zero, the current trace listeners will be checked and the
+        /// resulting flags will be included in the extra trace indicators.
+        /// </summary>
         private static bool seeTraceListeners;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -363,21 +808,47 @@ namespace Eagle._Components.Private
         // NOTE: If this field is non-zero, extended characters are allowed to
         //       be used to replace line-endings in display strings.
         //
+        /// <summary>
+        /// When non-zero, extended characters are allowed to be used to replace
+        /// line-endings in display strings.
+        /// </summary>
         private static bool extendedLineEndings = false;
 
         //
         // NOTE: If this field is non-zero, Unicode characters are allowed to
         //       be used to replace line-endings in display strings.
         //
+        /// <summary>
+        /// When non-zero, Unicode characters are allowed to be used to replace
+        /// line-endings in display strings.
+        /// </summary>
         private static bool unicodeLineEndings = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Tcl Clock Delegates
+        /// <summary>
+        /// This class provides the delegate implementations used to produce the
+        /// formatted values for the Tcl clock format specifiers that have no
+        /// direct .NET date and time format string equivalent.
+        /// </summary>
         [ObjectId("706d94c0-f87f-4562-abbd-a1917ed99e8c")]
         private static class TclClockDelegates
         {
+            /// <summary>
+            /// This method produces the century (the year divided by one
+            /// hundred) for the specified clock data, corresponding to the Tcl
+            /// "%C" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted century value, or null if <paramref name="clockData" />
+            /// is null.
+            /// </returns>
             public static string GetCentury(
                 IClockData clockData
                 )
@@ -388,6 +859,110 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the day of the month, space-padded to a
+            /// width of two, for the specified clock data, corresponding to the
+            /// Tcl "%e" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted day-of-month value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
+            public static string GetDayOfMonthSpacePadded(
+                IClockData clockData
+                )
+            {
+                //
+                // NOTE: Tcl "%e" is the day of the month, space-padded to a
+                //       width of two (e.g. " 9", "13").
+                //
+                return (clockData != null) ?
+                    WrapOrNull(true, clockData.DateTime.Day.ToString().PadLeft(
+                        SpacePaddedFieldWidth, Characters.Space)) : null;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /// <summary>
+            /// This method produces the hour (0-23) on a 24-hour clock,
+            /// space-padded to a width of two, for the specified clock data,
+            /// corresponding to the Tcl "%k" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted hour value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
+            public static string GetHourOfDaySpacePadded(
+                IClockData clockData
+                )
+            {
+                //
+                // NOTE: Tcl "%k" is the hour (0-23) on a 24-hour clock,
+                //       space-padded to a width of two (e.g. " 1", "13").
+                //
+                return (clockData != null) ?
+                    WrapOrNull(true, clockData.DateTime.Hour.ToString().PadLeft(
+                        SpacePaddedFieldWidth, Characters.Space)) : null;
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /// <summary>
+            /// This method produces the hour (1-12) on a 12-hour clock,
+            /// space-padded to a width of two, for the specified clock data,
+            /// corresponding to the Tcl "%l" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted hour value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
+            public static string GetHourOfHalfDaySpacePadded(
+                IClockData clockData
+                )
+            {
+                //
+                // NOTE: Tcl "%l" is the hour (1-12) on a 12-hour clock,
+                //       space-padded to a width of two (e.g. " 1", "12").
+                //
+                if (clockData == null)
+                    return null;
+
+                int hour = clockData.DateTime.Hour % HoursPerHalfDay;
+
+                if (hour == 0)
+                    hour = HoursPerHalfDay;
+
+                return WrapOrNull(true, hour.ToString().PadLeft(
+                    SpacePaddedFieldWidth, Characters.Space));
+            }
+
+            ///////////////////////////////////////////////////////////////////////////////////////////
+
+            /// <summary>
+            /// This method produces the two-digit ISO 8601 week-based year for
+            /// the specified clock data, corresponding to the Tcl "%g"
+            /// specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted two-digit year value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetTwoDigitYearIso8601(
                 IClockData clockData
                 )
@@ -399,6 +974,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the four-digit ISO 8601 week-based year for
+            /// the specified clock data, corresponding to the Tcl "%G"
+            /// specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted four-digit year value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetFourDigitYearIso8601(
                 IClockData clockData
                 )
@@ -409,6 +997,18 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the zero-padded day of the year for the
+            /// specified clock data, corresponding to the Tcl "%j" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted day-of-year value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetDayOfYear(
                 IClockData clockData
                 )
@@ -419,6 +1019,18 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the stardate value for the specified clock
+            /// data, corresponding to the Tcl "%Q" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted stardate value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetStardate(
                 IClockData clockData
                 )
@@ -428,6 +1040,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the number of seconds since the epoch for
+            /// the specified clock data, corresponding to the Tcl "%s"
+            /// specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time, as well as the
+            /// epoch, to use.  This parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted seconds-since-epoch value, or null if
+            /// <paramref name="clockData" /> is null or the conversion fails.
+            /// </returns>
             public static string GetSecondsSinceEpoch(
                 IClockData clockData
                 )
@@ -448,6 +1073,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the weekday number (1 through 7, with
+            /// Sunday as 7) for the specified clock data, corresponding to the
+            /// Tcl "%u" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted weekday number, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetWeekdayNumberOneToSeven(
                 IClockData clockData
                 )
@@ -471,6 +1109,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the week of the year, treating Sunday as
+            /// the first day of the week, for the specified clock data,
+            /// corresponding to the Tcl "%U" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted week-of-year value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetWeekOfYearSundayIsFirstDay(
                 IClockData clockData
                 )
@@ -488,6 +1139,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the ISO 8601 week of the year for the
+            /// specified clock data, corresponding to the Tcl "%V" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time, as well as the
+            /// culture, to use.  This parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted week-of-year value, or null if
+            /// <paramref name="clockData" /> is null or lacks the required
+            /// culture information.
+            /// </returns>
             public static string GetWeekOfYearIso8601(
                 IClockData clockData
                 )
@@ -516,6 +1180,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the weekday number (0 through 6, with
+            /// Sunday as 0) for the specified clock data, corresponding to the
+            /// Tcl "%w" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted weekday number, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetWeekdayNumberZeroToSix(
                 IClockData clockData
                 )
@@ -526,6 +1203,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the week of the year, treating Monday as
+            /// the first day of the week, for the specified clock data,
+            /// corresponding to the Tcl "%W" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time to format.  This
+            /// parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted week-of-year value, or null if
+            /// <paramref name="clockData" /> is null.
+            /// </returns>
             public static string GetWeekOfYearMondayIsFirstDay(
                 IClockData clockData
                 )
@@ -544,6 +1234,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method produces the time zone name for the specified clock
+            /// data, corresponding to the Tcl "%Z" specifier.
+            /// </summary>
+            /// <param name="clockData">
+            /// The clock data containing the date and time, as well as the time
+            /// zone, to use.  This parameter may be null.
+            /// </param>
+            /// <returns>
+            /// The formatted time zone name, or null if
+            /// <paramref name="clockData" /> is null or no time zone name can be
+            /// determined.
+            /// </returns>
             public static string GetTimeZoneName(
                 IClockData clockData
                 )
@@ -571,6 +1274,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a human-readable string for the specified time
+        /// span, choosing an appropriate unit (days/hours/etc., milliseconds,
+        /// or ticks) based on its magnitude.
+        /// </summary>
+        /// <param name="timeSpan">
+        /// The time span to format.  This parameter may be null.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero and the value cannot be formatted normally, a
+        /// human-readable placeholder is returned instead of null.
+        /// </param>
+        /// <returns>
+        /// The formatted time span string, or a placeholder or null depending
+        /// on <paramref name="display" />.
+        /// </returns>
         public static string TimeSpan(
             TimeSpan? timeSpan,
             bool display
@@ -616,6 +1335,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets all of the trace indicator settings to their
+        /// disabled state.
+        /// </summary>
         public static void ResetTraceIndicators()
         {
             useTraceIndicators = false;
@@ -625,6 +1348,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets all of the trace indicator settings to the
+        /// specified values.
+        /// </summary>
+        /// <param name="useIndicators">
+        /// When non-zero, extra trace indicators will be included in the
+        /// formatted trace output.
+        /// </param>
+        /// <param name="rawIndicators">
+        /// When non-zero, extra trace indicators will be included as the full
+        /// text of the associated flag names.
+        /// </param>
+        /// <param name="seeListeners">
+        /// When non-zero, the current trace listeners will be checked and the
+        /// resulting flags will be included in the extra trace indicators.
+        /// </param>
         public static void SetTraceIndicators(
             bool useIndicators,
             bool rawIndicators,
@@ -639,6 +1378,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method produces a display string for the specified Tcl build.
+        /// </summary>
+        /// <param name="build">
+        /// The Tcl build to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the build, or a placeholder if
+        /// <paramref name="build" /> is null.
+        /// </returns>
         public static string DisplayTclBuild(
             TclBuild build
             )
@@ -653,6 +1402,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method produces a display string for the specified registry
+        /// subkey, optionally wrapping the combined key and subkey path.
+        /// </summary>
+        /// <param name="key">
+        /// The parent registry key.  This parameter may be null.
+        /// </param>
+        /// <param name="subKeyName">
+        /// The name of the subkey relative to <paramref name="key" />.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted, optionally wrapped, registry subkey string.
+        /// </returns>
         public static string RegistrySubKey(
             RegistryKey key,
             string subKeyName
@@ -691,6 +1454,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the full date and time format string to be used
+        /// when formatting date and time values.
+        /// </summary>
+        /// <returns>
+        /// The full date and time format string.  This will never be null.
+        /// </returns>
         private static string GetFullDateTimeFormat()
         {
             DateTimeFormatInfo dateTimeFormatInfo =
@@ -711,6 +1481,48 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method decomposes a flags-style enumerated value into the list
+        /// of individual flag names whose bits are set within it, optionally
+        /// controlling how nameless, invalid, or zero-valued flags are handled.
+        /// </summary>
+        /// <param name="enumValue">
+        /// The flags enumeration value to decompose.  This parameter may not be
+        /// null and its type must be an enumeration.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive parsing of the enumeration
+        /// names; otherwise, parsing is case-sensitive.
+        /// </param>
+        /// <param name="skipNameless">
+        /// Non-zero to silently skip any enumeration name that is null or empty;
+        /// otherwise, encountering such a name is treated as an error.
+        /// </param>
+        /// <param name="skipBadName">
+        /// Non-zero to silently skip any enumeration name that cannot be parsed
+        /// into a value; otherwise, a parse failure is treated as an error.
+        /// </param>
+        /// <param name="skipBadValue">
+        /// Non-zero to silently skip any flag whose underlying value cannot be
+        /// obtained; otherwise, such a failure is treated as an error.
+        /// </param>
+        /// <param name="keepZeros">
+        /// Non-zero to include the names of flags whose underlying value is
+        /// zero in the resulting list; otherwise, such names are skipped.
+        /// </param>
+        /// <param name="uniqueValues">
+        /// Non-zero to add a name only when its bits remain set in the overall
+        /// value; otherwise, names whose bits were already accounted for by a
+        /// previously matched flag may also be added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The list of flag names whose bits are set within the value, or null
+        /// if an error was encountered.
+        /// </returns>
         public static StringList FlagsEnum(
             Enum enumValue,
             bool noCase,
@@ -906,6 +1718,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the list of flag names that are set within the
+        /// specified enumerated value, optionally deriving the candidate names
+        /// and values from the type of that value.
+        /// </summary>
+        /// <param name="enumValue">
+        /// The enumerated value to be examined.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of candidate enumeration names to consider, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of enumeration values that correspond to the entries in
+        /// <paramref name="enumNames" />, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="skipEnumType">
+        /// Non-zero to skip deriving the candidate names and values from the
+        /// type of <paramref name="enumValue" />.
+        /// </param>
+        /// <param name="skipNameless">
+        /// Non-zero to skip any enumeration value that has no associated name.
+        /// </param>
+        /// <param name="keepZeros">
+        /// Non-zero to keep names whose underlying enumeration value is zero.
+        /// </param>
+        /// <param name="uniqueValues">
+        /// Non-zero to require that each contributing flag value be unique.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The list of flag names that are set within the enumerated value, or
+        /// null if it cannot be determined.
+        /// </returns>
         public static StringList FlagsEnumV2(
             Enum enumValue,
             StringList enumNames,
@@ -963,6 +1811,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the list of flag names that are set within the
+        /// specified enumerated value, using the supplied candidate names and
+        /// values.
+        /// </summary>
+        /// <param name="enumValue">
+        /// The enumerated value to be examined.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of candidate enumeration names to consider.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of enumeration values that correspond to the entries in
+        /// <paramref name="enumNames" />.
+        /// </param>
+        /// <param name="skipNameless">
+        /// Non-zero to skip any enumeration value that has no associated name.
+        /// </param>
+        /// <param name="keepZeros">
+        /// Non-zero to keep names whose underlying enumeration value is zero.
+        /// </param>
+        /// <param name="uniqueValues">
+        /// Non-zero to require that each contributing flag value be unique.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The list of flag names that are set within the enumerated value, or
+        /// null if it cannot be determined.
+        /// </returns>
         private static StringList FlagsEnumCore(
             Enum enumValue,
             StringList enumNames,
@@ -1106,6 +1985,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the test hook pattern string for the specified
+        /// test hook type and pattern.
+        /// </summary>
+        /// <param name="type">
+        /// The test hook type to be combined with the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to be combined with the test hook type.
+        /// </param>
+        /// <returns>
+        /// The formatted test hook pattern string.
+        /// </returns>
         public static string TestHookPattern(
             TestHookType type,
             string pattern
@@ -1119,6 +2011,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a regular expression match into a human-readable
+        /// string for display purposes.
+        /// </summary>
+        /// <param name="match">
+        /// The regular expression match to be formatted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A human-readable string describing the regular expression match.
+        /// </returns>
         public static string DisplayRegExMatch(
             Match match
             )
@@ -1150,6 +2053,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method formats the file name of the specified Tcl build for
+        /// display purposes.
+        /// </summary>
+        /// <param name="build">
+        /// The Tcl build whose file name is to be formatted.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped file name of the Tcl build, or a placeholder if it is
+        /// null.
+        /// </returns>
         public static string TclBuildFileName(
             TclBuild build
             )
@@ -1163,6 +2078,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified call frame into a human-readable
+        /// string for display purposes.
+        /// </summary>
+        /// <param name="frame">
+        /// The call frame to be formatted.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A human-readable string describing the call frame.
+        /// </returns>
         public static string DisplayCallFrame(
             ICallFrame frame
             )
@@ -1176,6 +2101,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified console color into a string for
+        /// display purposes.
+        /// </summary>
+        /// <param name="color">
+        /// The console color to be formatted.
+        /// </param>
+        /// <returns>
+        /// The name of the console color, or <c>None</c> when no color is set.
+        /// </returns>
         public static string DisplayColor(
             ConsoleColor color
             )
@@ -1186,6 +2121,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+        /// <summary>
+        /// This method formats the specified console key information into a list
+        /// of name and value pairs for display purposes.
+        /// </summary>
+        /// <param name="consoleKeyInfo">
+        /// The console key information to be formatted.
+        /// </param>
+        /// <returns>
+        /// A list describing the modifiers, key, and key character of the
+        /// console key information.
+        /// </returns>
         public static StringList ConsoleKeyInfo(
             ConsoleKeyInfo consoleKeyInfo
             )
@@ -1200,6 +2146,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method formats the specified wait handle into a string for
+        /// display purposes.
+        /// </summary>
+        /// <param name="waitHandle">
+        /// The wait handle to be formatted.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A string containing the native handle of the wait handle, or a
+        /// placeholder if it is null.
+        /// </returns>
         public static string DisplayWaitHandle(
             WaitHandle waitHandle
             )
@@ -1212,6 +2169,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified array of wait handles into a
+        /// single string for display purposes.
+        /// </summary>
+        /// <param name="waitHandles">
+        /// The array of wait handles to be formatted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A string describing the wait handles, or a placeholder if it is
+        /// null.
+        /// </returns>
         public static string DisplayWaitHandles(
             WaitHandle[] waitHandles
             )
@@ -1243,6 +2212,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NOTIFY && NOTIFY_ARGUMENTS
+        /// <summary>
+        /// This method formats the specified value into a string suitable for
+        /// use in trace output, optionally normalizing white-space, truncating
+        /// it with an ellipsis, and quoting it.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize the white-space within the string form of the
+        /// value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the string form of the value with an ellipsis
+        /// when it exceeds the configured limit.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to format the value as a single-element list, quoting it as
+        /// necessary.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display placeholder when the value is null or
+        /// empty.
+        /// </param>
+        /// <param name="value">
+        /// The value to be formatted.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string for the value, or a placeholder or null
+        /// depending on the supplied flags.
+        /// </returns>
         public static string WrapTraceOrNull(
             bool normalize,
             bool ellipsis,
@@ -1292,6 +2289,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to its string
+        /// representation, using a custom script binder callback when one is
+        /// available and falling back to the default conversion otherwise.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used to perform any custom string conversion, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when converting the value, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to be converted to a string.  This parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The default string to return when the value cannot be converted.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the value.
+        /// </returns>
         private static string ToString(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -1339,6 +2359,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a sequence of method arguments into a string
+        /// list, recording the type name and string value of each argument.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used when converting each argument to its string form.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when converting each argument to its string form.
+        /// </param>
+        /// <param name="args">
+        /// The arguments to be formatted; may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to use display placeholders for null and empty values.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the arguments.
+        /// </returns>
         public static string MethodArguments(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -1389,6 +2428,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps a sequence of argument strings, returning a
+        /// display placeholder when the sequence is null.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the wrapped value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the wrapped value with an ellipsis when it is
+        /// too long.
+        /// </param>
+        /// <param name="args">
+        /// The argument strings to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string, or a display placeholder when the arguments are
+        /// null.
+        /// </returns>
         public static string WrapArgumentsOrNull(
             bool normalize,
             bool ellipsis,
@@ -1403,6 +2460,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a script value for use in a log message,
+        /// substituting display placeholders for null, empty, and white-space
+        /// values.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the value with an ellipsis when it is too long.
+        /// </param>
+        /// <param name="value">
+        /// The script value to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string suitable for logging.
+        /// </returns>
         public static string ScriptForLog(
             bool normalize,
             bool ellipsis,
@@ -1441,6 +2515,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified sequence into a string list when
+        /// it is non-null and does not already implement the string list
+        /// interface.
+        /// </summary>
+        /// <param name="value">
+        /// The sequence to be converted; upon return, it may refer to a newly
+        /// created string list.
+        /// </param>
         private static void MaybeConvertToStringList(
             ref IEnumerable<string> value /* in, out */
             )
@@ -1451,6 +2534,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally selects alternate wrapping prefix and
+        /// suffix strings when the string form of the specified value already
+        /// contains the default prefix or suffix.
+        /// </summary>
+        /// <param name="wrap">
+        /// Non-zero if the value is to be wrapped.
+        /// </param>
+        /// <param name="value">
+        /// The value whose string form is to be examined.
+        /// </param>
+        /// <param name="prefix">
+        /// The wrapping prefix; upon return, it may be changed to an alternate
+        /// prefix.
+        /// </param>
+        /// <param name="suffix">
+        /// The wrapping suffix; upon return, it may be changed to an alternate
+        /// suffix.
+        /// </param>
         private static void MaybeChangeWrapPrefixAndSuffix(
             bool wrap,         /* in */
             object value,      /* in */
@@ -1467,6 +2569,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally selects alternate wrapping prefix and
+        /// suffix strings when the string form of the specified value already
+        /// contains the default prefix or suffix, also returning that string
+        /// form.
+        /// </summary>
+        /// <param name="wrap">
+        /// Non-zero if the value is to be wrapped.
+        /// </param>
+        /// <param name="value">
+        /// The value whose string form is to be examined.
+        /// </param>
+        /// <param name="prefix">
+        /// The wrapping prefix; upon return, it may be changed to an alternate
+        /// prefix.
+        /// </param>
+        /// <param name="suffix">
+        /// The wrapping suffix; upon return, it may be changed to an alternate
+        /// suffix.
+        /// </param>
+        /// <param name="stringValue">
+        /// Upon return, contains the string form of the value, or null when
+        /// the value is not being wrapped.
+        /// </param>
         private static void MaybeChangeWrapPrefixAndSuffix(
             bool wrap,             /* in */
             object value,          /* in */
@@ -1506,6 +2632,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a return code and result, wrapping the
+        /// resulting value.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to be formatted.
+        /// </param>
+        /// <param name="result">
+        /// The result to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string representation of the return code and result.
+        /// </returns>
         public static string WrapOrNull(
             ReturnCode code,
             Result result
@@ -1529,6 +2668,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified sequence of strings.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the wrapped value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the wrapped value with an ellipsis when it is
+        /// too long.
+        /// </param>
+        /// <param name="value">
+        /// The strings to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string, or a display placeholder when the value is
+        /// null.
+        /// </returns>
         public static string WrapOrNull(
             bool normalize,
             bool ellipsis,
@@ -1540,6 +2696,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified value.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the wrapped value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the wrapped value with an ellipsis when it is
+        /// too long.
+        /// </param>
+        /// <param name="value">
+        /// The value to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string, or a display placeholder when the value is
+        /// null.
+        /// </returns>
         public static string WrapOrNull(
             bool normalize,
             bool ellipsis,
@@ -1551,6 +2724,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified sequence of strings, optionally
+        /// using a display placeholder for a null value.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the wrapped value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the wrapped value with an ellipsis when it is
+        /// too long.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to use a display placeholder when the value is null.
+        /// </param>
+        /// <param name="value">
+        /// The strings to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string, or a placeholder when the value is null.
+        /// </returns>
         public static string WrapOrNull(
             bool normalize,
             bool ellipsis,
@@ -1576,6 +2769,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified value, optionally using a display
+        /// placeholder for a null value.
+        /// </summary>
+        /// <param name="normalize">
+        /// Non-zero to normalize white-space within the wrapped value.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the wrapped value with an ellipsis when it is
+        /// too long.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to use a display placeholder when the value is null.
+        /// </param>
+        /// <param name="value">
+        /// The value to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string, or a placeholder when the value is null.
+        /// </returns>
         public static string WrapOrNull(
             bool normalize,
             bool ellipsis,
@@ -1599,6 +2812,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a matching leading and trailing character from
+        /// the specified string.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be stripped; may be null or empty.
+        /// </param>
+        /// <param name="character">
+        /// The character to be removed from both ends of the string.
+        /// </param>
+        /// <returns>
+        /// The stripped string, or the original string when no matching outer
+        /// characters are present.
+        /// </returns>
         public static string StripOuter(
             string value,
             char character
@@ -1609,6 +2836,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a matching leading prefix character and
+        /// trailing suffix character from the specified string.
+        /// </summary>
+        /// <param name="value">
+        /// The string to be stripped; may be null or empty.
+        /// </param>
+        /// <param name="prefix">
+        /// The character to be removed from the start of the string.
+        /// </param>
+        /// <param name="suffix">
+        /// The character to be removed from the end of the string.
+        /// </param>
+        /// <returns>
+        /// The stripped string, or the original string when the matching outer
+        /// characters are not present.
+        /// </returns>
         private static string StripOuter(
             string value,
             char prefix,
@@ -1638,6 +2882,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a collection of defined constant names into a
+        /// single space-separated string.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of constant names to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The space-separated string of constant names, or a display
+        /// placeholder when the collection is null or empty.
+        /// </returns>
         public static string DefineConstants(
             IEnumerable<string> collection
             )
@@ -1672,6 +2927,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a display placeholder when the specified value
+        /// is null.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be checked; may be null.
+        /// </param>
+        /// <returns>
+        /// The original value, or a display placeholder when it is null.
+        /// </returns>
         public static object MaybeNull(
             object value
             )
@@ -1684,6 +2949,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a display placeholder when the specified value
+        /// is null or an empty string.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be checked; may be null.
+        /// </param>
+        /// <returns>
+        /// The original value, or a display placeholder when it is null or an
+        /// empty string.
+        /// </returns>
         public static object MaybeNullOrEmpty(
             object value
             )
@@ -1704,6 +2980,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a nullable millisecond count as a string.
+        /// </summary>
+        /// <param name="value">
+        /// The number of milliseconds to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted millisecond string, or a display placeholder when the
+        /// value is null.
+        /// </returns>
         public static string MaybeMilliseconds(
             long? value
             )
@@ -1716,6 +3002,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the short-name portion of a release attribute
+        /// string, falling back to the wrapped whole value when no short name
+        /// can be found.
+        /// </summary>
+        /// <param name="value">
+        /// The release attribute string to be processed; may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The extracted short name, or the wrapped original value when no
+        /// short name is present.
+        /// </returns>
         public static string ReleaseAttribute(
             string value
             )
@@ -1774,6 +3072,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a nullable number of seconds as a string,
+        /// rounded to one decimal place.
+        /// </summary>
+        /// <param name="seconds">
+        /// The number of seconds to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted seconds string, or a display placeholder when the
+        /// value is null.
+        /// </returns>
         public static string SecondsOrNull(
             double? seconds
             )
@@ -1790,6 +3099,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if WINFORMS
+        /// <summary>
+        /// This method returns a human-readable phrase describing whether
+        /// something exists.
+        /// </summary>
+        /// <param name="exists">
+        /// Non-zero if the subject exists.
+        /// </param>
+        /// <returns>
+        /// A phrase indicating existence or non-existence.
+        /// </returns>
         public static string Exists(
             bool exists
             )
@@ -1801,6 +3120,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an array of buffer statistics into a
+        /// comma-separated description string.
+        /// </summary>
+        /// <param name="statistics">
+        /// The array of buffer statistics to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted buffer statistics string, or a display placeholder
+        /// when the array is null or empty.
+        /// </returns>
         public static string TheBufferStats(
             int[] statistics
             )
@@ -1882,6 +3212,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a display placeholder indicating whether the
+        /// specified value is null.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be checked; may be null.
+        /// </param>
+        /// <returns>
+        /// A display placeholder indicating whether the value is null.
+        /// </returns>
         public static string NullOrNotNull(
             object value
             )
@@ -1891,6 +3231,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the specified identifier object.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The identifier object whose name is to be formatted; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped identifier name, or a display placeholder when the
+        /// object is null.
+        /// </returns>
         public static string IdentifierName(
             IIdentifierName identifierName
             )
@@ -1903,6 +3253,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the type, hash code, and wrapped value of the
+        /// specified object into a descriptive string.
+        /// </summary>
+        /// <param name="value">
+        /// The value to be described; may be null.
+        /// </param>
+        /// <returns>
+        /// The descriptive string for the value.
+        /// </returns>
         public static string TypeAndWrapOrNull(
             object value
             )
@@ -1932,6 +3292,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        /// <summary>
+        /// This method wraps the specified array of bytes.
+        /// </summary>
+        /// <param name="bytes">
+        /// The bytes to be wrapped; may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped string representation of the bytes, or a display
+        /// placeholder when the array is null.
+        /// </returns>
         public static string WrapOrNull(
             byte[] bytes
             )
@@ -1942,6 +3312,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified array of
+        /// bytes, optionally including only its length.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of bytes to format, or null.
+        /// </param>
+        /// <param name="lengthOnly">
+        /// When non-zero, only the length of the array is included in the
+        /// resulting string; otherwise, both the length and the Base64 form
+        /// of the bytes are included.
+        /// </param>
+        /// <returns>
+        /// The formatted display string, or a placeholder when the array of
+        /// bytes is null.
+        /// </returns>
         public static string WrapOrNull(
             byte[] bytes,
             bool lengthOnly
@@ -1967,6 +3353,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified collection
+        /// of strings, wrapping the value when it is not null.
+        /// </summary>
+        /// <param name="value">
+        /// The collection of strings to format, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         public static string WrapOrNull(
             IEnumerable<string> value
             )
@@ -1976,6 +3372,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified object,
+        /// wrapping the value when it is not null.
+        /// </summary>
+        /// <param name="value">
+        /// The object to format, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         public static string WrapOrNull(
             object value
             )
@@ -1985,6 +3391,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified collection
+        /// of strings, optionally wrapping the value.
+        /// </summary>
+        /// <param name="wrap">
+        /// When non-zero, the value is wrapped using the configured prefix and
+        /// suffix; otherwise, a placeholder is returned.
+        /// </param>
+        /// <param name="value">
+        /// The collection of strings to format, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         private static string WrapOrNull(
             bool wrap,
             IEnumerable<string> value
@@ -2007,6 +3427,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified object,
+        /// optionally wrapping the value.
+        /// </summary>
+        /// <param name="wrap">
+        /// When non-zero, the value is wrapped using the configured prefix and
+        /// suffix; otherwise, a placeholder is returned.
+        /// </param>
+        /// <param name="value">
+        /// The object to format, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         private static string WrapOrNull(
             bool wrap,
             object value
@@ -2027,6 +3461,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified value,
+        /// optionally normalizing whitespace, applying an ellipsis, and using
+        /// placeholders for null or empty values.
+        /// </summary>
+        /// <param name="wrap">
+        /// When non-zero, the value is wrapped using the supplied prefix and
+        /// suffix; otherwise, a placeholder is returned.
+        /// </param>
+        /// <param name="normalize">
+        /// When non-zero, whitespace within the value is normalized prior to
+        /// formatting.
+        /// </param>
+        /// <param name="ellipsis">
+        /// When non-zero, the value is truncated with an ellipsis when it
+        /// exceeds the configured limit.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero, a placeholder is substituted for a null or empty
+        /// value.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to prepend to the formatted value.
+        /// </param>
+        /// <param name="value">
+        /// The value to format, or null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to append to the formatted value.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         private static string WrapOrNull(
             bool wrap,
             bool normalize,
@@ -2082,6 +3549,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a hexadecimal display string for the specified
+        /// hash value.
+        /// </summary>
+        /// <param name="hashValue">
+        /// The array of bytes representing the hash value, or null.
+        /// </param>
+        /// <returns>
+        /// The hexadecimal string, prefixed with <c>0x</c>, or null when the
+        /// hash value cannot be converted.
+        /// </returns>
         public static string HashValue(
             byte[] hashValue
             )
@@ -2099,6 +3577,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if CACHE_STATISTICS
+        /// <summary>
+        /// This method determines whether the specified array of cache counts
+        /// contains any non-zero values.
+        /// </summary>
+        /// <param name="counts">
+        /// The array of cache counts to examine, or null.
+        /// </param>
+        /// <returns>
+        /// True if the array is present and contains at least one non-zero
+        /// count; otherwise, false.
+        /// </returns>
         public static bool HaveCacheCounts(
             long[] counts
             )
@@ -2117,6 +3606,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string of the cache counts contained
+        /// in the specified array.
+        /// </summary>
+        /// <param name="counts">
+        /// The array of cache counts to format, or null.
+        /// </param>
+        /// <param name="empty">
+        /// When non-zero, all counts are included even when their value is
+        /// zero; otherwise, only non-zero counts are included.
+        /// </param>
+        /// <returns>
+        /// The formatted display string, or null when the array of counts is
+        /// missing or too small.
+        /// </returns>
         public static string CacheCounts(
             long[] counts,
             bool empty
@@ -2192,6 +3696,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string containing the sum of the
+        /// values in the specified collection of key/value pairs.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of key/value pairs whose values are summed, or null.
+        /// </param>
+        /// <returns>
+        /// The string form of the summed value, or a placeholder when the
+        /// collection is null.
+        /// </returns>
         public static string CountDictionary(
             IEnumerable<KeyValuePair<string, int>> collection
             )
@@ -2209,6 +3724,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a textual dump of the specified collection of
+        /// key/value pairs to the supplied string builder.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of key/value pairs to dump, or null.
+        /// </param>
+        /// <param name="builder">
+        /// The string builder to which the dump is appended, or null.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm used to hash each key when raw
+        /// output is not requested.
+        /// </param>
+        /// <param name="raw">
+        /// When non-zero, each key is emitted verbatim; otherwise, each key is
+        /// emitted as a hexadecimal hash.
+        /// </param>
         public static void DumpDictionary(
             IEnumerable<KeyValuePair<string, int>> collection,
             StringBuilder builder,
@@ -2249,6 +3782,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string of the keys and values
+        /// contained in the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose keys and values are formatted, or null.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero, the resulting string is wrapped for display
+        /// purposes.
+        /// </param>
+        /// <param name="normalize">
+        /// When non-zero, whitespace within the value is normalized prior to
+        /// formatting.
+        /// </param>
+        /// <param name="ellipsis">
+        /// When non-zero, the value is truncated with an ellipsis when it
+        /// exceeds the configured limit.
+        /// </param>
+        /// <returns>
+        /// The formatted display string.
+        /// </returns>
         public static string KeysAndValues(
             _Containers.Public.StringDictionary dictionary,
             bool display,
@@ -2264,6 +3819,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string of the keys and values
+        /// contained in the specified name/value collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The name/value collection to format, or null.
+        /// </param>
+        /// <param name="display">
+        /// When non-zero, a placeholder is substituted for a null or empty
+        /// collection; otherwise, null is returned in those cases.
+        /// </param>
+        /// <returns>
+        /// The formatted display string, or null when the collection is null
+        /// or empty and display formatting was not requested.
+        /// </returns>
         public static string NameValueCollection(
             NameValueCollection collection,
             bool display
@@ -2294,6 +3864,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified result for use in a complaint,
+        /// substituting placeholders for null, empty, or logically empty
+        /// values.
+        /// </summary>
+        /// <param name="result">
+        /// The result to normalize, or null.
+        /// </param>
+        /// <returns>
+        /// The normalized result suitable for use in a complaint.
+        /// </returns>
         private static Result ComplaintResult(
             Result result
             )
@@ -2340,6 +3921,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a formatted complaint message from the
+        /// specified identifier, return code, result, and stack trace.
+        /// </summary>
+        /// <param name="id">
+        /// The identifier associated with the complaint.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the complaint.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the complaint, or null.
+        /// </param>
+        /// <param name="stackTrace">
+        /// The stack trace associated with the complaint, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted complaint message.
+        /// </returns>
         public static string Complaint(
             long id,
             ReturnCode code,
@@ -2360,6 +3960,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the name of the specified
+        /// plugin.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data whose name is formatted, or null.
+        /// </param>
+        /// <param name="wrap">
+        /// When non-zero, the resulting name is wrapped for display purposes.
+        /// </param>
+        /// <returns>
+        /// The formatted plugin name, or a placeholder when the plugin data is
+        /// null or the name is unavailable.
+        /// </returns>
         public static string PluginName(
             IPluginData pluginData,
             bool wrap
@@ -2396,6 +4010,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string identifying the specified
+        /// client data, based on its hash code.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data to identify, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted identifier string, or a placeholder when the client
+        /// data is null.
+        /// </returns>
         private static string ClientDataName(
             IClientData clientData
             )
@@ -2409,6 +4034,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a display string for the specified object,
+        /// quoting it when necessary and substituting placeholders for null or
+        /// empty values.
+        /// </summary>
+        /// <param name="value">
+        /// The object to format, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted, optionally quoted, display string.
+        /// </returns>
         private static string MaybeQuote(
             object value
             )
@@ -2443,6 +4079,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a formatted command log entry describing a
+        /// command invocation and, optionally, its result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the command invocation, or null.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data associated with the command invocation, or null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the command invocation, or null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments of the command invocation, or null.
+        /// </param>
+        /// <param name="returnCode">
+        /// The return code produced by the command invocation, or null when no
+        /// result is available.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by the command invocation, or null when no
+        /// result is available.
+        /// </param>
+        /// <param name="indentSpaces">
+        /// The number of spaces used to indent multi-line argument or result
+        /// values.
+        /// </param>
+        /// <param name="allowNewLines">
+        /// When non-zero, multi-line values are preserved across multiple
+        /// lines; otherwise, their whitespace is collapsed onto a single line.
+        /// </param>
+        /// <param name="entryId">
+        /// Upon entry, the identifier for the log entry, or zero to allocate a
+        /// new one.  Upon return, this contains the identifier that was used.
+        /// </param>
+        /// <returns>
+        /// The formatted command log entry.
+        /// </returns>
         public static string CommandLogEntry(
             Interpreter interpreter,
             IPluginData pluginData,
@@ -2594,6 +4269,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the managed identifier of the specified thread
+        /// for display.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose managed identifier should be formatted.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted managed thread identifier, or a placeholder string if
+        /// the specified thread is null.
+        /// </returns>
         public static string ThreadIdOrNull(
             Thread thread
             )
@@ -2606,6 +4293,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the managed identifier of the specified thread
+        /// for display, catching and converting any exception into a
+        /// placeholder string instead of allowing it to propagate.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose managed identifier should be formatted.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted managed thread identifier, or a placeholder string if
+        /// the specified thread is null or an exception is caught.
+        /// </returns>
         public static string ThreadIdNoThrow(
             Thread thread
             )
@@ -2625,6 +4325,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the salient properties of the specified thread
+        /// into a human-readable string for display purposes.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread whose properties should be formatted.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted thread information, or a placeholder string if the
+        /// specified thread is null or an exception is caught.
+        /// </returns>
         public static string DisplayThread(
             Thread thread
             )
@@ -2681,6 +4393,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the body of a procedure for display, optionally
+        /// prefixing each line with its line number.
+        /// </summary>
+        /// <param name="body">
+        /// The procedure body text to format.  This value may be null or empty.
+        /// </param>
+        /// <param name="startLine">
+        /// The line number to use for the first line of the body.
+        /// </param>
+        /// <param name="showLines">
+        /// Non-zero if each line of the body should be prefixed with its line
+        /// number.
+        /// </param>
+        /// <returns>
+        /// The formatted procedure body.
+        /// </returns>
         public static string ProcedureBody(
             string body,
             int startLine,
@@ -2724,6 +4453,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a diagnostic message together with its
+        /// originating thread and object identifiers and any associated stack
+        /// traces.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread associated with the message.
+        /// </param>
+        /// <param name="id">
+        /// The object identifier associated with the message.
+        /// </param>
+        /// <param name="message">
+        /// The message text to format.  This value may be null.
+        /// </param>
+        /// <param name="resultStackTrace">
+        /// The optional stack trace associated with the result.  This value may
+        /// be null or empty.
+        /// </param>
+        /// <param name="complainStackTrace">
+        /// The optional stack trace associated with the complaint.  This value
+        /// may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The formatted diagnostic message.
+        /// </returns>
         private static string ThreadMessage(
             long threadId,
             long id,
@@ -2753,6 +4507,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified byte value as a hexadecimal
+        /// string.
+        /// </summary>
+        /// <param name="value">
+        /// The byte value to format.
+        /// </param>
+        /// <param name="prefix">
+        /// Non-zero if the hexadecimal prefix should be included in the result.
+        /// </param>
+        /// <returns>
+        /// The formatted hexadecimal string.
+        /// </returns>
         public static string Hexadecimal(
             byte value,
             bool prefix
@@ -2765,6 +4532,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified unsigned short value as a
+        /// hexadecimal string.
+        /// </summary>
+        /// <param name="value">
+        /// The unsigned short value to format.
+        /// </param>
+        /// <param name="prefix">
+        /// Non-zero if the hexadecimal prefix should be included in the result.
+        /// </param>
+        /// <returns>
+        /// The formatted hexadecimal string.
+        /// </returns>
         public static string Hexadecimal(
             ushort value,
             bool prefix
@@ -2777,6 +4557,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified unsigned long value as a
+        /// hexadecimal string.
+        /// </summary>
+        /// <param name="value">
+        /// The unsigned long value to format.
+        /// </param>
+        /// <param name="prefix">
+        /// Non-zero if the hexadecimal prefix should be included in the result.
+        /// </param>
+        /// <returns>
+        /// The formatted hexadecimal string.
+        /// </returns>
         public static string Hexadecimal(
             ulong value,
             bool prefix
@@ -2789,6 +4582,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified unsigned long value as a compact
+        /// hexadecimal string.
+        /// </summary>
+        /// <param name="value">
+        /// The unsigned long value to format.
+        /// </param>
+        /// <param name="prefix">
+        /// Non-zero if the hexadecimal prefix should be included in the result.
+        /// </param>
+        /// <returns>
+        /// The formatted compact hexadecimal string.
+        /// </returns>
         private static string CompactHexadecimal(
             ulong value,
             bool prefix
@@ -2801,6 +4607,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified value type instance as a
+        /// hexadecimal string.
+        /// </summary>
+        /// <param name="value">
+        /// The value type instance to format.
+        /// </param>
+        /// <param name="prefix">
+        /// Non-zero if the hexadecimal prefix should be included in the result.
+        /// </param>
+        /// <returns>
+        /// The formatted hexadecimal string.
+        /// </returns>
         public static string Hexadecimal(
             ValueType value,
             bool prefix
@@ -2813,6 +4632,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified unsigned long value as a
+        /// hexavigesimal (base-26) string, optionally padded to a minimum
+        /// width.
+        /// </summary>
+        /// <param name="value">
+        /// The unsigned long value to format.
+        /// </param>
+        /// <param name="width">
+        /// The minimum width of the result; if the formatted value is shorter
+        /// than this width, it is padded on the left.
+        /// </param>
+        /// <returns>
+        /// The formatted hexavigesimal string.
+        /// </returns>
         public static string Hexavigesimal(
             ulong value,
             byte width
@@ -2874,6 +4708,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK && WEB
+        /// <summary>
+        /// This method formats the length, in bytes, of the specified byte
+        /// array for display.
+        /// </summary>
+        /// <param name="bytes">
+        /// The byte array whose length should be formatted.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted byte length, or a placeholder string if the specified
+        /// array is null or empty.
+        /// </returns>
         public static string DisplayByteLength(
             byte[] bytes
             )
@@ -2893,6 +4739,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the length, in characters, of the specified
+        /// string for display.
+        /// </summary>
+        /// <param name="text">
+        /// The string whose length should be formatted.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted character length, or a placeholder string if the
+        /// specified string is null or empty.
+        /// </returns>
         public static string DisplayStringLength(
             string text
             )
@@ -2911,6 +4769,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using the package
+        /// date/time format, optionally including a build-seconds component.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value to format.
+        /// </param>
+        /// <returns>
+        /// The formatted package date and time string.
+        /// </returns>
         public static string PackageDateTime(
             DateTime value
             )
@@ -2935,6 +4803,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates Tcl-style clock format specifiers within the
+        /// specified format string into their equivalent managed format
+        /// specifiers, optionally applying static replacements and/or delegate
+        /// based replacements.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture to use when translating the format.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="timeZone">
+        /// The time zone to use when translating the format.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="format">
+        /// The format string to translate.  This value may be null or empty.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value associated with the translation.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch date and time value associated with the translation.
+        /// </param>
+        /// <param name="useFormats">
+        /// Non-zero if static format replacements should be applied.
+        /// </param>
+        /// <param name="useDelegates">
+        /// Non-zero if delegate based format replacements should be applied.
+        /// </param>
+        /// <returns>
+        /// The translated format string.
+        /// </returns>
         public static string TranslateDateTimeFormats(
             CultureInfo cultureInfo,
             TimeZone timeZone,
@@ -2984,6 +4884,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using a Tcl-style
+        /// clock format string, translating it into the equivalent managed
+        /// format before applying it.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture to use when formatting.  This value may be null.
+        /// </param>
+        /// <param name="timeZone">
+        /// The time zone to use when formatting.  This value may be null.
+        /// </param>
+        /// <param name="format">
+        /// The Tcl-style clock format string.  This value may be null or empty.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time value to format.
+        /// </param>
+        /// <param name="epoch">
+        /// The epoch date and time value associated with the formatting.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string TclClockDateTime(
             CultureInfo cultureInfo,
             TimeZone timeZone,
@@ -3015,6 +4938,18 @@ namespace Eagle._Components.Private
         //       its intent clear as "mainly for cosmetic purposes"
         //       (i.e. it is only used when displaying strings).
         //
+        /// <summary>
+        /// This method normalizes the line endings within the specified string.
+        /// It is retained mainly for cosmetic purposes, as it is only used when
+        /// displaying strings.
+        /// </summary>
+        /// <param name="value">
+        /// The string whose line endings should be normalized.  This value may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The string with normalized line endings.
+        /// </returns>
         public static string NormalizeNewLines(
             string value
             )
@@ -3024,6 +4959,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces the line endings within the specified string
+        /// with their display equivalents.
+        /// </summary>
+        /// <param name="value">
+        /// The string whose line endings should be replaced.  This value may be
+        /// null or empty.
+        /// </param>
+        /// <returns>
+        /// The string with its line endings replaced, or the original value if
+        /// it is null or empty.
+        /// </returns>
         public static string ReplaceNewLines(
             string value
             )
@@ -3041,6 +4988,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the salient properties of the specified result
+        /// into a human-readable string for display purposes.
+        /// </summary>
+        /// <param name="value">
+        /// The result to format.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted result information, or a placeholder string if the
+        /// specified result is null.
+        /// </returns>
         public static string DisplayEngineResult(
             Result value
             )
@@ -3081,6 +5039,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified result string for display,
+        /// optionally truncating it with an ellipsis and replacing its line
+        /// endings.
+        /// </summary>
+        /// <param name="value">
+        /// The result string to format.  This value may be null.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero if the result should be truncated with an ellipsis when it
+        /// exceeds the configured limit.
+        /// </param>
+        /// <param name="replaceNewLines">
+        /// Non-zero if the line endings within the result should be replaced
+        /// with their display equivalents.
+        /// </param>
+        /// <returns>
+        /// The formatted result string, or a placeholder string if the
+        /// specified value is null or empty.
+        /// </returns>
         public static string DisplayResult(
             string value,
             bool ellipsis,
@@ -3100,6 +5078,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified string value for display,
+        /// substituting placeholder strings for null, empty, and all-whitespace
+        /// values.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to format.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The original value, or a placeholder string if it is null, empty, or
+        /// consists entirely of whitespace.
+        /// </returns>
         public static string DisplayValue(
             string value
             )
@@ -3120,6 +5110,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified result string, optionally
+        /// truncating it with an ellipsis and replacing its line endings.
+        /// </summary>
+        /// <param name="value">
+        /// The result string to format.  This value may be null.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero if the result should be truncated with an ellipsis when it
+        /// exceeds the configured limit.
+        /// </param>
+        /// <param name="replaceNewLines">
+        /// Non-zero if the line endings within the result should be normalized
+        /// and replaced with their display equivalents.
+        /// </param>
+        /// <returns>
+        /// The formatted result string.
+        /// </returns>
         public static string Result(
             string value,
             bool ellipsis,
@@ -3144,6 +5152,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the performance, in microseconds per iteration,
+        /// carried by the specified client data for display.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data carrying the performance information.  This value may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The formatted performance string, or a placeholder string if the
+        /// specified client data does not carry performance information.
+        /// </returns>
         public static string PerformanceMicroseconds(
             IClientData clientData
             )
@@ -3157,6 +5177,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified number of microseconds per
+        /// iteration for display.
+        /// </summary>
+        /// <param name="microseconds">
+        /// The number of microseconds per iteration.
+        /// </param>
+        /// <returns>
+        /// The formatted performance string.
+        /// </returns>
         public static string PerformanceMicroseconds(
             double microseconds
             )
@@ -3166,6 +5196,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified number of microseconds per
+        /// iteration for display, including an optional suffix before the units.
+        /// </summary>
+        /// <param name="microseconds">
+        /// The number of microseconds per iteration.
+        /// </param>
+        /// <param name="suffix">
+        /// The optional suffix to include before the units.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted performance string.
+        /// </returns>
         public static string PerformanceMicroseconds(
             double microseconds,
             string suffix
@@ -3178,6 +5222,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified number of milliseconds for
+        /// display.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds.
+        /// </param>
+        /// <returns>
+        /// The formatted millisecond string.
+        /// </returns>
         public static string PerformanceMilliseconds(
             double milliseconds
             )
@@ -3187,6 +5241,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a human-readable summary of a performance
+        /// measurement, including iteration counts, the return code, the
+        /// result, and the average, minimum, and maximum timings.
+        /// </summary>
+        /// <param name="requestedIterations">
+        /// The number of iterations that were requested.
+        /// </param>
+        /// <param name="actualIterations">
+        /// The number of iterations that were actually performed.
+        /// </param>
+        /// <param name="resultIterations">
+        /// The number of iterations used when computing the resulting timings.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by the measured operation.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by the measured operation, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="startCount">
+        /// The raw performance counter value captured at the start of the
+        /// measurement.
+        /// </param>
+        /// <param name="stopCount">
+        /// The raw performance counter value captured at the end of the
+        /// measurement.
+        /// </param>
+        /// <param name="minimumIterationCount">
+        /// The minimum per-iteration count observed, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="maximumIterationCount">
+        /// The maximum per-iteration count observed, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="obfuscate">
+        /// Non-zero to omit and obfuscate the raw counts and timings so that
+        /// they cannot be used to infer absolute performance characteristics.
+        /// </param>
+        /// <returns>
+        /// The formatted, human-readable performance summary string.
+        /// </returns>
         public static string PerformanceWithStatistics(
             long requestedIterations,
             long actualIterations,
@@ -3269,6 +5367,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if HISTORY
+        /// <summary>
+        /// This method formats a single command history entry into a
+        /// name/value pair suitable for display.
+        /// </summary>
+        /// <param name="count">
+        /// The ordinal number of the history entry being formatted.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data containing the history entry to format.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the formatted value with an ellipsis when it
+        /// exceeds the configured history limit.
+        /// </param>
+        /// <param name="replaceNewLines">
+        /// Non-zero to replace any embedded new-line sequences in the formatted
+        /// value.
+        /// </param>
+        /// <returns>
+        /// The formatted name/value pair for the history entry, or null if the
+        /// supplied client data does not contain a history entry.
+        /// </returns>
         public static StringPair HistoryItem(
             int count,
             IClientData clientData,
@@ -3307,6 +5428,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the ellipsis truncation limit, preferring the
+        /// value of the associated environment variable when it is present and
+        /// valid.
+        /// </summary>
+        /// <param name="default">
+        /// The fallback limit to use when the environment variable is missing
+        /// or does not contain a valid integer.
+        /// </param>
+        /// <returns>
+        /// The configured ellipsis limit, or the fallback value.
+        /// </returns>
         private static int GetEllipsisLimit(
             int @default
             )
@@ -3331,6 +5464,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method truncates a string using the default ellipsis limit and
+        /// ellipsis text.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to truncate.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The possibly-truncated string value.
+        /// </returns>
         public static string Ellipsis(
             string value
             )
@@ -3343,6 +5486,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method truncates a string to the specified limit using the
+        /// default ellipsis text.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to truncate.  This parameter may be null.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum length, in characters, of the resulting string.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to reserve room for the ellipsis text within the limit so
+        /// that the overall result does not exceed it.
+        /// </param>
+        /// <returns>
+        /// The possibly-truncated string value.
+        /// </returns>
         public static string Ellipsis(
             string value,
             int limit,
@@ -3355,6 +5515,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method truncates a sub-range of a string to the specified limit
+        /// using the default ellipsis text.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to truncate.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index at which to begin within the string value.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters, starting at <paramref name="startIndex" />,
+        /// to consider.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum length, in characters, of the resulting string.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to reserve room for the ellipsis text within the limit so
+        /// that the overall result does not exceed it.
+        /// </param>
+        /// <returns>
+        /// The possibly-truncated string value.
+        /// </returns>
         public static string Ellipsis(
             string value,
             int startIndex,
@@ -3368,6 +5552,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method truncates a sub-range of a string to the specified limit
+        /// using the supplied ellipsis text.  This is the core implementation
+        /// to which the other overloads delegate.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to truncate.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based index at which to begin within the string value.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters, starting at <paramref name="startIndex" />,
+        /// to consider.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum length, in characters, of the resulting string.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to reserve room for the ellipsis text within the limit so
+        /// that the overall result does not exceed it.
+        /// </param>
+        /// <param name="ellipsis">
+        /// The ellipsis text to append to the truncated string.  This parameter
+        /// may be null or empty, in which case no ellipsis is appended.
+        /// </param>
+        /// <returns>
+        /// The possibly-truncated string value.
+        /// </returns>
         private static string Ellipsis(
             string value,
             int startIndex,
@@ -3438,6 +5651,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY
+        /// <summary>
+        /// This method formats the MD5 and SHA1 components of a hash into a
+        /// human-readable list.
+        /// </summary>
+        /// <param name="hash">
+        /// The hash whose components are to be formatted.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The formatted hash list, or the null display value when the hash is
+        /// null.
+        /// </returns>
         public static string Hash(
             Hash hash
             )
@@ -3451,6 +5676,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the source identifier associated with the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose source identifier is to be retrieved.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The fallback value to return when no source identifier is available.
+        /// </param>
+        /// <returns>
+        /// The source identifier for the assembly, or the fallback value.
+        /// </returns>
         public static string SourceId(
             Assembly assembly,
             string @default
@@ -3462,6 +5701,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the source time stamp associated with the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose source time stamp is to be retrieved.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The fallback value to return when no source time stamp is available.
+        /// </param>
+        /// <returns>
+        /// The source time stamp for the assembly, or the fallback value.
+        /// </returns>
         public static string SourceTimeStamp(
             Assembly assembly,
             string @default
@@ -3473,6 +5726,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the update base URI associated with the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose update base URI is to be retrieved.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The fallback value to return when no update base URI is available.
+        /// </param>
+        /// <returns>
+        /// The update base URI for the assembly, or the fallback value.
+        /// </returns>
         public static string UpdateUri(
             Assembly assembly,
             string @default
@@ -3484,6 +5751,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the download base URI associated with the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose download base URI is to be retrieved.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The fallback value to return when no download base URI is available.
+        /// </param>
+        /// <returns>
+        /// The download base URI for the assembly, or the fallback value.
+        /// </returns>
         public static string DownloadUri(
             Assembly assembly,
             string @default
@@ -3495,6 +5776,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the public key token associated with the
+        /// specified assembly name, formatted as a string.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose public key token is to be retrieved.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The fallback value to return when no public key token is available.
+        /// </param>
+        /// <returns>
+        /// The formatted public key token, or the fallback value.
+        /// </returns>
         public static string PublicKeyToken(
             AssemblyName assemblyName,
             string @default
@@ -3506,6 +5801,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a public key token byte array as a hexadecimal
+        /// string.
+        /// </summary>
+        /// <param name="publicKeyToken">
+        /// The public key token bytes to format.  This parameter may be null
+        /// or empty.
+        /// </param>
+        /// <returns>
+        /// The hexadecimal representation of the public key token, the null
+        /// display value when it is null, or the empty display value when it
+        /// is empty.
+        /// </returns>
         public static string PublicKeyToken(
             byte[] publicKeyToken
             )
@@ -3521,6 +5829,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a fully-qualified type name from its namespace,
+        /// type name, and (optionally) its assembly, producing an
+        /// assembly-qualified name when appropriate.
+        /// </summary>
+        /// <param name="namespaceName">
+        /// The namespace to prepend to the type name when it is not already
+        /// present.  This parameter may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The type name to qualify.  This parameter may be null or empty, in
+        /// which case it is returned unchanged.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly used to assembly-qualify the type name when it is not
+        /// already assembly-qualified.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified type name.
+        /// </returns>
         public static string GetQualifiedTypeFullName(
             string namespaceName,
             string typeName,
@@ -3573,6 +5901,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the strong name information for an assembly,
+        /// including its name, version, public key token, verification status,
+        /// and any strong name tag.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose strong name information is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="strongName">
+        /// The strong name object associated with the assembly.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="verified">
+        /// Non-zero to include the actual strong name verification status of the
+        /// assembly in the formatted output.
+        /// </param>
+        /// <returns>
+        /// The formatted strong name information, or an empty string when it
+        /// cannot be determined.
+        /// </returns>
         public static string StrongName(
             Assembly assembly,
 #if CAS_POLICY
@@ -3676,6 +6025,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the certificate information for an assembly,
+        /// optionally including its trust status.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose location is used when evaluating file trust.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="certificate">
+        /// The certificate whose information is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to evaluate and include the actual file trust status.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include verbose certificate details in the output.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the formatted result, handling the null case.
+        /// </param>
+        /// <returns>
+        /// The formatted certificate information.
+        /// </returns>
         public static string Certificate(
             Interpreter interpreter,
             Assembly assembly,
@@ -3692,6 +6069,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the certificate information for a certificate.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate whose information is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include verbose certificate details in the output.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the formatted result, handling the null case.
+        /// </param>
+        /// <returns>
+        /// The formatted certificate information.
+        /// </returns>
         public static string Certificate(
             X509Certificate certificate,
             bool verbose,
@@ -3708,6 +6101,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the file trust status to the supplied list when
+        /// both the list and file name are available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="list">
+        /// The list to which the trust status is added.  This parameter may be
+        /// null, in which case nothing is added.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose trust status is evaluated.  This
+        /// parameter may be null, in which case nothing is added.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to evaluate the actual file trust status; otherwise, false
+        /// is recorded.
+        /// </param>
         private static void MaybeAddFileTrusted(
             Interpreter interpreter,
             StringList list,
@@ -3727,6 +6140,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the certificate information for a file,
+        /// optionally including its trust status.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="certificate">
+        /// The certificate whose information is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to evaluate and include the actual file trust status.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include verbose certificate details in the output.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the formatted result, handling the null case.
+        /// </param>
+        /// <returns>
+        /// The formatted certificate information.
+        /// </returns>
         public static string Certificate(
             Interpreter interpreter,
             string fileName,
@@ -3749,6 +6190,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the script file extension should be
+        /// appended to the specified path value.
+        /// </summary>
+        /// <param name="value">
+        /// The path value to examine.  This parameter may be null or empty, in
+        /// which case no extension is needed.
+        /// </param>
+        /// <param name="extension">
+        /// Upon success, receives the script file extension that should be
+        /// appended.  This value is only meaningful when this method returns
+        /// true.
+        /// </param>
+        /// <returns>
+        /// True if the script file extension should be appended; otherwise,
+        /// false.
+        /// </returns>
         private static bool NeedScriptExtension(
             string value,
             ref string extension
@@ -3794,6 +6252,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the file name (optionally including a library
+        /// path fragment) associated with the specified script type.
+        /// </summary>
+        /// <param name="scriptType">
+        /// The script type, which may also be a file name, to convert.
+        /// </param>
+        /// <param name="packageType">
+        /// The type of package the script belongs to, used to select the
+        /// library path fragment.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// Non-zero to return only the file name, omitting any library path
+        /// fragment.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to return null when the script type is null or an empty
+        /// string; otherwise, the original value is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The resulting file name, or null upon failure.
+        /// </returns>
         public static string ScriptTypeToFileName(
             string scriptType,
             PackageType packageType,
@@ -3889,6 +6369,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a display-friendly name for the specified
+        /// culture, accounting for the empty name used by the invariant
+        /// culture.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture for which a name is needed.  This parameter may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to prefer the culture's display name.
+        /// </param>
+        /// <returns>
+        /// The name of the culture, or null if no culture was specified.
+        /// </returns>
         public static string CultureName(
             CultureInfo cultureInfo,
             bool display
@@ -3922,6 +6416,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a diagnostic message used when a break or
+        /// failure condition is encountered.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method associated with the break or failure.
+        /// </param>
+        /// <param name="strings">
+        /// The additional strings to include in the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted diagnostic message.
+        /// </returns>
         public static string BreakOrFail(
             string methodName,
             params string[] strings
@@ -3933,6 +6441,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a numeric time zone offset string from a total
+        /// number of seconds.
+        /// </summary>
+        /// <param name="totalSeconds">
+        /// The time zone offset, in seconds, to format.
+        /// </param>
+        /// <returns>
+        /// The formatted numeric time zone offset.
+        /// </returns>
         private static string NumericTimeZone(
             long totalSeconds
             )
@@ -3969,6 +6487,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps a numeric value to one of the words <c>never</c>,
+        /// <c>always</c>, or <c>sometimes</c>.
+        /// </summary>
+        /// <param name="value">
+        /// The value to map: negative yields <c>never</c>, zero yields
+        /// <c>always</c>, and positive yields <c>sometimes</c>.
+        /// </param>
+        /// <returns>
+        /// The word corresponding to the specified value.
+        /// </returns>
         public static string AlwaysOrNever(
             long value
             )
@@ -3983,6 +6512,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using the ISO-8601
+        /// update format.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string Iso8601UpdateDateTime(
             DateTime value
             )
@@ -3992,6 +6531,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using one of the
+        /// trace date and time formats.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.
+        /// </param>
+        /// <param name="interactive">
+        /// Non-zero to use the interactive trace format; otherwise, the
+        /// standard trace format is used.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string TraceDateTime(
             DateTime value,
             bool interactive
@@ -4004,6 +6557,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a UTC date and time from the specified number
+        /// of ticks, returning null if the value is out of range.
+        /// </summary>
+        /// <param name="ticks">
+        /// The number of ticks representing the date and time.
+        /// </param>
+        /// <returns>
+        /// The constructed UTC date and time, or null upon failure.
+        /// </returns>
         public static DateTime? UtcOrNull(
             long ticks
             )
@@ -4021,6 +6584,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified nullable date and time using the
+        /// ISO-8601 full date and time format.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string, or the null display value if no
+        /// value was specified.
+        /// </returns>
         public static string Iso8601FullDateTime(
             DateTime? value
             )
@@ -4033,6 +6607,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using the ISO-8601
+        /// full date and time format.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string Iso8601FullDateTime(
             DateTime value
             )
@@ -4043,6 +6627,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        /// <summary>
+        /// This method formats the specified nullable date and time using the
+        /// ISO-8601 date and time format with seconds precision.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string, or the null display value if no
+        /// value was specified.
+        /// </returns>
         public static string Iso8601DateTimeSeconds(
             DateTime? value
             )
@@ -4055,6 +6650,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified date and time using the ISO-8601
+        /// date and time format with seconds precision.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string Iso8601DateTimeSeconds(
             DateTime value
             )
@@ -4065,6 +6670,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified nullable date and time using the
+        /// ISO-8601 date and time format, without a time zone offset.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string Iso8601DateTime(
             DateTime? value
             )
@@ -4074,6 +6689,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified nullable date and time using the
+        /// ISO-8601 date and time format, optionally including a time zone
+        /// offset.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to format.  This parameter may be null, in which
+        /// case the minimum date and time value is used.
+        /// </param>
+        /// <param name="timeZone">
+        /// Non-zero to append the numeric time zone offset for local or UTC
+        /// values.
+        /// </param>
+        /// <returns>
+        /// The formatted date and time string.
+        /// </returns>
         public static string Iso8601DateTime(
             DateTime? value,
             bool timeZone
@@ -4107,6 +6738,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the setting key associated with the specified
+        /// identifier name and variable index.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The identifier providing the variable name.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="arrayValue">
+        /// The array element dictionary associated with the variable, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The resulting setting key.  This method cannot return null.
+        /// </returns>
         public static string SettingKey(
             IIdentifierName identifierName,
             ElementDictionary arrayValue,
@@ -4138,6 +6787,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error display name for the specified
+        /// variable.
+        /// </summary>
+        /// <param name="variable">
+        /// The variable associated with the error.  This parameter may be null.
+        /// </param>
+        /// <param name="linkIndex">
+        /// The link index associated with the variable, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted error variable name.
+        /// </returns>
         public static string ErrorVariableName(
             IVariable variable,
             string linkIndex,
@@ -4150,6 +6819,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error display name for the variable with the
+        /// specified name.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <returns>
+        /// The formatted error variable name.
+        /// </returns>
         public static string ErrorVariableName(
             string varName
             )
@@ -4159,6 +6838,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error display name for the variable with the
+        /// specified name and array element index.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted error variable name.
+        /// </returns>
         public static string ErrorVariableName(
             string varName,
             string varIndex
@@ -4170,6 +6862,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified value with the configured prefix and
+        /// suffix.
+        /// </summary>
+        /// <param name="value">
+        /// The value to wrap.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped value, or the null display value if no value was
+        /// specified.  This method cannot return null.
+        /// </returns>
         private static string SomeKindOfPrefixAndSuffix(
             string value
             ) /* CANNOT RETURN NULL */
@@ -4197,6 +6900,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the contents of the specified string builder with
+        /// the configured prefix and suffix, in place.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder whose contents are wrapped.  This parameter may
+        /// be null.
+        /// </param>
         private static void SomeKindOfPrefixAndSuffix(
             StringBuilder builder
             ) /* CANNOT RETURN NULL */
@@ -4216,6 +6927,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error message used when an array element
+        /// does not exist.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type describing the operation being attempted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         public static string ErrorElementName(
             BreakpointType breakpointType,
             string varName,
@@ -4230,6 +6957,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error message used when a variable is, or is
+        /// not, an array as required.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type describing the operation being attempted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="isArray">
+        /// Non-zero if the variable is an array; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         public static string MissingElementName(
             BreakpointType breakpointType,
             string varName,
@@ -4245,6 +6988,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error message used when a variable does not
+        /// exist.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type describing the operation being attempted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="suffix">
+        /// An additional suffix to append to the error message.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         public static string MissingVariableName(
             BreakpointType breakpointType,
             string varName,
@@ -4259,6 +7018,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the error message used when the values for a
+        /// variable are unavailable.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type describing the operation being attempted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable.
+        /// </param>
+        /// <param name="suffix">
+        /// An additional suffix to append to the error message.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         public static string MissingValuesName(
             BreakpointType breakpointType,
             string varName,
@@ -4273,6 +7048,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the display name for the specified variable,
+        /// including the array element index when present.
+        /// </summary>
+        /// <param name="varName">
+        /// The name of the variable.  This parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted variable name, or null if no variable name was
+        /// specified together with an array element index.
+        /// </returns>
         public static string VariableName(
             string varName,
             string varIndex
@@ -4291,6 +7080,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the verb associated with the specified
+        /// breakpoint type, using the empty string as the default.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type to translate into a verb.
+        /// </param>
+        /// <returns>
+        /// The verb associated with the breakpoint type.
+        /// </returns>
         public static string Breakpoint(
             BreakpointType breakpointType
             )
@@ -4300,6 +7099,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the verb associated with the specified
+        /// breakpoint type, using the supplied default when there is no match.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The breakpoint type to translate into a verb.
+        /// </param>
+        /// <param name="default">
+        /// The default verb to return when the breakpoint type does not map to
+        /// a known verb.
+        /// </param>
+        /// <returns>
+        /// The verb associated with the breakpoint type, or the default value.
+        /// </returns>
         private static string Breakpoint(
             BreakpointType breakpointType,
             string @default
@@ -4329,6 +7142,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the fully qualified type name for the function
+        /// with the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The simple name of the function.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name with the configured prefix and
+        /// suffix.
+        /// </param>
+        /// <returns>
+        /// The fully qualified function type name.
+        /// </returns>
         public static string FunctionTypeName(
             string name,
             bool wrap
@@ -4343,6 +7170,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the fully qualified type name for the operator
+        /// with the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The simple name of the operator.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name with the configured prefix and
+        /// suffix.
+        /// </param>
+        /// <returns>
+        /// The fully qualified operator type name.
+        /// </returns>
         public static string OperatorTypeName(
             string name,
             bool wrap
@@ -4357,6 +7198,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified byte array for display as a string
+        /// of hexadecimal pairs.
+        /// </summary>
+        /// <param name="bytes">
+        /// The byte array to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted byte array, or the null or empty display value as
+        /// appropriate.
+        /// </returns>
         public static string DisplayByteArray(
             byte[] bytes
             )
@@ -4372,6 +7224,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a hash of the specified bytes and formats it
+        /// for display.
+        /// </summary>
+        /// <param name="bytes">
+        /// The bytes to hash.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted hash value, or an error display value upon failure.
+        /// </returns>
         public static string HashBytes(
             byte[] bytes
             )
@@ -4385,6 +7247,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified hash bytes as an unbroken string
+        /// of hexadecimal characters.
+        /// </summary>
+        /// <param name="bytes">
+        /// The hash bytes to format.
+        /// </param>
+        /// <returns>
+        /// The formatted hash string.
+        /// </returns>
         public static string Hash(
             byte[] bytes
             )
@@ -4395,6 +7267,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a call frame level, optionally marking it as
+        /// absolute with a leading number sign.
+        /// </summary>
+        /// <param name="absolute">
+        /// Non-zero to prefix the level with a number sign indicating an
+        /// absolute level.
+        /// </param>
+        /// <param name="level">
+        /// The level value to format.
+        /// </param>
+        /// <returns>
+        /// The formatted level string.
+        /// </returns>
         public static string Level(
             bool absolute,
             int level
@@ -4410,6 +7296,21 @@ namespace Eagle._Components.Private
 
 #if ARGUMENT_CACHE || LIST_CACHE || PARSE_CACHE || EXECUTE_CACHE || TYPE_CACHE || COM_TYPE_CACHE
 #if CACHE_DICTIONARY
+        /// <summary>
+        /// This method formats the cache flags dictionary as a list of enabled
+        /// and disabled entries.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary mapping cache flags to their counts.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return display values for the null and empty cases.
+        /// </param>
+        /// <returns>
+        /// The formatted list of cache flag entries, or null or a display value
+        /// as appropriate.
+        /// </returns>
         public static string MaybeEnableOrDisable(
             Dictionary<CacheFlags, int> dictionary,
             bool display
@@ -4432,6 +7333,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified namespace for display.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted namespace, or the null display value if no namespace
+        /// was specified.
+        /// </returns>
         public static string DisplayNamespace(
             INamespace @namespace
             )
@@ -4444,6 +7355,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified collection of
+        /// script locations.
+        /// </summary>
+        /// <param name="scriptLocations">
+        /// The collection of script locations to display.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified collection of script
+        /// locations.
+        /// </returns>
         public static string DisplayScriptLocationList(
             ScriptLocationList scriptLocations
             )
@@ -4465,6 +7388,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SCRIPT_ARGUMENTS
+        /// <summary>
+        /// This method builds a display string for the specified collection of
+        /// script arguments.
+        /// </summary>
+        /// <param name="scriptArguments">
+        /// The collection of script arguments to display.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified collection of script
+        /// arguments.
+        /// </returns>
         public static string DisplayScriptArgumentsQueue(
             ArgumentListStack scriptArguments
             )
@@ -4481,6 +7416,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified regular
+        /// expression.
+        /// </summary>
+        /// <param name="value">
+        /// The regular expression to display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified regular expression.
+        /// </returns>
         public static string DisplayString(
             Regex value
             )
@@ -4493,6 +7438,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified string value.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified string value.
+        /// </returns>
         public static string DisplayString(
             string value
             )
@@ -4502,6 +7456,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified string value,
+        /// optionally wrapping it.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to display.  This parameter may be null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting display string.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified string value.
+        /// </returns>
         private static string DisplayString(
             string value,
             bool wrap
@@ -4520,6 +7487,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified string
+        /// builder.
+        /// </summary>
+        /// <param name="value">
+        /// The string builder to display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified string builder.
+        /// </returns>
         public static string DisplayString(
             StringBuilder value
             )
@@ -4529,6 +7506,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified string
+        /// builder, optionally wrapping it.
+        /// </summary>
+        /// <param name="value">
+        /// The string builder to display.  This parameter may be null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting display string.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified string builder.
+        /// </returns>
         private static string DisplayString(
             StringBuilder value,
             bool wrap
@@ -4547,6 +7537,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified array of
+        /// characters.
+        /// </summary>
+        /// <param name="value">
+        /// The array of characters to display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified array of characters.
+        /// </returns>
         public static string DisplayChars(
             char[] value
             )
@@ -4566,6 +7566,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified width and
+        /// height.
+        /// </summary>
+        /// <param name="width">
+        /// The width value to display.
+        /// </param>
+        /// <param name="height">
+        /// The height value to display.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified width and height.
+        /// </returns>
         public static string DisplayWidthAndHeight(
             int width,
             int height
@@ -4577,6 +7590,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the type of the specified
+        /// exception.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception whose type is to be displayed.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="innermost">
+        /// Non-zero to use the innermost (base) exception instead of the
+        /// specified exception.
+        /// </param>
+        /// <returns>
+        /// The display string for the type of the specified exception.
+        /// </returns>
         public static string DisplayException(
             Exception exception,
             bool innermost
@@ -4595,6 +7623,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the keys of the specified
+        /// dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose keys are to be displayed.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the keys of the specified dictionary.
+        /// </returns>
         public static string DisplayKeys(
             IDictionary dictionary
             )
@@ -4612,6 +7651,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified list.
+        /// </returns>
         public static string DisplayList(
             IList list
             )
@@ -4629,6 +7677,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the specified list by
+        /// traversing its elements and formatting each one individually.
+        /// </summary>
+        /// <param name="list">
+        /// The list to traverse and display.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The display string for the specified list.
+        /// </returns>
         public static string DisplayTraverseList(
             IList list
             )
@@ -4705,6 +7763,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a combined name and version string from the
+        /// specified components.
+        /// </summary>
+        /// <param name="name">
+        /// The name component of the resulting string.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="version">
+        /// The version component of the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="build">
+        /// The build component of the resulting string.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="extra">
+        /// The extra trailing component of the resulting string.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined name and version string.
+        /// </returns>
         public static string NameAndVersion(
             string name,
             Version version,
@@ -4718,6 +7799,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a combined name and version string from the
+        /// specified components.
+        /// </summary>
+        /// <param name="name">
+        /// The name component of the resulting string.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="version">
+        /// The version component of the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="build">
+        /// The build component of the resulting string.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="extra">
+        /// The extra trailing component of the resulting string.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined name and version string.
+        /// </returns>
         private static string NameAndVersion(
             string name,
             string version,
@@ -4739,6 +7843,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a fixed four-part version string from the
+        /// specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version to format.  This parameter may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display placeholder when the specified version
+        /// is null; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The fixed four-part version string for the specified version.
+        /// </returns>
         public static string FixedVersion(
             Version version,
             bool display
@@ -4754,6 +7872,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a fixed four-part version string from the
+        /// specified version components.
+        /// </summary>
+        /// <param name="major">
+        /// The major component of the version.
+        /// </param>
+        /// <param name="minor">
+        /// The minor component of the version.
+        /// </param>
+        /// <param name="build">
+        /// The build component of the version.
+        /// </param>
+        /// <param name="revision">
+        /// The revision component of the version.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display-formatted result.
+        /// </param>
+        /// <returns>
+        /// The fixed four-part version string for the specified components.
+        /// </returns>
         public static string FixedVersion(
             int major,
             int minor,
@@ -4769,6 +7909,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a major and minor version string, prefixed with
+        /// the letter "v", for the specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The prefixed major and minor version string, or a display
+        /// placeholder when the specified version is null.
+        /// </returns>
         public static string VMajorMinorOrNull(
             Version version
             )
@@ -4781,6 +7932,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a major and minor version string for the
+        /// specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The major and minor version string for the specified version, or
+        /// the empty string when the specified version is null.
+        /// </returns>
         public static string MajorMinor(
             Version version
             )
@@ -4790,6 +7952,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a major and minor version string for the
+        /// specified version, surrounded by the specified prefix and suffix.
+        /// </summary>
+        /// <param name="version">
+        /// The version to format.  This parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to prepend to the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to append to the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The major and minor version string for the specified version, or
+        /// the empty string when the specified version is null.
+        /// </returns>
         public static string MajorMinor(
             Version version,
             string prefix,
@@ -4802,6 +7983,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a full platform name string describing the
+        /// runtime, configuration, platform, process bits, and machine
+        /// associated with the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly for which to build the full platform name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The full platform name string for the specified assembly.
+        /// </returns>
         public static string FullPlatformName(
             Assembly assembly
             )
@@ -4834,6 +8027,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a short image runtime version (or runtime
+        /// version) string for the specified assembly, accounting for the
+        /// quirks of the Mono and .NET Core runtimes.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose image runtime version is to be formatted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="treatAsMono">
+        /// Non-zero to treat the current runtime as Mono, zero to treat it as
+        /// not Mono, or null to detect this automatically.
+        /// </param>
+        /// <param name="treatAsDotNetCore">
+        /// Non-zero to treat the current runtime as .NET Core, zero to treat
+        /// it as not .NET Core, or null to detect this automatically.
+        /// </param>
+        /// <returns>
+        /// The short image runtime version string for the specified assembly.
+        /// </returns>
         public static string ShortImageOrRuntimeVersion(
             Assembly assembly,
             bool? treatAsMono,
@@ -4898,6 +8111,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a short name identifying the kind of runtime
+        /// that is currently executing (e.g. .NET, Core, Mono, or CLR).
+        /// </summary>
+        /// <returns>
+        /// The short runtime name for the currently executing runtime.
+        /// </returns>
         private static string ShortRuntimeName()
         {
             if (CommonOps.Runtime.IsDotNetCore())
@@ -4922,6 +8142,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a short runtime version string, combining the
+        /// short runtime name with the major version of the specified version.
+        /// </summary>
+        /// <param name="value">
+        /// The runtime version to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The short runtime version string, or null when the specified
+        /// version is null.
+        /// </returns>
         public static string ShortRuntimeVersion( /* e.g. "CLRv4", "Core3", "NET5", etc. */
             Version value
             )
@@ -4935,6 +8166,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a short image runtime version string from the
+        /// specified image runtime version value.
+        /// </summary>
+        /// <param name="value">
+        /// The image runtime version value to format.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The short image runtime version string, or null when the specified
+        /// value is null or cannot be parsed.
+        /// </returns>
         public static string ShortImageRuntimeVersion( /* e.g. "CLRv2" or "CLRv4" */
             string value
             )
@@ -4958,6 +8201,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified assembly text, runtime version,
+        /// and configuration into a single string, surrounded by the specified
+        /// prefix and suffix.
+        /// </summary>
+        /// <param name="text">
+        /// The assembly text component.  This parameter may be null.
+        /// </param>
+        /// <param name="runtimeVersion">
+        /// The runtime version component.  This parameter may be null.
+        /// </param>
+        /// <param name="configuration">
+        /// The configuration component.  This parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to prepend to the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to append to the resulting string.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The combined string, or the empty string when all of the
+        /// components are missing.
+        /// </returns>
         public static string AssemblyTextAndConfiguration(
             string text,
             string runtimeVersion,
@@ -5000,6 +8269,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified error result and exception into
+        /// a single string suitable for display.
+        /// </summary>
+        /// <param name="error">
+        /// The error result component.  This parameter may be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception component.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined error and exception string, or the empty string when
+        /// both components are missing.
+        /// </returns>
         public static string ErrorWithException(
             Result error,
             Exception exception
@@ -5034,6 +8317,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a flattened variable name from the specified
+        /// array name and index, replacing commas in the index with
+        /// underscores.
+        /// </summary>
+        /// <param name="name">
+        /// The array name component.  This parameter may be null.
+        /// </param>
+        /// <param name="index">
+        /// The array index component.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The flattened variable name for the specified array name and index.
+        /// </returns>
         public static string NestedArrayName(
             string name,
             string index
@@ -5057,6 +8354,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the raw name of the
+        /// specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose raw name is to be displayed.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The display string for the raw name of the specified type.
+        /// </returns>
         public static string InvokeRawTypeName(
             Type type
             )
@@ -5069,6 +8377,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a display string for the raw name of the
+        /// specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to include the fully qualified type name; otherwise, only
+        /// the simple type name is used.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or a placeholder string when the
+        /// type is null.
+        /// </returns>
         private static string InvokeRawTypeName(
             Type type,
             bool full
@@ -5084,6 +8407,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the raw, simple name of the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string RawTypeName(
             Type type
             )
@@ -5093,6 +8425,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the raw, simple name of the type of the
+        /// specified object instance.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string RawTypeName(
             object @object
             )
@@ -5104,6 +8447,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method formats the raw name, optionally fully qualified, of the
+        /// specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         private static string RawTypeNameOrFullName(
             Type type
             )
@@ -5115,6 +8468,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the raw name, optionally fully qualified, of
+        /// the type of the specified object instance.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string RawTypeNameOrFullName(
             object @object
             )
@@ -5125,6 +8489,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// This method formats a value that may be either a type or a string
+        /// name for display.
+        /// </summary>
+        /// <param name="typeOrName">
+        /// The value to format.  When it is a type, its type name is used;
+        /// when it is a string, the string itself is used.
+        /// </param>
+        /// <returns>
+        /// The formatted display string, or a type mismatch placeholder when
+        /// the value is neither a type nor a string.
+        /// </returns>
         public static string TypeOrName(
             object typeOrName
             )
@@ -5141,6 +8517,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the specified type for display.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or a placeholder string when the
+        /// type is null.
+        /// </returns>
         public static string TypeName(
             Type type
             )
@@ -5150,6 +8536,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name, optionally fully qualified, of the
+        /// specified type for display.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or a placeholder string when the
+        /// type is null.
+        /// </returns>
         public static string TypeNameOrFullName(
             Type type
             )
@@ -5162,6 +8559,21 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method formats the name of the specified type for display,
+        /// optionally wrapping the result.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the formatted type name; otherwise, the name is
+        /// returned without wrapping.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or a placeholder string when the
+        /// type is null.
+        /// </returns>
         public static string TypeName(
             Type type,
             bool wrap
@@ -5172,6 +8584,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name, optionally fully qualified, of the
+        /// specified type for display, optionally wrapping the result.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the formatted type name; otherwise, the name is
+        /// returned without wrapping.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or a placeholder string when the
+        /// type is null.
+        /// </returns>
         private static string TypeNameOrFullName(
             Type type,
             bool wrap
@@ -5184,6 +8611,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the fully qualified name of the specified type
+        /// for display, optionally wrapping it.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <param name="default">
+        /// The string to return when the type is null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or the default string when the
+        /// type is null.
+        /// </returns>
         private static string TypeName(
             Type type,
             string @default,
@@ -5198,6 +8643,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the specified type for display,
+        /// optionally using the fully qualified form and optionally wrapping
+        /// it.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted.  May be null.
+        /// </param>
+        /// <param name="default">
+        /// The string to return when the type is null.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to use the fully qualified type name; otherwise, only the
+        /// simple type name is used.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string, or the default string when the
+        /// type is null.
+        /// </returns>
         public static string TypeNameOrFullName(
             Type type,
             string @default,
@@ -5215,6 +8683,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the type of the specified object
+        /// instance for display.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string TypeName(
             object @object
             )
@@ -5224,6 +8703,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name, optionally fully qualified, of the
+        /// type of the specified object instance for display.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string TypeNameOrFullName(
             object @object
             )
@@ -5233,6 +8723,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the type of the specified object
+        /// instance for display, optionally wrapping it.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string TypeName(
             object @object,
             bool wrap
@@ -5244,6 +8749,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name, optionally fully qualified, of the
+        /// type of the specified object instance for display, optionally
+        /// wrapping it.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         private static string TypeNameOrFullName(
             object @object,
             bool wrap
@@ -5255,6 +8776,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the type of the specified object
+        /// instance for display, accounting for null values and transparent
+        /// proxies and optionally wrapping the result.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <param name="nullTypeName">
+        /// The string to use when the underlying type cannot be determined.
+        /// </param>
+        /// <param name="proxyTypeName">
+        /// The string to use when the object instance is a transparent proxy.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         public static string TypeName(
             object @object,
             string nullTypeName,
@@ -5279,6 +8822,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name, optionally fully qualified, of the
+        /// type of the specified object instance for display, accounting for
+        /// null values and transparent proxies and optionally wrapping the
+        /// result.
+        /// </summary>
+        /// <param name="object">
+        /// The object instance whose type name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <param name="nullTypeName">
+        /// The string to use when the underlying type cannot be determined.
+        /// </param>
+        /// <param name="proxyTypeName">
+        /// The string to use when the object instance is a transparent proxy.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting name; otherwise, the name is
+        /// returned unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted type name string.
+        /// </returns>
         private static string TypeNameOrFullName(
             object @object,
             string nullTypeName,
@@ -5304,6 +8870,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        /// <summary>
+        /// This method formats an IP address together with a port number for
+        /// display.
+        /// </summary>
+        /// <param name="address">
+        /// The IP address to format.  When null, a wildcard address is used.
+        /// </param>
+        /// <param name="port">
+        /// The port number to format.  When invalid, only the address is
+        /// formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted address and port string.
+        /// </returns>
         public static string IpAddressAndPort(
             IPAddress address,
             int port
@@ -5324,6 +8904,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a network host name or address together with a
+        /// port name or number for display.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or address to format.  May be null.
+        /// </param>
+        /// <param name="portNameOrNumber">
+        /// The port name or number to format.  When null, only the host is
+        /// formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted host and port string.
+        /// </returns>
         public static string NetworkHostAndPort(
             string hostNameOrAddress,
             string portNameOrNumber
@@ -5347,6 +8941,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the specified member for display.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member whose name is to be formatted.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted member name string, or a placeholder string when the
+        /// member is null.
+        /// </returns>
         public static string MemberName(
             MemberInfo memberInfo
             )
@@ -5360,6 +8964,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method formats the bridge name that links a Tcl interpreter
+        /// with a command name.
+        /// </summary>
+        /// <param name="interpName">
+        /// The name of the Tcl interpreter.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the command.
+        /// </param>
+        /// <returns>
+        /// The formatted bridge name string.
+        /// </returns>
         public static string TclBridgeName(
             string interpName,
             string commandName
@@ -5371,6 +8988,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a package name together with an optional
+        /// version for display.
+        /// </summary>
+        /// <param name="name">
+        /// The package name to format.  May be null.
+        /// </param>
+        /// <param name="version">
+        /// The package version to format.  When null, only the name is
+        /// formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted package name string.
+        /// </returns>
         public static string PackageName(
             string name,
             Version version
@@ -5384,6 +9015,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the directory name used for a package of the
+        /// specified name and version.
+        /// </summary>
+        /// <param name="name">
+        /// The package name.
+        /// </param>
+        /// <param name="version">
+        /// The package version.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to prepend the standard library directory prefix;
+        /// otherwise, only the package-specific portion is used.
+        /// </param>
+        /// <returns>
+        /// The formatted package directory name string.
+        /// </returns>
         public static string PackageDirectory(
             string name,
             Version version,
@@ -5397,6 +9045,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the identifier and main module file name of
+        /// the specified process for display.
+        /// </summary>
+        /// <param name="process">
+        /// The process to format.  May be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a placeholder string when the process is null;
+        /// otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The formatted process string, a placeholder string, or null.
+        /// </returns>
         public static string ProcessName(
             Process process,
             bool display
@@ -5429,6 +9091,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the managed identifier and name of the
+        /// specified thread for display.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread to format.  May be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a placeholder string when the thread is null;
+        /// otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The formatted thread string, a placeholder string, or null.
+        /// </returns>
         public static string ThreadName(
             Thread thread,
             bool display
@@ -5460,6 +9136,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a numeric range for display, producing either a
+        /// range expression or a single exact value.
+        /// </summary>
+        /// <param name="lowerBound">
+        /// The lower bound of the range.
+        /// </param>
+        /// <param name="upperBound">
+        /// The upper bound of the range.
+        /// </param>
+        /// <returns>
+        /// A range expression when the bounds differ, the single value when
+        /// they are equal, or a placeholder string when no value is
+        /// available.
+        /// </returns>
         public static string BetweenOrExact(
             int lowerBound,
             int upperBound
@@ -5483,6 +9174,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the display name for the specified identifier,
+        /// resolving an ensemble sub-command name from the supplied arguments
+        /// when applicable.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The identifier whose display name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve an ensemble sub-command.  May be
+        /// null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments that may contain the ensemble sub-command name.  May
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The formatted display name string.
+        /// </returns>
         public static string DisplayName(
             IIdentifierName identifierName,
             Interpreter interpreter,
@@ -5519,6 +9230,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the display name for the specified identifier.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The identifier whose display name is to be formatted.  May be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted display name string, or a placeholder string when
+        /// the identifier is null.
+        /// </returns>
         public static string DisplayName(
             IIdentifierName identifierName
             )
@@ -5529,6 +9251,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified name for display, quoting it when
+        /// necessary.
+        /// </summary>
+        /// <param name="name">
+        /// The name to format.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted display name string, or a placeholder string when
+        /// the name is null or empty.
+        /// </returns>
         public static string DisplayName(
             string name
             )
@@ -5555,6 +9288,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified file system path for display.
+        /// </summary>
+        /// <param name="path">
+        /// The path to format.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted path string, or a placeholder string when the path
+        /// is null.
+        /// </returns>
         public static string DisplayPath(
             string path
             )
@@ -5567,6 +9310,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the full name, module version identifier,
+        /// location, and code base of the specified assembly for display.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to format.  May be null.
+        /// </param>
+        /// <returns>
+        /// The formatted assembly description string, or a placeholder string
+        /// when the assembly is null.
+        /// </returns>
         public static string DisplayAssemblyName(
             Assembly assembly
             )
@@ -5616,6 +9370,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified assembly name, optionally
+        /// including an identifier and path information, for display.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name to format.  May be null.
+        /// </param>
+        /// <param name="id">
+        /// An identifier to include in the result.  When zero, no identifier
+        /// is included.
+        /// </param>
+        /// <param name="paths">
+        /// Non-zero to include path information in the result.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting string; otherwise, it is returned
+        /// unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted assembly name string, or null when there is no
+        /// assembly name and wrapping is not requested.
+        /// </returns>
         public static string AssemblyName(
             AssemblyName assemblyName,
             long id,
@@ -5647,6 +9423,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of the specified assembly, including
+        /// its module version identifier and optionally an identifier and path
+        /// information, for display.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to format.  May be null.
+        /// </param>
+        /// <param name="id">
+        /// An identifier to include in the result.  When zero, no identifier
+        /// is included.
+        /// </param>
+        /// <param name="paths">
+        /// Non-zero to include path information in the result.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero to wrap the resulting string; otherwise, it is returned
+        /// unwrapped.
+        /// </param>
+        /// <returns>
+        /// The formatted assembly name string, or null when there is no
+        /// assembly and wrapping is not requested.
+        /// </returns>
         public static string AssemblyName(
             Assembly assembly,
             long id,
@@ -5699,6 +9498,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a unique event name by combining the specified
+        /// prefix and name with information that uniquely identifies the
+        /// current process, thread, and application domain, along with an
+        /// ever-increasing serial number that is unique within the application
+        /// domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose identifier should be included in the event
+        /// name, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to include at the start of the event name, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The base name to include in the event name, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id">
+        /// An extra identifier to include in the event name.  A value of zero
+        /// is omitted.
+        /// </param>
+        /// <returns>
+        /// The constructed unique event name.
+        /// </returns>
         public static string EventName(
             Interpreter interpreter,
             string prefix,
@@ -5727,6 +9552,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the default host associated with the specified
+        /// interpreter so that it treats subsequent output as a fatal error
+        /// when the specified trace priority includes the fatal flag.  It does
+        /// nothing when there is no interpreter, no trace priority, or no
+        /// default host.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags to check, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter whose default host should be updated.  This
+        /// parameter may be null.
+        /// </param>
         private static void MaybeTreatAsFatalError(
             _TracePriority? priority,
             Interpreter interpreter
@@ -5754,6 +9594,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a duplicate method name prefix from the start of
+        /// the specified message when the use of real class and method names is
+        /// enabled.
+        /// </summary>
+        /// <param name="methodName">
+        /// The fully qualified method name whose final component may appear as
+        /// a prefix on the message.  This parameter may be null.
+        /// </param>
+        /// <param name="method">
+        /// Non-zero if real method names are enabled and the prefix should be
+        /// considered for removal.
+        /// </param>
+        /// <param name="message">
+        /// The message to modify.  Upon return, any duplicate method name
+        /// prefix is removed from the start of this message.
+        /// </param>
         private static void MaybeRemoveMethodName(
             string methodName, /* in */
             bool method,       /* in */
@@ -5800,6 +9657,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified trace priority as a string,
+        /// optionally including its non-base flag bits in hexadecimal.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to format.
+        /// </param>
+        /// <param name="baseOnly">
+        /// Non-zero to return only the name of the base trace priority;
+        /// otherwise, the remaining flag bits are appended in hexadecimal.
+        /// </param>
+        /// <param name="shortName">
+        /// Non-zero to use the short name of the base trace priority.
+        /// </param>
+        /// <returns>
+        /// The formatted trace priority string.
+        /// </returns>
         public static string TracePriority(
             _TracePriority priority,
             bool baseOnly,
@@ -5831,6 +9705,18 @@ namespace Eagle._Components.Private
         //       called by DebugTrace, which is used everywhere.  Accessing the
         //       interpreter requires a lock and a try/catch block.
         //
+        /// <summary>
+        /// This method formats the specified interpreter as a string suitable
+        /// for use in trace output, taking care not to throw an exception even
+        /// when the interpreter has been disposed or cannot be locked.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to format.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the interpreter, or a placeholder value
+        /// indicating that it is null, disposed, busy, or in error.
+        /// </returns>
         public static string TraceInterpreter(
             Interpreter interpreter
             )
@@ -5887,6 +9773,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified trace category and message into a
+        /// single string.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to prepend to the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The message prefixed with the category, or the message alone when
+        /// the category is null.
+        /// </returns>
         public static string TraceWrite(
             string message,
             string category
@@ -5900,6 +9801,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the set of trace indicator flags that apply
+        /// to the current trace operation based on the specified trace
+        /// priority, interpreter, and the current thread.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags to examine, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace operation, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="includeListeners">
+        /// Non-zero to include indicator flags derived from the configured
+        /// trace listeners.
+        /// </param>
+        /// <returns>
+        /// The calculated trace indicator flags.
+        /// </returns>
         private static TraceIndicatorFlags TraceIndicators(
             _TracePriority? priority,
             Interpreter interpreter,
@@ -5966,6 +9887,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally augments the specified trace output format
+        /// string with a representation of the applicable trace indicator
+        /// flags.
+        /// </summary>
+        /// <param name="format">
+        /// The base trace output format string.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags used when calculating the trace indicators,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter used when calculating the trace indicators, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The format string, possibly augmented with the trace indicator
+        /// flags.
+        /// </returns>
         private static string GetTraceOutputFormat(
             string format,
             _TracePriority? priority,
@@ -5999,6 +9940,62 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a complete trace message from its constituent
+        /// parts, automatically determining the calling method name and
+        /// discarding the resolved trace category and method name.
+        /// </summary>
+        /// <param name="format">
+        /// The format string used to lay out the trace message.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to include in the trace message, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time to include in the trace message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="serverName">
+        /// The name of the web server associated with the message, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="testName">
+        /// The name of the test associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the message, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread associated with the message, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message text.
+        /// </param>
+        /// <param name="method">
+        /// Non-zero to include the calling method name in the trace message.
+        /// </param>
+        /// <param name="stack">
+        /// Non-zero to include a stack trace in the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of stack frames to skip when determining the calling
+        /// method name.
+        /// </param>
+        /// <returns>
+        /// The formatted trace message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string TraceOutput(
             string format,
@@ -6035,6 +10032,70 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a complete trace message from its constituent
+        /// parts, automatically determining the calling method name and
+        /// reporting the resolved trace category and method name to the caller.
+        /// </summary>
+        /// <param name="format">
+        /// The format string used to lay out the trace message.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to include in the trace message, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dateTime">
+        /// The date and time to include in the trace message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="serverName">
+        /// The name of the web server associated with the message, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="testName">
+        /// The name of the test associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain associated with the message, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the message, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread associated with the message, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message text.
+        /// </param>
+        /// <param name="method">
+        /// Non-zero to include the calling method name in the trace message.
+        /// </param>
+        /// <param name="stack">
+        /// Non-zero to include a stack trace in the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of stack frames to skip when determining the calling
+        /// method name.
+        /// </param>
+        /// <param name="category">
+        /// The trace category.  Upon return, this may be set to the type name
+        /// of the calling method when it could be determined.
+        /// </param>
+        /// <param name="methodName">
+        /// Upon return, this is set to the name of the calling method, when it
+        /// could be determined.
+        /// </param>
+        /// <returns>
+        /// The formatted trace message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string TraceOutput(
             string format,
@@ -6153,6 +10214,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified exception as a string for use in
+        /// trace output, optionally including the current stack trace.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to format.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags controlling the formatting.  When the
+        /// <c>ForException</c> flag is set, the current stack trace is also
+        /// included.
+        /// </param>
+        /// <returns>
+        /// The formatted exception string.
+        /// </returns>
         public static string TraceException(
             Exception exception,
             _TracePriority priority
@@ -6186,6 +10262,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string identifying the method where the
+        /// specified exception was thrown.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to examine.  This parameter may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a placeholder value when the method cannot be
+        /// determined; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The string identifying the throwing method, a placeholder value, or
+        /// null.
+        /// </returns>
         public static string ExceptionMethod(
             Exception exception,
             bool display
@@ -6212,6 +10303,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an identifier string from the specified prefix,
+        /// name, and integer identifier.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="id">
+        /// The integer identifier to include.  A value of zero is omitted.
+        /// </param>
+        /// <returns>
+        /// The constructed identifier string.
+        /// </returns>
         public static string Id(
             string prefix,
             string name,
@@ -6223,6 +10330,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an identifier string from the specified prefix,
+        /// name, and string identifier.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="id">
+        /// The string identifier to include, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The constructed identifier string.
+        /// </returns>
         public static string Id(
             string prefix,
             string name,
@@ -6234,6 +10358,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an identifier string by joining the specified
+        /// prefix, name, and up to six string identifiers, separating the
+        /// non-empty components with a number sign.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to include, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="id1">
+        /// The first identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id2">
+        /// The second identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id3">
+        /// The third identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id4">
+        /// The fourth identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id5">
+        /// The fifth identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="id6">
+        /// The sixth identifier component to include, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed identifier string.
+        /// </returns>
         public static string Id(
             string prefix,
             string name,
@@ -6317,6 +10479,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER || SHELL
+        /// <summary>
+        /// This method formats interactive loop data into a human-readable
+        /// string suitable for use in trace and diagnostic output.
+        /// </summary>
+        /// <param name="loopData">
+        /// The interactive loop data to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the interactive loop data.
+        /// </returns>
         public static string InteractiveLoopData(
             IInteractiveLoopData loopData
             )
@@ -6336,6 +10508,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method formats a date/time value associated with an update
+        /// check into a string using the standard update date/time format.
+        /// </summary>
+        /// <param name="value">
+        /// The date/time value to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the date/time value, or an
+        /// empty string if it is null.
+        /// </returns>
         public static string UpdateDateTime(
             DateTime? value
             )
@@ -6348,6 +10531,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats shell callback data into a human-readable
+        /// string suitable for use in trace and diagnostic output.
+        /// </summary>
+        /// <param name="callbackData">
+        /// The shell callback data to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the shell callback data.
+        /// </returns>
         public static string ShellCallbackData(
             IShellCallbackData callbackData
             )
@@ -6365,6 +10558,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats update data into a human-readable string
+        /// suitable for use in trace and diagnostic output.
+        /// </summary>
+        /// <param name="updateData">
+        /// The update data to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the update data.
+        /// </returns>
         public static string UpdateData(
             IUpdateData updateData
             )
@@ -6383,6 +10586,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an interpreter into a human-readable string
+        /// suitable for use in trace and diagnostic output, quoting the
+        /// result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the interpreter.
+        /// </returns>
         public static string InterpreterNoThrow(
             Interpreter interpreter
             )
@@ -6392,6 +10606,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an interpreter into a human-readable string
+        /// suitable for use in trace and diagnostic output, optionally quoting
+        /// the result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to be formatted.  This value may be null.
+        /// </param>
+        /// <param name="quote">
+        /// Non-zero to surround the resulting value with quotation marks.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the interpreter.
+        /// </returns>
         public static string InterpreterNoThrow(
             Interpreter interpreter,
             bool quote
@@ -6412,6 +10640,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an optional enabled flag into a human-readable
+        /// string describing whether something is enabled, disabled, or
+        /// unknown.
+        /// </summary>
+        /// <param name="enabled">
+        /// The optional enabled flag to be formatted.  This value may be null
+        /// to indicate an unknown state.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the enabled flag.
+        /// </returns>
         public static string MaybeEnabled(
             bool? enabled
             )
@@ -6424,6 +10664,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an optional enabled flag into a human-readable
+        /// string describing whether something is currently enabled, disabled,
+        /// or unknown.
+        /// </summary>
+        /// <param name="enabled">
+        /// The optional enabled flag to be formatted.  This value may be null
+        /// to indicate an unknown state.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the enabled flag.
+        /// </returns>
         public static string IsEnabled(
             bool? enabled
             )
@@ -6436,6 +10688,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an optional enabled flag into a human-readable
+        /// string describing whether something was previously enabled,
+        /// disabled, or unknown.
+        /// </summary>
+        /// <param name="enabled">
+        /// The optional enabled flag to be formatted.  This value may be null
+        /// to indicate an unknown state.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the enabled flag.
+        /// </returns>
         public static string WasEnabled(
             bool? enabled
             )
@@ -6448,6 +10712,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an enabled flag together with an associated
+        /// value into a human-readable string.
+        /// </summary>
+        /// <param name="enabled">
+        /// The enabled flag to be formatted.
+        /// </param>
+        /// <param name="value">
+        /// The associated value to be included in the formatted string.
+        /// </param>
+        /// <returns>
+        /// The formatted string containing the enabled flag and value.
+        /// </returns>
         public static string EnabledAndValue(
             bool enabled,
             string value
@@ -6459,6 +10736,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL && TCL_THREADS
+        /// <summary>
+        /// This method formats the result of a native wait operation into a
+        /// human-readable string describing which handle, if any, was
+        /// signaled.
+        /// </summary>
+        /// <param name="count">
+        /// The number of handles that were involved in the wait operation.
+        /// </param>
+        /// <param name="index">
+        /// The raw result index returned by the wait operation.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the wait result.
+        /// </returns>
         public static string WaitResult(
             int count,
             int index
@@ -6523,6 +10814,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an operator name into a human-readable string
+        /// suitable for display.
+        /// </summary>
+        /// <param name="name">
+        /// The operator name to be formatted.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the operator name.
+        /// </returns>
         public static string OperatorName(
             string name
             )
@@ -6532,6 +10833,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an operator name, obtained from an identifier,
+        /// together with its lexeme into a human-readable string suitable for
+        /// display.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The identifier whose name represents the operator.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme associated with the operator.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the operator name.
+        /// </returns>
         public static string OperatorName(
             IIdentifierName identifierName,
             Lexeme lexeme
@@ -6544,6 +10860,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an operator name together with its lexeme into
+        /// a human-readable string suitable for display.
+        /// </summary>
+        /// <param name="name">
+        /// The operator name to be formatted.  This value may be null.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme associated with the operator.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the operator name.
+        /// </returns>
         public static string OperatorName(
             string name,
             Lexeme lexeme
@@ -6556,6 +10885,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// This method constructs a unique name for a database connection
+        /// object based on its type and the associated interpreter.
+        /// </summary>
+        /// <param name="object">
+        /// The database connection object for which a name is needed.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The type of the database connection.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter used to obtain a unique identifier, or null to use
+        /// the global state.
+        /// </param>
+        /// <returns>
+        /// The constructed unique name for the database connection object.
+        /// </returns>
         public static string DatabaseConnectionName(
             object @object,                    /* in */
             DbConnectionType dbConnectionType, /* in */
@@ -6572,6 +10919,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a unique name for a database transaction
+        /// object based on the associated interpreter.
+        /// </summary>
+        /// <param name="object">
+        /// The database transaction object for which a name is needed.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter used to obtain a unique identifier, or null to use
+        /// the global state.
+        /// </param>
+        /// <returns>
+        /// The constructed unique name for the database transaction object.
+        /// </returns>
         public static string DatabaseTransactionName(
             object @object,         /* in */
             Interpreter interpreter /* in */
@@ -6586,6 +10948,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a unique name for a database object based on
+        /// its runtime type, a default name, and a unique identifier.
+        /// </summary>
+        /// <param name="object">
+        /// The database object for which a name is needed.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The default name to use when the object is null or its type cannot
+        /// be determined.
+        /// </param>
+        /// <param name="id">
+        /// The unique identifier to incorporate into the constructed name.
+        /// </param>
+        /// <returns>
+        /// The constructed unique name for the database object.
+        /// </returns>
         public static string DatabaseObjectName(
             object @object,
             string @default,
@@ -6609,6 +10989,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the file system location of the assembly that
+        /// contains the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose containing assembly location is needed.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display-friendly placeholder when the location
+        /// cannot be determined; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The location of the containing assembly, or a placeholder or null
+        /// when it cannot be determined.
+        /// </returns>
         public static string AssemblyLocation(
             Type type,
             bool display
@@ -6636,6 +11032,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type belongs to one of
+        /// the core system assemblies (mscorlib or System).
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type belongs to a core system assembly; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSystemAssembly(Type type)
         {
             if (type == null)
@@ -6660,6 +11067,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type belongs to the
+        /// same assembly as the Eagle library.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type belongs to the Eagle assembly; otherwise, false.
+        /// </returns>
         public static bool IsSameAssembly(Type type)
         {
             return (type != null) && GlobalState.IsAssembly(type.Assembly);
@@ -6667,6 +11084,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the name of a type for use in an opaque object
+        /// handle, optionally using its fully qualified name.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is needed.  This value may be null.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to use the fully qualified type name; otherwise, the
+        /// simple type name is used.
+        /// </param>
+        /// <returns>
+        /// The type name, or a placeholder when the type is null.
+        /// </returns>
         public static string ObjectHandleTypeName(
             Type type,
             bool full
@@ -6677,6 +11108,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs an opaque object handle string from a
+        /// prefix, a name, and a unique identifier.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to use for the handle.  This value may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to incorporate into the handle.  This value may be null.
+        /// </param>
+        /// <param name="id">
+        /// The unique identifier to incorporate into the handle.
+        /// </param>
+        /// <returns>
+        /// The constructed opaque object handle string.
+        /// </returns>
         public static string ObjectHandle(
             string prefix,
             string name,
@@ -6689,6 +11136,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs an opaque object handle string from a
+        /// prefix, a name, and the hash code of the specified value.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix to use for the handle.  This value may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to incorporate into the handle.  This value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value whose hash code is incorporated into the handle.  This
+        /// value may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed opaque object handle string.
+        /// </returns>
         public static string ObjectHashCode(
             string prefix,
             string name,
@@ -6702,6 +11166,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of a type, optionally using its full
+        /// name and/or its assembly-qualified name.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is needed.  This value may be null.
+        /// </param>
+        /// <param name="fullName">
+        /// Non-zero to use the fully qualified type name.
+        /// </param>
+        /// <param name="qualified">
+        /// Non-zero to include the containing assembly information.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display-friendly placeholder when the type is
+        /// null; otherwise, an empty string is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The formatted type name.
+        /// </returns>
         public static string QualifiedAndOrFullName(
             Type type,
             bool fullName,
@@ -6737,6 +11221,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the assembly-qualified name of a type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose qualified name is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The assembly-qualified name of the type, or an empty string when
+        /// the type is null.
+        /// </returns>
         public static string QualifiedName(
             Type type
             )
@@ -6753,6 +11247,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the assembly-qualified name of a type given its
+        /// type name and the name of its containing assembly.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The name of the containing assembly.  This value may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the type.  This value may be null or empty.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to use the full assembly name; otherwise, the simple
+        /// assembly name is used.
+        /// </param>
+        /// <returns>
+        /// The formatted qualified name, or null when both the assembly name
+        /// and type name are unavailable.
+        /// </returns>
         public static string QualifiedName(
             AssemblyName assemblyName,
             string typeName,
@@ -6772,6 +11284,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines a parent name and a child name into a single
+        /// qualified name using the type name delimiter.
+        /// </summary>
+        /// <param name="parentName">
+        /// The parent name.  This value may be null or empty.
+        /// </param>
+        /// <param name="childName">
+        /// The child name.  This value may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The combined qualified name, or an empty string when both names are
+        /// unavailable.
+        /// </returns>
         public static string QualifiedName(
             string parentName,
             string childName
@@ -6789,6 +11315,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the qualified name of a delegate method from
+        /// its containing type name and method name.
+        /// </summary>
+        /// <param name="typeName">
+        /// The name of the type that contains the method.  This value may be
+        /// null or empty.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The constructed qualified delegate method name.
+        /// </returns>
         public static string DelegateMethodName(
             string typeName,
             string methodName
@@ -6799,6 +11339,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the qualified name of the method that backs
+        /// the specified delegate.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate whose backing method name is needed.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="assembly">
+        /// Non-zero to include the containing assembly information.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display-friendly placeholder when the delegate
+        /// is null; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The constructed qualified delegate method name.
+        /// </returns>
         public static string DelegateMethodName(
             Delegate @delegate,
             bool assembly,
@@ -6815,6 +11373,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the qualified name of the specified method.
+        /// </summary>
+        /// <param name="methodBase">
+        /// The method whose qualified name is needed.  This value may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// Non-zero to include the containing assembly information.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display-friendly placeholder when the method
+        /// is null; otherwise, null is returned in that case.
+        /// </param>
+        /// <returns>
+        /// The constructed qualified method name.
+        /// </returns>
         public static string DelegateMethodName(
             MethodBase methodBase,
             bool assembly,
@@ -6830,6 +11404,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs the qualified name of a method given its
+        /// containing type and method name, applying special handling for
+        /// certain well-known Eagle types.
+        /// </summary>
+        /// <param name="type">
+        /// The type that contains the method.  This value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null or empty.
+        /// </param>
+        /// <param name="assembly">
+        /// Non-zero to include the containing assembly information.
+        /// </param>
+        /// <returns>
+        /// The constructed qualified method name.
+        /// </returns>
         private static string DelegateMethodName(
             Type type,
             string methodName,
@@ -6873,6 +11464,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the name of an argument together with its
+        /// positional index into a human-readable string.
+        /// </summary>
+        /// <param name="position">
+        /// The positional index of the argument.
+        /// </param>
+        /// <param name="name">
+        /// The name of the argument.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the argument name.
+        /// </returns>
         public static string ArgumentName(
             int position,
             string name
@@ -6885,6 +11489,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the results of evaluating a set of policies
+        /// into a human-readable string suitable for use in trace and
+        /// diagnostic output.
+        /// </summary>
+        /// <param name="allPolicies">
+        /// The collection of all policies that were evaluated.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="failedPolicies">
+        /// The collection of policies that failed.  This value may be null.
+        /// </param>
+        /// <param name="methodFlags">
+        /// The method flags associated with the policy evaluation.
+        /// </param>
+        /// <param name="policyFlags">
+        /// The policy flags associated with the policy evaluation.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file associated with the policy evaluation.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by the policy evaluation.
+        /// </param>
+        /// <param name="decision">
+        /// The decision produced by the policy evaluation.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by the policy evaluation.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the policy results.
+        /// </returns>
         public static string MaybeEmitPolicyResults(
             PolicyWrapperDictionary allPolicies,
             PolicyWrapperDictionary failedPolicies,
@@ -6909,6 +11548,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a human-readable name describing the policy
+        /// implemented by the specified delegate.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate whose policy name is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed policy delegate name, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string PolicyDelegateName(
             Delegate @delegate
             )
@@ -6937,6 +11587,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a human-readable name describing the method
+        /// that backs the specified trace delegate.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate whose method name is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed trace delegate name, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string TraceDelegateName(
             Delegate @delegate
             )
@@ -6955,6 +11616,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a qualified name for the target method of the
+        /// specified delegate.
+        /// </summary>
+        /// <param name="delegate">
+        /// The delegate whose target method name is needed.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name, or null if the delegate or its method
+        /// information is unavailable.
+        /// </returns>
         public static string DelegateName(
             Delegate @delegate
             )
@@ -6973,6 +11646,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a method name that is qualified with the simple
+        /// type name only when the type does not belong to this assembly.
+        /// </summary>
+        /// <param name="type">
+        /// The type that declares the method.  This value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name.
+        /// </returns>
         public static string MethodQualifiedName(
             Type type,
             string methodName
@@ -6988,6 +11674,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a method name that is qualified with the full
+        /// type name only when the type does not belong to this assembly.
+        /// </summary>
+        /// <param name="type">
+        /// The type that declares the method.  This value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name.
+        /// </returns>
         public static string MethodQualifiedFullName(
             Type type,
             string methodName
@@ -7003,6 +11702,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a method name qualified with the full name of the
+        /// specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type that declares the method.  This value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name.
+        /// </returns>
         public static string MethodFullName(
             Type type,
             string methodName
@@ -7013,6 +11725,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a method name qualified with the simple name of
+        /// the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type that declares the method.  This value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name.
+        /// </returns>
         public static string MethodName(
             Type type,
             string methodName
@@ -7023,6 +11748,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a method name qualified with the specified type
+        /// or object name.
+        /// </summary>
+        /// <param name="typeOrObjectName">
+        /// The type or object name used to qualify the method name.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified method name.
+        /// </returns>
         public static string MethodName(
             string typeOrObjectName,
             string methodName
@@ -7033,6 +11772,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a comma-separated list of type names to the
+        /// specified string builder.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.  If this value is null, this method
+        /// does nothing.
+        /// </param>
+        /// <param name="types">
+        /// The list of types whose names should be appended.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="default">
+        /// The text to append when the list of types is null.  This value may
+        /// be null.
+        /// </param>
         private static void MaybeAddTypeList(
             StringBuilder builder,
             TypeList types,
@@ -7074,6 +11829,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a textual method signature -- return type,
+        /// qualified method name, and parameter types -- to the specified
+        /// string builder.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder to append to.  If this value is null, this method
+        /// does nothing.
+        /// </param>
+        /// <param name="qualifiedMethodName">
+        /// The qualified name of the method.  This value may be null.
+        /// </param>
+        /// <param name="returnInfo">
+        /// The parameter information describing the return value.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The array of parameter information describing the method parameters.
+        /// This value may be null.
+        /// </param>
         private static void MaybeAddSignature(
             StringBuilder builder,
             string qualifiedMethodName,
@@ -7141,6 +11916,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string describing a single method overload,
+        /// optionally including its index, signature, and qualifying object
+        /// name.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index of the overload, or <see cref="Index.Invalid" />
+        /// to omit the index prefix.
+        /// </param>
+        /// <param name="objectName">
+        /// The object name used to qualify the method name.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method.  This value may be null.
+        /// </param>
+        /// <param name="returnInfo">
+        /// The parameter information describing the return value.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The array of parameter information describing the method parameters.
+        /// This value may be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how the overload is formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted description of the method overload.
+        /// </returns>
         public static string MethodOverload(
             int index,
             string objectName,
@@ -7191,6 +11996,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a hexadecimal representation of the runtime
+        /// hash code for the specified value.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose hash code is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The hexadecimal hash code, or null if the value is null.
+        /// </returns>
         private static string MaybeHashCode(
             object value
             )
@@ -7203,6 +12018,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a hexadecimal representation of the runtime
+        /// hash code for the specified object.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose hash code is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The hexadecimal hash code, or null if the object is null.
+        /// </returns>
         private static string MaybeHashCode(
             IObject @object
             )
@@ -7215,6 +12040,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a wrapped hexadecimal representation of the
+        /// runtime hash code for the specified value.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose hash code is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped hexadecimal hash code, or a representation of null when
+        /// the value is null.
+        /// </returns>
         public static string WrapHashCode(
             object value
             )
@@ -7224,6 +12060,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a wrapped hexadecimal representation of the
+        /// runtime hash code for the specified object.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose hash code is needed.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The wrapped hexadecimal hash code, or a representation of null when
+        /// the object is null.
+        /// </returns>
         public static string WrapHashCode(
             IObject @object
             )
@@ -7233,6 +12080,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string describing the current application
+        /// domain.
+        /// </summary>
+        /// <returns>
+        /// The string describing the current application domain.
+        /// </returns>
         public static string DisplayAppDomain()
         {
             return DisplayAppDomain(AppDomainOps.GetCurrent());
@@ -7240,6 +12094,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string describing the specified application
+        /// domain.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to describe.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The string describing the application domain, or a representation of
+        /// null when the application domain is null.
+        /// </returns>
         public static string DisplayAppDomain(
             AppDomain appDomain
             )
@@ -7271,6 +12136,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string describing a list of home directory
+        /// flag and path pairs.
+        /// </summary>
+        /// <param name="value">
+        /// The list of home directory pairs to describe.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The string describing the home directory pairs, or a representation
+        /// of null or empty when appropriate.
+        /// </returns>
         public static string HomeDirectoryPairs(
             IList<IAnyPair<HomeFlags, string>> value
             )
@@ -7296,6 +12173,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a friendly name for an application domain from a
+        /// file name and type name.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name component of the friendly name.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="typeName">
+        /// The type name component of the friendly name.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The friendly name for the application domain.
+        /// </returns>
         public static string AppDomainFriendlyName(
             string fileName,
             string typeName
@@ -7306,6 +12198,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a friendly name for an application domain from an
+        /// assembly name and type name.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name component of the friendly name.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="typeName">
+        /// The type name component of the friendly name.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The friendly name for the application domain.
+        /// </returns>
         public static string AppDomainFriendlyName(
             AssemblyName assemblyName,
             string typeName
@@ -7342,6 +12249,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an assembly-qualified name for a plugin from an
+        /// assembly name and type name.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The name of the assembly that contains the plugin.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The assembly-qualified name of the plugin.
+        /// </returns>
         public static string PluginName(
             string assemblyName,
             string typeName
@@ -7353,6 +12274,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the simple assembly name associated with the
+        /// specified plugin.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data whose simple name is needed.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The simple assembly name of the plugin, or null if it cannot be
+        /// determined.
+        /// </returns>
         public static string PluginSimpleName(
             IPluginData pluginData
             )
@@ -7386,6 +12319,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a command name for a plugin from its assembly,
+        /// plugin name, type, and type name.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly that contains the plugin.  This value may be null.
+        /// </param>
+        /// <param name="pluginName">
+        /// The fallback plugin name used when the assembly name is unavailable.
+        /// This value may be null.
+        /// </param>
+        /// <param name="type">
+        /// The plugin type.  This value may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The fallback type name used when the type is unavailable.  This value
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The command name for the plugin.
+        /// </returns>
         public static string PluginCommand(
             Assembly assembly,
             string pluginName,
@@ -7404,6 +12358,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a human-readable "about" description for the
+        /// specified plugin.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to describe.  This value may be null.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to include the full type name in the description; otherwise,
+        /// the simple type name is used.
+        /// </param>
+        /// <param name="extra">
+        /// Extra text to append to the description.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The "about" description for the plugin, or null if the plugin data
+        /// is null.
+        /// </returns>
         public static string PluginAbout(
             IPluginData pluginData,
             bool full,
@@ -7455,6 +12427,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a Tcl-compatible stardate string for the
+        /// specified date and time.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time to convert to a stardate.
+        /// </param>
+        /// <returns>
+        /// The formatted stardate string.
+        /// </returns>
         private static string Stardate(
             DateTime value
             ) // COMPAT: Tcl
@@ -7473,6 +12455,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string describing how many attempts were made
+        /// and the approximate elapsed time.
+        /// </summary>
+        /// <param name="tries">
+        /// The number of attempts that were made.
+        /// </param>
+        /// <param name="delay">
+        /// The delay, in milliseconds, between attempts.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of attempts allowed, or a negative value to
+        /// indicate no limit.
+        /// </param>
+        /// <returns>
+        /// The string describing the attempts that were made.
+        /// </returns>
         public static string Tries(
             int tries,
             int delay,
@@ -7506,6 +12505,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method appends a sub-list of items, optionally preceded by a
+        /// header item, to the specified string/pair list.
+        /// </summary>
+        /// <param name="list">
+        /// The string/pair list to append to.
+        /// </param>
+        /// <param name="subList">
+        /// The list of items to append.  This value may be null.
+        /// </param>
+        /// <param name="item">
+        /// The header item to insert before the sub-list.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to append the header and count even when the sub-list is
+        /// empty.
+        /// </param>
+        /// <returns>
+        /// The number of entries that were added to the list.
+        /// </returns>
         public static int MaybeAddSubList(
             StringPairList list,
             StringList subList,

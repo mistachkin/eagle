@@ -29,6 +29,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides factory methods used to create, and optionally
+    /// cache and reuse, <see cref="StringBuilder" /> instances on behalf of
+    /// the rest of the library.  It also calculates the various capacity
+    /// values used when those objects are created and, when compiled with
+    /// support for cache statistics, tracks usage counters for introspection.
+    /// </summary>
     [ObjectId("22202ba0-a742-4cba-bd99-b4b714840476")]
     internal static class StringBuilderFactory
     {
@@ -47,6 +54,10 @@ namespace Eagle._Components.Private
         //       Given the nature of the CLR, this number is approximate, at
         //       best (and will likely be wrong in subsequent versions).
         //
+        /// <summary>
+        /// The approximate number of bytes of overhead required by every CLR
+        /// object, regardless of any other data that it may contain.
+        /// </summary>
         private static int ObjectOverhead = (2 * IntPtr.Size); /* 8 or 16 */
 
         ///////////////////////////////////////////////////////////////////////
@@ -63,6 +74,10 @@ namespace Eagle._Components.Private
         //       Given the nature of the CLR, this number is approximate, at
         //       best (and will likely be wrong in subsequent versions).
         //
+        /// <summary>
+        /// The approximate number of bytes of overhead required by every CLR
+        /// <see cref="String" /> object, regardless of its actual length.
+        /// </summary>
         private static int StringOverhead = sizeof(uint); /* 4 */
 #else
         //
@@ -76,6 +91,10 @@ namespace Eagle._Components.Private
         //       Given the nature of the CLR, this number is approximate, at
         //       best (and will likely be wrong in subsequent versions).
         //
+        /// <summary>
+        /// The approximate number of bytes of overhead required by every CLR
+        /// <see cref="String" /> object, regardless of its actual length.
+        /// </summary>
         private static int StringOverhead = (2 * sizeof(uint)); /* 8 */
 #endif
 
@@ -95,6 +114,11 @@ namespace Eagle._Components.Private
         //       Given the nature of the CLR, this number is approximate, at
         //       best (and will likely be wrong in subsequent versions).
         //
+        /// <summary>
+        /// The approximate number of bytes of overhead required by every CLR
+        /// <see cref="StringBuilder" /> object, regardless of its actual
+        /// length.
+        /// </summary>
         private static int Overhead =
             (2 * IntPtr.Size) + (3 * sizeof(uint)); /* 20 or 28 */
 #else
@@ -109,6 +133,11 @@ namespace Eagle._Components.Private
         //       Given the nature of the CLR, this number is approximate, at
         //       best (and will likely be wrong in subsequent versions).
         //
+        /// <summary>
+        /// The approximate number of bytes of overhead required by every CLR
+        /// <see cref="StringBuilder" /> object, regardless of its actual
+        /// length.
+        /// </summary>
         private static int Overhead =
             (2 * IntPtr.Size) + (1 * sizeof(uint)); /* 12 or 20 */
 #endif
@@ -122,8 +151,16 @@ namespace Eagle._Components.Private
         //       versions).
         //
 #if NET_40
+        /// <summary>
+        /// The approximate number of <see cref="StringBuilder" /> objects that
+        /// should fit on a single page of memory.
+        /// </summary>
         private static int PerPage = 28;
 #else
+        /// <summary>
+        /// The approximate number of <see cref="StringBuilder" /> objects that
+        /// should fit on a single page of memory.
+        /// </summary>
         private static int PerPage = 32;
 #endif
 
@@ -140,8 +177,21 @@ namespace Eagle._Components.Private
         //         read-write so that it can be overridden at runtime [via
         //         reflection] as a last resort.
         //
+        /// <summary>
+        /// The minimum initial capacity used for <see cref="StringBuilder" />
+        /// objects created by this class.
+        /// </summary>
         private static int MinimumCapacity = GetMinimumCapacity();
+        /// <summary>
+        /// The default initial capacity used for <see cref="StringBuilder" />
+        /// objects created by this class.
+        /// </summary>
         private static int DefaultCapacity = MinimumCapacity;
+        /// <summary>
+        /// The initial capacity used for <see cref="StringBuilder" /> objects
+        /// created by this class when the platform page size cannot be
+        /// determined.
+        /// </summary>
         private static int FallbackCapacity = 50; // TODO: Good default?
         #endregion
 
@@ -149,15 +199,43 @@ namespace Eagle._Components.Private
 
         #region Private Data
 #if CACHE_STATISTICS
+        /// <summary>
+        /// The number of <see cref="StringBuilder" /> objects created by this
+        /// class.
+        /// </summary>
         private static long createCount = 0;
+        /// <summary>
+        /// The number of <see cref="StringBuilder" /> objects created by this
+        /// class without using the shared cache.
+        /// </summary>
         private static long noCacheCount = 0;
+        /// <summary>
+        /// The number of <see cref="StringBuilder" /> objects reset and reused
+        /// by this class.
+        /// </summary>
         private static long reuseCount = 0;
+        /// <summary>
+        /// The total length, in characters, of all values used to initialize
+        /// <see cref="StringBuilder" /> objects created by this class.
+        /// </summary>
         private static long totalLength = 0;
+        /// <summary>
+        /// The total capacity requested for all <see cref="StringBuilder" />
+        /// objects created by this class.
+        /// </summary>
         private static long totalCapacity = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The smallest capacity requested for any <see cref="StringBuilder" />
+        /// object created by this class.
+        /// </summary>
         private static long seenMinimumCapacity = Count.Invalid;
+        /// <summary>
+        /// The largest capacity requested for any <see cref="StringBuilder" />
+        /// object created by this class.
+        /// </summary>
         private static long seenMaximumCapacity = Count.Invalid;
 
         ///////////////////////////////////////////////////////////////////////
@@ -165,6 +243,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: Total number of fields used for statistics by this class.
         //
+        /// <summary>
+        /// The total number of fields used for statistics by this class.
+        /// </summary>
         private static readonly int overallCountLength = 7;
 #endif
         #endregion
@@ -172,6 +253,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// Calculates the minimum initial capacity to use for
+        /// <see cref="StringBuilder" /> objects created by this class, based on
+        /// the platform page size and the estimated per-object overhead.
+        /// </summary>
+        /// <returns>
+        /// The calculated minimum capacity, or the fallback capacity if the
+        /// platform page size cannot be determined.
+        /// </returns>
         private static int GetMinimumCapacity()
         {
             uint pageSize = PlatformOps.GetPageSize();
@@ -190,6 +280,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Tracks the smallest and largest requested capacities (when compiled
+        /// with cache statistics support) and raises the requested capacity to
+        /// the configured minimum, if necessary.
+        /// </summary>
+        /// <param name="capacity">
+        /// On input, the requested capacity; upon return, the possibly adjusted
+        /// capacity.
+        /// </param>
         private static void CheckAndMaybeAdjustCapacity(
             ref int capacity /* in, out */
             )
@@ -217,6 +316,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the specified <see cref="StringBuilder" /> to an empty state
+        /// and ensures it has at least the specified capacity, so that it can
+        /// be reused.
+        /// </summary>
+        /// <param name="result">
+        /// The <see cref="StringBuilder" /> to reset.
+        /// </param>
+        /// <param name="capacity">
+        /// The minimum capacity to ensure.
+        /// </param>
         private static void ResetWithCapacity(
             StringBuilder result, /* in */
             int capacity          /* in */
@@ -231,6 +341,13 @@ namespace Eagle._Components.Private
 
         #region Static "Factory" Methods
         #region Create with Cache
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> with the default capacity,
+        /// using the shared cache if possible.
+        /// </summary>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create()
         {
             return Create(
@@ -240,6 +357,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> with the specified capacity,
+        /// using the shared cache if possible.
+        /// </summary>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             int capacity /* in */
             )
@@ -251,6 +378,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> initialized with the specified
+        /// value and the default capacity, using the shared cache if possible.
+        /// </summary>
+        /// <param name="value">
+        /// The initial value.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             string value /* in: OPTIONAL */
             )
@@ -262,6 +399,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> initialized with the specified
+        /// value and capacity, using the shared cache if possible.
+        /// </summary>
+        /// <param name="value">
+        /// The initial value.  This parameter may be null.
+        /// </param>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             string value, /* in: OPTIONAL */
             int capacity  /* in */
@@ -274,6 +424,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets and reuses the specified <see cref="StringBuilder" /> with the
+        /// specified capacity, or creates a new one (using the shared cache if
+        /// possible) when none is supplied.
+        /// </summary>
+        /// <param name="result">
+        /// The existing <see cref="StringBuilder" /> to reuse.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             StringBuilder result, /* in: OPTIONAL */
             int capacity          /* in */
@@ -286,6 +451,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> initialized with a substring
+        /// of the specified value and the default capacity, using the shared
+        /// cache if possible.
+        /// </summary>
+        /// <param name="value">
+        /// The value from which to take the initial substring.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting index of the substring within the value.
+        /// </param>
+        /// <param name="length">
+        /// The length of the substring.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             string value,   /* in: OPTIONAL */
             int startIndex, /* in */
@@ -301,6 +484,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Create without Cache
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> with the default capacity,
+        /// bypassing the shared cache.
+        /// </summary>
+        /// <returns>
+        /// The created <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder CreateNoCache()
         {
             return Create(
@@ -310,6 +500,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> with the specified capacity,
+        /// bypassing the shared cache.
+        /// </summary>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <returns>
+        /// The created <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder CreateNoCache(
             int capacity /* in */
             )
@@ -321,6 +521,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a <see cref="StringBuilder" /> initialized with the specified
+        /// value and the default capacity, bypassing the shared cache.
+        /// </summary>
+        /// <param name="value">
+        /// The initial value.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The created <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder CreateNoCache(
             string value /* in: OPTIONAL */
             )
@@ -332,6 +542,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets and reuses the specified <see cref="StringBuilder" /> with the
+        /// specified capacity, or creates a new one (bypassing the shared cache)
+        /// when none is supplied.
+        /// </summary>
+        /// <param name="result">
+        /// The existing <see cref="StringBuilder" /> to reuse.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder CreateNoCache(
             StringBuilder result, /* in: OPTIONAL */
             int capacity          /* in */
@@ -345,6 +570,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates, reuses, or acquires from the shared cache a
+        /// <see cref="StringBuilder" /> with the requested capacity, optionally
+        /// initializing it with all or part of the specified value.  This is
+        /// the core implementation to which the other overloads delegate, and
+        /// it maintains the cache statistics when they are enabled.
+        /// </summary>
+        /// <param name="result">
+        /// The existing <see cref="StringBuilder" /> to reset and reuse.  This
+        /// parameter may be null, in which case a new instance is created or
+        /// acquired.
+        /// </param>
+        /// <param name="value">
+        /// The value used to initialize the result.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting index of the substring within the value, or
+        /// <see cref="Index.Invalid" /> to use the entire value.
+        /// </param>
+        /// <param name="length">
+        /// The length of the substring within the value, or
+        /// <see cref="Length.Invalid" /> to use the entire value.
+        /// </param>
+        /// <param name="capacity">
+        /// The requested initial capacity.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass the shared cache and always create a new
+        /// instance.
+        /// </param>
+        /// <returns>
+        /// The created or reused <see cref="StringBuilder" />.
+        /// </returns>
         public static StringBuilder Create(
             StringBuilder result, /* in: OPTIONAL */
             string value,         /* in: OPTIONAL */
@@ -495,6 +754,10 @@ namespace Eagle._Components.Private
 
         #region Public Methods
 #if CACHE_STATISTICS
+        /// <summary>
+        /// Resets all of the cache statistics counters maintained by this class
+        /// to their initial values.
+        /// </summary>
         public static void ZeroCounts()
         {
             Interlocked.Exchange(ref createCount, 0);
@@ -508,6 +771,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Saves a snapshot of the current cache statistics counters into the
+        /// supplied dictionary, keyed by the specified cache flags, optionally
+        /// resetting the counters afterward.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the snapshot is stored.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to reset the counters to their initial values after the
+        /// snapshot has been saved.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// On input, the dictionary into which the snapshot is stored, created
+        /// if null; upon return, contains the saved snapshot.
+        /// </param>
+        /// <returns>
+        /// True if the snapshot was saved; otherwise, false.
+        /// </returns>
         public static bool MaybeSaveCounts(
             CacheFlags flags,                                   /* in */
             bool move,                                          /* in */
@@ -538,6 +820,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Restores a previously saved snapshot of the cache statistics
+        /// counters from the supplied dictionary, optionally merging it with
+        /// the current counters and removing it from the dictionary.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the snapshot was stored.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to add the saved counts to the current counters; zero to
+        /// overwrite the current counters with the saved counts.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to remove the snapshot from the dictionary after it has
+        /// been restored.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// On input, the dictionary from which the snapshot is restored; upon
+        /// return, possibly updated to remove the restored snapshot.
+        /// </param>
+        /// <returns>
+        /// True if the snapshot was restored; otherwise, false.
+        /// </returns>
         public static bool MaybeRestoreCounts(
             CacheFlags flags,                                   /* in */
             bool merge,                                         /* in */
@@ -598,6 +903,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the current cache statistics counters, as name/value pairs, to
+        /// the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the counters are added.  This parameter may be
+        /// null, in which case this method does nothing.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include counters whose value is zero; otherwise, only
+        /// non-zero counters are included.
+        /// </param>
         public static void CountsToList(
             StringPairList list, /* in, out */
             bool empty           /* in */
@@ -652,6 +969,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// Adds introspection information about this factory, including its
+        /// configured capacities and (when enabled) cache statistics, to the
+        /// specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the information is added.  This parameter may be
+        /// null, in which case this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */

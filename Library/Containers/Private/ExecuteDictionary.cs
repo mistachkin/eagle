@@ -31,9 +31,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string keys to executable
+    /// entity values.  It extends the underlying generic dictionary of
+    /// <see cref="IExecute" /> objects with a helper for producing a filtered
+    /// string form of its keys.
+    /// </summary>
     [ObjectId("0d1fbbf8-b4e1-4d7f-af3b-b4e08f085ac3")]
     internal sealed class ExecuteDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty execute dictionary.
+        /// </summary>
         public ExecuteDictionary()
             : base()
         {
@@ -42,6 +51,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(string pattern, bool noCase)
         {
             StringList list = new StringList(this.Keys);
@@ -54,6 +77,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The list of keys formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

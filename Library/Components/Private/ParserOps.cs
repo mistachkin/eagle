@@ -23,6 +23,13 @@ using Eagle._Interfaces.Public;
 namespace Eagle._Components.Private
 {
     #region ParserOpsData Class
+    /// <summary>
+    /// This class holds the shared, mutable configuration settings and runtime
+    /// statistics used by the list splitting and joining operations.  It
+    /// includes the flags that control whether the native utility library is
+    /// used, the size thresholds that govern when the native path is taken, and
+    /// the counters that track how many times each path has been used.
+    /// </summary>
     [ObjectId("ce052fdf-0d25-4fc5-9747-ea447a3c41d8")]
     internal static class ParserOpsData
     {
@@ -31,7 +38,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the native utility library is used to split a string
+        /// into a list whenever the applicable size thresholds are met.
+        /// </summary>
         internal static bool UseNativeSplitList = false;
+
+        /// <summary>
+        /// When non-zero, the native utility library is used to join a list
+        /// into a string whenever the applicable size thresholds are met.
+        /// </summary>
         internal static bool UseNativeJoinList = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -41,25 +57,70 @@ namespace Eagle._Components.Private
         //
         // TODO: Are these good defaults for performance?
         //
+        /// <summary>
+        /// The minimum length, in characters, that a string must have before
+        /// the native utility library is used to split it into a list; when
+        /// zero, no minimum is enforced.
+        /// </summary>
         internal static int NativeMinimumTextLength = 1048576;
+
+        /// <summary>
+        /// The maximum length, in characters, that a string may have before
+        /// the native utility library is no longer used to split it into a
+        /// list; when zero, no maximum is enforced.
+        /// </summary>
         internal static int NativeMaximumTextLength = 0;
 
+        /// <summary>
+        /// The minimum number of elements that a list must have before the
+        /// native utility library is used to join it into a string; when zero,
+        /// no minimum is enforced.
+        /// </summary>
         internal static int NativeMinimumListCount = 10000;
+
+        /// <summary>
+        /// The maximum number of elements that a list may have before the
+        /// native utility library is no longer used to join it into a string;
+        /// when zero, no maximum is enforced.
+        /// </summary>
         internal static int NativeMaximumListCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times a list has been split from a string using the
+        /// native utility library.
+        /// </summary>
         internal static long nativeSplitCount;
+
+        /// <summary>
+        /// The number of times a list has been joined into a string using the
+        /// native utility library.
+        /// </summary>
         internal static long nativeJoinCount;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, errors encountered while attempting to use the native
+        /// utility library are silently ignored instead of being reported via
+        /// the complaint subsystem.
+        /// </summary>
         internal static bool NoComplain = true; // COMPAT: Eagle beta.
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times a list has been split from a string using the
+        /// managed (fallback) implementation.
+        /// </summary>
         internal static long managedSplitCount;
+
+        /// <summary>
+        /// The number of times a list has been joined into a string using the
+        /// managed (fallback) implementation.
+        /// </summary>
         internal static long managedJoinCount;
         #endregion
 
@@ -69,6 +130,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.WriteEngineInfo method.
         //
+        /// <summary>
+        /// This method adds the list splitting and joining configuration
+        /// settings and statistics to the specified list, for use by the engine
+        /// introspection support.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the formatted name/value pairs are added.  If this
+        /// value is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control how much detail is included in the added
+        /// information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -161,6 +235,14 @@ namespace Eagle._Components.Private
 
         #region Integration Support Methods
 #if NATIVE && NATIVE_UTILITY
+        /// <summary>
+        /// This method enables or disables use of the native utility library
+        /// for both list splitting and list joining operations.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to use the native utility library for splitting and joining
+        /// lists; otherwise, zero.
+        /// </param>
         public static void EnableNative(
             bool enable
             )
@@ -176,11 +258,56 @@ namespace Eagle._Components.Private
     ///////////////////////////////////////////////////////////////////////////
 
     #region ParserOps<T> Class
+    /// <summary>
+    /// This class provides the list splitting and joining operations used
+    /// throughout the parser, including both the managed implementations and,
+    /// when available, the native utility library implementations.  It selects
+    /// between the native and managed paths based on the configured size
+    /// thresholds.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The type of the elements contained in the lists that are joined into
+    /// their string representation.
+    /// </typeparam>
     [ObjectId("a4c1ccc4-4dd3-4ecd-8548-3309719ec9f9")]
     internal static class ParserOps<T>
     {
         #region Native List Splitting
 #if NATIVE && NATIVE_UTILITY
+        /// <summary>
+        /// This method splits the specified string into its list elements using
+        /// the native utility library.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, primarily for list caching.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string to be split into its list elements.  If this value is
+        /// null, a null list is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the string where splitting should begin.  This
+        /// value is not used because the native implementation always splits the
+        /// entire string.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to consider when splitting.  This value is
+        /// not used because the native implementation always splits the entire
+        /// string.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting list should be marked as read-only.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of elements parsed from the string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode NativeSplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -351,6 +478,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Managed List Splitting
+        /// <summary>
+        /// This method splits the specified string into its list elements using
+        /// the managed (fallback) implementation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, primarily for list caching.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string to be split into its list elements.  If this value is
+        /// null, an error is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the string where splitting should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to consider when splitting.  If this value
+        /// is less than zero, the entire string is used.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting list should be marked as read-only.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of elements parsed from the string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode ManagedSplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -539,6 +697,23 @@ namespace Eagle._Components.Private
 
         #region List Splitting
 #if NATIVE && NATIVE_UTILITY
+        /// <summary>
+        /// This method determines whether the native utility library should be
+        /// used to split the specified string into a list, based on the
+        /// configured settings and size thresholds.
+        /// </summary>
+        /// <param name="text">
+        /// The string that would be split into its list elements.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the string where splitting would begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters that would be considered when splitting.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library should be used; otherwise, false.
+        /// </returns>
         private static bool ShouldUseNativeSplitList(
             string text,
             int startIndex,
@@ -567,6 +742,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified string into its list elements,
+        /// selecting the native or managed implementation as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, primarily for list caching.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string to be split into its list elements.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the string where splitting should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to consider when splitting.  If this value
+        /// is less than zero, the entire string is used.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting list should be marked as read-only.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of elements parsed from the string.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -585,6 +787,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified string into its list elements,
+        /// selecting the native or managed implementation as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, primarily for list caching.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="text">
+        /// The string to be split into its list elements.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the string where splitting should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to consider when splitting.  If this value
+        /// is less than zero, the entire string is used.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting list should be marked as read-only.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of elements parsed from the string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -636,6 +868,42 @@ namespace Eagle._Components.Private
 
         #region Native List Joining
 #if NATIVE && NATIVE_UTILITY
+        /// <summary>
+        /// This method copies the string representation of the elements within
+        /// the specified range of the input list to the output list, including
+        /// only those that match the specified glob pattern.
+        /// </summary>
+        /// <param name="inputList">
+        /// The list whose elements are to be filtered.  If this value is null,
+        /// an error is produced.
+        /// </param>
+        /// <param name="outputList">
+        /// The list that receives the string representation of the matching
+        /// elements.  If this value is null, an error is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the input list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the input list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob pattern used to match the string representation of each
+        /// element.  If this value is null, all elements match.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode FilterList(
             IList<T> inputList,
             StringList outputList,
@@ -724,6 +992,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the string representation of the elements within
+        /// the specified range of the input list to the output list, including
+        /// only those that match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="inputList">
+        /// The list whose elements are to be filtered.  If this value is null,
+        /// an error is produced.
+        /// </param>
+        /// <param name="outputList">
+        /// The list that receives the string representation of the matching
+        /// elements.  If this value is null, an error is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the input list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the input list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="regExPattern">
+        /// The regular expression pattern used to match the string
+        /// representation of each element.  If this value is null, all elements
+        /// match.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used when compiling the regular expression pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode FilterList(
             IList<T> inputList,
             StringList outputList,
@@ -829,6 +1134,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a glob pattern, into their string
+        /// representation using the native utility library.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob pattern used to match the string representation of each
+        /// element.  If this value is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the joined string representation of the list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode NativeListToString(
             IList<T> list,
             int startIndex,
@@ -984,6 +1327,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a regular expression pattern, into their
+        /// string representation using the native utility library.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="regExPattern">
+        /// The regular expression pattern used to match the string
+        /// representation of each element.  If this value is null, all elements
+        /// are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used when compiling the regular expression pattern.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the joined string representation of the list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode NativeListToString(
             IList<T> list,
             int startIndex,
@@ -1142,6 +1524,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Managed List Joining
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a glob pattern, into their string
+        /// representation using the managed (fallback) implementation.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob pattern used to match the string representation of each
+        /// element.  If this value is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The joined string representation of the matching list elements.
+        /// </returns>
         private static string ManagedListToString(
             IList<T> list,
             int startIndex,
@@ -1228,6 +1642,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a regular expression pattern, into their
+        /// string representation using the managed (fallback) implementation.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="regExPattern">
+        /// The regular expression pattern used to match the string
+        /// representation of each element.  If this value is null, all elements
+        /// are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used when compiling the regular expression pattern.
+        /// </param>
+        /// <returns>
+        /// The joined string representation of the matching list elements.
+        /// </returns>
         private static string ManagedListToString(
             IList<T> list,
             int startIndex,
@@ -1323,6 +1770,20 @@ namespace Eagle._Components.Private
 
         #region List Joining
 #if NATIVE && NATIVE_UTILITY
+        /// <summary>
+        /// This method determines whether the native utility library should be
+        /// used to join the specified list into a string, based on the
+        /// configured settings and size thresholds.
+        /// </summary>
+        /// <param name="list">
+        /// The list that would be joined into a string.
+        /// </param>
+        /// <param name="separator">
+        /// The string that would be used to separate adjacent elements.
+        /// </param>
+        /// <returns>
+        /// True if the native utility library should be used; otherwise, false.
+        /// </returns>
         private static bool ShouldUseNativeJoinList(
             IList<T> list,
             string separator
@@ -1350,6 +1811,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a glob pattern, into their string
+        /// representation, selecting the native or managed implementation as
+        /// appropriate.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob pattern used to match the string representation of each
+        /// element.  If this value is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The joined string representation of the matching list elements.
+        /// </returns>
         public static string ListToString(
             IList<T> list,
             int startIndex,
@@ -1392,6 +1886,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the elements within the specified range of the
+        /// list, optionally filtered by a regular expression pattern, into their
+        /// string representation, selecting the native or managed implementation
+        /// as appropriate.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are to be joined.  If this value is null, an
+        /// empty string is produced.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element, within the list, to consider.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element, within the list, to consider.
+        /// </param>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each element is converted to its string
+        /// representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate adjacent elements.
+        /// </param>
+        /// <param name="regExPattern">
+        /// The regular expression pattern used to match the string
+        /// representation of each element.  If this value is null, all elements
+        /// are included.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The options used when compiling the regular expression pattern.
+        /// </param>
+        /// <returns>
+        /// The joined string representation of the matching list elements.
+        /// </returns>
         public static string ListToString(
             IList<T> list,
             int startIndex,

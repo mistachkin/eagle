@@ -27,6 +27,17 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a mutable, ordered list of string pairs, where
+    /// each element is an <see cref="IPair{T}" /> of strings (a name/value or
+    /// key/value pair).  It derives from the generic list of string pairs and
+    /// additionally behaves like a string list (via <see cref="IStringList" />),
+    /// a single flattened value (via <see cref="IGetValue" />), and a simple
+    /// name-keyed dictionary (via <see cref="IHaveDictionary{T}" />).  It
+    /// provides numerous helpers for adding strings, string builders, pairs,
+    /// and other collections, as well as for rendering the list to its string
+    /// or raw-string form and for parsing a list back from a string.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -35,6 +46,10 @@ namespace Eagle._Containers.Public
             IStringList, IGetValue, IHaveDictionary<string>
     {
         #region Private Constants
+        /// <summary>
+        /// The default separator string used between elements when rendering
+        /// the list to its string form and no explicit separator is set.
+        /// </summary>
         private static readonly string DefaultSeparator =
             Characters.SpaceString;
         #endregion
@@ -42,14 +57,26 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constants
+        /// <summary>
+        /// The default value indicating whether empty elements are included
+        /// when rendering the list to its string form or filtering it to a new
+        /// list.
+        /// </summary>
         public static readonly bool DefaultEmpty = true;
 
+        /// <summary>
+        /// The sentinel string returned to indicate that a requested named
+        /// value was not found in the list.
+        /// </summary>
         public static readonly string NotFound = String.Copy(String.Empty);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty list of string pairs.
+        /// </summary>
         public StringPairList()
             : base()
         {
@@ -58,6 +85,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs containing the elements copied
+        /// from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs whose elements are copied into the
+        /// new list.
+        /// </param>
         public StringPairList(
             IEnumerable<IPair<string>> collection
             )
@@ -68,6 +103,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty list of string pairs that has the specified
+        /// initial capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The number of elements the new list can initially store without
+        /// resizing.
+        /// </param>
         public StringPairList(
             int capacity
             )
@@ -78,6 +121,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs containing the specified string
+        /// pairs.
+        /// </summary>
+        /// <param name="pairs">
+        /// The string pairs used to populate the new list.
+        /// </param>
         public StringPairList(
             params IPair<string>[] pairs
             )
@@ -88,6 +138,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs from the elements of the specified
+        /// string array, starting at the specified index.
+        /// </summary>
+        /// <param name="array">
+        /// The array of strings used to populate the new list.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the array at which to begin adding strings.
+        /// </param>
         public StringPairList(
             string[] array,
             int startIndex
@@ -98,6 +158,12 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs from the specified strings.
+        /// </summary>
+        /// <param name="strings">
+        /// The strings used to populate the new list.
+        /// </param>
         public StringPairList(
             params string[] strings
             )
@@ -107,6 +173,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs from the strings in the specified
+        /// collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings used to populate the new list.
+        /// </param>
         public StringPairList(
             IEnumerable<string> collection
             )
@@ -116,6 +189,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs from the string builders in the
+        /// specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string builders used to populate the new list.
+        /// </param>
         public StringPairList(
             IEnumerable<StringBuilder> collection
             )
@@ -125,6 +205,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of string pairs from the key/value pairs of the
+        /// specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are used to populate the new
+        /// list.
+        /// </param>
         public StringPairList(
             IDictionary<string, string> dictionary
             )
@@ -136,6 +224,18 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveDictionary<String> Members
+        /// <summary>
+        /// Gets the value (the Y component) of the first pair whose name (the X
+        /// component) matches the specified name, using an ordinal comparison.
+        /// </summary>
+        /// <param name="name">
+        /// The name to search for.  If this parameter is null, the value of the
+        /// first pair is returned.
+        /// </param>
+        /// <returns>
+        /// The value of the first matching pair, or <see cref="NotFound" /> if
+        /// no matching pair exists.
+        /// </returns>
         public string GetNamedValue(
             string name
             )
@@ -158,6 +258,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the value (the Y component) of the first pair whose name (the X
+        /// component) matches the specified name, using an ordinal comparison.
+        /// If no matching pair exists, a new pair is appended to the list.
+        /// </summary>
+        /// <param name="name">
+        /// The name to search for and, when adding, the name of the new pair.
+        /// If this parameter is null, the first pair is updated.
+        /// </param>
+        /// <param name="value">
+        /// The value to store in the matching or newly added pair.
+        /// </param>
         public void SetNamedValue(
             string name,
             string value
@@ -188,6 +300,9 @@ namespace Eagle._Containers.Public
         // NOTE: This must call ToString to provide a "flattened" value
         //       because this is a mutable class.
         //
+        /// <summary>
+        /// Gets the flattened value of this list, which is its string form.
+        /// </summary>
         public object Value
         {
             get { return ToString(); }
@@ -195,6 +310,10 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the length, in characters, of the string form of this list, or
+        /// an invalid length when the string form is null.
+        /// </summary>
         public int Length
         {
             get
@@ -208,6 +327,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the string form of this list.
+        /// </summary>
         public string String
         {
             get { return ToString(); }
@@ -217,6 +339,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// Creates a new list of string pairs that is a shallow copy of this
+        /// list.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this list.
+        /// </returns>
         public object Clone()
         {
             return new StringPairList(this);
@@ -227,7 +356,16 @@ namespace Eagle._Containers.Public
 
         #region IStringList Members
         #region Properties
+        /// <summary>
+        /// The separator string placed between elements when rendering this
+        /// list to its string form.
+        /// </summary>
         private string separator;
+
+        /// <summary>
+        /// Gets or sets the separator string placed between elements when
+        /// rendering this list to its string form.
+        /// </summary>
         public string Separator
         {
             get { return separator; }
@@ -237,7 +375,15 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if LIST_CACHE
+        /// <summary>
+        /// The cache key associated with this list, used by the list cache.
+        /// </summary>
         private string cacheKey;
+
+        /// <summary>
+        /// Gets or sets the cache key associated with this list, used by the
+        /// list cache.
+        /// </summary>
         public string CacheKey
         {
             get { return cacheKey; }
@@ -249,6 +395,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Contains Methods
+        /// <summary>
+        /// Determines whether this list contains a pair whose name (the X
+        /// component) matches the specified key, using the specified string
+        /// comparison.
+        /// </summary>
+        /// <param name="key">
+        /// The key to search for.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison used to compare each pair name with the
+        /// specified key.
+        /// </param>
+        /// <returns>
+        /// True if a matching pair is found; otherwise, false.
+        /// </returns>
         public bool ContainsKey(
             string key,
             StringComparison comparisonType
@@ -280,6 +441,15 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Get Methods
+        /// <summary>
+        /// Gets the string form of the pair at the specified index.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index of the pair to retrieve.
+        /// </param>
+        /// <returns>
+        /// The string form of the pair at the specified index.
+        /// </returns>
         public string GetItem(
             int index
             )
@@ -289,6 +459,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the pair at the specified index.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index of the pair to retrieve.
+        /// </param>
+        /// <returns>
+        /// The pair at the specified index.
+        /// </returns>
         public IPair<string> GetPair(
             int index
             )
@@ -300,6 +479,17 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Insert / Add Methods
+        /// <summary>
+        /// Inserts the specified string into this list at the specified index,
+        /// wrapping it in a string pair.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index at which the string should be inserted.
+        /// </param>
+        /// <param name="item">
+        /// The string to insert.  If this parameter is null, a null pair is
+        /// inserted.
+        /// </param>
         public void Insert(
             int index,
             string item
@@ -313,6 +503,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the specified string to the end of this list, wrapping it in a
+        /// string pair.
+        /// </summary>
+        /// <param name="item">
+        /// The string to add.  If this parameter is null, a null pair is added.
+        /// </param>
         public void Add(
             string item
             )
@@ -325,6 +522,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a new string pair, with the specified key and value, to the end
+        /// of this list.
+        /// </summary>
+        /// <param name="key">
+        /// The key (the X component) of the new pair.
+        /// </param>
+        /// <param name="value">
+        /// The value (the Y component) of the new pair.
+        /// </param>
         public void Add(
             string key,
             string value
@@ -335,6 +542,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a new string pair, with the specified key and value, to the end
+        /// of this list, optionally normalizing the white-space in the value
+        /// and/or truncating it with an ellipsis.
+        /// </summary>
+        /// <param name="key">
+        /// The key (the X component) of the new pair.
+        /// </param>
+        /// <param name="value">
+        /// The value (the Y component) of the new pair.
+        /// </param>
+        /// <param name="normalize">
+        /// Non-zero to normalize the white-space within the value before it is
+        /// added.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate the value with an ellipsis before it is added.
+        /// </param>
         public void Add(
             string key,
             string value,
@@ -359,6 +584,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a new string pair, with the specified key and a value formed by
+        /// joining the specified collection of strings into a list, to the end
+        /// of this list.
+        /// </summary>
+        /// <param name="key">
+        /// The key (the X component) of the new pair.
+        /// </param>
+        /// <param name="value">
+        /// The collection of strings used to form the value (the Y component)
+        /// of the new pair.  If this parameter is null, the value is null.
+        /// </param>
         public void Add(
             string key,
             IEnumerable<string> value
@@ -370,6 +607,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string form of the specified string builder to the end of
+        /// this list.
+        /// </summary>
+        /// <param name="item">
+        /// The string builder whose string form is added.  If this parameter is
+        /// null, a null pair is added.
+        /// </param>
         public void Add(
             StringBuilder item
             )
@@ -379,6 +624,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the elements of the specified string array, starting at the
+        /// specified index, to the end of this list.
+        /// </summary>
+        /// <param name="array">
+        /// The array of strings whose elements are added.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the array at which to begin adding strings.
+        /// </param>
         public void Add(
             string[] array,
             int startIndex
@@ -390,6 +645,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string form of each element of the specified list, starting
+        /// at the specified index, to the end of this list.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are added.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the list at which to begin adding elements.
+        /// </param>
         public void Add(
             IList list,
             int startIndex
@@ -408,6 +673,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the pairs of the specified string list, starting at the
+        /// specified index, to the end of this list.
+        /// </summary>
+        /// <param name="list">
+        /// The string list whose pairs are added.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index within the list at which to begin adding pairs.
+        /// </param>
         public void Add(
             IStringList list,
             int startIndex
@@ -426,6 +701,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the strings in the specified collection to the end of this
+        /// list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings whose elements are added.
+        /// </param>
         public void Add(
             IEnumerable<string> collection
             )
@@ -436,6 +718,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string builders in the specified collection to the end of
+        /// this list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string builders whose elements are added.
+        /// </param>
         public void Add(
             IEnumerable<StringBuilder> collection
             )
@@ -446,6 +735,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the key/value pairs of the specified dictionary to the end of
+        /// this list.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are added.
+        /// </param>
         public void Add(
             IDictionary<string, string> dictionary
             )
@@ -456,6 +752,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string form of each argument in the specified collection to
+        /// the end of this list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of arguments whose elements are added.
+        /// </param>
         public void Add(
             IEnumerable<Argument> collection
             )
@@ -466,6 +769,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string form of each result in the specified collection to
+        /// the end of this list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of results whose elements are added.
+        /// </param>
         public void Add(
             IEnumerable<Result> collection
             )
@@ -476,6 +786,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string pairs in the specified collection to the end of this
+        /// list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs whose elements are added.
+        /// </param>
         public void Add(
             IEnumerable<IPair<string>> collection
             )
@@ -486,6 +803,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds each string in the specified collection, after transforming it
+        /// with the specified callback, to the end of this list.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to transform each string before it is added.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of strings whose transformed elements are added.
+        /// </param>
         public void Add(
             StringTransformCallback callback,
             IEnumerable<string> collection
@@ -497,6 +824,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds each argument in the specified collection, after transforming it
+        /// with the specified callback, to the end of this list.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to transform each argument before it is added.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of arguments whose transformed elements are added.
+        /// </param>
         public void Add(
             StringTransformCallback callback,
             IEnumerable<Argument> collection
@@ -508,6 +845,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds each result in the specified collection, after transforming it
+        /// with the specified callback, to the end of this list.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to transform each result before it is added.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of results whose transformed elements are added.
+        /// </param>
         public void Add(
             StringTransformCallback callback,
             IEnumerable<Result> collection
@@ -519,6 +866,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string form of the specified object to the end of this
+        /// list.
+        /// </summary>
+        /// <param name="item">
+        /// The object whose string form is added.  If this parameter is null, a
+        /// null pair is added.
+        /// </param>
         public void AddObject(
             object item
             )
@@ -536,6 +891,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a new string pair, formed from the string forms of the
+        /// specified key and value objects, to the end of this list.
+        /// </summary>
+        /// <param name="key">
+        /// The object whose string form becomes the key (the X component) of
+        /// the new pair.
+        /// </param>
+        /// <param name="value">
+        /// The object whose string form becomes the value (the Y component) of
+        /// the new pair.
+        /// </param>
         public void AddObjects(
             object key,
             object value
@@ -553,6 +920,13 @@ namespace Eagle._Containers.Public
         //       the list is not null -OR- the list is empty.  It returns true
         //       if an item was actually added.
         //
+        /// <summary>
+        /// Adds a null item to the end of this list if the list is empty or the
+        /// final item currently in the list is not null.
+        /// </summary>
+        /// <returns>
+        /// True if a null item was added; otherwise, false.
+        /// </returns>
         public bool MaybeAddNull()
         {
             int count = base.Count;
@@ -574,6 +948,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Appends null items to the end of this list until it contains at least
+        /// the specified number of items.
+        /// </summary>
+        /// <param name="count">
+        /// The minimum number of items the list should contain.
+        /// </param>
+        /// <returns>
+        /// True if the list contains exactly the specified number of items after
+        /// the operation; otherwise, false.
+        /// </returns>
         public bool MaybeFillWithNull(
             int count
             )
@@ -586,6 +971,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the strings in the specified collection to the end of this list,
+        /// if the collection is not null.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings whose elements are added.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The number of strings added, or an invalid count if the collection
+        /// was null.
+        /// </returns>
         public int MaybeAddRange(
             IEnumerable<string> collection
             )
@@ -608,6 +1005,18 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds the string pairs in the specified collection to the end of this
+        /// list, if the collection is not null.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs whose elements are added.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The number of pairs added, or an invalid count if the collection was
+        /// null.
+        /// </returns>
         public int MaybeAddRange(
             IEnumerable<IPair<string>> collection
             )
@@ -630,6 +1039,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a new string pair, with the specified key and a value formed
+        /// from the raw-string rendering of the specified string list, to the
+        /// end of this list, if the value list is not null.
+        /// </summary>
+        /// <param name="key">
+        /// The key (the X component) of the new pair.
+        /// </param>
+        /// <param name="value">
+        /// The string list whose raw-string form becomes the value (the Y
+        /// component) of the new pair.  This parameter may be null.
+        /// </param>
+        /// <param name="separator">
+        /// The separator string used when rendering the value list to its
+        /// raw-string form.
+        /// </param>
+        /// <returns>
+        /// True if a pair was added; otherwise, false.
+        /// </returns>
         public bool MaybeAddRawString(
             string key,
             IStringList value,
@@ -647,6 +1075,17 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// Renders this list to its string form, optionally including empty
+        /// elements.
+        /// </summary>
+        /// <param name="empty">
+        /// Non-zero to include elements whose key and value are both empty;
+        /// otherwise, such elements are omitted.
+        /// </param>
+        /// <returns>
+        /// The string form of this list.
+        /// </returns>
         public string ToString(
             bool empty
             )
@@ -656,6 +1095,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders the elements of this list matching the specified pattern to
+        /// the string form.
+        /// </summary>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The string form of the matching elements of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -666,6 +1119,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders the elements of this list matching the specified pattern to
+        /// the string form, optionally including empty elements.
+        /// </summary>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include elements whose key and value are both empty;
+        /// otherwise, such elements are omitted.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The string form of the matching elements of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool empty,
@@ -682,6 +1153,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders the elements of this list matching the specified pattern to
+        /// the string form, using the specified separator between elements.
+        /// </summary>
+        /// <param name="separator">
+        /// The separator string placed between elements.
+        /// </param>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The string form of the matching elements of this list.
+        /// </returns>
         public string ToString(
             string separator,
             string pattern,
@@ -693,6 +1181,28 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders the elements of this list matching the specified pattern to
+        /// the string form, using the specified separator between elements and
+        /// optionally including empty elements.
+        /// </summary>
+        /// <param name="separator">
+        /// The separator string placed between elements.
+        /// </param>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include elements whose key and value are both empty;
+        /// otherwise, such elements are omitted.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The string form of the matching elements of this list.
+        /// </returns>
         public string ToString(
             string separator,
             string pattern,
@@ -732,6 +1242,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders this list to its raw-string form by concatenating the key
+        /// and value of each element, with no separators.
+        /// </summary>
+        /// <returns>
+        /// The raw-string form of this list.
+        /// </returns>
         public string ToRawString()
         {
             StringBuilder result = StringBuilderFactory.Create();
@@ -755,6 +1272,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders this list to its raw-string form by concatenating the key
+        /// and value of each element, placing the specified separator between
+        /// elements.
+        /// </summary>
+        /// <param name="separator">
+        /// The separator string placed between elements.
+        /// </param>
+        /// <returns>
+        /// The raw-string form of this list.
+        /// </returns>
         public string ToRawString(
             string separator
             )
@@ -783,6 +1311,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Renders this list to its raw-string form by concatenating the key
+        /// and value of each element, placing the first separator between
+        /// elements and the second separator between each element's key and
+        /// value.
+        /// </summary>
+        /// <param name="separator1">
+        /// The separator string placed between elements.
+        /// </param>
+        /// <param name="separator2">
+        /// The separator string placed between each element's key and value.
+        /// </param>
+        /// <returns>
+        /// The raw-string form of this list.
+        /// </returns>
         public string ToRawString(
             string separator1,
             string separator2
@@ -816,6 +1359,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToList Methods
+        /// <summary>
+        /// Creates a new string list containing the elements of this list.
+        /// </summary>
+        /// <returns>
+        /// The newly created string list.
+        /// </returns>
         public IStringList ToList()
         {
             return new StringList(this);
@@ -823,6 +1372,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new string list containing the elements of this list that
+        /// match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The newly created string list containing the matching elements.
+        /// </returns>
         public IStringList ToList(
             string pattern,
             bool noCase
@@ -833,6 +1396,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new string list containing the elements of this list that
+        /// match the specified pattern, optionally including empty elements.
+        /// </summary>
+        /// <param name="pattern">
+        /// The match pattern used to select which elements are included.  If
+        /// this parameter is null, all elements are included.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to include elements whose key and value are both empty;
+        /// otherwise, such elements are omitted.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive pattern match.
+        /// </param>
+        /// <returns>
+        /// The newly created string list containing the matching elements, or
+        /// null if the filtering operation fails.
+        /// </returns>
         public IStringList ToList(
             string pattern,
             bool empty,
@@ -891,6 +1473,17 @@ namespace Eagle._Containers.Public
 
         #region Public Static Methods
         #region Factory Methods
+        /// <summary>
+        /// Creates a new list of string pairs by parsing the specified string
+        /// as a list of sub-lists, where each sub-list provides a key and an
+        /// optional value.
+        /// </summary>
+        /// <param name="value">
+        /// The string to parse.
+        /// </param>
+        /// <returns>
+        /// The newly created list of string pairs, or null if parsing fails.
+        /// </returns>
         public static StringPairList FromString(
             string value
             )
@@ -902,6 +1495,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new list of string pairs by parsing the specified string
+        /// as a list of sub-lists, where each sub-list provides a key and an
+        /// optional value.
+        /// </summary>
+        /// <param name="value">
+        /// The string to parse.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that explains
+        /// why parsing failed.
+        /// </param>
+        /// <returns>
+        /// The newly created list of string pairs, or null if parsing fails.
+        /// </returns>
         public static StringPairList FromString(
             string value,
             ref Result error
@@ -973,6 +1581,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Returns a list of string pairs for the specified collection, reusing
+        /// the collection itself if it is already a list of string pairs and
+        /// creating a new list otherwise.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs to return or copy.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The specified collection if it is already a list of string pairs, a
+        /// new list of string pairs containing its elements otherwise, or null
+        /// if the collection was null.
+        /// </returns>
         public static StringPairList MaybeCreate(
             IEnumerable<IPair<string>> collection
             )
@@ -991,6 +1613,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Renders this list to its default string form.
+        /// </summary>
+        /// <returns>
+        /// The string form of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(DefaultEmpty);

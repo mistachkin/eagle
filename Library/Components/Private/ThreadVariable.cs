@@ -30,6 +30,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class implements the backing store for a thread-local Tcl variable,
+    /// keeping a separate value (scalar or array) for each thread that accesses
+    /// it.  It installs a variable trace so that get, set, and unset operations
+    /// on the associated Eagle variable are redirected to the per-thread storage
+    /// it maintains, and it provides helper methods for the introspection and
+    /// cleanup of that storage.
+    /// </summary>
     [ObjectId("cec51b48-b670-4e51-ac05-4f45fa051233")]
     internal sealed class ThreadVariable :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -41,19 +49,37 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the string representation of this object includes the
+        /// full string form of any array values rather than a summary.
+        /// </summary>
         private static bool DefaultToStringFull = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the per-thread values
+        /// maintained by this object.
+        /// </summary>
         private readonly object syncRoot = new object();
+
+        /// <summary>
+        /// The per-thread values maintained by this object, keyed by thread
+        /// identifier.  Each value is either a scalar value or an
+        /// <see cref="ElementDictionary" /> representing an array.
+        /// </summary>
         private LongObjectDictionary values;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class, initializing its empty
+        /// per-thread value storage.
+        /// </summary>
         private ThreadVariable()
         {
             lock (syncRoot) /* REDUNDANT */
@@ -66,6 +92,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new, empty thread-local variable backing store.
+        /// </summary>
+        /// <returns>
+        /// The newly created thread-local variable backing store.
+        /// </returns>
         public static ThreadVariable Create()
         {
             return new ThreadVariable();
@@ -78,6 +110,33 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the interpreter lock is held.
         //
+        /// <summary>
+        /// This method removes the values associated with the specified thread
+        /// from all thread-local variables in every scope, namespace, and the
+        /// global frame of an interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread-local variables are to be cleaned up.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose values are to be removed.
+        /// </param>
+        /// <param name="failOnError">
+        /// Non-zero to stop and return on the first error encountered; zero to
+        /// continue cleaning up despite errors.
+        /// </param>
+        /// <param name="count">
+        /// This parameter receives the number of thread-local values that were
+        /// removed, accumulated with its incoming value.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this list receives one or more error messages
+        /// describing why cleanup failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode CleanupForThread(
             Interpreter interpreter,
             long threadId,
@@ -189,6 +248,31 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the interpreter lock is held.
         //
+        /// <summary>
+        /// This method removes the values associated with the specified thread
+        /// from all thread-local variables contained in a single call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the call frame.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose thread-local variables are to be cleaned up.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose values are to be removed.
+        /// </param>
+        /// <param name="count">
+        /// This parameter receives the number of thread-local values that were
+        /// removed, accumulated with its incoming value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why cleanup failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode CleanupForThread(
             Interpreter interpreter,
             ICallFrame frame,
@@ -247,6 +331,27 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the interpreter lock is held.
         //
+        /// <summary>
+        /// This method is the per-scope callback used when cleaning up
+        /// thread-local variables; it removes the values associated with a
+        /// thread from the thread-local variables in a single scope call frame.
+        /// </summary>
+        /// <param name="frame">
+        /// The scope call frame whose thread-local variables are to be cleaned
+        /// up.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data that wraps the cleanup triplet (i.e. the interpreter,
+        /// thread identifier, and running count).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why cleanup failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode CleanupForScope(
             ICallFrame frame,
             IClientData clientData,
@@ -288,6 +393,27 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the interpreter lock is held.
         //
+        /// <summary>
+        /// This method is the per-namespace callback used when cleaning up
+        /// thread-local variables; it removes the values associated with a
+        /// thread from the thread-local variables in a single namespace variable
+        /// frame.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace whose variable frame is to be cleaned up.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data that wraps the cleanup triplet (i.e. the interpreter,
+        /// thread identifier, and running count).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why cleanup failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode CleanupForNamespace(
             INamespace @namespace,
             IClientData clientData,
@@ -333,6 +459,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method returns the identifier of the current system thread,
+        /// which is used to key the per-thread value storage.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the current system thread.
+        /// </returns>
         public static long GetThreadId()
         {
             return GlobalState.GetCurrentSystemThreadId();
@@ -340,6 +473,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the values associated with the specified thread
+        /// from all thread-local variables in an interpreter, tracing the
+        /// outcome.  Any errors encountered are logged rather than thrown.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose thread-local variables are to be cleaned up.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose values are to be removed.
+        /// </param>
         public static void CleanupForThread(
             Interpreter interpreter,
             long threadId
@@ -369,6 +513,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method removes the value associated with the specified thread
+        /// from this object's per-thread storage.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value is to be removed.
+        /// </param>
+        /// <returns>
+        /// True if a value was removed; otherwise, false.
+        /// </returns>
         private bool PrivateCleanupForThread(
             long threadId
             )
@@ -384,6 +538,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the values associated with all threads from this
+        /// object's per-thread storage.
+        /// </summary>
+        /// <returns>
+        /// The number of per-thread values that were removed.
+        /// </returns>
         private int PrivateCleanupForAll()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -402,6 +563,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a value exists for the specified
+        /// thread, discarding any error message produced.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation being performed, used when formatting
+        /// error messages.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value existence is to be checked.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable being checked, used when formatting error
+        /// messages.
+        /// </param>
+        /// <returns>
+        /// True if a value exists for the specified thread; otherwise, false.
+        /// </returns>
         private bool TryHasValue(
             BreakpointType breakpointType,
             Interpreter interpreter,
@@ -417,6 +599,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a value exists for the specified
+        /// thread.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation being performed, used when formatting
+        /// error messages.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value existence is to be checked.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable being checked, used when formatting error
+        /// messages.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why no value exists.
+        /// </param>
+        /// <returns>
+        /// True if a value exists for the specified thread; otherwise, false.
+        /// </returns>
         private bool TryHasValue(
             BreakpointType breakpointType,
             Interpreter interpreter,
@@ -451,6 +658,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the array value associated with the
+        /// specified thread, discarding any error message produced.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread whose array value is to be retrieved.
+        /// </param>
+        /// <param name="arrayValue">
+        /// Upon success, this parameter receives the array value associated with
+        /// the specified thread.
+        /// </param>
+        /// <returns>
+        /// True if an array value was retrieved; otherwise, false.
+        /// </returns>
         private bool TryGetArray(
             long threadId,
             out ElementDictionary arrayValue
@@ -463,6 +684,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the array value associated with the
+        /// specified thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread whose array value is to be retrieved.
+        /// </param>
+        /// <param name="arrayValue">
+        /// Upon success, this parameter receives the array value associated with
+        /// the specified thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the array value could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// True if an array value was retrieved; otherwise, false.
+        /// </returns>
         private bool TryGetArray(
             long threadId,
             out ElementDictionary arrayValue,
@@ -503,6 +742,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the value (i.e. a scalar value or an
+        /// array element) associated with the specified thread.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation being performed, used when formatting
+        /// error messages.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value is to be retrieved.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable being retrieved, used when formatting error
+        /// messages.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element name to retrieve, or null to retrieve a scalar
+        /// value.
+        /// </param>
+        /// <param name="oldValue">
+        /// Upon success, this parameter receives the value that was retrieved.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the value could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// True if a value was retrieved; otherwise, false.
+        /// </returns>
         private bool TryGetValue(
             BreakpointType breakpointType,
             Interpreter interpreter,
@@ -584,6 +855,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to set the value (i.e. a scalar value or an
+        /// array element) associated with the specified thread, creating the
+        /// per-thread storage if necessary.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation being performed, used when formatting
+        /// error messages.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value is to be set.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable being set, used when formatting error
+        /// messages.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element name to set, or null to set a scalar value.
+        /// </param>
+        /// <param name="newValue">
+        /// The new value to be stored.
+        /// </param>
+        /// <param name="variableFlags">
+        /// The flags that control how the new value is combined with any
+        /// existing value (e.g. for append operations).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the value could not be set.
+        /// </param>
+        /// <returns>
+        /// True if the value was set; otherwise, false.
+        /// </returns>
         private bool TrySetValue(
             BreakpointType breakpointType,
             Interpreter interpreter,
@@ -685,6 +992,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to unset the value (i.e. a scalar value or an
+        /// array element) associated with the specified thread.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation being performed, used when formatting
+        /// error messages.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread whose value is to be unset.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable being unset, used when formatting error
+        /// messages.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element name to unset, or null to unset a scalar value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the value could not be unset.
+        /// </param>
+        /// <returns>
+        /// True if the value was unset; otherwise, false.
+        /// </returns>
         private bool TryUnsetValue(
             BreakpointType breakpointType,
             Interpreter interpreter,
@@ -773,6 +1108,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Callback Method
+        /// <summary>
+        /// This method is the variable trace callback that redirects get, set,
+        /// and unset operations on the associated Eagle variable to this
+        /// object's per-thread storage, canceling the normal variable operation.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The kind of variable operation that triggered the trace.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in which the traced variable operation is occurring.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The information that describes the traced variable operation,
+        /// including the variable, its name and index, and the new value.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this parameter receives the result of the operation; the
+        /// retrieved value, an empty string, or an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         [MethodFlags(
             MethodFlags.VariableTrace | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -919,6 +1277,17 @@ namespace Eagle._Components.Private
 
         #region Public Methods
         #region Scalar Sub-Command Helper Methods
+        /// <summary>
+        /// This method determines whether a scalar value exists for the current
+        /// thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <returns>
+        /// True if a scalar value exists for the current thread; otherwise,
+        /// false.
+        /// </returns>
         public bool DoesExist(
             Interpreter interpreter
             )
@@ -936,6 +1305,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Array Sub-Command Helper Methods
+        /// <summary>
+        /// This method determines whether an array, or a specified element of
+        /// that array, exists for the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="name">
+        /// The name of the array element to check, or null to check whether the
+        /// array itself exists.
+        /// </param>
+        /// <returns>
+        /// True if the array (or the specified element) exists for the current
+        /// thread; otherwise, false.
+        /// </returns>
         public bool DoesExist(
             Interpreter interpreter,
             string name
@@ -957,6 +1341,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of elements in the array for the
+        /// current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the count could not be determined.
+        /// </param>
+        /// <returns>
+        /// The number of elements in the array for the current thread, or null
+        /// on failure.
+        /// </returns>
         public long? GetCount(
             Interpreter interpreter,
             ref Result error
@@ -975,6 +1374,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the elements of the array for the current thread
+        /// as a dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the element names in the returned dictionary.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the element values in the returned dictionary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the list could not be produced.
+        /// </param>
+        /// <returns>
+        /// A dictionary containing the array elements for the current thread, or
+        /// null on failure.
+        /// </returns>
         public ObjectDictionary GetList(
             Interpreter interpreter,
             bool names,
@@ -996,6 +1416,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the element names of the array for the current
+        /// thread, optionally filtered by a pattern, as a string list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used when filtering element names by the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter element names, or null to include all
+        /// names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options used when the matching mode is regular
+        /// expression based.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the string could not be produced.
+        /// </param>
+        /// <returns>
+        /// A string list of the matching element names, or null on failure.
+        /// </returns>
         public string KeysToString(
             Interpreter interpreter,
             MatchMode mode,
@@ -1027,6 +1475,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the element names and values of the array for the
+        /// current thread, optionally filtered by a pattern, as a string list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that provides context for the operation.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter element names, or null to include all
+        /// names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the string could not be produced.
+        /// </param>
+        /// <returns>
+        /// A string list of the matching element names and values, or null on
+        /// failure.
+        /// </returns>
         public string KeysAndValuesToString(
             Interpreter interpreter,
             string pattern,
@@ -1059,6 +1529,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Script Helper Methods
+        /// <summary>
+        /// This method adds a variable to the interpreter that is traced by this
+        /// object, so that operations on it are redirected to the per-thread
+        /// storage.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which to add the variable.
+        /// </param>
+        /// <param name="variableFlags">
+        /// The flags that control how the variable is added.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable to be added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message that describes
+        /// why the variable could not be added.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode AddVariable(
             Interpreter interpreter,
             VariableFlags variableFlags,
@@ -1083,6 +1575,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Helper Methods
+        /// <summary>
+        /// This method removes the values associated with all threads from this
+        /// object's per-thread storage.
+        /// </summary>
+        /// <returns>
+        /// The number of per-thread values that were removed.
+        /// </returns>
         public int CleanupForAll()
         {
             CheckDisposed();
@@ -1095,6 +1594,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Helper Methods
+        /// <summary>
+        /// This method returns a list describing the per-thread values
+        /// maintained by this object, keyed by thread identifier, for
+        /// introspection purposes.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to include the full string form of any array values; zero to
+        /// include only a summary.
+        /// </param>
+        /// <returns>
+        /// A list of name and value pairs describing the per-thread values.
+        /// </returns>
         private StringPairList ToList(
             bool full
             )
@@ -1160,6 +1671,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of the per-thread values
+        /// maintained by this object.
+        /// </summary>
+        /// <returns>
+        /// A string representation of the per-thread values.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -1171,7 +1689,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this object has been disposed and
+        /// the engine is configured to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -1185,6 +1711,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this object, clearing its
+        /// per-thread value storage.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -1219,6 +1754,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object and suppresses
+        /// finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -1229,6 +1768,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of this class, releasing any resources that
+        /// were not released by an explicit call to the <see cref="Dispose()" />
+        /// method.
+        /// </summary>
         ~ThreadVariable()
         {
             Dispose(false);

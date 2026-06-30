@@ -24,9 +24,17 @@ using SomeDictionary = System.Collections.Generic.Dictionary<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps native pointer values to
+    /// instances of objects that implement the <see cref="IObjectType" />
+    /// interface.
+    /// </summary>
     [ObjectId("8442b84d-f17b-44e2-8a78-ae1ec7caed74")]
     internal sealed class IntPtrObjectTypeDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public IntPtrObjectTypeDictionary()
             : base()
         {

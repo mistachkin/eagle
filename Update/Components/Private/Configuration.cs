@@ -25,6 +25,16 @@ using Eagle._Components.Shared;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class encapsulates the complete set of settings that govern the
+    /// Hippogriff updater, including the assembly being checked, its expected
+    /// signing information (Authenticode certificate, strong name, and public
+    /// key token), the remote update endpoint, the local core directory and
+    /// file name, and the various behavioral flags (e.g. "what-if", verbose,
+    /// silent, and tracing) that control how an update is detected, verified,
+    /// and applied.  It also provides factory methods for building a
+    /// configuration from defaults, a command line, or a file.
+    /// </summary>
     [Guid("75620dd2-d59d-4cf0-87ff-5ecad2472bd2")]
     internal sealed class Configuration
     {
@@ -33,6 +43,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used as the category name for all trace messages that
         //       will originate in this class.
         //
+        /// <summary>
+        /// The category name used for all trace messages originating in this
+        /// class.
+        /// </summary>
         private static readonly string TraceCategory =
             typeof(Configuration).Name;
 
@@ -43,6 +57,10 @@ namespace Eagle._Components.Private
         //       from a candidate core file name (i.e. instead of null).  This
         //       value itself MAY be null.
         //
+        /// <summary>
+        /// The default version to use when one cannot be queried from a
+        /// candidate core file name (i.e. instead of null).
+        /// </summary>
         private static readonly Version DefaultVersion = new Version();
 
         ///////////////////////////////////////////////////////////////////////
@@ -52,6 +70,10 @@ namespace Eagle._Components.Private
         //       installation directory in order to come up with the final
         //       core directory name.
         //
+        /// <summary>
+        /// The path fragments to combine with a suitable base installation
+        /// directory in order to come up with the final core directory name.
+        /// </summary>
         private static readonly string[] DefaultPaths = {
             Defaults.Name, Defaults.BinaryDirectory
         };
@@ -64,6 +86,11 @@ namespace Eagle._Components.Private
         //       the primary directory separator character, which will be
         //       the one native to this platform.
         //
+        /// <summary>
+        /// The combination of the default path fragments into a single path
+        /// string, using the primary directory separator character native to
+        /// this platform, for ease of use.
+        /// </summary>
         private static readonly string DefaultPath = String.Join(
             Path.DirectorySeparatorChar.ToString(), DefaultPaths);
         #endregion
@@ -75,19 +102,34 @@ namespace Eagle._Components.Private
         // NOTE: These are the lists of required files associated with each
         //       release type.
         //
+        /// <summary>
+        /// The lists of required files associated with each release type, keyed
+        /// by release type.
+        /// </summary>
         private static IDictionary<ReleaseType, IList<string>> ReleaseFiles;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// When non-zero, the assembly associated with this configuration has a
+        /// trusted Authenticode signature.
+        /// </summary>
         private bool isAuthenticodeSigned;
+        /// <summary>
+        /// When non-zero, the assembly associated with this configuration has a
+        /// verified strong name signature.
+        /// </summary>
         private bool isStrongNameSigned;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         private Configuration()
         {
             // do nothing.
@@ -95,6 +137,134 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified settings.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to be checked and (potentially) updated.
+        /// </param>
+        /// <param name="subjectName">
+        /// The expected subject name of the Authenticode signing certificate.
+        /// </param>
+        /// <param name="certificate2">
+        /// The Authenticode signing certificate of the assembly, if any.
+        /// </param>
+        /// <param name="id">
+        /// The numeric identifier used to select the desired release.
+        /// </param>
+        /// <param name="protocolId">
+        /// The protocol identifier used when communicating with the update
+        /// endpoint.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected strong name public key token of the assembly.
+        /// </param>
+        /// <param name="delay">
+        /// The number of milliseconds to wait before attempting to delete or
+        /// overwrite a potentially locked file; a negative value means "no
+        /// delay".
+        /// </param>
+        /// <param name="mutexName">
+        /// The name of the mutex used to coordinate concurrent updater runs.
+        /// </param>
+        /// <param name="baseUri">
+        /// The base URI of the remote update endpoint.
+        /// </param>
+        /// <param name="tagPathAndQuery">
+        /// The path-and-query format string, combined with the patch level, to
+        /// query the update endpoint.
+        /// </param>
+        /// <param name="uriFormat">
+        /// The format string used to build download URIs.
+        /// </param>
+        /// <param name="name">
+        /// The name of the product associated with this configuration.
+        /// </param>
+        /// <param name="culture">
+        /// The culture associated with this configuration.
+        /// </param>
+        /// <param name="patchLevel">
+        /// The patch level (version) of the local core file.
+        /// </param>
+        /// <param name="buildType">
+        /// The build type associated with this configuration.
+        /// </param>
+        /// <param name="releaseType">
+        /// The release type associated with this configuration.
+        /// </param>
+        /// <param name="strongNameExFlags">
+        /// The flags controlling strong name signature verification.
+        /// </param>
+        /// <param name="signatureFlags">
+        /// The flags controlling Authenticode signature verification.
+        /// </param>
+        /// <param name="coreDirectory">
+        /// The local directory containing the core file to be updated.
+        /// </param>
+        /// <param name="coreFileName">
+        /// The file name of the local core file to be updated.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm used to verify downloaded files.
+        /// </param>
+        /// <param name="commandFormat">
+        /// The format string used to build the command to run after updating.
+        /// </param>
+        /// <param name="argumentFormat">
+        /// The format string used to build the arguments for the command run
+        /// after updating.
+        /// </param>
+        /// <param name="logFileName">
+        /// The file name used for logging output.
+        /// </param>
+        /// <param name="traceCallback">
+        /// The callback used to emit trace messages.
+        /// </param>
+        /// <param name="shellArgs">
+        /// The arguments to pass to the shell when it is invoked.
+        /// </param>
+        /// <param name="noAuthenticodeSigned">
+        /// When non-zero, Authenticode signature checking for the self-check is
+        /// disabled.
+        /// </param>
+        /// <param name="noStrongNameSigned">
+        /// When non-zero, strong name signature checking for the self-check is
+        /// disabled.
+        /// </param>
+        /// <param name="coreIsAssembly">
+        /// When non-zero, the core file is itself a managed assembly.
+        /// </param>
+        /// <param name="whatIf">
+        /// When non-zero, no actual changes are made to the system.
+        /// </param>
+        /// <param name="verbose">
+        /// When non-zero, more detailed output is produced.
+        /// </param>
+        /// <param name="silent">
+        /// When non-zero, non-critical user prompts are suppressed.
+        /// </param>
+        /// <param name="invisible">
+        /// When non-zero, all user interface elements are suppressed.
+        /// </param>
+        /// <param name="force">
+        /// When non-zero, the update is forced even when it might otherwise be
+        /// skipped.
+        /// </param>
+        /// <param name="reCheck">
+        /// When non-zero, the update check is repeated after applying an update.
+        /// </param>
+        /// <param name="tracing">
+        /// When non-zero, trace listening to the console is enabled.
+        /// </param>
+        /// <param name="logging">
+        /// When non-zero, trace listening to the log file is enabled.
+        /// </param>
+        /// <param name="shell">
+        /// When non-zero, the interactive shell may be launched.
+        /// </param>
+        /// <param name="confirm">
+        /// When non-zero, the user is prompted to confirm before proceeding.
+        /// </param>
         private Configuration(
             Assembly assembly,
             string subjectName,
@@ -181,6 +351,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class by copying the settings from
+        /// an existing configuration.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration whose settings should be copied.  If this value
+        /// is null, no settings are copied.
+        /// </param>
         public Configuration(
             Configuration configuration
             )
@@ -231,7 +409,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the assembly to be checked and (potentially) updated.
+        /// </summary>
         private Assembly assembly;
+        /// <summary>
+        /// Gets the assembly to be checked and (potentially) updated.
+        /// </summary>
         public Assembly Assembly
         {
             get { return assembly; }
@@ -239,7 +423,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected subject name of the Authenticode signing
+        /// certificate.
+        /// </summary>
         private string subjectName;
+        /// <summary>
+        /// Gets the expected subject name of the Authenticode signing
+        /// certificate.
+        /// </summary>
         public string SubjectName
         {
             get { return subjectName; }
@@ -247,7 +439,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the Authenticode signing certificate of the assembly, if any.
+        /// </summary>
         private X509Certificate2 certificate2;
+        /// <summary>
+        /// Gets the Authenticode signing certificate of the assembly, if any.
+        /// </summary>
         public X509Certificate2 Certificate2
         {
             get { return certificate2; }
@@ -255,7 +453,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the numeric identifier used to select the desired release.
+        /// </summary>
         private int id;
+        /// <summary>
+        /// Gets the numeric identifier used to select the desired release.
+        /// </summary>
         public int Id
         {
             get { return id; }
@@ -263,7 +467,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the protocol identifier used when communicating with the
+        /// update endpoint.
+        /// </summary>
         private string protocolId;
+        /// <summary>
+        /// Gets the protocol identifier used when communicating with the
+        /// update endpoint.
+        /// </summary>
         public string ProtocolId
         {
             get { return protocolId; }
@@ -271,7 +483,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expected strong name public key token of the assembly.
+        /// </summary>
         private byte[] publicKeyToken;
+        /// <summary>
+        /// Gets the expected strong name public key token of the assembly.
+        /// </summary>
         public byte[] PublicKeyToken
         {
             get { return publicKeyToken; }
@@ -279,7 +497,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the number of milliseconds to wait before attempting to
+        /// delete or overwrite a potentially locked file; a negative value
+        /// means "no delay".
+        /// </summary>
         private int delay;
+        /// <summary>
+        /// Gets the number of milliseconds to wait before attempting to delete
+        /// or overwrite a potentially locked file; a negative value means "no
+        /// delay".
+        /// </summary>
         public int Delay
         {
             get { return delay; }
@@ -287,7 +515,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the name of the mutex used to coordinate concurrent updater
+        /// runs.
+        /// </summary>
         private string mutexName;
+        /// <summary>
+        /// Gets the name of the mutex used to coordinate concurrent updater
+        /// runs.
+        /// </summary>
         public string MutexName
         {
             get { return mutexName; }
@@ -295,7 +531,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the base URI of the remote update endpoint.
+        /// </summary>
         private Uri baseUri;
+        /// <summary>
+        /// Gets the base URI of the remote update endpoint.
+        /// </summary>
         public Uri BaseUri
         {
             get { return baseUri; }
@@ -303,7 +545,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the path-and-query format string, combined with the patch
+        /// level, used to query the update endpoint.
+        /// </summary>
         private string tagPathAndQuery;
+        /// <summary>
+        /// Gets the path-and-query format string, combined with the patch
+        /// level, used to query the update endpoint.
+        /// </summary>
         public string TagPathAndQuery
         {
             get { return tagPathAndQuery; }
@@ -311,7 +561,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the format string used to build download URIs.
+        /// </summary>
         private string uriFormat;
+        /// <summary>
+        /// Gets the format string used to build download URIs.
+        /// </summary>
         public string UriFormat
         {
             get { return uriFormat; }
@@ -319,7 +575,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the name of the product associated with this configuration.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets the name of the product associated with this configuration.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -327,7 +589,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the culture associated with this configuration.
+        /// </summary>
         private CultureInfo culture;
+        /// <summary>
+        /// Gets the culture associated with this configuration.
+        /// </summary>
         public CultureInfo Culture
         {
             get { return culture; }
@@ -335,7 +603,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the patch level (version) of the local core file.
+        /// </summary>
         private Version patchLevel;
+        /// <summary>
+        /// Gets the patch level (version) of the local core file.
+        /// </summary>
         public Version PatchLevel
         {
             get { return patchLevel; }
@@ -343,7 +617,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the build type associated with this configuration.
+        /// </summary>
         private BuildType buildType;
+        /// <summary>
+        /// Gets the build type associated with this configuration.
+        /// </summary>
         public BuildType BuildType
         {
             get { return buildType; }
@@ -351,7 +631,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the release type associated with this configuration.
+        /// </summary>
         private ReleaseType releaseType;
+        /// <summary>
+        /// Gets the release type associated with this configuration.
+        /// </summary>
         public ReleaseType ReleaseType
         {
             get { return releaseType; }
@@ -359,7 +645,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags controlling strong name signature verification.
+        /// </summary>
         private StrongNameExFlags strongNameExFlags;
+        /// <summary>
+        /// Gets the flags controlling strong name signature verification.
+        /// </summary>
         public StrongNameExFlags StrongNameExFlags
         {
             get { return strongNameExFlags; }
@@ -367,7 +659,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags controlling Authenticode signature verification.
+        /// </summary>
         private SignatureFlags signatureFlags;
+        /// <summary>
+        /// Gets the flags controlling Authenticode signature verification.
+        /// </summary>
         public SignatureFlags SignatureFlags
         {
             get { return signatureFlags; }
@@ -375,7 +673,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the local directory containing the core file to be updated.
+        /// </summary>
         private string coreDirectory;
+        /// <summary>
+        /// Gets the local directory containing the core file to be updated.
+        /// </summary>
         public string CoreDirectory
         {
             get { return coreDirectory; }
@@ -383,7 +687,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the file name of the local core file to be updated.
+        /// </summary>
         private string coreFileName;
+        /// <summary>
+        /// Gets the file name of the local core file to be updated.
+        /// </summary>
         public string CoreFileName
         {
             get { return coreFileName; }
@@ -391,7 +701,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the name of the hash algorithm used to verify downloaded
+        /// files.
+        /// </summary>
         private string hashAlgorithmName;
+        /// <summary>
+        /// Gets the name of the hash algorithm used to verify downloaded
+        /// files.
+        /// </summary>
         public string HashAlgorithmName
         {
             get { return hashAlgorithmName; }
@@ -399,7 +717,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the format string used to build the command to run after
+        /// updating.
+        /// </summary>
         private string commandFormat;
+        /// <summary>
+        /// Gets the format string used to build the command to run after
+        /// updating.
+        /// </summary>
         public string CommandFormat
         {
             get { return commandFormat; }
@@ -407,7 +733,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the format string used to build the arguments for the
+        /// command run after updating.
+        /// </summary>
         private string argumentFormat;
+        /// <summary>
+        /// Gets the format string used to build the arguments for the command
+        /// run after updating.
+        /// </summary>
         public string ArgumentFormat
         {
             get { return argumentFormat; }
@@ -415,7 +749,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the file name used for logging output.
+        /// </summary>
         private string logFileName;
+        /// <summary>
+        /// Gets the file name used for logging output.
+        /// </summary>
         public string LogFileName
         {
             get { return logFileName; }
@@ -423,7 +763,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the callback used to emit trace messages.
+        /// </summary>
         private TraceCallback traceCallback;
+        /// <summary>
+        /// Gets or sets the callback used to emit trace messages.
+        /// </summary>
         public TraceCallback TraceCallback
         {
             get { return traceCallback; }
@@ -432,7 +778,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the arguments to pass to the shell when it is invoked.
+        /// </summary>
         private IEnumerable<string> shellArgs;
+        /// <summary>
+        /// Gets the arguments to pass to the shell when it is invoked.
+        /// </summary>
         public IEnumerable<string> ShellArgs
         {
             get { return shellArgs; }
@@ -440,7 +792,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, Authenticode signature checking for the self-check
+        /// is disabled.
+        /// </summary>
         private bool noAuthenticodeSigned;
+        /// <summary>
+        /// Gets a value indicating whether Authenticode signature checking for
+        /// the self-check is disabled.
+        /// </summary>
         public bool NoAuthenticodeSigned
         {
             get { return noAuthenticodeSigned; }
@@ -448,7 +808,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, strong name signature checking for the self-check is
+        /// disabled.
+        /// </summary>
         private bool noStrongNameSigned;
+        /// <summary>
+        /// Gets a value indicating whether strong name signature checking for
+        /// the self-check is disabled.
+        /// </summary>
         public bool NoStrongNameSigned
         {
             get { return noStrongNameSigned; }
@@ -456,7 +824,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the core file is itself a managed assembly.
+        /// </summary>
         private bool coreIsAssembly;
+        /// <summary>
+        /// Gets a value indicating whether the core file is itself a managed
+        /// assembly.
+        /// </summary>
         public bool CoreIsAssembly
         {
             get { return coreIsAssembly; }
@@ -464,7 +839,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, no actual changes are made to the system.
+        /// </summary>
         private bool whatIf;
+        /// <summary>
+        /// Gets a value indicating whether no actual changes will be made to
+        /// the system ("what-if" mode).
+        /// </summary>
         public bool WhatIf
         {
             get { return whatIf; }
@@ -472,7 +854,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, more detailed output is produced.
+        /// </summary>
         private bool verbose;
+        /// <summary>
+        /// Gets a value indicating whether more detailed output is produced.
+        /// </summary>
         public bool Verbose
         {
             get { return verbose; }
@@ -480,7 +868,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, non-critical user prompts are suppressed.
+        /// </summary>
         private bool silent;
+        /// <summary>
+        /// Gets a value indicating whether non-critical user prompts are
+        /// suppressed.
+        /// </summary>
         public bool Silent
         {
             get { return silent; }
@@ -488,7 +883,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, all user interface elements are suppressed.
+        /// </summary>
         private bool invisible;
+        /// <summary>
+        /// Gets a value indicating whether all user interface elements are
+        /// suppressed.
+        /// </summary>
         public bool Invisible
         {
             get { return invisible; }
@@ -496,7 +898,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the update is forced even when it might otherwise be
+        /// skipped.
+        /// </summary>
         private bool force;
+        /// <summary>
+        /// Gets a value indicating whether the update is forced even when it
+        /// might otherwise be skipped.
+        /// </summary>
         public bool Force
         {
             get { return force; }
@@ -504,7 +914,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the update check is repeated after applying an
+        /// update.
+        /// </summary>
         private bool reCheck;
+        /// <summary>
+        /// Gets a value indicating whether the update check is repeated after
+        /// applying an update.
+        /// </summary>
         public bool ReCheck
         {
             get { return reCheck; }
@@ -512,7 +930,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, trace listening to the console is enabled.
+        /// </summary>
         private bool tracing;
+        /// <summary>
+        /// Gets a value indicating whether trace listening to the console is
+        /// enabled.
+        /// </summary>
         public bool Tracing
         {
             get { return tracing; }
@@ -520,7 +945,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, trace listening to the log file is enabled.
+        /// </summary>
         private bool logging;
+        /// <summary>
+        /// Gets a value indicating whether trace listening to the log file is
+        /// enabled.
+        /// </summary>
         public bool Logging
         {
             get { return logging; }
@@ -528,7 +960,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the interactive shell may be launched.
+        /// </summary>
         private bool shell;
+        /// <summary>
+        /// Gets a value indicating whether the interactive shell may be
+        /// launched.
+        /// </summary>
         public bool Shell
         {
             get { return shell; }
@@ -536,7 +975,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the user is prompted to confirm before proceeding.
+        /// </summary>
         private bool confirm;
+        /// <summary>
+        /// Gets a value indicating whether the user is prompted to confirm
+        /// before proceeding.
+        /// </summary>
         public bool Confirm
         {
             get { return confirm; }
@@ -544,6 +990,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether the assembly is acceptably signed,
+        /// taking into account both the Authenticode and strong name signature
+        /// states as well as any flags that disable those checks.
+        /// </summary>
         public bool IsSigned
         {
             get
@@ -569,6 +1020,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this configuration is internally
+        /// valid (i.e. all required settings have acceptable values).  Any
+        /// invalid setting is reported via the trace callback.
+        /// </summary>
         public bool IsValid
         {
             get
@@ -859,6 +1315,23 @@ namespace Eagle._Components.Private
         //       returned if the file is trusted.  Otherwise, zero will be
         //       returned, along with an appropriate error message.
         //
+        /// <summary>
+        /// This method checks the file associated with this assembly to see if
+        /// it has a trusted Authenticode signature.
+        /// </summary>
+        /// <param name="forceVerify">
+        /// When non-zero, signature verification is forced even on platforms
+        /// where it might otherwise be skipped.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, receives the Authenticode signing certificate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file is trusted; otherwise, false.
+        /// </returns>
         private bool VerifyAssemblyCertificate(
             bool forceVerify,
             ref X509Certificate2 certificate2,
@@ -906,6 +1379,20 @@ namespace Eagle._Components.Private
         //       is verified.  Otherwise, zero will be returned, along with
         //       an appropriate error message.
         //
+        /// <summary>
+        /// This method checks the file associated with this assembly to see if
+        /// it has a verified strong name signature.
+        /// </summary>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the strong name public key token of the
+        /// assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the strong name signature is verified; otherwise, false.
+        /// </returns>
         private bool VerifyAssemblyStrongName(
             ref byte[] publicKeyToken,
             ref string error
@@ -940,6 +1427,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified base installation directory with
+        /// the default path fragments to produce the final core directory name,
+        /// unless the directory already ends with that path.
+        /// </summary>
+        /// <param name="directory">
+        /// The base installation directory to start from.
+        /// </param>
+        /// <returns>
+        /// The resulting core directory name.
+        /// </returns>
         private string BuildCoreDirectory(
             string directory
             )
@@ -976,6 +1474,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the configured core file name exists
+        /// within the specified directory.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory in which to look for the core file.
+        /// </param>
+        /// <returns>
+        /// True if the core file exists in the specified directory; otherwise,
+        /// false.
+        /// </returns>
         private bool DoesCoreFileNameExist(
             string directory
             )
@@ -991,6 +1500,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method rebuilds the configured core file name by combining the
+        /// base core file name with the (possibly changed) core directory, then
+        /// refreshes the patch level accordingly.
+        /// </summary>
         private void RefreshCoreFileName()
         {
             //
@@ -1015,6 +1529,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the patch level for the configured core file
+        /// name.  Upon failure, the value may be null or the default version.
+        /// </summary>
         private void RefreshCorePatchLevel()
         {
             //
@@ -1027,6 +1545,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method examines the files present in the core directory and,
+        /// if permitted, changes the release type to the "most complete" one
+        /// whose required files are all present.
+        /// </summary>
         private void RefreshReleaseType()
         {
             //
@@ -1121,6 +1644,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the configured patch level for use in an update
+        /// query, using only the build and revision when the major and minor
+        /// versions match the defaults, or the full version string otherwise.
+        /// </summary>
+        /// <returns>
+        /// The patch level string to use in an update query, or null if no
+        /// patch level is configured.
+        /// </returns>
         private string GetQueryPatchLevel()
         {
             if (patchLevel == null)
@@ -1150,6 +1682,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the configured strong name flags
+        /// include the specified flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// When non-zero, all of the specified flags must be present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         public bool HasFlags(
             StrongNameExFlags hasFlags,
             bool all
@@ -1160,6 +1706,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the configured signature flags
+        /// include the specified flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// When non-zero, all of the specified flags must be present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         public bool HasFlags(
             SignatureFlags hasFlags,
             bool all
@@ -1170,6 +1730,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the core directory based on the location of the
+        /// configured assembly, refreshing the core file name and patch level
+        /// as necessary.  If the configured assembly is null, the core
+        /// directory will be as well.
+        /// </summary>
         public void ResetCoreDirectory()
         {
             //
@@ -1186,6 +1752,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the core directory, refreshing the core file name,
+        /// patch level, and release type as necessary.  If the core file name
+        /// exists in the specified location, it is used verbatim; otherwise,
+        /// the location is treated as the base installation directory.
+        /// </summary>
+        /// <param name="directory">
+        /// The core directory or base installation directory to use.
+        /// </param>
         public void SetCoreDirectory(
             string directory
             )
@@ -1217,6 +1792,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the core file name and refreshes the patch level
+        /// accordingly.
+        /// </summary>
+        /// <param name="fileName">
+        /// The core file name to use.
+        /// </param>
         public void SetCoreFileName(
             string fileName
             )
@@ -1230,6 +1812,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the release type to its default value.
+        /// </summary>
         public void ResetReleaseType()
         {
             releaseType = ReleaseType.Default;
@@ -1237,6 +1822,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets both the release type and the core directory to
+        /// their default values.
+        /// </summary>
         public void ResetReleaseTypeAndCoreDirectory()
         {
             ResetReleaseType();
@@ -1245,6 +1834,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the path-and-query string for an update query by
+        /// combining the configured tag path-and-query format with the query
+        /// patch level.
+        /// </summary>
+        /// <returns>
+        /// The formatted path-and-query string.
+        /// </returns>
         public string GetPathAndQuery()
         {
             return String.Format(tagPathAndQuery, GetQueryPatchLevel());
@@ -1260,6 +1857,29 @@ namespace Eagle._Components.Private
         //       trusted.  Otherwise, zero will be returned, along with an
         //       appropriate error message.
         //
+        /// <summary>
+        /// This method checks the specified file to see if it has a trusted
+        /// Authenticode signature.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to check.
+        /// </param>
+        /// <param name="forceVerify">
+        /// When non-zero, signature verification is forced even on platforms
+        /// where it might otherwise be skipped.
+        /// </param>
+        /// <param name="userPrompt">
+        /// When non-zero, the user may be prompted during trust verification.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, receives the Authenticode signing certificate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file is trusted; otherwise, false.
+        /// </returns>
         public bool VerifyFileCertificate(
             string fileName,
             bool forceVerify,
@@ -1294,6 +1914,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits the current values of all configuration settings
+        /// via the trace callback, for troubleshooting purposes.
+        /// </summary>
         public void Dump()
         {
             Trace(this, FormatOps.NameAndValue("Assembly", assembly),
@@ -1423,6 +2047,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits the assembly-level attribute values for the
+        /// specified assembly via the trace callback, for troubleshooting
+        /// purposes.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose attribute values should be emitted.
+        /// </param>
         public void Dump(
             Assembly assembly
             )
@@ -1494,6 +2126,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method builds the command line arguments used when re-running
+        /// the updater as itself, starting from the command line that started
+        /// this process and optionally appending the extra arguments required
+        /// when the updater has been updated.
+        /// </summary>
+        /// <param name="update">
+        /// When non-zero, the extra arguments needed when re-running an updated
+        /// updater are appended.
+        /// </param>
+        /// <returns>
+        /// The resulting command line arguments, with superfluous whitespace
+        /// removed.
+        /// </returns>
         private static string GetSelfArguments(
             bool update
             )
@@ -1522,6 +2168,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts just the file name portion (without a
+        /// directory) from the specified core file name, falling back to the
+        /// default core file name when the input is unusable.
+        /// </summary>
+        /// <param name="fileName">
+        /// The core file name to process.
+        /// </param>
+        /// <returns>
+        /// The file name without any directory, or the default core file name.
+        /// </returns>
         private static string GetCoreFileNameOnly(
             string fileName
             )
@@ -1551,6 +2208,11 @@ namespace Eagle._Components.Private
         // TODO: This method contains hard-coded information and may need to
         //       be updated later.
         //
+        /// <summary>
+        /// This method lazily initializes the hard-coded lists of required
+        /// files for each supported release type ("Binary", "Runtime", and
+        /// "Core").
+        /// </summary>
         private static void InitializeReleaseFiles()
         {
             if (ReleaseFiles == null)
@@ -1599,6 +2261,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified release type is allowed
+        /// to be changed automatically.
+        /// </summary>
+        /// <param name="releaseType">
+        /// The release type to check.
+        /// </param>
+        /// <returns>
+        /// True if the release type may be changed; otherwise, false.
+        /// </returns>
         private static bool CanChangeReleaseType(
             ReleaseType releaseType
             )
@@ -1609,6 +2281,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Flags Support Methods
+        /// <summary>
+        /// This method determines whether the specified strong name flags
+        /// include the given flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags to test.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// When non-zero, all of the specified flags must be present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         private static bool HasFlags(
             StrongNameExFlags flags,
             StrongNameExFlags hasFlags,
@@ -1623,6 +2312,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified signature flags include
+        /// the given flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags to test.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// When non-zero, all of the specified flags must be present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present; otherwise, false.
+        /// </returns>
         private static bool HasFlags(
             SignatureFlags flags,
             SignatureFlags hasFlags,
@@ -1639,6 +2345,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Support Methods
+        /// <summary>
+        /// This method emits a trace message describing the specified exception
+        /// under the given category.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration associated with the trace message, if any.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The category name for the trace message.
+        /// </param>
+        /// <returns>
+        /// The formatted trace message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string Trace(
             Configuration configuration,
@@ -1651,6 +2373,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits the specified trace message under the given
+        /// category.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration associated with the trace message, if any.
+        /// </param>
+        /// <param name="message">
+        /// The message to emit.
+        /// </param>
+        /// <param name="category">
+        /// The category name for the trace message.
+        /// </param>
+        /// <returns>
+        /// The formatted trace message.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static string Trace(
             Configuration configuration,
@@ -1667,6 +2405,13 @@ namespace Eagle._Components.Private
 
         #region Public Static Methods
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new configuration populated entirely with the
+        /// default settings.
+        /// </summary>
+        /// <returns>
+        /// The newly created configuration.
+        /// </returns>
         public static Configuration CreateDefault()
         {
             return new Configuration(
@@ -1688,6 +2433,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of the specified configuration, optionally
+        /// overriding its protocol identifier.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration to copy.
+        /// </param>
+        /// <param name="protocolId">
+        /// The protocol identifier to use, or null to retain the copied value.
+        /// </param>
+        /// <returns>
+        /// The newly created configuration.
+        /// </returns>
         public static Configuration CreateWithProtocol(
             Configuration configuration,
             string protocolId
@@ -1703,6 +2461,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new configuration based on the settings of the
+        /// specified release, falling back to a default configuration when the
+        /// release is null.
+        /// </summary>
+        /// <param name="release">
+        /// The release whose settings should populate the configuration.
+        /// </param>
+        /// <returns>
+        /// The newly created configuration.
+        /// </returns>
         public static Configuration CreateFrom(
             Release release
             )
@@ -1737,6 +2506,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to create and initialize a configuration for
+        /// the specified assembly, setting up default logging, base URI, public
+        /// key token, core directory, build/release type, and "what-if" mode.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly for which to create the configuration.
+        /// </param>
+        /// <param name="configuration">
+        /// On input, the configuration to use, or null to create a default one;
+        /// upon success, receives the initialized configuration.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the configuration was created successfully; otherwise, false.
+        /// </returns>
         public static bool TryCreate(
             Assembly assembly,
             ref Configuration configuration,
@@ -1870,6 +2657,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies a configuration based on the command line
+        /// options read from the specified file, ignoring blank lines and
+        /// comment lines.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file to read, or null to use the default arguments file name.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, an invalid or unsupported option causes the operation
+        /// to fail.
+        /// </param>
+        /// <param name="configuration">
+        /// On input, the configuration to modify, or null to create a default
+        /// one; upon success, receives the modified configuration.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the configuration was modified successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool FromFile(
             string fileName,
             bool strict,
@@ -1929,6 +2739,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies a configuration based on the specified command
+        /// line arguments, interpreting each supported option and its value.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments to process, or null to do nothing.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, an invalid or unsupported argument causes the
+        /// operation to fail.
+        /// </param>
+        /// <param name="configuration">
+        /// On input, the configuration to modify, or null to create a default
+        /// one; upon success, receives the modified configuration.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the configuration was modified successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool FromArgs(
             string[] args,
             bool strict,
@@ -2605,6 +3437,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method starts a new process that re-runs the specified assembly
+        /// as the updater itself, using the appropriate command line arguments.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to start, or null to do nothing.
+        /// </param>
+        /// <param name="update">
+        /// When non-zero, the extra arguments needed when re-running an updated
+        /// updater are included.
+        /// </param>
+        /// <returns>
+        /// The newly started process, or null if the assembly was null.
+        /// </returns>
         public static Process StartAsSelf(
             Assembly assembly,
             bool update
@@ -2619,6 +3465,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates and deletes the "in-use" file associated with
+        /// the specified configuration, honoring "what-if" mode.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration whose in-use file should be deleted.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded; otherwise, false.
+        /// </returns>
         public static bool DeleteInUse(
             Configuration configuration,
             ref string error
@@ -2681,6 +3540,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finalizes processing of the specified configuration by
+        /// setting up trace and log listeners, verifying the assembly
+        /// signatures, dumping the configuration, optionally delaying, and
+        /// deleting the in-use file in preparation for an update.
+        /// </summary>
+        /// <param name="args">
+        /// The original command line arguments, used for diagnostic output.
+        /// </param>
+        /// <param name="configuration">
+        /// The configuration to process.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, a signature verification failure causes the operation
+        /// to fail.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the configuration was processed successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool Process(
             string[] args,
             Configuration configuration,
@@ -2904,6 +3786,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a user prompt should be shown, based
+        /// on whether there is an interactive user and the configuration's
+        /// invisible, silent, and error-icon settings.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration governing prompt behavior, or null to use the
+        /// default value.
+        /// </param>
+        /// <param name="icon">
+        /// The icon associated with the prompt; an error icon forces the prompt
+        /// to be shown even in silent mode.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when there is no configuration to consult.
+        /// </param>
+        /// <returns>
+        /// True if the prompt should be shown; otherwise, false.
+        /// </returns>
         public static bool IsPromptOk(
             Configuration configuration,
             MessageBoxIcon icon,

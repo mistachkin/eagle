@@ -76,6 +76,9 @@ namespace Sample
         /// <param name="clientData">
         /// The extra data supplied for this event, if any.
         /// </param>
+        /// <param name="arguments">
+        /// The arguments supplied for this event, if any.
+        /// </param>
         /// <param name="result">
         /// Upon success, this may contain an informational message.
         /// Upon failure, this must contain an appropriate error message.

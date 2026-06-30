@@ -24,29 +24,53 @@ namespace Eagle._Comparers
     //          in the comparisons (i.e. publicKeyToken, name, culture, and
     //          build type).
     //
+    /// <summary>
+    /// This class implements an equality comparer for configuration objects.
+    /// Only the lookup fields of a configuration (i.e. its public key token,
+    /// name, culture, and build type) are considered when comparing two
+    /// instances.
+    /// </summary>
     [Guid("330569ee-973a-459a-8dfc-665aabba72f6")]
     internal sealed class _Configuration : IEqualityComparer<Configuration>
     {
         #region Private Data
+        /// <summary>
+        /// The string comparison type used when comparing configuration string
+        /// fields.
+        /// </summary>
         private StringComparison comparisonType =
             StringOps.GetSystemComparisonType(false);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The encoding used to convert configuration string fields to bytes
+        /// when computing hash codes.
+        /// </summary>
         private Encoding encoding = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The comparer used to compare and hash the public key token field.
+        /// </summary>
         private ByteArray publicKeyTokenComparer = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The comparer used to compare and hash the culture field.
+        /// </summary>
         private _CultureInfo cultureInfoComparer = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class, initializing the public key
+        /// token and culture sub-comparers.
+        /// </summary>
         private _Configuration()
         {
             publicKeyTokenComparer = new ByteArray();
@@ -57,6 +81,18 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class using the specified string
+        /// comparison type and encoding.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The string comparison type to use when comparing configuration
+        /// string fields.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when converting configuration string fields to
+        /// bytes for hashing.
+        /// </param>
         public _Configuration(
             StringComparison comparisonType,
             Encoding encoding
@@ -71,6 +107,22 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<byte[]> Members
+        /// <summary>
+        /// This method determines whether two configuration objects are equal,
+        /// comparing only their lookup fields.
+        /// </summary>
+        /// <param name="x">
+        /// The first configuration object to compare.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="y">
+        /// The second configuration object to compare.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the two configuration objects are considered equal;
+        /// otherwise, false.
+        /// </returns>
         public bool Equals(
             Configuration x,
             Configuration y
@@ -126,6 +178,17 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a hash code for the specified configuration
+        /// object based on its lookup fields.
+        /// </summary>
+        /// <param name="obj">
+        /// The configuration object to compute a hash code for.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The computed hash code for the specified configuration object.
+        /// </returns>
         public int GetHashCode(
             Configuration obj
             )

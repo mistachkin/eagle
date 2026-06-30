@@ -18,16 +18,35 @@ using Eagle._Components.Shared;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods used to parse argument and
+    /// command line text into typed values for the update component.
+    /// </summary>
     [Guid("c6fc40a1-3e57-4b9d-9eb4-caaaf889ce4d")]
     internal static class ParseOps
     {
         #region Private Constants
+        /// <summary>
+        /// The special culture name that selects the invariant culture.
+        /// </summary>
         private const string InvariantCultureName = "invariant"; // COMPAT: Eagle.
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Argument Parsing Methods
+        /// <summary>
+        /// This method parses a string of hexadecimal digit pairs into the
+        /// array of bytes they represent.
+        /// </summary>
+        /// <param name="text">
+        /// The hexadecimal string to parse.  Its length must be an even
+        /// multiple of the number of hexadecimal characters per byte.
+        /// </param>
+        /// <returns>
+        /// The parsed array of bytes, or null if the input is null, empty, or
+        /// not a valid hexadecimal string.
+        /// </returns>
         public static byte[] HexString(
             string text
             )
@@ -58,6 +77,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the Boolean value it represents.
+        /// </summary>
+        /// <param name="text">
+        /// The string to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed Boolean value, or null if the input is null, empty, or
+        /// not a valid Boolean value.
+        /// </returns>
         public static bool? Boolean(
             string text
             )
@@ -75,6 +104,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the integer value it represents.
+        /// </summary>
+        /// <param name="text">
+        /// The string to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed integer value, or null if the input is null, empty, or
+        /// not a valid integer value.
+        /// </returns>
         public static int? Integer(
             string text
             )
@@ -92,6 +131,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into a value of the specified
+        /// enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the string into.  This parameter must
+        /// refer to an enumerated type.
+        /// </param>
+        /// <param name="text">
+        /// The string to parse.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to ignore case when matching the enumerated value names.
+        /// </param>
+        /// <returns>
+        /// The parsed enumerated value, or null if the input is invalid or
+        /// cannot be parsed.
+        /// </returns>
         public static object Enum(
             Type enumType,
             string text,
@@ -118,6 +175,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string of the form "name_buildType" into its
+        /// component name and build type.
+        /// </summary>
+        /// <param name="text">
+        /// The underscore-delimited string to parse.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require that both the name and build type components be
+        /// present; otherwise, missing components are tolerated.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to ignore case when matching the build type name.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, receives the parsed name component, if present.
+        /// </param>
+        /// <param name="buildType">
+        /// Upon success, receives the parsed build type component, if present.
+        /// </param>
+        /// <returns>
+        /// True if the string was parsed successfully; otherwise, false.
+        /// </returns>
         public static bool NameAndBuildType(
             string text,
             bool strict,
@@ -175,6 +255,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the culture it names, honoring the
+        /// special invariant culture name.
+        /// </summary>
+        /// <param name="text">
+        /// The culture name to parse.  An empty string is allowed and selects
+        /// the invariant culture.
+        /// </param>
+        /// <returns>
+        /// The parsed culture, or null if the input is null or does not name a
+        /// valid culture.
+        /// </returns>
         public static CultureInfo Culture(
             string text
             )
@@ -199,6 +291,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the version it represents.
+        /// </summary>
+        /// <param name="text">
+        /// The version string to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed version, or null if the input is null, empty, or not a
+        /// valid version string.
+        /// </returns>
         public static Version Version(
             string text
             )
@@ -220,6 +322,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the date and time it represents.
+        /// </summary>
+        /// <param name="text">
+        /// The date and time string to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed date and time, or null if the input is null, empty, or
+        /// not a valid date and time string.
+        /// </returns>
         public static DateTime? DateTime(
             string text
             )
@@ -237,6 +349,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string into the absolute URI it represents.
+        /// </summary>
+        /// <param name="text">
+        /// The URI string to parse.
+        /// </param>
+        /// <returns>
+        /// The parsed absolute URI, or null if the input is null, empty, or not
+        /// a valid absolute URI.
+        /// </returns>
         public static Uri Uri(
             string text
             )
@@ -254,6 +376,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string containing a build type and an optional
+        /// release type, separated by a comma or space, into its components.
+        /// </summary>
+        /// <param name="text">
+        /// The delimited string to parse.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require that both the build type and release type
+        /// components be present; otherwise, missing components are tolerated.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to ignore case when matching the build type and release
+        /// type names.
+        /// </param>
+        /// <param name="buildType">
+        /// Upon success, receives the parsed build type component, if present.
+        /// </param>
+        /// <param name="releaseType">
+        /// Upon success, receives the parsed release type component, if present.
+        /// </param>
+        /// <returns>
+        /// True if the string was parsed successfully; otherwise, false.
+        /// </returns>
         public static bool BuildTypeAndReleaseType(
             string text,
             bool strict,
@@ -318,6 +464,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the escape sequences in a notes string into
+        /// their corresponding literal characters.
+        /// </summary>
+        /// <param name="text">
+        /// The notes string, possibly containing escape sequences, to process.
+        /// </param>
+        /// <returns>
+        /// The notes string with its escape sequences replaced, or null if the
+        /// input is null or empty.
+        /// </returns>
         public static string Notes(
             string text
             )
@@ -356,6 +513,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Line Support Methods
+        /// <summary>
+        /// This method splits a command line string into its individual
+        /// arguments, honoring double-quote grouping and backslash escaping.
+        /// </summary>
+        /// <param name="text">
+        /// The command line string to split.
+        /// </param>
+        /// <returns>
+        /// The array of parsed arguments, or null if the input is null.
+        /// </returns>
         public static string[] CommandLine(
             string text
             )
@@ -446,6 +613,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an argument is a command line switch
+        /// and, if so, strips any leading switch characters from it.
+        /// </summary>
+        /// <param name="arg">
+        /// The argument to check.  If it is a switch, it is updated in place to
+        /// remove the leading switch characters.
+        /// </param>
+        /// <returns>
+        /// True if the argument is a switch; otherwise, false.
+        /// </returns>
         public static bool CheckOption(
             ref string arg
             )
@@ -487,6 +665,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a command line argument matches a
+        /// named option, using a case-insensitive prefix comparison.
+        /// </summary>
+        /// <param name="arg">
+        /// The argument (with any leading switch characters already removed) to
+        /// test.
+        /// </param>
+        /// <param name="option">
+        /// The full name of the option to match against.
+        /// </param>
+        /// <returns>
+        /// True if the argument matches the option; otherwise, false.
+        /// </returns>
         public static bool MatchOption(
             string arg,
             string option
@@ -502,6 +694,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines whether the specified command line argument
+        /// represents a request for help.
+        /// </summary>
+        /// <param name="arg">
+        /// The command line argument to check.
+        /// </param>
+        /// <returns>
+        /// True if the argument represents a help request; otherwise, false.
+        /// </returns>
         public static bool IsHelpOption(
             string arg
             )

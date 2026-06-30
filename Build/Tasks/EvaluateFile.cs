@@ -15,10 +15,23 @@ using Eagle._Components.Public;
 
 namespace Eagle._Tasks
 {
+    /// <summary>
+    /// This class implements an MSBuild task that creates an Eagle interpreter
+    /// and uses it to evaluate the contents of a script file.
+    /// </summary>
     [ObjectId("a0437c04-c136-4fbf-8d21-fbc47d0c5555")]
     public sealed class EvaluateFile : Script
     {
         #region Microsoft.Build.Utilities.Task Overrides
+        /// <summary>
+        /// This method executes the task.  It creates an Eagle interpreter and
+        /// uses it to evaluate the configured script file, logging any errors
+        /// that are encountered.
+        /// </summary>
+        /// <returns>
+        /// True if the task succeeded and no errors were logged; otherwise,
+        /// false.
+        /// </returns>
         public override bool Execute()
         {
             CheckDisposed();
@@ -72,7 +85,15 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this object instance has been
+        /// disposed and the interpreter is configured to throw in that case.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -86,6 +107,14 @@ namespace Eagle._Tasks
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases resources used by this object instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="IDisposable.Dispose" /> method; zero if it is being
+        /// called from the finalizer.
+        /// </param>
         protected override void Dispose(
             bool disposing
             )

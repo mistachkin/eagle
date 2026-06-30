@@ -19,10 +19,27 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Procedures
 {
+    /// <summary>
+    /// This class implements the procedure execution strategy used for
+    /// procedures whose formal arguments are matched by name rather than by
+    /// position.  It derives from <see cref="Core" /> and overrides
+    /// <see cref="Execute" /> to bind each supplied name/value pair to the
+    /// corresponding named argument, apply default values for any omitted
+    /// arguments, collect any remaining values into the variadic argument, and
+    /// evaluate the procedure body.
+    /// </summary>
     [ObjectId("edfcb0d3-9444-4799-bbe4-5912d970cbd6")]
     public class NamedArguments : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the named-argument procedure using the
+        /// specified procedure metadata.
+        /// </summary>
+        /// <param name="procedureData">
+        /// The data used to create and identify this procedure, such as its
+        /// name, named arguments, and body.  This parameter may be null.
+        /// </param>
         public NamedArguments(
             IProcedureData procedureData
             )
@@ -35,6 +52,34 @@ namespace Eagle._Procedures
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// Executes this procedure by binding the supplied name/value argument
+        /// pairs to the procedure's named arguments, applying default values
+        /// where needed, and evaluating the procedure body within a new call
+        /// frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this procedure is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, procedure-specific data supplied when the procedure was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  The element at index
+        /// zero is the procedure name; the remaining elements are name/value
+        /// pairs.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain the result value produced by the
+        /// procedure body.  Upon failure, this must contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

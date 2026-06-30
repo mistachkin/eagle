@@ -26,12 +26,20 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents an ordered, dynamically sized list of command
+    /// data objects, each of which implements the
+    /// <see cref="ICommandData" /> interface.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
     [ObjectId("344684c4-2a5d-4975-88bc-c555228ef10b")]
     public sealed class CommandDataList : List<ICommandData>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public CommandDataList()
             : base()
         {
@@ -40,6 +48,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the elements copied
+        /// from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are copied into the new instance.
+        /// </param>
         public CommandDataList(IEnumerable<ICommandData> collection)
             : base(collection)
         {
@@ -48,6 +63,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the elements of this list into a string
+        /// representation, optionally filtering them using the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the elements included in the resulting
+        /// string, or null to include all elements.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the matching elements of this list.
+        /// </returns>
         public string ToString(string pattern, bool noCase)
         {
             return ParserOps<ICommandData>.ListToString(
@@ -58,6 +88,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method converts all the elements of this list into a string
+        /// representation.
+        /// </summary>
+        /// <returns>
+        /// The string representation of all the elements of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

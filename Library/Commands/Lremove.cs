@@ -22,11 +22,25 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>lremove</c> command, which returns a
+    /// new list formed by removing the element at the specified index (or, when
+    /// multiple indexes are given, the element reached by descending through
+    /// successive nested sub-lists) from the supplied list.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("05e18629-7a6d-4d0f-9406-4aae8e99e666")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("list")]
     internal sealed class Lremove : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>lremove</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Lremove(
             ICommandData commandData
             )
@@ -36,11 +50,44 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>lremove</c> command.  It removes the
+        /// element identified by the supplied index (or chain of indexes for
+        /// nested sub-lists) from the given list and returns the resulting
+        /// list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the list to operate on; the remaining
+        /// elements are one or more indexes that select the element to remove,
+        /// descending into nested sub-lists when more than one index is given.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the new list with the selected element
+        /// removed.  Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the resulting list
+        /// placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the list cannot be parsed, an index is invalid or out
+        /// of range, the interpreter is null, or the argument list is null,
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

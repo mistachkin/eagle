@@ -16,6 +16,13 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>&amp;</c> (bitwise AND) expression
+    /// operator, which computes the bitwise AND of its two integral operands.
+    /// The evaluation itself is provided by the <see cref="Math" /> base class,
+    /// selected by the <see cref="Lexeme.BitwiseAnd" /> lexeme.  See
+    /// <c>core_language.md</c> for expression and operator semantics.
+    /// </summary>
     [ObjectId("282737fd-f974-478c-86c0-36149d83028a")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Bitwise)]
@@ -27,6 +34,13 @@ namespace Eagle._Operators
     internal sealed class BitwiseAnd : Math
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>&amp;</c> bitwise AND operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public BitwiseAnd(
             IOperatorData operatorData /* in */
             )

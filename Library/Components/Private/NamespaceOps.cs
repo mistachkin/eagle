@@ -28,23 +28,47 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to implement Eagle
+    /// namespace support, including creating, disposing, looking up, matching,
+    /// and naming namespaces, as well as managing the current namespace for
+    /// call frames and the import/export/scope behavior of the [namespace]
+    /// command.
+    /// </summary>
     [ObjectId("704cb03e-df30-470f-81be-27fa3f128a88")]
     internal static class NamespaceOps
     {
         #region Private Constants
+        /// <summary>
+        /// The set of delimiter strings used when splitting a qualified name
+        /// into its component parts; it contains only the namespace separator.
+        /// </summary>
         private static readonly string[] Delimiters = new string[] {
             TclVars.Namespace.Separator
         };
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The result returned when splitting a null or empty name; it
+        /// contains a single empty string element.
+        /// </summary>
         private static readonly string[] EmptyName = new string[] {
             String.Empty
         };
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to build an absolute namespace
+        /// name from the global namespace prefix and a relative name.
+        /// </summary>
         private static readonly string AbsoluteNameFormat = "{0}{1}";
+
+        /// <summary>
+        /// The composite format string used to build a qualified namespace
+        /// name from a set of qualifiers, the namespace separator, and a tail.
+        /// </summary>
         private static readonly string QualifiedNameFormat = "{0}{1}{2}";
         #endregion
 
@@ -52,6 +76,23 @@ namespace Eagle._Components.Private
 
         #region Namespace Support Methods
         #region Instance Per-Frame Support Methods
+        /// <summary>
+        /// This method gets the current namespace associated with the
+        /// specified call frame, falling back to the interpreter current
+        /// frame when no frame is specified.  A disposed namespace is never
+        /// returned and any reference to one found on the frame is cleared.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose current namespace is being queried.  When
+        /// null, the current frame of the interpreter is used.
+        /// </param>
+        /// <returns>
+        /// The current namespace for the call frame, or null if there is
+        /// none (or it was disposed).
+        /// </returns>
         public static INamespace GetCurrent(
             Interpreter interpreter,
             ICallFrame frame
@@ -106,6 +147,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the current namespace associated with the
+        /// specified call frame, falling back to the interpreter current
+        /// frame when no frame is specified.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose current namespace is being set.  When null,
+        /// the current frame of the interpreter is used.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to associate with the call frame.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the current namespace was set; otherwise, false.
+        /// </returns>
         public static bool SetCurrent(
             Interpreter interpreter,
             ICallFrame frame,
@@ -137,6 +197,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the current namespace on every call frame in the
+        /// chain starting with the specified frame (or the interpreter current
+        /// frame when none is specified).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="frame">
+        /// The first call frame in the chain to process.  When null, the
+        /// current frame of the interpreter is used.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to associate with each call frame.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The number of call frames whose current namespace was set.
+        /// </returns>
         private static int SetCurrentForAll(
             Interpreter interpreter,
             ICallFrame frame,
@@ -163,6 +242,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the current namespace on every call frame in the
+        /// specified call stack that currently refers to the specified
+        /// namespace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack whose frames are examined and possibly cleared.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace whose references are to be cleared from the call
+        /// stack.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ClearCurrentForAll(
             Interpreter interpreter,
             CallStack callStack,
@@ -210,6 +311,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Instance Creation & Disposal Support Methods
+        /// <summary>
+        /// This method obtains the variable call frame to be used for a
+        /// namespace, reusing the one previously held by the old namespace
+        /// when available, or creating a new namespace call frame otherwise.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the variable call frame.
+        /// </param>
+        /// <param name="oldNamespace">
+        /// The namespace whose stored variable call frame may be reused.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter used to create a new call frame, if necessary.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to assign to the variable call frame.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="newFrame">
+        /// Non-zero to create a new namespace call frame when an existing one
+        /// cannot be reused.
+        /// </param>
+        /// <returns>
+        /// The variable call frame to use, or null if none could be obtained.
+        /// </returns>
         private static ICallFrame CreateVariableFrame(
             string name,
             INamespace oldNamespace,
@@ -245,6 +373,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the global namespace for the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that will own the new global namespace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created global namespace.
+        /// </returns>
         public static INamespace CreateGlobal(
             Interpreter interpreter
             )
@@ -259,6 +398,28 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method creates a temporary namespace using the specified
+        /// properties.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the namespace to create.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the new namespace.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that will own the new namespace.
+        /// </param>
+        /// <param name="parent">
+        /// The parent namespace of the new namespace, if any.
+        /// </param>
+        /// <param name="resolve">
+        /// The resolver to associate with the new namespace, if any.
+        /// </param>
+        /// <returns>
+        /// The newly created namespace.
+        /// </returns>
         public static INamespace CreateTemporary(
             string name,
             IClientData clientData,
@@ -277,6 +438,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified namespace has been
+        /// disposed by casting it to the concrete namespace type and checking
+        /// its disposed flag.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the namespace has been disposed; otherwise, false.
+        /// </returns>
         private static bool IsDisposed(
             INamespace @namespace
             )
@@ -299,6 +471,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new namespace, reusing the variable call
+        /// frame held by an existing namespace when possible.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the new namespace.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the new namespace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that will own the new namespace.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="parent">
+        /// The parent of the new namespace.  This parameter may be null.
+        /// </param>
+        /// <param name="resolve">
+        /// The custom resolver to associate with the new namespace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The existing namespace whose variable call frame may be reused.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="unknown">
+        /// The name of the unknown command handler for the new namespace.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to assign to the variable call frame.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="newFrame">
+        /// Non-zero to create a new namespace call frame when an existing one
+        /// cannot be reused.
+        /// </param>
+        /// <returns>
+        /// The newly created namespace.
+        /// </returns>
         public static INamespace CreateFrom(
             string name,
             IClientData clientData,
@@ -326,6 +539,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new namespace from the supplied namespace
+        /// data.
+        /// </summary>
+        /// <param name="namespaceData">
+        /// The namespace data describing the namespace to create.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to assign to the variable call frame.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="newFrame">
+        /// Non-zero to create a new namespace call frame.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created namespace, or null on failure.
+        /// </returns>
         public static INamespace Create(
             INamespaceData namespaceData,
             ArgumentList arguments,
@@ -348,6 +581,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new namespace using the supplied individual
+        /// property values.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the new namespace.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the new namespace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that will own the new namespace.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="parent">
+        /// The parent of the new namespace.  This parameter may be null.
+        /// </param>
+        /// <param name="resolve">
+        /// The custom resolver to associate with the new namespace.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="unknown">
+        /// The name of the unknown command handler for the new namespace.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments to assign to the variable call frame.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="newFrame">
+        /// Non-zero to create a new namespace call frame.
+        /// </param>
+        /// <returns>
+        /// The newly created namespace.
+        /// </returns>
         private static INamespace Create(
             string name,
             IClientData clientData,
@@ -374,6 +643,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified namespace, complaining if an
+        /// error is encountered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to dispose.  Upon return, this is set to null.
+        /// </param>
         public static void Dispose(
             Interpreter interpreter,
             ref INamespace @namespace
@@ -390,6 +669,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified namespace, reporting any failure
+        /// via the return code and error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to dispose.  Upon return, this is set to null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Dispose(
             Interpreter interpreter,
             ref INamespace @namespace,
@@ -433,6 +729,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Instance Matching Support Methods
+        /// <summary>
+        /// This method determines whether the specified executable entity has
+        /// a name that refers to the global namespace.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the entity has a global namespace name; otherwise, false.
+        /// </returns>
         public static bool IsGlobal(
             IExecute execute
             )
@@ -447,6 +753,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified namespace is the
+        /// global namespace of the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose global namespace is compared.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the namespace is the global namespace of the interpreter;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsGlobal(
             Interpreter interpreter,
             INamespace @namespace
@@ -460,6 +781,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two namespace references refer to
+        /// the same namespace instance.
+        /// </summary>
+        /// <param name="namespace1">
+        /// The first namespace to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace2">
+        /// The second namespace to compare.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if both references refer to the same instance; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsSame(
             INamespace namespace1,
             INamespace namespace2
@@ -470,6 +805,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first namespace is the same as,
+        /// or a descendant of, the second namespace by walking the parent
+        /// chain.
+        /// </summary>
+        /// <param name="namespace1">
+        /// The namespace whose ancestry is walked.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="namespace2">
+        /// The candidate ancestor namespace.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the first namespace is the same as, or a descendant of, the
+        /// second namespace; otherwise, false.
+        /// </returns>
         public static bool IsDescendant(
             INamespace namespace1,
             INamespace namespace2
@@ -495,6 +846,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Entity Matching Support Methods
+        /// <summary>
+        /// This method counts the number of namespace qualifiers (i.e.
+        /// namespace separators) present in the specified name, ignoring any
+        /// superfluous extra colons.
+        /// </summary>
+        /// <param name="name">
+        /// The name to examine.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The number of namespace qualifiers found in the name.
+        /// </returns>
         private static int CountQualifiers(
             string name
             )
@@ -537,6 +899,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether simple (i.e. non-qualified) pattern
+        /// matching should be used for the specified pattern and namespace, by
+        /// splitting the pattern and delegating to the qualifier-based
+        /// overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The target namespace for the match.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to be matched.  This parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when the pattern cannot be split.
+        /// </param>
+        /// <returns>
+        /// True if simple matching should be used; otherwise, false.
+        /// </returns>
         public static bool ShouldUseSimpleMatching(
             Interpreter interpreter,
             INamespace @namespace,
@@ -559,6 +942,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether simple (i.e. non-qualified) pattern
+        /// matching should be used, which is the case only when the pattern
+        /// has no qualifiers and the target namespace is the global one.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The target namespace for the match.  This parameter may be null.
+        /// </param>
+        /// <param name="qualifiers">
+        /// The qualifiers portion parsed from the pattern.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="tail">
+        /// The tail portion parsed from the pattern.  This parameter is not
+        /// used.
+        /// </param>
+        /// <returns>
+        /// True if simple matching should be used; otherwise, false.
+        /// </returns>
         private static bool ShouldUseSimpleMatching(
             Interpreter interpreter,
             INamespace @namespace,
@@ -585,6 +990,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method matches the items in the specified collection against
+        /// the specified namespace pattern, adding the matching names to the
+        /// output list in the requested form (tail-only, absolute, or as-is).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="namespace">
+        /// The target namespace for the match.  This parameter may be null.
+        /// </param>
+        /// <param name="collection">
+        /// The collection of candidate names to match.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against.  When null, all items match.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="useNamespace">
+        /// Non-zero to use the namespace provided by the caller instead of the
+        /// global namespace when the pattern qualifiers are global.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Non-zero to add only the tail portion of each matching name.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to add each matching name in absolute form.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing target namespace as an error.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, this contains the list of matching names; it is
+        /// created if necessary and otherwise appended to.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode MatchItems(
             Interpreter interpreter,
             INamespace @namespace,
@@ -766,6 +1215,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Trimming Support Methods
+        /// <summary>
+        /// This method removes the leading global namespace separator from the
+        /// specified name, if present.
+        /// </summary>
+        /// <param name="name">
+        /// The name to trim.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The name with any leading global namespace separator removed.
+        /// </returns>
         public static string TrimLeading(
             string name
             )
@@ -777,6 +1236,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the leading global namespace separator from the
+        /// specified name, if present, and reports whether the name was
+        /// absolute.
+        /// </summary>
+        /// <param name="name">
+        /// The name to trim.  This parameter may be null.
+        /// </param>
+        /// <param name="absolute">
+        /// Upon return, this is set to non-zero if the name was an absolute
+        /// name (i.e. it had a leading global namespace separator).
+        /// </param>
+        /// <returns>
+        /// The name with any leading global namespace separator removed.
+        /// </returns>
         public static string TrimLeading(
             string name,
             ref bool absolute
@@ -810,6 +1284,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all leading and trailing namespace separator
+        /// (colon) characters from the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name to trim.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The name with all leading and trailing colons removed, or null if
+        /// the name was null.
+        /// </returns>
         public static string TrimAll(
             string name
             )
@@ -824,6 +1309,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Building Support Methods
+        /// <summary>
+        /// This method gets the qualified name of the specified namespace,
+        /// optionally returning a display placeholder when the namespace is
+        /// null or disposed.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace whose qualified name is requested.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero to return a display placeholder for a null or disposed
+        /// namespace instead of null.
+        /// </param>
+        /// <returns>
+        /// The qualified name of the namespace, or null/display placeholder
+        /// when it is null or disposed.
+        /// </returns>
         public static string MaybeQualifiedName(
             INamespace @namespace,
             bool display
@@ -840,6 +1342,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the fully qualified, absolute name for an entity
+        /// by walking the parent chain of the specified namespace and appending
+        /// the optional entity name.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace that contains the entity.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="name">
+        /// The command or variable name to append.  This parameter may be null
+        /// or empty.
+        /// </param>
+        /// <returns>
+        /// The fully qualified, absolute name.
+        /// </returns>
         public static string GetQualifiedName(
             INamespace @namespace,
             string name
@@ -868,6 +1386,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a name from a set of qualifiers and a tail,
+        /// optionally making it qualified and/or absolute.
+        /// </summary>
+        /// <param name="qualifiers">
+        /// The qualifiers portion of the name.  This parameter may be null.
+        /// </param>
+        /// <param name="tail">
+        /// The tail portion of the name.  When null or empty, it is returned
+        /// unchanged.
+        /// </param>
+        /// <param name="qualified">
+        /// Non-zero to combine the qualifiers and tail into a qualified name.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to make the resulting name absolute.
+        /// </param>
+        /// <returns>
+        /// The constructed name.
+        /// </returns>
         public static string MakeName(
             string qualifiers,
             string tail,
@@ -891,6 +1429,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified name into an absolute name by
+        /// prepending the global namespace separator when necessary.
+        /// </summary>
+        /// <param name="name">
+        /// The name to make absolute.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The absolute form of the name, the global namespace name for an
+        /// empty name, or null for a null name.
+        /// </returns>
         public static string MakeAbsoluteName(
             string name
             )
@@ -910,6 +1459,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method qualifies the specified name relative to the current
+        /// namespace of the interpreter, producing a relative qualified name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose current namespace is used.
+        /// </param>
+        /// <param name="name">
+        /// The name to qualify.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified name.
+        /// </returns>
         public static string MakeQualifiedName(
             Interpreter interpreter,
             string name
@@ -920,6 +1482,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method qualifies the specified name relative to the current
+        /// namespace of the interpreter, optionally making the result
+        /// absolute.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose current namespace is used.
+        /// </param>
+        /// <param name="name">
+        /// The name to qualify.  This parameter may be null.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to make the resulting qualified name absolute.
+        /// </param>
+        /// <returns>
+        /// The qualified name, made absolute when requested.
+        /// </returns>
         public static string MakeQualifiedName(
             Interpreter interpreter,
             string name,
@@ -946,6 +1525,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified qualifiers and tail into a
+        /// qualified name using the namespace separator, optionally trimming
+        /// all colons from each part.
+        /// </summary>
+        /// <param name="qualifiers">
+        /// The qualifiers portion of the name.  This parameter may be null.
+        /// </param>
+        /// <param name="tail">
+        /// The tail portion of the name.  This parameter may be null.
+        /// </param>
+        /// <param name="trimAll">
+        /// Non-zero to trim all leading and trailing colons from each part
+        /// before combining.
+        /// </param>
+        /// <returns>
+        /// The combined qualified name.
+        /// </returns>
         public static string MakeQualifiedName(
             string qualifiers,
             string tail,
@@ -964,6 +1561,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method qualifies the specified name relative to the specified
+        /// namespace, returning a relative name for the global namespace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to qualify the name against.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="name">
+        /// The name to qualify.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The qualified name.
+        /// </returns>
         public static string MakeQualifiedName(
             Interpreter interpreter,
             INamespace @namespace,
@@ -985,6 +1599,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a qualified matching pattern that will match the
+        /// children of the specified namespace, defaulting to a wildcard when
+        /// no pattern is supplied.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace whose children the pattern should match.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to qualify.  When null, a wildcard is used.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to make the resulting pattern absolute; otherwise, its
+        /// leading separator is trimmed.
+        /// </param>
+        /// <returns>
+        /// The qualified matching pattern.
+        /// </returns>
         public static string MakeQualifiedPattern(
             Interpreter interpreter,
             INamespace @namespace,
@@ -1033,6 +1669,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified absolute name into one that is
+        /// relative to the specified namespace, falling back to the current or
+        /// global namespace of the interpreter as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose current namespace may be used as the basis.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace used as the basis for the relative name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to make relative.  This parameter may be null, empty, or
+        /// already relative.
+        /// </param>
+        /// <returns>
+        /// The relative form of the name.
+        /// </returns>
         private static string MakeRelativeName(
             Interpreter interpreter,
             INamespace @namespace,
@@ -1089,6 +1745,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified absolute name into one that is
+        /// relative to the current namespace of the specified call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose current namespace is used as the basis.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to make relative.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The relative form of the name.
+        /// </returns>
         public static string MakeRelativeName(
             Interpreter interpreter,
             ICallFrame frame,
@@ -1101,6 +1774,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes the second (fully qualified) name relative to the
+        /// first (namespace) name, returning the trailing portion that follows
+        /// the common prefix.
+        /// </summary>
+        /// <param name="name1">
+        /// The namespace name that serves as the basis.
+        /// </param>
+        /// <param name="name2">
+        /// The fully qualified name to make relative.
+        /// </param>
+        /// <returns>
+        /// The portion of the second name that is relative to the first, or
+        /// the trimmed second name when it is not nested beneath the first.
+        /// </returns>
         private static string MakeRelativeName(
             string name1, /* this is the namespace name. */
             string name2  /* this is the fully qualified name. */
@@ -1143,6 +1831,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the qualifiers and tail of a name by
+        /// removing empty components and rejoining the remaining components
+        /// with the namespace separator.
+        /// </summary>
+        /// <param name="qualifiers">
+        /// On input, the qualifiers to normalize; on output, the normalized
+        /// qualifiers.  This parameter may be null.
+        /// </param>
+        /// <param name="tail">
+        /// On input, the tail to normalize; on output, the normalized tail.
+        /// This parameter may be null.
+        /// </param>
         private static void NormalizeName(
             ref string qualifiers, /* in, out */
             ref string tail        /* in, out */
@@ -1189,6 +1890,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes the specified name into its fully qualified,
+        /// absolute form relative to the current namespace of the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose current namespace is used.
+        /// </param>
+        /// <param name="name">
+        /// On input, the name to normalize; on output, the normalized name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode NormalizeName(
             Interpreter interpreter,
             ref string name,
@@ -1257,6 +1975,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Parsing Support Methods
+        /// <summary>
+        /// This method splits the specified name into its qualifiers and tail
+        /// portions.
+        /// </summary>
+        /// <param name="name">
+        /// The name to split.
+        /// </param>
+        /// <param name="qualifiers">
+        /// Upon success, this contains the qualifiers portion of the name.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail portion of the name.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SplitName(
             string name,
             ref string qualifiers,
@@ -1272,6 +2007,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified name into its tail portion and
+        /// computed namespace flags, discarding the qualifiers.
+        /// </summary>
+        /// <param name="name">
+        /// The name to split.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail portion of the name.
+        /// </param>
+        /// <param name="flags">
+        /// Upon success, this contains the namespace flags computed from the
+        /// name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SplitName(
             string name,
             ref string tail,
@@ -1287,6 +2043,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified name into its qualifiers and tail
+        /// portions, reporting any failure via the error message.
+        /// </summary>
+        /// <param name="name">
+        /// The name to split.
+        /// </param>
+        /// <param name="qualifiers">
+        /// Upon success, this contains the qualifiers portion of the name.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail portion of the name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SplitName(
             string name,
             ref string qualifiers,
@@ -1302,6 +2078,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified name into its qualifiers and tail
+        /// portions and computes the associated namespace flags (qualified,
+        /// absolute, global, and wildcard).
+        /// </summary>
+        /// <param name="name">
+        /// The name to split.
+        /// </param>
+        /// <param name="qualifiers">
+        /// Upon success, this contains the qualifiers portion of the name.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail portion of the name.
+        /// </param>
+        /// <param name="flags">
+        /// On input, the existing namespace flags (the split-name flags are
+        /// cleared); on output, this contains the namespace flags computed
+        /// from the name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SplitName(
             string name,
             ref string qualifiers,
@@ -1366,6 +2168,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified name into its individual component
+        /// names on the namespace separator, removing empty entries and
+        /// trimming colons from each component.
+        /// </summary>
+        /// <param name="name">
+        /// The name to split.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// An array of the component names, or an array containing a single
+        /// empty string when the name is null or empty.
+        /// </returns>
         private static string[] SplitName(
             string name
             )
@@ -1384,6 +2198,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets only the tail portion of the specified name,
+        /// returning the original name when it cannot be split.
+        /// </summary>
+        /// <param name="name">
+        /// The name whose tail is requested.
+        /// </param>
+        /// <returns>
+        /// The tail portion of the name, or the original name on failure.
+        /// </returns>
         public static string TailOnly(
             string name
             )
@@ -1401,6 +2225,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Matching Support Methods
+        /// <summary>
+        /// This method determines whether two names are equal using the system
+        /// string comparison.
+        /// </summary>
+        /// <param name="name1">
+        /// The first name to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="name2">
+        /// The second name to compare.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the names are equal; otherwise, false.
+        /// </returns>
         public static bool IsSame(
             string name1,
             string name2
@@ -1414,6 +2251,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Typing Support Methods
+        /// <summary>
+        /// This method determines whether the specified name is an absolute
+        /// name (i.e. it begins with the global namespace separator).
+        /// </summary>
+        /// <param name="name">
+        /// The name to check.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// True if the name is absolute; otherwise, false.
+        /// </returns>
         public static bool IsAbsoluteName(
             string name
             )
@@ -1427,6 +2274,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified name refers to the
+        /// global namespace (i.e. it is null/empty or consists only of
+        /// colons).
+        /// </summary>
+        /// <param name="name">
+        /// The name to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the name refers to the global namespace; otherwise, false.
+        /// </returns>
         public static bool IsGlobalName(
             string name
             )
@@ -1447,6 +2305,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified name is qualified
+        /// (i.e. it contains at least one namespace separator).
+        /// </summary>
+        /// <param name="name">
+        /// The name to check.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// True if the name is qualified; otherwise, false.
+        /// </returns>
         public static bool IsQualifiedName(
             string name
             )
@@ -1462,6 +2330,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Mapping Support Methods
+        /// <summary>
+        /// This method creates the default namespace name mappings, which
+        /// redirect the package namespace to the global namespace for backward
+        /// compatibility with earlier Eagle beta releases.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The dictionary of default namespace name mappings.
+        /// </returns>
         public static StringDictionary CreateMappings(
             Interpreter interpreter /* NOT USED */
             )
@@ -1482,6 +2361,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the mapped namespace name for the specified name,
+        /// returning null when there is no mapping.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespace mappings are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name to look up in the namespace mappings.
+        /// </param>
+        /// <returns>
+        /// The mapped name, or null when there is no mapping.
+        /// </returns>
         private static string GetMapping(
             Interpreter interpreter,
             string name
@@ -1502,6 +2394,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the mapped namespace name for the specified name,
+        /// reporting any failure via the error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespace mappings are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name to look up in the namespace mappings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The mapped name, or null when there is no mapping or on failure.
+        /// </returns>
         private static string GetMapping(
             Interpreter interpreter,
             string name,
@@ -1564,6 +2472,21 @@ namespace Eagle._Components.Private
         // HACK: The "Eagle" namespace redirects to the global namespace for
         //       reasons of backward compatibility with Eagle beta releases.
         //
+        /// <summary>
+        /// This method maps the specified namespace name through the
+        /// interpreter namespace mappings, returning the original name when no
+        /// mapping exists.  The package namespace redirects to the global
+        /// namespace for backward compatibility.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespace mappings are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name to map.
+        /// </param>
+        /// <returns>
+        /// The mapped name, or the original name when there is no mapping.
+        /// </returns>
         public static string MapName(
             Interpreter interpreter,
             string name
@@ -1581,6 +2504,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Name Lookup Support Methods
+        /// <summary>
+        /// This method gets the base namespace from which the specified name
+        /// should be resolved, which is the global namespace for absolute
+        /// names and the current namespace otherwise.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name being resolved, used to determine whether it is absolute.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to force use of the global namespace as the base.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The base namespace, or null on failure.
+        /// </returns>
         private static INamespace GetBase(
             Interpreter interpreter,
             string name,
@@ -1623,6 +2566,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the descendant namespace identified by the
+        /// specified name relative to the specified namespace, optionally
+        /// creating any missing namespaces along the way.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that will own any namespaces created.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace from which the descendant lookup begins.
+        /// </param>
+        /// <param name="name">
+        /// The relative name of the descendant namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to allow namespaces that are pending deletion to be
+        /// returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The descendant namespace, or null on failure.
+        /// </returns>
         private static INamespace GetDescendant(
             Interpreter interpreter,
             INamespace @namespace,
@@ -1791,6 +2762,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the parent namespace of the namespace
+        /// identified by the specified name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name whose parent namespace is requested.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a request for the parent of the global namespace
+        /// as an error.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to resolve the parent relative to the global namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <returns>
+        /// The parent namespace, or null on failure.
+        /// </returns>
         public static INamespace LookupParent(
             Interpreter interpreter,
             string name,
@@ -1807,6 +2801,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the parent namespace of the namespace
+        /// identified by the specified name, reporting any failure via the
+        /// error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name whose parent namespace is requested.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a request for the parent of the global namespace
+        /// as an error.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to resolve the parent relative to the global namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The parent namespace, or null on failure.
+        /// </returns>
         public static INamespace LookupParent(
             Interpreter interpreter,
             string name,
@@ -1851,6 +2872,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the namespace identified by the specified
+        /// name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the namespace to look up.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to resolve the name relative to the global namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <returns>
+        /// The namespace, or null on failure.
+        /// </returns>
         public static INamespace Lookup(
             Interpreter interpreter,
             string name,
@@ -1867,6 +2907,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the namespace identified by the specified
+        /// name, reporting any failure via the error message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the namespace to look up.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to resolve the name relative to the global namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The namespace, or null on failure.
+        /// </returns>
         public static INamespace Lookup(
             Interpreter interpreter,
             string name,
@@ -1882,6 +2944,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the namespace identified by the specified name
+        /// relative to the specified namespace, determining the base namespace
+        /// when none is supplied.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace from which the lookup begins.  When null, the base
+        /// namespace is determined automatically.
+        /// </param>
+        /// <param name="name">
+        /// The name of the namespace to look up.
+        /// </param>
+        /// <param name="absolute">
+        /// Non-zero to resolve the name relative to the global namespace.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create any missing namespaces along the path.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to allow namespaces that are pending deletion to be
+        /// returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The namespace, or null on failure.
+        /// </returns>
         private static INamespace Lookup(
             Interpreter interpreter,
             INamespace @namespace,
@@ -1923,6 +3016,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Variable Lookup Support Methods
+        /// <summary>
+        /// This method determines the call frame and adjusted variable name to
+        /// use when accessing the specified variable, taking into account
+        /// global, qualified, and namespace-scoped variable lookups.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces and call frames are queried.
+        /// </param>
+        /// <param name="frame">
+        /// On input, the call frame supplied by the caller; on output, the
+        /// call frame that should be used for the variable.
+        /// </param>
+        /// <param name="varName">
+        /// On input, the variable name to resolve; on output, the adjusted
+        /// variable name relative to the resolved call frame.
+        /// </param>
+        /// <param name="flags">
+        /// The variable flags that influence how the call frame is selected.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetVariableFrame(
             Interpreter interpreter,
             ref ICallFrame frame,
@@ -2120,6 +3239,28 @@ namespace Eagle._Components.Private
         //
         // NOTE: For variable resolver use only.
         //
+        /// <summary>
+        /// This method looks up the namespace that contains the specified
+        /// qualified variable name, returning the variable tail.  It is for
+        /// variable resolver use only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="varName">
+        /// The variable name to resolve.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail (i.e. simple variable name)
+        /// portion of the variable name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The containing namespace when the variable name is qualified;
+        /// otherwise, null.
+        /// </returns>
         public static INamespace Lookup(
             Interpreter interpreter,
             string varName,
@@ -2156,6 +3297,34 @@ namespace Eagle._Components.Private
         //       resolvers are present.  This design may need changes at
         //       some point.
         //
+        /// <summary>
+        /// This method gets the namespace and custom resolver to use for the
+        /// specified variable name.  It is used only by the namespace variable
+        /// resolver to support per-namespace resolvers.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame context.  This parameter is not used.
+        /// </param>
+        /// <param name="varName">
+        /// The variable name to resolve.
+        /// </param>
+        /// <param name="resolve">
+        /// Upon success, when the resolved namespace has a custom resolver,
+        /// this is set to that resolver.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail (i.e. simple variable name)
+        /// portion of the variable name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The containing namespace, or null on failure.
+        /// </returns>
         public static INamespace GetForVariable(
             Interpreter interpreter,
             ICallFrame frame, /* NOT USED */
@@ -2187,6 +3356,19 @@ namespace Eagle._Components.Private
 
         #region IExecute & IAlias Support Methods
         #region IExecute Support Methods
+        /// <summary>
+        /// This method sets the name to the absolute name of the specified
+        /// executable entity, using the procedure or command name when
+        /// available and otherwise using the supplied name.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity whose name is preferred.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="name">
+        /// On input, the fallback name; on output, the absolute name of the
+        /// executable entity.
+        /// </param>
         private static void MaybeGetIExecuteName(
             IExecute execute,
             ref string name
@@ -2213,6 +3395,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified name to an executable entity and
+        /// returns its normalized, fully qualified name, optionally searching
+        /// the hidden commands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose executable entities are queried.
+        /// </param>
+        /// <param name="hidden">
+        /// Non-zero to also search the hidden executable entities.
+        /// </param>
+        /// <param name="hiddenOnly">
+        /// Non-zero to search only the hidden executable entities.
+        /// </param>
+        /// <param name="name">
+        /// On input, the name to resolve; on output, the normalized, fully
+        /// qualified name of the resolved entity.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetIExecuteName(
             Interpreter interpreter,
             bool hidden,
@@ -2310,6 +3517,35 @@ namespace Eagle._Components.Private
         //       resolvers are present.  This design may need changes at
         //       some point.
         //
+        /// <summary>
+        /// This method gets the namespace and custom resolver to use for the
+        /// specified command name.  It is used only by the namespace resolver
+        /// to support per-namespace command resolvers.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose current namespace is used when the name is not
+        /// qualified.
+        /// </param>
+        /// <param name="name">
+        /// The command name to resolve.
+        /// </param>
+        /// <param name="resolve">
+        /// Upon success, when the resolved namespace has a custom resolver,
+        /// this is set to that resolver.
+        /// </param>
+        /// <param name="tail">
+        /// Upon success, this contains the tail (i.e. simple command name)
+        /// portion of the command name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The namespace to use for the command, or null when none is found.
+        /// </returns>
         public static INamespace GetForIExecute(
             Interpreter interpreter,
             ICallFrame frame,
@@ -2368,6 +3604,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IAlias Support Methods
+        /// <summary>
+        /// This method gets the target name (i.e. the first argument) of the
+        /// specified alias.
+        /// </summary>
+        /// <param name="alias">
+        /// The alias whose target name is requested.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The alias target name, or null when it is unavailable.
+        /// </returns>
         public static string GetAliasName(
             IAlias alias
             )
@@ -2385,6 +3632,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the target name (i.e. the first argument) of the
+        /// specified alias, creating the argument list when necessary.
+        /// </summary>
+        /// <param name="alias">
+        /// The alias whose target name is set.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The target name to assign to the alias.
+        /// </param>
+        /// <returns>
+        /// True if the target name was set; otherwise, false.
+        /// </returns>
         public static bool SetAliasName(
             IAlias alias,
             string name
@@ -2413,6 +3673,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified executable entity is
+        /// an alias whose target name matches the specified name.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to check.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to compare against the alias target name.
+        /// </param>
+        /// <returns>
+        /// True if the entity is an alias whose target name matches the
+        /// specified name; otherwise, false.
+        /// </returns>
         private static bool IsSameAsAliasName(
             IExecute execute,
             string name
@@ -2428,6 +3702,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the alias from the specified executable
+        /// entity, unwrapping it when the entity is a wrapper around an alias.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity from which to extract the alias.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The alias, or null when the entity is not (and does not wrap) an
+        /// alias.
+        /// </returns>
         private static IAlias GetAliasFromIExecute(
             IExecute execute
             )
@@ -2451,6 +3737,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Enable & Disable Support Methods
+        /// <summary>
+        /// This method determines whether the commands required to enable or
+        /// disable namespace support are available in the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose commands are queried.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to check for the commands required to enable namespace
+        /// support; zero to check for those required to disable it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the required commands are available; otherwise, false.
+        /// </returns>
         public static bool HaveRequiredCommands(
             Interpreter interpreter,
             bool enable,
@@ -2476,6 +3780,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the core plugin data, command data, and command
+        /// types needed to switch between the enabled and disabled
+        /// implementations of the [namespace] command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose core plugin and commands are queried.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to obtain the data for enabling namespace support; zero for
+        /// disabling it.
+        /// </param>
+        /// <param name="pluginData">
+        /// Upon success, this contains the core plugin data.
+        /// </param>
+        /// <param name="commandData">
+        /// Upon success, this contains the command data for the new command
+        /// implementation.
+        /// </param>
+        /// <param name="oldType">
+        /// Upon success, this contains the type of the old command
+        /// implementation.
+        /// </param>
+        /// <param name="newType">
+        /// Upon success, this contains the type of the new command
+        /// implementation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetEntityData(
             Interpreter interpreter,      /* in */
             bool enable,                  /* in */
@@ -2516,6 +3854,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the [namespace] command implementation in the
+        /// specified interpreter, removing the old command and adding the new
+        /// one appropriate for the requested enable state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose [namespace] command is changed.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the command operations.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to install the enabled implementation; zero to install the
+        /// disabled implementation.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ChangeCommand(
             Interpreter interpreter,
             IClientData clientData,
@@ -2609,6 +3970,32 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the interpreter lock is already held.
         //
+        /// <summary>
+        /// This method attaches the unmarked variables of the specified scope
+        /// call frame to the specified namespace, marking them and moving them
+        /// into the namespace call frame.  The interpreter lock must already be
+        /// held by the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the namespace and scope.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace to which the scope variables are attached.
+        /// </param>
+        /// <param name="scopeFrame">
+        /// The scope call frame whose variables are attached.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, this contains the names of the variables that were
+        /// attached; it is created if necessary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode AttachScope(
             Interpreter interpreter, /* in */
             INamespace @namespace,   /* in */
@@ -2715,6 +4102,33 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the interpreter lock is already held.
         //
+        /// <summary>
+        /// This method detaches the variables of the specified scope call frame
+        /// that are marked for the specified namespace, removing the marks and
+        /// removing them from the namespace call frame.  The interpreter lock
+        /// must already be held by the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the namespace and scope.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace from which the scope variables are detached.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="scopeFrame">
+        /// The scope call frame whose variables are detached.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, this contains the names of the variables that were
+        /// detached; it is created if necessary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode DetachScope(
             Interpreter interpreter, /* in */
             INamespace @namespace,   /* in: OPTIONAL */
@@ -2837,6 +4251,35 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the interpreter lock is already held.
         //
+        /// <summary>
+        /// This method exports eligible variables from the specified scope call
+        /// frame into the specified namespace, moving them from the scope to the
+        /// namespace call frame.  The interpreter lock must already be held by
+        /// the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the namespace and scope.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace into which the scope variables are exported.
+        /// </param>
+        /// <param name="scopeFrame">
+        /// The scope call frame whose variables are exported.
+        /// </param>
+        /// <param name="system">
+        /// Non-zero to also export variables marked as system variables.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, this contains the names of the variables that were
+        /// exported; it is created if necessary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExportScope(
             Interpreter interpreter, /* in */
             INamespace @namespace,   /* in */
@@ -2960,6 +4403,35 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method assumes the interpreter lock is already held.
         //
+        /// <summary>
+        /// This method imports eligible variables from the specified namespace
+        /// into the specified scope call frame, moving them from the namespace
+        /// to the scope call frame.  The interpreter lock must already be held
+        /// by the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the namespace and scope.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace from which the variables are imported.
+        /// </param>
+        /// <param name="scopeFrame">
+        /// The scope call frame into which the variables are imported.
+        /// </param>
+        /// <param name="system">
+        /// Non-zero to also import variables marked as system variables.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, this contains the names of the variables that were
+        /// imported; it is created if necessary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ImportScope(
             Interpreter interpreter, /* in */
             INamespace @namespace,   /* in */
@@ -3082,6 +4554,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Sub-Command Support Methods
+        /// <summary>
+        /// This method gets the immediate child namespaces of the namespace
+        /// identified by the specified name (or the current namespace when no
+        /// name is given) that match the specified pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the parent namespace.  When null, the current namespace
+        /// is used.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the child namespaces.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include namespaces that are pending deletion.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The matching child namespaces, or null on failure.
+        /// </returns>
         public static IEnumerable<INamespace> Children(
             Interpreter interpreter,
             string name,
@@ -3123,6 +4620,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets all descendant namespaces of the namespace
+        /// identified by the specified name (or the current namespace when no
+        /// name is given) that match the specified pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the ancestor namespace.  When null, the current
+        /// namespace is used.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the descendant namespaces.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include namespaces that are pending deletion.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The matching descendant namespaces, or null on failure.
+        /// </returns>
         public static IEnumerable<INamespace> Descendants(
             Interpreter interpreter,
             string name,
@@ -3164,6 +4686,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables namespace support in the specified
+        /// interpreter, switching the [namespace] command implementation and
+        /// resetting the related namespace and resolver state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespace support is changed.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the command change.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to enable namespace support; zero to disable it.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to reset the script-visible namespace state even when the
+        /// enable state is unchanged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Enable(
             Interpreter interpreter,
             IClientData clientData,
@@ -3251,6 +4799,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the export name patterns of the specified
+        /// namespace (or the current namespace), optionally clearing the
+        /// existing patterns first, and returns the current patterns when none
+        /// are supplied.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespace is queried.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace whose export patterns are updated.  When null, the
+        /// current namespace is used.
+        /// </param>
+        /// <param name="patterns">
+        /// The simple export patterns to add.  When empty, the current export
+        /// patterns are returned.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the existing export patterns before adding.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the current export patterns (when none
+        /// were supplied) or an empty string; upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Export(
             Interpreter interpreter, /* NOTE: Namespace queried here. */
             INamespace @namespace,   /* NOTE: Used for simple patterns. */
@@ -3343,6 +4920,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes (forgets) the imported commands in the current
+        /// namespace that match the specified patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose imported command aliases are removed.
+        /// </param>
+        /// <param name="patterns">
+        /// The simple or qualified patterns identifying the imports to forget.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Forget(
             Interpreter interpreter, /* NOTE: Aliases removed here. */
             StringList patterns,     /* NOTE: Simple/qualified patterns. */
@@ -3426,6 +5020,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method imports the exported commands matching the specified
+        /// qualified patterns into the current namespace as command aliases,
+        /// returning the current imports when no patterns are supplied.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter into which the command aliases are added.
+        /// </param>
+        /// <param name="patterns">
+        /// The qualified patterns identifying the commands to import.  When
+        /// empty, the current import names are returned.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to overwrite any existing commands that conflict with the
+        /// imported names.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the current import names (when none were
+        /// supplied) or an empty string; upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Import(
             Interpreter interpreter, /* NOTE: Aliases added here. */
             StringList patterns,     /* NOTE: Qualified patterns only. */
@@ -3666,6 +5285,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects detailed diagnostic information about how the
+        /// specified name is resolved (as a namespace, command, and variable)
+        /// and returns it as a name/value list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces, commands, and variables are
+        /// queried.
+        /// </param>
+        /// <param name="name">
+        /// The name to gather resolution information for.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the diagnostic name/value list; upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode InfoSubCommand(
             Interpreter interpreter,
             string name,
@@ -3909,6 +5548,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text is a [namespace]
+        /// command invocation, optionally matching a specific sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to split the text into a list.
+        /// </param>
+        /// <param name="text">
+        /// The text to examine.  This parameter may be null or empty.
+        /// </param>
+        /// <param name="subCommand">
+        /// The sub-command name to require, or null to match any [namespace]
+        /// invocation.
+        /// </param>
+        /// <returns>
+        /// True if the text is a matching [namespace] command invocation;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSubCommand(
             Interpreter interpreter,
             string text,
@@ -3950,6 +5607,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the origin of the specified command by
+        /// following the chain of namespace imports and command aliases back to
+        /// the original command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose command aliases are queried.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace used for a simple (non-qualified) name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The simple or qualified command name whose origin is requested.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the absolute name of the originating
+        /// command; upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Origin(
             Interpreter interpreter, /* NOTE: Aliases queried here. */
             INamespace @namespace,   /* NOTE: Used for simple name. */
@@ -4066,6 +5746,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the qualified name of the parent of the namespace
+        /// identified by the specified name (or the current namespace), always
+        /// returning an empty string for the global namespace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose namespaces are queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the namespace whose parent is requested.  When null, the
+        /// current namespace is used.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the qualified name of the parent
+        /// namespace (or an empty string for the global namespace); upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Parent(
             Interpreter interpreter,
             string name,
@@ -4145,6 +5846,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the fully qualified, absolute name of the
+        /// command or variable identified by the specified name, returning an
+        /// empty string when no matching entity is found.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose commands and variables are queried.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace used for a simple (non-qualified) name.  When null,
+        /// the current namespace is used.
+        /// </param>
+        /// <param name="name">
+        /// The simple or qualified name to resolve.
+        /// </param>
+        /// <param name="flags">
+        /// The namespace flags indicating whether to resolve a command or a
+        /// variable.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the resolved name (or an empty string
+        /// when not found); upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Which(
             Interpreter interpreter, /* NOTE: Command/variable queried here. */
             INamespace @namespace,   /* NOTE: Used for simple name. */

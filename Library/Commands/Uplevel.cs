@@ -18,11 +18,24 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>uplevel</c> command, which evaluates
+    /// a script in the variable context of an enclosing call frame (level)
+    /// rather than the current one.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("bafa3e2b-b26c-4552-9365-f9089d757e33")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("control")]
     internal sealed class Uplevel : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>uplevel</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Uplevel(
             ICommandData commandData
             )
@@ -34,11 +47,45 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>uplevel</c> command.  It selects the
+        /// target call frame named by an optional level specifier, pushes that
+        /// frame's variable context, evaluates the remaining arguments as a
+        /// script in that context, and then restores the original call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; an optional next element specifies the target level
+        /// (for example <c>#0</c> or a relative number), and the remaining
+        /// elements form the script to evaluate in that level.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of evaluating the script in
+        /// the target call frame.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the script result
+        /// placed in <paramref name="result" />; otherwise, a non-Ok value
+        /// such as <see cref="ReturnCode.Error" /> when the wrong number of
+        /// arguments is supplied, the interpreter or argument list is null, the
+        /// target level cannot be resolved, or the evaluated script itself
+        /// fails, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

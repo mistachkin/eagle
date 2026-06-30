@@ -31,9 +31,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps regular expressions to
+    /// enumerated values.  It extends the underlying generic dictionary with
+    /// helpers for bulk-adding key/value pairs and for producing a filtered
+    /// string form of its keys.
+    /// </summary>
     [ObjectId("17d57884-7b6c-479d-9519-4b6b81ba9562")]
     internal sealed class RegExEnumDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public RegExEnumDictionary()
             : base()
         {
@@ -42,6 +51,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// specified regular expression keys and enumerated values.
+        /// </summary>
+        /// <param name="keys">
+        /// The regular expressions to use as the keys of the dictionary.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type that the values belong to.
+        /// </param>
+        /// <param name="values">
+        /// The enumerated values to associate with the keys.  If there are
+        /// fewer values than keys, the remaining keys are associated with the
+        /// zero value of the enumerated type.
+        /// </param>
         public RegExEnumDictionary(IEnumerable<Regex> keys, Type enumType, IEnumerable<Enum> values)
             : this()
         {
@@ -50,6 +74,25 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified regular expression keys and their
+        /// associated enumerated values to the dictionary.
+        /// </summary>
+        /// <param name="keys">
+        /// The regular expressions to use as the keys of the dictionary.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type that the values belong to.
+        /// </param>
+        /// <param name="values">
+        /// The enumerated values to associate with the keys.  If there are
+        /// fewer values than keys, the remaining keys are associated with the
+        /// zero value of the enumerated type.
+        /// </param>
+        /// <returns>
+        /// True if the key/value pairs were successfully added; otherwise,
+        /// false.
+        /// </returns>
         public bool Add(IEnumerable<Regex> keys, Type enumType, IEnumerable<Enum> values)
         {
             Result error = null;
@@ -59,6 +102,28 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified regular expression keys and their
+        /// associated enumerated values to the dictionary.
+        /// </summary>
+        /// <param name="keys">
+        /// The regular expressions to use as the keys of the dictionary.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type that the values belong to.
+        /// </param>
+        /// <param name="values">
+        /// The enumerated values to associate with the keys.  If there are
+        /// fewer values than keys, the remaining keys are associated with the
+        /// zero value of the enumerated type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the key/value pairs were successfully added; otherwise,
+        /// false.
+        /// </returns>
         public bool Add(IEnumerable<Regex> keys, Type enumType, IEnumerable<Enum> values, ref Result error)
         {
             object zeroValue = EnumOps.TryGet(enumType, 0, ref error);
@@ -108,6 +173,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The matching keys formatted as a string.
+        /// </returns>
         public string ToString(string pattern, bool noCase)
         {
             RegExList list = new RegExList(this.Keys);
@@ -119,6 +198,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

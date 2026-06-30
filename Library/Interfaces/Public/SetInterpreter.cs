@@ -14,9 +14,17 @@ using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Public
 {
+    /// <summary>
+    /// This interface is implemented by entities that allow their associated
+    /// interpreter to be set after they have been created.
+    /// </summary>
     [ObjectId("07bf3e68-f141-4ebb-9e2a-14ca2a8f722b")]
     public interface ISetInterpreter
     {
+        /// <summary>
+        /// Sets the interpreter context associated with this object.  This
+        /// value may be null.
+        /// </summary>
         //
         // TODO: Change this to use the IInterpreter type.
         //

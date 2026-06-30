@@ -1,0 +1,9 @@
+[submodule "docs"]
+	path = docs
+	url = https://github.com/mistachkin/docs
+[submodule "extra"]
+	path = extra
+	url = https://github.com/mistachkin/extra
+[submodule "eee"]
+	path = eee
+	url = https://github.com/mistachkin/eee

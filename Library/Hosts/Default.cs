@@ -42,6 +42,13 @@ using TraceException = Eagle._Tests.Default.TraceException;
 //
 namespace Eagle._Hosts
 {
+    /// <summary>
+    /// This class is the abstract base implementation of the
+    /// <see cref="IHost" /> interface, serving as the default Eagle host.  It
+    /// provides console and display output, interactive input, color handling,
+    /// introspection rendering, and the shared host infrastructure from which
+    /// concrete hosts (e.g. the console and diagnostic hosts) derive.
+    /// </summary>
     [ObjectId("4a02c60b-5b7b-4eb8-873e-eb6860ba3973")]
     public abstract class Default :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -50,6 +57,10 @@ namespace Eagle._Hosts
         IHost, IDisposable, IMaybeDisposed, ISynchronizeStatic
     {
         #region Protected Constants
+        /// <summary>
+        /// The binding flags used when reflecting over the host properties of
+        /// this class and its derived classes.
+        /// </summary>
         protected internal static readonly BindingFlags HostPropertyBindingFlags =
             ObjectOps.GetBindingFlags(MetaBindingFlags.HostProperty, true);
 
@@ -67,39 +78,118 @@ namespace Eagle._Hosts
         //       Should*ForPass methods of this class (and derived classes?)
         //       must be changed as well.
         //
+        /// <summary>
+        /// The read-only array of pass identifiers used by the <c>WriteCore</c>
+        /// subsystem to perform a single pass that calls <c>Write</c> and
+        /// <c>WriteLine</c> with colors enabled.
+        /// </summary>
         protected internal static readonly int[] OnePassForWriteCore = { 0 };
+        /// <summary>
+        /// The read-only array of pass identifiers used by the <c>WriteCore</c>
+        /// subsystem to perform two passes that call <c>Write</c> with colors
+        /// enabled and then <c>WriteLine</c> with colors disabled.
+        /// </summary>
         protected internal static readonly int[] TwoPassesForWriteCore = { 1, 2 };
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Section Names
+        /// <summary>
+        /// The name of the header section of the host display.
+        /// </summary>
         protected static readonly string HeaderSectionName = "Header";
+        /// <summary>
+        /// The name of the footer section of the host display.
+        /// </summary>
         protected static readonly string FooterSectionName = "Footer";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Box Names
+        /// <summary>
+        /// The name of the box used to display argument information.
+        /// </summary>
         protected static readonly string ArgumentInfoBoxName = "ArgumentInfo";
+        /// <summary>
+        /// The name of the box used to display call frame information.
+        /// </summary>
         protected static readonly string CallFrameInfoBoxName = "CallFrameInfo";
+        /// <summary>
+        /// The name of the box used to display call stack information.
+        /// </summary>
         protected static readonly string CallStackInfoBoxName = "CallStackInfo";
+        /// <summary>
+        /// The name of the box used to display debugger information.
+        /// </summary>
         protected static readonly string DebuggerInfoBoxName = "DebuggerInfo";
+        /// <summary>
+        /// The name of the box used to display flag information.
+        /// </summary>
         protected static readonly string FlagInfoBoxName = "FlagInfo";
+        /// <summary>
+        /// The name of the box used to display host information.
+        /// </summary>
         protected static readonly string HostInfoBoxName = "HostInfo";
+        /// <summary>
+        /// The name of the box used to display interpreter information.
+        /// </summary>
         protected static readonly string InterpreterInfoBoxName = "InterpreterInfo";
+        /// <summary>
+        /// The name of the box used to display engine information.
+        /// </summary>
         protected static readonly string EngineInfoBoxName = "EngineInfo";
+        /// <summary>
+        /// The name of the box used to display entity information.
+        /// </summary>
         protected static readonly string EntityInfoBoxName = "EntityInfo";
+        /// <summary>
+        /// The name of the box used to display stack information.
+        /// </summary>
         protected static readonly string StackInfoBoxName = "StackInfo";
+        /// <summary>
+        /// The name of the box used to display control information.
+        /// </summary>
         protected static readonly string ControlInfoBoxName = "ControlInfo";
+        /// <summary>
+        /// The name of the box used to display test information.
+        /// </summary>
         protected static readonly string TestInfoBoxName = "TestInfo";
+        /// <summary>
+        /// The name of the box used to display trace information.
+        /// </summary>
         protected static readonly string TraceInfoBoxName = "TraceInfo";
+        /// <summary>
+        /// The name of the box used to display token information.
+        /// </summary>
         protected static readonly string TokenInfoBoxName = "TokenInfo";
+        /// <summary>
+        /// The name of the box used to display variable information.
+        /// </summary>
         protected static readonly string VariableInfoBoxName = "VariableInfo";
+        /// <summary>
+        /// The name of the box used to display object information.
+        /// </summary>
         protected static readonly string ObjectInfoBoxName = "ObjectInfo";
+        /// <summary>
+        /// The name of the box used to display complaint information.
+        /// </summary>
         protected static readonly string ComplaintInfoBoxName = "ComplaintInfo";
+        /// <summary>
+        /// The name of the box used to display history information.
+        /// </summary>
         protected static readonly string HistoryInfoBoxName = "HistoryInfo";
+        /// <summary>
+        /// The name of the box used to display custom information.
+        /// </summary>
         protected static readonly string CustomInfoBoxName = "CustomInfo";
+        /// <summary>
+        /// The name of the box used to display result information.
+        /// </summary>
         protected static readonly string ResultInfoBoxName = "ResultInfo";
+        /// <summary>
+        /// The name of the box used to display previous result information.
+        /// </summary>
         protected static readonly string PreviousResultInfoBoxName = "PreviousResultInfo";
         #endregion
 
@@ -109,6 +199,12 @@ namespace Eagle._Hosts
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The collection of well-known data names recognized by this host,
+        /// including the script type names, file names without their paths, and
+        /// fully qualified file names used to locate and load the standard
+        /// scripts.
+        /// </summary>
         protected static IDictionary<string, string> wellKnownDataNames =
             new StringDictionary(new string[]  {
 
@@ -181,34 +277,68 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constants
+        /// <summary>
+        /// The prefix used when building the color names associated with box
+        /// rendering.
+        /// </summary>
         public static readonly string BoxColorPrefix = "Box";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character value used to indicate that no separator character
+        /// should be emitted.
+        /// </summary>
         public static readonly char NoSeparator = char.MinValue;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default value indicating whether this host permits the
+        /// interpreter to exit.
+        /// </summary>
         public static readonly bool DefaultCanExit = true;
+        /// <summary>
+        /// The default value indicating whether this host permits the
+        /// interpreter to be forcibly exited.
+        /// </summary>
         public static readonly bool DefaultCanForceExit = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Data
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class across all threads.
+        /// </summary>
         private static readonly object staticSyncRoot = new object();
+        /// <summary>
+        /// The identifier of the thread that currently holds the static
+        /// synchronization lock, or zero if no thread holds it.
+        /// </summary>
         private static long staticLockThreadId = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The current nesting level of box rendering operations in progress
+        /// for this host.
+        /// </summary>
         private int boxLevels;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// This method initializes a new instance of the <see cref="Default" />
+        /// class.  It establishes the default display size constraints for each
+        /// section of the header, initializes the available box character sets,
+        /// and selects the active box character set.
+        /// </summary>
         private Default()
         {
             //
@@ -264,6 +394,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Constructors
+        /// <summary>
+        /// This method initializes a new instance of the <see cref="Default" />
+        /// class using the specified host data.  It sets up the identity,
+        /// grouping, descriptive metadata, host creation flags, exit-related
+        /// properties, and the system default user-interface colors.
+        /// </summary>
+        /// <param name="hostData">
+        /// The host data used to initialize the identity, name, description,
+        /// client data, profile, and creation flags for this host, or null to
+        /// use the default values.
+        /// </param>
         protected Default(
             IHostData hostData
             )
@@ -323,7 +464,14 @@ namespace Eagle._Hosts
 
         #region Protected Properties
         #region Protected Section Properties
+        /// <summary>
+        /// The backing field for the <see cref="SectionSizes" /> property.
+        /// </summary>
         private Dictionary<HeaderFlags, HostFlags> sectionSizes;
+        /// <summary>
+        /// Gets or sets the mapping of header flags to the host flags that describe the
+        /// available size for each corresponding section.
+        /// </summary>
         protected virtual Dictionary<HeaderFlags, HostFlags> SectionSizes
         {
             get { return sectionSizes; }
@@ -334,6 +482,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Flags Properties
+        /// <summary>
+        /// Gets or sets the header flags that control which sections are included when
+        /// formatting header output.
+        /// </summary>
         protected virtual HeaderFlags HeaderFlags
         {
             get { return headerFlags; }
@@ -342,6 +494,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the detail flags that control the level of detail included when
+        /// formatting output.
+        /// </summary>
         protected virtual DetailFlags DetailFlags
         {
             get { return detailFlags; }
@@ -353,7 +509,14 @@ namespace Eagle._Hosts
 
         #region Protected Call Frame Properties
         #region Call Frame Formatting
+        /// <summary>
+        /// The backing field for the <see cref="VariableCallFrameSeparator" /> property.
+        /// </summary>
         private char variableCallFrameSeparator = '*';
+        /// <summary>
+        /// Gets or sets the character used to mark a variable call frame when formatting
+        /// call frame information.
+        /// </summary>
         protected virtual char VariableCallFrameSeparator
         {
             get { return variableCallFrameSeparator; }
@@ -362,7 +525,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="VariableCallFrameSuffix" /> property.
+        /// </summary>
         private string variableCallFrameSuffix = null;
+        /// <summary>
+        /// Gets or sets the suffix appended to the variable call frame type name when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string VariableCallFrameSuffix
         {
             get { return variableCallFrameSuffix; }
@@ -373,7 +543,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Call Frame Type Names
+        /// <summary>
+        /// The backing field for the <see cref="AliasCallFrameTypeName" /> property.
+        /// </summary>
         private string aliasCallFrameTypeName = "alis";
+        /// <summary>
+        /// Gets or sets the short type name used to represent an alias call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string AliasCallFrameTypeName
         {
             get { return aliasCallFrameTypeName; }
@@ -382,7 +559,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CurrentCallFrameTypeName" /> property.
+        /// </summary>
         private string currentCallFrameTypeName = "curr";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a current call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string CurrentCallFrameTypeName
         {
             get { return currentCallFrameTypeName; }
@@ -391,7 +575,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DownlevelCallFrameTypeName" /> property.
+        /// </summary>
         private string downlevelCallFrameTypeName = "dnlv";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a downlevel call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string DownlevelCallFrameTypeName
         {
             get { return downlevelCallFrameTypeName; }
@@ -400,7 +591,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EngineCallFrameTypeName" /> property.
+        /// </summary>
         private string engineCallFrameTypeName = "engn";
+        /// <summary>
+        /// Gets or sets the short type name used to represent an engine call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string EngineCallFrameTypeName
         {
             get { return engineCallFrameTypeName; }
@@ -409,7 +607,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="GlobalCallFrameTypeName" /> property.
+        /// </summary>
         private string globalCallFrameTypeName = "glob";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a global call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string GlobalCallFrameTypeName
         {
             get { return globalCallFrameTypeName; }
@@ -418,7 +623,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="GlobalScopeCallFrameTypeName" /> property.
+        /// </summary>
         private string globalScopeCallFrameTypeName = "gbsp";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a global scope call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string GlobalScopeCallFrameTypeName
         {
             get { return globalScopeCallFrameTypeName; }
@@ -427,7 +639,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LambdaCallFrameTypeName" /> property.
+        /// </summary>
         private string lambdaCallFrameTypeName = "lamb";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a lambda call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string LambdaCallFrameTypeName
         {
             get { return lambdaCallFrameTypeName; }
@@ -436,7 +655,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LinkedCallFrameTypeName" /> property.
+        /// </summary>
         private string linkedCallFrameTypeName = "link";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a linked call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string LinkedCallFrameTypeName
         {
             get { return linkedCallFrameTypeName; }
@@ -445,7 +671,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NamespaceCallFrameTypeName" /> property.
+        /// </summary>
         private string namespaceCallFrameTypeName = "nmsp";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a namespace call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string NamespaceCallFrameTypeName
         {
             get { return namespaceCallFrameTypeName; }
@@ -454,7 +687,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NextCallFrameTypeName" /> property.
+        /// </summary>
         private string nextCallFrameTypeName = "next";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a next call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string NextCallFrameTypeName
         {
             get { return nextCallFrameTypeName; }
@@ -466,7 +706,14 @@ namespace Eagle._Hosts
         //
         // NOTE: Yes, this normally returns only whitespace.
         //
+        /// <summary>
+        /// The backing field for the <see cref="NormalCallFrameTypeName" /> property.
+        /// </summary>
         private string normalCallFrameTypeName = "    ";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a normal call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string NormalCallFrameTypeName
         {
             get { return normalCallFrameTypeName; }
@@ -475,7 +722,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NullCallFrameTypeName" /> property.
+        /// </summary>
         private string nullCallFrameTypeName = _String.Null;
+        /// <summary>
+        /// Gets or sets the short type name used to represent a null call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string NullCallFrameTypeName
         {
             get { return nullCallFrameTypeName; }
@@ -484,7 +738,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OtherCallFrameTypeName" /> property.
+        /// </summary>
         private string otherCallFrameTypeName = "othr";
+        /// <summary>
+        /// Gets or sets the short type name used to represent an other call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string OtherCallFrameTypeName
         {
             get { return otherCallFrameTypeName; }
@@ -493,7 +754,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="PreviousCallFrameTypeName" /> property.
+        /// </summary>
         private string previousCallFrameTypeName = "prev";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a previous call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string PreviousCallFrameTypeName
         {
             get { return previousCallFrameTypeName; }
@@ -502,7 +770,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ProcedureCallFrameTypeName" /> property.
+        /// </summary>
         private string procedureCallFrameTypeName = "proc";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a procedure call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string ProcedureCallFrameTypeName
         {
             get { return procedureCallFrameTypeName; }
@@ -511,7 +786,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ScopeCallFrameTypeName" /> property.
+        /// </summary>
         private string scopeCallFrameTypeName = "scop";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a scope call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string ScopeCallFrameTypeName
         {
             get { return scopeCallFrameTypeName; }
@@ -520,7 +802,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TrackingCallFrameTypeName" /> property.
+        /// </summary>
         private string trackingCallFrameTypeName = "trck";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a tracking call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string TrackingCallFrameTypeName
         {
             get { return trackingCallFrameTypeName; }
@@ -529,7 +818,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnknownCallFrameTypeName" /> property.
+        /// </summary>
         private string unknownCallFrameTypeName = "unkn";
+        /// <summary>
+        /// Gets or sets the short type name used to represent an unknown call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string UnknownCallFrameTypeName
         {
             get { return unknownCallFrameTypeName; }
@@ -538,7 +834,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UplevelCallFrameTypeName" /> property.
+        /// </summary>
         private string uplevelCallFrameTypeName = "uplv";
+        /// <summary>
+        /// Gets or sets the short type name used to represent an uplevel call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string UplevelCallFrameTypeName
         {
             get { return uplevelCallFrameTypeName; }
@@ -547,7 +850,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="VariableCallFrameTypeName" /> property.
+        /// </summary>
         private string variableCallFrameTypeName = "vars";
+        /// <summary>
+        /// Gets or sets the short type name used to represent a variable call frame when
+        /// formatting call frame information.
+        /// </summary>
         protected virtual string VariableCallFrameTypeName
         {
             get { return variableCallFrameTypeName; }
@@ -559,6 +869,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Formatting Properties
+        /// <summary>
+        /// Gets or sets a value indicating whether the debug formatting mode is enabled,
+        /// based on the host creation flags.
+        /// </summary>
         protected virtual bool Debug
         {
             get { return HasCreateFlags(HostCreateFlags.Debug, true); }
@@ -567,6 +881,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether new-line sequences should be replaced when
+        /// formatting output, based on the host creation flags.
+        /// </summary>
         protected internal virtual bool ReplaceNewLines
         {
             get { return HasCreateFlags(HostCreateFlags.ReplaceNewLines, true); }
@@ -575,6 +893,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether an ellipsis should be used to indicate
+        /// truncated output, based on the host creation flags.
+        /// </summary>
         protected internal virtual bool Ellipsis
         {
             get { return HasCreateFlags(HostCreateFlags.Ellipsis, true); }
@@ -583,6 +905,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether exception details should be included when
+        /// formatting output, based on the host creation flags.
+        /// </summary>
         protected internal virtual bool Exceptions
         {
             get { return HasCreateFlags(HostCreateFlags.Exceptions, true); }
@@ -591,6 +917,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether display-oriented formatting is enabled,
+        /// based on the host creation flags.
+        /// </summary>
         protected internal virtual bool Display
         {
             get { return HasCreateFlags(HostCreateFlags.Display, true); }
@@ -599,7 +929,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HistoryLimit" /> property.
+        /// </summary>
         private int historyLimit = 20;
+        /// <summary>
+        /// Gets or sets the maximum number of history entries to include when formatting
+        /// history output.
+        /// </summary>
         protected virtual int HistoryLimit
         {
             get { return historyLimit; }
@@ -608,7 +945,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CallStackLimit" /> property.
+        /// </summary>
         private int callStackLimit = 20;
+        /// <summary>
+        /// Gets or sets the maximum number of call stack entries to include when formatting
+        /// call stack output.
+        /// </summary>
         protected virtual int CallStackLimit
         {
             get { return callStackLimit; }
@@ -617,7 +961,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="SectionsPerRow" /> property.
+        /// </summary>
         private int sectionsPerRow = 0;
+        /// <summary>
+        /// Gets or sets the number of sections to display per row when formatting sectioned
+        /// output.  A value of zero indicates no fixed limit.
+        /// </summary>
         protected virtual int SectionsPerRow
         {
             get { return sectionsPerRow; }
@@ -626,7 +977,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NameValueFormat" /> property.
+        /// </summary>
         private string nameValueFormat = "{0}:" + Characters.Space + "{1}";
+        /// <summary>
+        /// Gets or sets the composite format string used to format a name and value pair.
+        /// </summary>
         protected virtual string NameValueFormat
         {
             get { return nameValueFormat; }
@@ -637,7 +994,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Prompt Properties
+        /// <summary>
+        /// The backing field for the <see cref="StopPrompt" /> property.
+        /// </summary>
         private string stopPrompt = "[stop]";
+        /// <summary>
+        /// Gets or sets the prompt text displayed to indicate a stopped state.
+        /// </summary>
         protected virtual string StopPrompt
         {
             get { return stopPrompt; }
@@ -646,7 +1009,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="GoPrompt" /> property.
+        /// </summary>
         private string goPrompt = "[go]";
+        /// <summary>
+        /// Gets or sets the prompt text displayed to indicate a running (go) state.
+        /// </summary>
         protected virtual string GoPrompt
         {
             get { return goPrompt; }
@@ -658,7 +1027,13 @@ namespace Eagle._Hosts
 
         #region Protected Output Properties
         #region Output Style Properties
+        /// <summary>
+        /// The backing field for the <see cref="OutputStyle" /> property.
+        /// </summary>
         private OutputStyle outputStyle = OutputStyle.Default;
+        /// <summary>
+        /// Gets or sets the output style used when writing host output.
+        /// </summary>
         protected internal virtual OutputStyle OutputStyle // TODO: Make this part of IHost?
         {
             get { return outputStyle; }
@@ -667,6 +1042,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style is neither formatted nor boxed.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style is neither formatted nor boxed; otherwise,
+        /// false.
+        /// </returns>
         protected internal virtual bool IsNoneOutputStyle(
             OutputStyle outputStyle
             )
@@ -677,6 +1062,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the formatted flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the formatted flag; otherwise, false.
+        /// </returns>
         protected internal virtual bool IsFormattedOutputStyle(
             OutputStyle outputStyle
             )
@@ -687,6 +1081,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the boxed flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the boxed flag; otherwise, false.
+        /// </returns>
         protected internal virtual bool IsBoxedOutputStyle(
             OutputStyle outputStyle
             )
@@ -697,6 +1100,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the normal flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the normal flag; otherwise, false.
+        /// </returns>
         protected internal virtual bool IsNormalOutputStyle(
             OutputStyle outputStyle
             )
@@ -707,6 +1119,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the debug flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the debug flag; otherwise, false.
+        /// </returns>
         protected internal virtual bool IsDebugOutputStyle(
             OutputStyle outputStyle
             )
@@ -717,6 +1138,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the error flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the error flag; otherwise, false.
+        /// </returns>
         protected internal virtual bool IsErrorOutputStyle(
             OutputStyle outputStyle
             )
@@ -727,6 +1157,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the reversed text flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the reversed text flag; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsReversedTextOutputStyle(
             OutputStyle outputStyle
             )
@@ -737,6 +1177,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the specified output style includes the reversed border flag.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to examine.
+        /// </param>
+        /// <returns>
+        /// True if the specified output style includes the reversed border flag; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsReversedBorderOutputStyle(
             OutputStyle outputStyle
             )
@@ -747,6 +1197,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the specified output style into the corresponding host write type.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style to convert.
+        /// </param>
+        /// <returns>
+        /// The <see cref="HostWriteType" /> value that corresponds to the specified output
+        /// style.
+        /// </returns>
         protected virtual HostWriteType OutputStyleToHostWriteType(
             OutputStyle outputStyle
             )
@@ -765,7 +1225,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Window Properties
+        /// <summary>
+        /// The backing field for the <see cref="HostLeft" /> property.
+        /// </summary>
         private int hostLeft = 0;
+        /// <summary>
+        /// Gets or sets the horizontal (left) position of the host.
+        /// </summary>
         protected virtual int HostLeft
         {
             get { return hostLeft; }
@@ -774,7 +1240,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HostTop" /> property.
+        /// </summary>
         private int hostTop = 0;
+        /// <summary>
+        /// Gets or sets the vertical (top) position of the host.
+        /// </summary>
         protected virtual int HostTop
         {
             get { return hostTop; }
@@ -783,7 +1255,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="WindowWidth" /> property.
+        /// </summary>
         private int windowWidth = Width.Default;
+        /// <summary>
+        /// Gets or sets the width, in characters, of the host window.
+        /// </summary>
         protected virtual int WindowWidth
         {
             get { return windowWidth; }
@@ -792,7 +1270,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="WindowHeight" /> property.
+        /// </summary>
         private int windowHeight = Height.Default;
+        /// <summary>
+        /// Gets or sets the height, in characters, of the host window.
+        /// </summary>
         protected virtual int WindowHeight
         {
             get { return windowHeight; }
@@ -803,7 +1287,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Content Area Properties
+        /// <summary>
+        /// The backing field for the <see cref="ContentMargin" /> property.
+        /// </summary>
         private int contentMargin = 0;
+        /// <summary>
+        /// Gets or sets the margin, in characters, applied to the content area.
+        /// </summary>
         protected internal virtual int ContentMargin
         {
             get { return contentMargin; }
@@ -812,7 +1302,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ContentWidth" /> property.
+        /// </summary>
         private int contentWidth = Width.Invalid;
+        /// <summary>
+        /// Gets or sets the width, in characters, of the content area.  When no explicit
+        /// width has been set, the width is derived from the window width.
+        /// </summary>
         protected virtual int ContentWidth
         {
             get { return (contentWidth != Width.Invalid) ? contentWidth : WindowWidth - 3; }
@@ -821,7 +1318,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ContentThreshold" /> property.
+        /// </summary>
         private int contentThreshold = 20;
+        /// <summary>
+        /// Gets or sets the minimum content width threshold, in characters, used when
+        /// formatting content.
+        /// </summary>
         protected virtual int ContentThreshold
         {
             get { return contentThreshold; }
@@ -830,7 +1334,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="MinimumLength" /> property.
+        /// </summary>
         private int minimumLength = Length.Invalid;
+        /// <summary>
+        /// Gets or sets the minimum length, in characters, used when formatting content.
+        /// </summary>
         protected virtual int MinimumLength
         {
             get { return minimumLength; }
@@ -841,7 +1351,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Box Properties
+        /// <summary>
+        /// The backing field for the <see cref="BoxCharacterSet" /> property.
+        /// </summary>
         private int boxCharacterSet;
+        /// <summary>
+        /// Gets or sets the index of the box character set currently used when drawing boxes.
+        /// </summary>
         protected internal virtual int BoxCharacterSet
         {
             get { return boxCharacterSet; }
@@ -850,7 +1366,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BoxCharacterSets" /> property.
+        /// </summary>
         private StringList boxCharacterSets;
+        /// <summary>
+        /// Gets or sets the list of available box character sets used when drawing boxes.
+        /// </summary>
         protected internal virtual StringList BoxCharacterSets
         {
             get { return boxCharacterSets; }
@@ -859,7 +1381,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BoxWidth" /> property.
+        /// </summary>
         private int boxWidth = Width.Invalid;
+        /// <summary>
+        /// Gets or sets the width, in characters, used when drawing boxes.
+        /// </summary>
         protected virtual int BoxWidth
         {
             get { return boxWidth; }
@@ -868,7 +1396,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BoxMargin" /> property.
+        /// </summary>
         private int boxMargin = Margin.Default;
+        /// <summary>
+        /// Gets or sets the margin, in characters, applied when drawing boxes.
+        /// </summary>
         protected virtual int BoxMargin
         {
             get { return boxMargin; }
@@ -882,7 +1416,13 @@ namespace Eagle._Hosts
         #region Protected Color Properties
         #region General & Section Colors
         #region General Colors
+        /// <summary>
+        /// The backing field for the <see cref="BannerForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor bannerForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the banner category.
+        /// </summary>
         protected virtual ConsoleColor BannerForegroundColor
         {
             get { return bannerForegroundColor; }
@@ -891,7 +1431,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BannerBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor bannerBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the banner category.
+        /// </summary>
         protected virtual ConsoleColor BannerBackgroundColor
         {
             get { return bannerBackgroundColor; }
@@ -900,7 +1446,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BoxForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor boxForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the box category.
+        /// </summary>
         protected virtual ConsoleColor BoxForegroundColor
         {
             get { return boxForegroundColor; }
@@ -909,7 +1461,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BoxBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor boxBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the box category.
+        /// </summary>
         protected virtual ConsoleColor BoxBackgroundColor
         {
             get { return boxBackgroundColor; }
@@ -918,7 +1476,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DebugForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor debugForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the debug category.
+        /// </summary>
         protected virtual ConsoleColor DebugForegroundColor
         {
             get { return debugForegroundColor; }
@@ -927,7 +1491,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DebugBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor debugBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the debug category.
+        /// </summary>
         protected virtual ConsoleColor DebugBackgroundColor
         {
             get { return debugBackgroundColor; }
@@ -936,7 +1506,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DefaultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor defaultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the default category.
+        /// </summary>
         protected virtual ConsoleColor DefaultForegroundColor
         {
             get { return defaultForegroundColor; }
@@ -945,7 +1521,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DefaultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor defaultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the default category.
+        /// </summary>
         protected virtual ConsoleColor DefaultBackgroundColor
         {
             get { return defaultBackgroundColor; }
@@ -954,7 +1536,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DisabledForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor disabledForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the disabled category.
+        /// </summary>
         protected virtual ConsoleColor DisabledForegroundColor
         {
             get { return disabledForegroundColor; }
@@ -963,7 +1551,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DisabledBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor disabledBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the disabled category.
+        /// </summary>
         protected virtual ConsoleColor DisabledBackgroundColor
         {
             get { return disabledBackgroundColor; }
@@ -972,7 +1566,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EnabledForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor enabledForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the enabled category.
+        /// </summary>
         protected virtual ConsoleColor EnabledForegroundColor
         {
             get { return enabledForegroundColor; }
@@ -981,7 +1581,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EnabledBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor enabledBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the enabled category.
+        /// </summary>
         protected virtual ConsoleColor EnabledBackgroundColor
         {
             get { return enabledBackgroundColor; }
@@ -990,7 +1596,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ErrorForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor errorForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the error category.
+        /// </summary>
         protected virtual ConsoleColor ErrorForegroundColor
         {
             get { return errorForegroundColor; }
@@ -999,7 +1611,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ErrorBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor errorBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the error category.
+        /// </summary>
         protected virtual ConsoleColor ErrorBackgroundColor
         {
             get { return errorBackgroundColor; }
@@ -1008,7 +1626,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FatalForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor fatalForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the fatal category.
+        /// </summary>
         protected virtual ConsoleColor FatalForegroundColor
         {
             get { return fatalForegroundColor; }
@@ -1017,7 +1641,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FatalBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor fatalBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the fatal category.
+        /// </summary>
         protected virtual ConsoleColor FatalBackgroundColor
         {
             get { return fatalBackgroundColor; }
@@ -1026,7 +1656,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FooterForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor footerForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the footer category.
+        /// </summary>
         protected virtual ConsoleColor FooterForegroundColor
         {
             get { return footerForegroundColor; }
@@ -1035,7 +1671,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FooterBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor footerBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the footer category.
+        /// </summary>
         protected virtual ConsoleColor FooterBackgroundColor
         {
             get { return footerBackgroundColor; }
@@ -1044,7 +1686,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HeaderForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor headerForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the header category.
+        /// </summary>
         protected virtual ConsoleColor HeaderForegroundColor
         {
             get { return headerForegroundColor; }
@@ -1053,7 +1701,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HeaderBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor headerBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the header category.
+        /// </summary>
         protected virtual ConsoleColor HeaderBackgroundColor
         {
             get { return headerBackgroundColor; }
@@ -1062,7 +1716,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HelpForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor helpForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the help category.
+        /// </summary>
         protected virtual ConsoleColor HelpForegroundColor
         {
             get { return helpForegroundColor; }
@@ -1071,7 +1731,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HelpBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor helpBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the help category.
+        /// </summary>
         protected virtual ConsoleColor HelpBackgroundColor
         {
             get { return helpBackgroundColor; }
@@ -1080,7 +1746,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HelpItemForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor helpItemForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the help item category.
+        /// </summary>
         protected virtual ConsoleColor HelpItemForegroundColor
         {
             get { return helpItemForegroundColor; }
@@ -1089,7 +1761,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HelpItemBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor helpItemBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the help item category.
+        /// </summary>
         protected virtual ConsoleColor HelpItemBackgroundColor
         {
             get { return helpItemBackgroundColor; }
@@ -1098,7 +1776,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LegalForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor legalForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the legal category.
+        /// </summary>
         protected virtual ConsoleColor LegalForegroundColor
         {
             get { return legalForegroundColor; }
@@ -1107,7 +1791,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LegalBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor legalBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the legal category.
+        /// </summary>
         protected virtual ConsoleColor LegalBackgroundColor
         {
             get { return legalBackgroundColor; }
@@ -1116,7 +1806,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OfficialForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor officialForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the official category.
+        /// </summary>
         protected virtual ConsoleColor OfficialForegroundColor
         {
             get { return officialForegroundColor; }
@@ -1125,7 +1821,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OfficialBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor officialBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the official category.
+        /// </summary>
         protected virtual ConsoleColor OfficialBackgroundColor
         {
             get { return officialBackgroundColor; }
@@ -1134,7 +1836,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor resultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the result category.
+        /// </summary>
         protected virtual ConsoleColor ResultForegroundColor
         {
             get { return resultForegroundColor; }
@@ -1143,7 +1851,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor resultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the result category.
+        /// </summary>
         protected virtual ConsoleColor ResultBackgroundColor
         {
             get { return resultBackgroundColor; }
@@ -1152,7 +1866,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="StableForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor stableForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the stable category.
+        /// </summary>
         protected virtual ConsoleColor StableForegroundColor
         {
             get { return stableForegroundColor; }
@@ -1161,7 +1881,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="StableBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor stableBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the stable category.
+        /// </summary>
         protected virtual ConsoleColor StableBackgroundColor
         {
             get { return stableBackgroundColor; }
@@ -1170,7 +1896,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TrustedForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor trustedForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the trusted category.
+        /// </summary>
         protected virtual ConsoleColor TrustedForegroundColor
         {
             get { return trustedForegroundColor; }
@@ -1179,7 +1911,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TrustedBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor trustedBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the trusted category.
+        /// </summary>
         protected virtual ConsoleColor TrustedBackgroundColor
         {
             get { return trustedBackgroundColor; }
@@ -1188,7 +1926,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UndefinedForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor undefinedForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the undefined category.
+        /// </summary>
         protected virtual ConsoleColor UndefinedForegroundColor
         {
             get { return undefinedForegroundColor; }
@@ -1197,7 +1941,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UndefinedBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor undefinedBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the undefined category.
+        /// </summary>
         protected virtual ConsoleColor UndefinedBackgroundColor
         {
             get { return undefinedBackgroundColor; }
@@ -1206,7 +1956,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnofficialForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor unofficialForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the unofficial category.
+        /// </summary>
         protected virtual ConsoleColor UnofficialForegroundColor
         {
             get { return unofficialForegroundColor; }
@@ -1215,7 +1971,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnofficialBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor unofficialBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the unofficial category.
+        /// </summary>
         protected virtual ConsoleColor UnofficialBackgroundColor
         {
             get { return unofficialBackgroundColor; }
@@ -1224,7 +1986,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnstableForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor unstableForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the unstable category.
+        /// </summary>
         protected virtual ConsoleColor UnstableForegroundColor
         {
             get { return unstableForegroundColor; }
@@ -1233,7 +2001,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnstableBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor unstableBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the unstable category.
+        /// </summary>
         protected virtual ConsoleColor UnstableBackgroundColor
         {
             get { return unstableBackgroundColor; }
@@ -1242,7 +2016,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UntrustedForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor untrustedForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the untrusted category.
+        /// </summary>
         protected virtual ConsoleColor UntrustedForegroundColor
         {
             get { return untrustedForegroundColor; }
@@ -1251,7 +2031,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UntrustedBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor untrustedBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the untrusted category.
+        /// </summary>
         protected virtual ConsoleColor UntrustedBackgroundColor
         {
             get { return untrustedBackgroundColor; }
@@ -1262,7 +2048,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Section Colors
+        /// <summary>
+        /// The backing field for the <see cref="AnnouncementInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor announcementInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the announcement information category.
+        /// </summary>
         protected virtual ConsoleColor AnnouncementInfoForegroundColor
         {
             get { return announcementInfoForegroundColor; }
@@ -1271,7 +2063,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="AnnouncementInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor announcementInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the announcement information category.
+        /// </summary>
         protected virtual ConsoleColor AnnouncementInfoBackgroundColor
         {
             get { return announcementInfoBackgroundColor; }
@@ -1280,7 +2078,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ArgumentInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor argumentInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the argument information category.
+        /// </summary>
         protected virtual ConsoleColor ArgumentInfoForegroundColor
         {
             get { return argumentInfoForegroundColor; }
@@ -1289,7 +2093,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ArgumentInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor argumentInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the argument information category.
+        /// </summary>
         protected virtual ConsoleColor ArgumentInfoBackgroundColor
         {
             get { return argumentInfoBackgroundColor; }
@@ -1298,7 +2108,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CallFrameInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor callFrameInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the call frame information category.
+        /// </summary>
         protected virtual ConsoleColor CallFrameInfoForegroundColor
         {
             get { return callFrameInfoForegroundColor; }
@@ -1307,7 +2123,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CallFrameInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor callFrameInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the call frame information category.
+        /// </summary>
         protected virtual ConsoleColor CallFrameInfoBackgroundColor
         {
             get { return callFrameInfoBackgroundColor; }
@@ -1316,7 +2138,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CallStackInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor callStackInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the call stack information category.
+        /// </summary>
         protected virtual ConsoleColor CallStackInfoForegroundColor
         {
             get { return callStackInfoForegroundColor; }
@@ -1325,7 +2153,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CallStackInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor callStackInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the call stack information category.
+        /// </summary>
         protected virtual ConsoleColor CallStackInfoBackgroundColor
         {
             get { return callStackInfoBackgroundColor; }
@@ -1334,7 +2168,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ComplaintInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor complaintInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the complaint information category.
+        /// </summary>
         protected virtual ConsoleColor ComplaintInfoForegroundColor
         {
             get { return complaintInfoForegroundColor; }
@@ -1343,7 +2183,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ComplaintInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor complaintInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the complaint information category.
+        /// </summary>
         protected virtual ConsoleColor ComplaintInfoBackgroundColor
         {
             get { return complaintInfoBackgroundColor; }
@@ -1352,7 +2198,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ControlInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor controlInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the control information category.
+        /// </summary>
         protected virtual ConsoleColor ControlInfoForegroundColor
         {
             get { return controlInfoForegroundColor; }
@@ -1361,7 +2213,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ControlInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor controlInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the control information category.
+        /// </summary>
         protected virtual ConsoleColor ControlInfoBackgroundColor
         {
             get { return controlInfoBackgroundColor; }
@@ -1370,7 +2228,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CustomInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor customInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the custom information category.
+        /// </summary>
         protected virtual ConsoleColor CustomInfoForegroundColor
         {
             get { return customInfoForegroundColor; }
@@ -1379,7 +2243,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CustomInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor customInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the custom information category.
+        /// </summary>
         protected virtual ConsoleColor CustomInfoBackgroundColor
         {
             get { return customInfoBackgroundColor; }
@@ -1388,7 +2258,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DebuggerInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor debuggerInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the debugger information category.
+        /// </summary>
         protected virtual ConsoleColor DebuggerInfoForegroundColor
         {
             get { return debuggerInfoForegroundColor; }
@@ -1397,7 +2273,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DebuggerInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor debuggerInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the debugger information category.
+        /// </summary>
         protected virtual ConsoleColor DebuggerInfoBackgroundColor
         {
             get { return debuggerInfoBackgroundColor; }
@@ -1406,7 +2288,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EngineInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor engineInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the engine information category.
+        /// </summary>
         protected virtual ConsoleColor EngineInfoForegroundColor
         {
             get { return engineInfoForegroundColor; }
@@ -1415,7 +2303,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EngineInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor engineInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the engine information category.
+        /// </summary>
         protected virtual ConsoleColor EngineInfoBackgroundColor
         {
             get { return engineInfoBackgroundColor; }
@@ -1424,7 +2318,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EntityInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor entityInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the entity information category.
+        /// </summary>
         protected virtual ConsoleColor EntityInfoForegroundColor
         {
             get { return entityInfoForegroundColor; }
@@ -1433,7 +2333,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EntityInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor entityInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the entity information category.
+        /// </summary>
         protected virtual ConsoleColor EntityInfoBackgroundColor
         {
             get { return entityInfoBackgroundColor; }
@@ -1442,7 +2348,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FlagInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor flagInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the flag information category.
+        /// </summary>
         protected virtual ConsoleColor FlagInfoForegroundColor
         {
             get { return flagInfoForegroundColor; }
@@ -1451,7 +2363,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="FlagInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor flagInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the flag information category.
+        /// </summary>
         protected virtual ConsoleColor FlagInfoBackgroundColor
         {
             get { return flagInfoBackgroundColor; }
@@ -1460,7 +2378,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HistoryInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor historyInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the history information category.
+        /// </summary>
         protected virtual ConsoleColor HistoryInfoForegroundColor
         {
             get { return historyInfoForegroundColor; }
@@ -1469,7 +2393,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HistoryInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor historyInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the history information category.
+        /// </summary>
         protected virtual ConsoleColor HistoryInfoBackgroundColor
         {
             get { return historyInfoBackgroundColor; }
@@ -1478,7 +2408,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HostInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor hostInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the host information category.
+        /// </summary>
         protected virtual ConsoleColor HostInfoForegroundColor
         {
             get { return hostInfoForegroundColor; }
@@ -1487,7 +2423,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HostInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor hostInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the host information category.
+        /// </summary>
         protected virtual ConsoleColor HostInfoBackgroundColor
         {
             get { return hostInfoBackgroundColor; }
@@ -1496,7 +2438,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="InterpreterInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor interpreterInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the interpreter information category.
+        /// </summary>
         protected virtual ConsoleColor InterpreterInfoForegroundColor
         {
             get { return interpreterInfoForegroundColor; }
@@ -1505,7 +2453,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="InterpreterInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor interpreterInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the interpreter information category.
+        /// </summary>
         protected virtual ConsoleColor InterpreterInfoBackgroundColor
         {
             get { return interpreterInfoBackgroundColor; }
@@ -1514,7 +2468,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ObjectInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor objectInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the object information category.
+        /// </summary>
         protected virtual ConsoleColor ObjectInfoForegroundColor
         {
             get { return objectInfoForegroundColor; }
@@ -1523,7 +2483,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ObjectInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor objectInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the object information category.
+        /// </summary>
         protected virtual ConsoleColor ObjectInfoBackgroundColor
         {
             get { return objectInfoBackgroundColor; }
@@ -1532,7 +2498,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TestInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor testInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the test information category.
+        /// </summary>
         protected virtual ConsoleColor TestInfoForegroundColor
         {
             get { return testInfoForegroundColor; }
@@ -1541,7 +2513,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TestInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor testInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the test information category.
+        /// </summary>
         protected virtual ConsoleColor TestInfoBackgroundColor
         {
             get { return testInfoBackgroundColor; }
@@ -1550,7 +2528,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TokenInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor tokenInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the token information category.
+        /// </summary>
         protected virtual ConsoleColor TokenInfoForegroundColor
         {
             get { return tokenInfoForegroundColor; }
@@ -1559,7 +2543,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TokenInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor tokenInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the token information category.
+        /// </summary>
         protected virtual ConsoleColor TokenInfoBackgroundColor
         {
             get { return tokenInfoBackgroundColor; }
@@ -1568,7 +2558,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TraceInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor traceInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the trace information category.
+        /// </summary>
         protected virtual ConsoleColor TraceInfoForegroundColor
         {
             get { return traceInfoForegroundColor; }
@@ -1577,7 +2573,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TraceInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor traceInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the trace information category.
+        /// </summary>
         protected virtual ConsoleColor TraceInfoBackgroundColor
         {
             get { return traceInfoBackgroundColor; }
@@ -1586,7 +2588,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="VariableInfoForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor variableInfoForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the variable information category.
+        /// </summary>
         protected virtual ConsoleColor VariableInfoForegroundColor
         {
             get { return variableInfoForegroundColor; }
@@ -1595,7 +2603,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="VariableInfoBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor variableInfoBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the variable information category.
+        /// </summary>
         protected virtual ConsoleColor VariableInfoBackgroundColor
         {
             get { return variableInfoBackgroundColor; }
@@ -1607,7 +2621,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Return Code Colors
+        /// <summary>
+        /// The backing field for the <see cref="OkResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor okResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the ok result category.
+        /// </summary>
         protected virtual ConsoleColor OkResultForegroundColor
         {
             get { return okResultForegroundColor; }
@@ -1616,7 +2636,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OkResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor okResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the ok result category.
+        /// </summary>
         protected virtual ConsoleColor OkResultBackgroundColor
         {
             get { return okResultBackgroundColor; }
@@ -1625,7 +2651,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ErrorResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor errorResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the error result category.
+        /// </summary>
         protected virtual ConsoleColor ErrorResultForegroundColor
         {
             get { return errorResultForegroundColor; }
@@ -1634,7 +2666,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ErrorResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor errorResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the error result category.
+        /// </summary>
         protected virtual ConsoleColor ErrorResultBackgroundColor
         {
             get { return errorResultBackgroundColor; }
@@ -1643,7 +2681,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OtherOkResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor otherOkResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the other ok result category.
+        /// </summary>
         protected virtual ConsoleColor OtherOkResultForegroundColor
         {
             get { return otherOkResultForegroundColor; }
@@ -1652,7 +2696,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OtherOkResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor otherOkResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the other ok result category.
+        /// </summary>
         protected virtual ConsoleColor OtherOkResultBackgroundColor
         {
             get { return otherOkResultBackgroundColor; }
@@ -1661,7 +2711,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OtherErrorResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor otherErrorResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the other error result category.
+        /// </summary>
         protected virtual ConsoleColor OtherErrorResultForegroundColor
         {
             get { return otherErrorResultForegroundColor; }
@@ -1670,7 +2726,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="OtherErrorResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor otherErrorResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the other error result category.
+        /// </summary>
         protected virtual ConsoleColor OtherErrorResultBackgroundColor
         {
             get { return otherErrorResultBackgroundColor; }
@@ -1679,7 +2741,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ReturnResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor returnResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the return result category.
+        /// </summary>
         protected virtual ConsoleColor ReturnResultForegroundColor
         {
             get { return returnResultForegroundColor; }
@@ -1688,7 +2756,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ReturnResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor returnResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the return result category.
+        /// </summary>
         protected virtual ConsoleColor ReturnResultBackgroundColor
         {
             get { return returnResultBackgroundColor; }
@@ -1697,7 +2771,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BreakResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor breakResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the break result category.
+        /// </summary>
         protected virtual ConsoleColor BreakResultForegroundColor
         {
             get { return breakResultForegroundColor; }
@@ -1706,7 +2786,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="BreakResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor breakResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the break result category.
+        /// </summary>
         protected virtual ConsoleColor BreakResultBackgroundColor
         {
             get { return breakResultBackgroundColor; }
@@ -1715,7 +2801,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ContinueResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor continueResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the continue result category.
+        /// </summary>
         protected virtual ConsoleColor ContinueResultForegroundColor
         {
             get { return continueResultForegroundColor; }
@@ -1724,7 +2816,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ContinueResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor continueResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the continue result category.
+        /// </summary>
         protected virtual ConsoleColor ContinueResultBackgroundColor
         {
             get { return continueResultBackgroundColor; }
@@ -1733,7 +2831,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="WhatIfResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor whatIfResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the what if result category.
+        /// </summary>
         protected virtual ConsoleColor WhatIfResultForegroundColor
         {
             get { return whatIfResultForegroundColor; }
@@ -1742,7 +2846,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="WhatIfResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor whatIfResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the what if result category.
+        /// </summary>
         protected virtual ConsoleColor WhatIfResultBackgroundColor
         {
             get { return whatIfResultBackgroundColor; }
@@ -1751,7 +2861,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ExceptionResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor exceptionResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the exception result category.
+        /// </summary>
         protected virtual ConsoleColor ExceptionResultForegroundColor
         {
             get { return exceptionResultForegroundColor; }
@@ -1760,7 +2876,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ExceptionResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor exceptionResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the exception result category.
+        /// </summary>
         protected virtual ConsoleColor ExceptionResultBackgroundColor
         {
             get { return exceptionResultBackgroundColor; }
@@ -1769,7 +2891,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NullResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor nullResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the null result category.
+        /// </summary>
         protected virtual ConsoleColor NullResultForegroundColor
         {
             get { return nullResultForegroundColor; }
@@ -1778,7 +2906,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NullResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor nullResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the null result category.
+        /// </summary>
         protected virtual ConsoleColor NullResultBackgroundColor
         {
             get { return nullResultBackgroundColor; }
@@ -1787,7 +2921,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EmptyResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor emptyResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the empty result category.
+        /// </summary>
         protected virtual ConsoleColor EmptyResultForegroundColor
         {
             get { return emptyResultForegroundColor; }
@@ -1796,7 +2936,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EmptyResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor emptyResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the empty result category.
+        /// </summary>
         protected virtual ConsoleColor EmptyResultBackgroundColor
         {
             get { return emptyResultBackgroundColor; }
@@ -1805,7 +2951,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnknownResultForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor unknownResultForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the unknown result category.
+        /// </summary>
         protected virtual ConsoleColor UnknownResultForegroundColor
         {
             get { return unknownResultForegroundColor; }
@@ -1814,7 +2966,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnknownResultBackgroundColor" /> property.
+        /// </summary>
         private ConsoleColor unknownResultBackgroundColor;
+        /// <summary>
+        /// Gets or sets the background color used when displaying output associated with the unknown result category.
+        /// </summary>
         protected virtual ConsoleColor UnknownResultBackgroundColor
         {
             get { return unknownResultBackgroundColor; }
@@ -1825,7 +2983,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Call Frame Colors
+        /// <summary>
+        /// The backing field for the <see cref="NullCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor nullCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the null call frame category.
+        /// </summary>
         protected virtual ConsoleColor NullCallFrameForegroundColor
         {
             get { return nullCallFrameForegroundColor; }
@@ -1834,7 +2998,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UnknownCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor unknownCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the unknown call frame category.
+        /// </summary>
         protected virtual ConsoleColor UnknownCallFrameForegroundColor
         {
             get { return unknownCallFrameForegroundColor; }
@@ -1843,7 +3013,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="VariableCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor variableCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the variable call frame category.
+        /// </summary>
         protected virtual ConsoleColor VariableCallFrameForegroundColor
         {
             get { return variableCallFrameForegroundColor; }
@@ -1852,7 +3028,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="UplevelCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor uplevelCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the uplevel call frame category.
+        /// </summary>
         protected virtual ConsoleColor UplevelCallFrameForegroundColor
         {
             get { return uplevelCallFrameForegroundColor; }
@@ -1861,7 +3043,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DownlevelCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor downlevelCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the downlevel call frame category.
+        /// </summary>
         protected virtual ConsoleColor DownlevelCallFrameForegroundColor
         {
             get { return downlevelCallFrameForegroundColor; }
@@ -1870,7 +3058,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="TrackingCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor trackingCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the tracking call frame category.
+        /// </summary>
         protected virtual ConsoleColor TrackingCallFrameForegroundColor
         {
             get { return trackingCallFrameForegroundColor; }
@@ -1879,7 +3073,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="EngineCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor engineCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the engine call frame category.
+        /// </summary>
         protected virtual ConsoleColor EngineCallFrameForegroundColor
         {
             get { return engineCallFrameForegroundColor; }
@@ -1888,7 +3088,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="CurrentCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor currentCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the current call frame category.
+        /// </summary>
         protected virtual ConsoleColor CurrentCallFrameForegroundColor
         {
             get { return currentCallFrameForegroundColor; }
@@ -1897,7 +3103,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ProcedureCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor procedureCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the procedure call frame category.
+        /// </summary>
         protected virtual ConsoleColor ProcedureCallFrameForegroundColor
         {
             get { return procedureCallFrameForegroundColor; }
@@ -1906,7 +3118,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LambdaCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor lambdaCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the lambda call frame category.
+        /// </summary>
         protected virtual ConsoleColor LambdaCallFrameForegroundColor
         {
             get { return lambdaCallFrameForegroundColor; }
@@ -1915,7 +3133,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ScopeCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor scopeCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the scope call frame category.
+        /// </summary>
         protected virtual ConsoleColor ScopeCallFrameForegroundColor
         {
             get { return scopeCallFrameForegroundColor; }
@@ -1924,7 +3148,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="AliasCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor aliasCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the alias call frame category.
+        /// </summary>
         protected virtual ConsoleColor AliasCallFrameForegroundColor
         {
             get { return aliasCallFrameForegroundColor; }
@@ -1933,7 +3163,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="GlobalCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor globalCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the global call frame category.
+        /// </summary>
         protected virtual ConsoleColor GlobalCallFrameForegroundColor
         {
             get { return globalCallFrameForegroundColor; }
@@ -1942,7 +3178,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="GlobalScopeCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor globalScopeCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the global scope call frame category.
+        /// </summary>
         protected virtual ConsoleColor GlobalScopeCallFrameForegroundColor
         {
             get { return globalScopeCallFrameForegroundColor; }
@@ -1951,7 +3193,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="LinkedCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor linkedCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the linked call frame category.
+        /// </summary>
         protected virtual ConsoleColor LinkedCallFrameForegroundColor
         {
             get { return linkedCallFrameForegroundColor; }
@@ -1960,7 +3208,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NamespaceCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor namespaceCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the namespace call frame category.
+        /// </summary>
         protected virtual ConsoleColor NamespaceCallFrameForegroundColor
         {
             get { return namespaceCallFrameForegroundColor; }
@@ -1969,7 +3223,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="NormalCallFrameForegroundColor" /> property.
+        /// </summary>
         private ConsoleColor normalCallFrameForegroundColor;
+        /// <summary>
+        /// Gets or sets the foreground (text) color used when displaying output associated with the normal call frame category.
+        /// </summary>
         protected virtual ConsoleColor NormalCallFrameForegroundColor
         {
             get { return normalCallFrameForegroundColor; }
@@ -1982,6 +3242,12 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Header Flags Support
+        /// <summary>
+        /// This method returns the current header flags for this host.
+        /// </summary>
+        /// <returns>
+        /// The current header flags.
+        /// </returns>
         private HeaderFlags PrivateGetHeaderFlags()
         {
             return headerFlags;
@@ -1989,6 +3255,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current detail flags for this host.
+        /// </summary>
+        /// <returns>
+        /// The current detail flags.
+        /// </returns>
         private DetailFlags PrivateGetDetailFlags()
         {
             return detailFlags;
@@ -1998,6 +3270,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Flags Support
+        /// <summary>
+        /// This method resets the cached host flags to their invalid (i.e.
+        /// uninitialized) value.
+        /// </summary>
         private void PrivateResetHostFlagsOnly()
         {
             hostFlags = HostFlags.Invalid;
@@ -2005,6 +3281,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the cached host flags so that they will be
+        /// recomputed the next time they are needed.
+        /// </summary>
+        /// <returns>
+        /// True if the host flags were reset; otherwise, false.
+        /// </returns>
         private bool PrivateResetHostFlags()
         {
             PrivateResetHostFlagsOnly();
@@ -2013,6 +3296,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the host flags to their default values when
+        /// they have not yet been initialized, and returns them.
+        /// </summary>
+        /// <returns>
+        /// The current host flags.
+        /// </returns>
         protected virtual HostFlags MaybeInitializeHostFlags()
         {
             if (hostFlags == HostFlags.Invalid)
@@ -2030,6 +3320,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this host is currently exiting.
+        /// </summary>
+        /// <returns>
+        /// True if this host is exiting; otherwise, false.
+        /// </returns>
         protected virtual bool IsExiting()
         {
             return HasCreateFlags(HostCreateFlags.Exiting, true);
@@ -2037,6 +3333,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets whether this host is currently exiting.
+        /// </summary>
+        /// <param name="exiting">
+        /// Non-zero if this host is exiting; otherwise, zero.
+        /// </param>
         protected virtual void SetExiting(
             bool exiting
             )
@@ -2046,6 +3348,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current error should be treated
+        /// as fatal (i.e. unrecoverable), based on the host flags and whether
+        /// the host is exiting.
+        /// </summary>
+        /// <returns>
+        /// True if the current error should be treated as fatal; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool ShouldTreatAsFatalError()
         {
             //
@@ -2071,6 +3382,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the host flag that causes errors to
+        /// be treated as fatal.
+        /// </summary>
+        /// <param name="treatAsFatalError">
+        /// Non-zero to cause errors to be treated as fatal; zero to clear that
+        /// behavior.
+        /// </param>
         protected internal virtual void SetTreatAsFatalError(
             bool treatAsFatalError
             )
@@ -2083,6 +3402,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this host is currently operating in
+        /// verbose mode.
+        /// </summary>
+        /// <returns>
+        /// True if the verbose host flag is set; otherwise, false.
+        /// </returns>
         protected virtual bool IsVerboseMode()
         {
             return FlagOps.HasFlags(
@@ -2091,6 +3417,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the host flag that indicates a read
+        /// exception has occurred.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero to indicate that a read exception has occurred; zero to
+        /// clear that indication.
+        /// </param>
         protected virtual void SetReadException(
             bool exception
             )
@@ -2103,6 +3437,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the host flag that indicates a write
+        /// exception has occurred.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero to indicate that a write exception has occurred; zero to
+        /// clear that indication.
+        /// </param>
         protected virtual void SetWriteException(
             bool exception
             )
@@ -2117,6 +3459,21 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Creation Flags Support
+        /// <summary>
+        /// This method determines whether the specified host creation flags are
+        /// currently set.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The host creation flags to check for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero if all of the specified flags must be set; zero if any of
+        /// the specified flags being set is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the specified host creation flags are set according to the
+        /// <paramref name="all" /> parameter; otherwise, false.
+        /// </returns>
         protected virtual bool HasCreateFlags(
             HostCreateFlags hasFlags,
             bool all
@@ -2127,6 +3484,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the specified host creation flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The host creation flags to be enabled or disabled.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to enable the specified flags; zero to disable them.
+        /// </param>
         protected virtual void MaybeEnableCreateFlags(
             HostCreateFlags flags,
             bool enable
@@ -2143,6 +3509,20 @@ namespace Eagle._Hosts
 
         #region Host Break-On-Exiting Support
 #if BREAK_ON_EXITING
+        /// <summary>
+        /// This method checks the specified return code while the host is
+        /// exiting and, when it does not represent success, either breaks into
+        /// an attached debugger or complains loudly.  It was originally intended
+        /// to catch termination and resource disposal errors encountered during
+        /// the disposal of the interpreter.
+        /// </summary>
+        /// <param name="returnCode">
+        /// The return code to be checked.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the return code, used as additional
+        /// detail when reporting a bad return code.
+        /// </param>
         protected virtual void CheckOkResultIfExiting(
             ReturnCode returnCode,
             Result result
@@ -2216,6 +3596,18 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Detail Flags Support
+        /// <summary>
+        /// This method populates the specified detail flags from the supplied
+        /// interpreter, when available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter from which to obtain the detail flags.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// On input, the existing detail flags; upon return, the detail flags
+        /// obtained from the specified interpreter.
+        /// </param>
         protected virtual void PopulateDetailFlags(
             Interpreter interpreter,
             ref DetailFlags detailFlags
@@ -2229,6 +3621,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified detail flags indicate
+        /// that there is no content to display.
+        /// </summary>
+        /// <param name="detailFlags">
+        /// The detail flags to be examined.
+        /// </param>
+        /// <returns>
+        /// True if the specified detail flags indicate empty content;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool HasEmptyContent(
             DetailFlags detailFlags
             )
@@ -2238,6 +3641,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified header flags into the
+        /// corresponding detail flags.
+        /// </summary>
+        /// <param name="headerFlags">
+        /// The header flags to be translated into detail flags.
+        /// </param>
+        /// <param name="detailFlags">
+        /// On input, the existing detail flags; upon return, the detail flags
+        /// updated to reflect the specified header flags.
+        /// </param>
         protected virtual void HeaderFlagsToDetailFlags(
             HeaderFlags headerFlags,
             ref DetailFlags detailFlags
@@ -2251,6 +3665,18 @@ namespace Eagle._Hosts
 
         #region Color Helper Methods
         #region Color Initialization Methods
+        /// <summary>
+        /// This method returns the effective color to use, taking into account
+        /// whether colors are currently disabled.
+        /// </summary>
+        /// <param name="color">
+        /// The color requested by the caller.
+        /// </param>
+        /// <returns>
+        /// The color with no foreground or background component when the
+        /// <c>NoColor</c> property is true; otherwise, the color passed in by
+        /// the caller.
+        /// </returns>
         protected virtual ConsoleColor GetColor(
             ConsoleColor color
             )
@@ -2264,6 +3690,11 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes all of the foreground and background colors
+        /// used by this host to their default values, honoring the
+        /// <see cref="GetColor" /> color disabling behavior.
+        /// </summary>
         protected internal virtual void InitializeColors()
         {
             #region General Colors
@@ -2410,6 +3841,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Color Swapping Methods
+        /// <summary>
+        /// This method conditionally swaps the foreground and background text
+        /// colors when the current output style represents a reversed text
+        /// output style.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// On input, the foreground text color; upon return, the possibly
+        /// swapped foreground text color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the background text color; upon return, the possibly
+        /// swapped background text color.
+        /// </param>
         protected virtual void MaybeSwapTextColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -2421,6 +3865,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally swaps the foreground and background text
+        /// colors when the specified output style represents a reversed text
+        /// output style.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style used to determine whether the text colors should be
+        /// swapped.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// On input, the foreground text color; upon return, the possibly
+        /// swapped foreground text color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the background text color; upon return, the possibly
+        /// swapped background text color.
+        /// </param>
         protected virtual void MaybeSwapTextColors(
             OutputStyle outputStyle,
             ref ConsoleColor foregroundColor,
@@ -2437,6 +3898,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally swaps the foreground and background border
+        /// colors when the current output style represents a reversed border
+        /// output style.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// On input, the foreground border color; upon return, the possibly
+        /// swapped foreground border color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the background border color; upon return, the possibly
+        /// swapped background border color.
+        /// </param>
         protected virtual void MaybeSwapBorderColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -2448,6 +3922,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally swaps the foreground and background border
+        /// colors when the specified output style represents a reversed border
+        /// output style.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style used to determine whether the border colors should
+        /// be swapped.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// On input, the foreground border color; upon return, the possibly
+        /// swapped foreground border color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the background border color; upon return, the possibly
+        /// swapped background border color.
+        /// </param>
         protected virtual void MaybeSwapBorderColors(
             OutputStyle outputStyle,
             ref ConsoleColor foregroundColor,
@@ -2465,6 +3956,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the foreground and background colors that
+        /// should be used when displaying a result, based on its associated
+        /// return code.
+        /// </summary>
+        /// <param name="code">
+        /// The return code used to select the appropriate result colors.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the return code.  This value may be null.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// Upon return, receives the foreground color associated with the
+        /// specified return code.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon return, receives the background color associated with the
+        /// specified return code.
+        /// </param>
         protected virtual void GetResultColors(
             ReturnCode code,
             Result result,
@@ -2548,6 +4058,18 @@ namespace Eagle._Hosts
 
         #region Formatting Methods
         #region Complaint Formatting Methods
+        /// <summary>
+        /// This method determines whether the specified interpreter currently
+        /// has a pending complaint.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for a pending complaint.  This value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter has a non-empty pending complaint;
+        /// otherwise, false.
+        /// </returns>
         private bool HasComplaint(
             Interpreter interpreter
             )
@@ -2559,6 +4081,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interpreter currently
+        /// has a pending complaint, returning its text upon success.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for a pending complaint.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="complaint">
+        /// Upon success, receives the text of the pending complaint; otherwise,
+        /// this value is left unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter has a non-empty pending complaint;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool HasComplaint(
             Interpreter interpreter,
             ref string complaint
@@ -2577,6 +4115,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an announcement string for display, decorating
+        /// the specified value with a prefix, suffix, timestamp, and the active
+        /// interactive loop count based on the breakpoint type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to query the number of active
+        /// interactive loops.  This value may be null.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The breakpoint type flags indicating whether the announcement is for
+        /// the start or the end of an interactive loop.
+        /// </param>
+        /// <param name="value">
+        /// The base value to be included in the formatted announcement.
+        /// </param>
+        /// <returns>
+        /// The formatted announcement string, or the original value when no
+        /// decoration could be applied.
+        /// </returns>
         private string FormatAnnouncement(
             Interpreter interpreter,
             BreakpointType breakpointType,
@@ -2646,6 +4204,49 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Result Formatting Methods
+        /// <summary>
+        /// This method formats a return code and result into a string suitable
+        /// for display, using the default result foreground and background
+        /// colors.
+        /// </summary>
+        /// <param name="prefix">
+        /// The optional prefix string to prepend to the formatted result.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the result.  This value is used
+        /// only when the result is null or its own return code is
+        /// <see cref="ReturnCode.Ok" />.
+        /// </param>
+        /// <param name="result">
+        /// The result to be formatted.  This value may be null.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number where the error occurred, or zero if there
+        /// was no error.
+        /// </param>
+        /// <param name="exceptions">
+        /// Non-zero if exceptions should be considered when determining whether
+        /// the return code represents success or failure.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero if the result is being formatted for interactive display
+        /// purposes.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero if the formatted result may be truncated with an ellipsis
+        /// when it is too long.
+        /// </param>
+        /// <param name="replaceNewLines">
+        /// Non-zero if embedded new line characters in the formatted result
+        /// should be replaced.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero if a placeholder string should be returned when the
+        /// formatted result would otherwise be null, empty, or unknown.
+        /// </param>
+        /// <returns>
+        /// The formatted result string.
+        /// </returns>
         private string FormatResult(
             string prefix,
             ReturnCode code,
@@ -2669,6 +4270,57 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a return code and result into a string suitable
+        /// for display, also determining the foreground and background colors
+        /// that should be used when displaying it.
+        /// </summary>
+        /// <param name="prefix">
+        /// The optional prefix string to prepend to the formatted result.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the result.  This value is used
+        /// only when the result is null or its own return code is
+        /// <see cref="ReturnCode.Ok" />.
+        /// </param>
+        /// <param name="result">
+        /// The result to be formatted.  This value may be null.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number where the error occurred, or zero if there
+        /// was no error.
+        /// </param>
+        /// <param name="exceptions">
+        /// Non-zero if exceptions should be considered when determining whether
+        /// the return code represents success or failure.
+        /// </param>
+        /// <param name="display">
+        /// Non-zero if the result is being formatted for interactive display
+        /// purposes.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero if the formatted result may be truncated with an ellipsis
+        /// when it is too long.
+        /// </param>
+        /// <param name="replaceNewLines">
+        /// Non-zero if embedded new line characters in the formatted result
+        /// should be replaced.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero if a placeholder string should be returned when the
+        /// formatted result would otherwise be null, empty, or unknown.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// Upon return, receives the foreground color that should be used when
+        /// displaying the formatted result.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon return, receives the background color that should be used when
+        /// displaying the formatted result.
+        /// </param>
+        /// <returns>
+        /// The formatted result string.
+        /// </returns>
         protected virtual string FormatResult(
             string prefix,
             ReturnCode code,
@@ -2731,6 +4383,33 @@ namespace Eagle._Hosts
 
         #region Introspection Methods
         #region Color Introspection Methods
+        /// <summary>
+        /// This method gets the list of console color properties declared by
+        /// the specified type that match the supplied criteria.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose color properties should be enumerated.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing property names against the
+        /// pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match property names, or null to match all
+        /// properties.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="canRead">
+        /// Non-zero to include only properties that can be read.
+        /// </param>
+        /// <param name="canWrite">
+        /// Non-zero to include only properties that can be written.
+        /// </param>
+        /// <returns>
+        /// The list of matching console color properties.
+        /// </returns>
         protected virtual List<PropertyInfo> GetColorProperties(
             Type type,
             MatchMode mode,
@@ -2773,6 +4452,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Introspection Methods
+        /// <summary>
+        /// This method gets the descriptive type name of the specified
+        /// interactive host, formatted for display.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose type name should be returned.
+        /// </param>
+        /// <returns>
+        /// The formatted type name, or a placeholder if the host is null or
+        /// is a transparent proxy.
+        /// </returns>
         protected virtual string GetHostType(
             IInteractiveHost interactiveHost
             )
@@ -2815,6 +4505,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the size of the specified host, formatted for
+        /// display.
+        /// </summary>
+        /// <param name="sizeHost">
+        /// The host whose size should be queried.
+        /// </param>
+        /// <param name="hostSizeType">
+        /// The type of size to query.
+        /// </param>
+        /// <returns>
+        /// The formatted width and height, or a placeholder if the size
+        /// cannot be obtained.
+        /// </returns>
         protected virtual string GetHostSize(
             ISizeHost sizeHost,
             HostSizeType hostSizeType
@@ -2841,6 +4545,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the value of the named property or
+        /// parameterless method on the specified host and formats it for
+        /// display, trapping any exceptions that may be thrown.
+        /// </summary>
+        /// <param name="host">
+        /// The host to query.
+        /// </param>
+        /// <param name="name">
+        /// The name of a property or method (with no arguments) to query on
+        /// the host.
+        /// </param>
+        /// <returns>
+        /// The formatted value, or a placeholder if the value is null or
+        /// cannot be obtained.
+        /// </returns>
         protected virtual string GetHostInfo(
             IHost host,
             string name /* NOTE: The name of a property or method [with no arguments]. */
@@ -2906,6 +4626,22 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Call Frame Introspection Methods
+        /// <summary>
+        /// This method gets the descriptive type name used to display the
+        /// specified call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose type name should be determined.
+        /// </param>
+        /// <param name="special">
+        /// Non-zero to treat a variable call frame as a special case.
+        /// </param>
+        /// <returns>
+        /// The type name associated with the call frame.
+        /// </returns>
         protected virtual string GetCallFrameType(
             Interpreter interpreter,
             ICallFrame frame,
@@ -2958,6 +4694,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the foreground console color used to display the
+        /// specified call frame, based on its type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose foreground color should be determined.
+        /// </param>
+        /// <param name="special">
+        /// Non-zero to treat a variable call frame as a special case.
+        /// </param>
+        /// <returns>
+        /// The foreground console color associated with the call frame.
+        /// </returns>
         protected virtual ConsoleColor GetCallFrameColor(
             Interpreter interpreter,
             ICallFrame frame,
@@ -3007,6 +4759,28 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs describing the
+        /// specified call frame, suitable for display as introspection
+        /// output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame whose details should be added to the list.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included in the
+        /// resulting list.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this list is populated with the name/value pairs
+        /// describing the call frame; it is created if necessary.
+        /// </param>
+        /// <returns>
+        /// True if information was added to the list; otherwise, false.
+        /// </returns>
         protected virtual bool BuildCallFrameInfoList(
             Interpreter interpreter,
             ICallFrame frame,
@@ -3097,6 +4871,20 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Object Introspection Methods
+        /// <summary>
+        /// This method looks up the opaque object handle named by the
+        /// specified value within the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// The value containing the name of the object to look up.
+        /// </param>
+        /// <returns>
+        /// The object associated with the name, or null if it cannot be
+        /// found.
+        /// </returns>
         private static IObject GetObjectFromValue(
             Interpreter interpreter,
             object value
@@ -3122,6 +4910,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the type of the value wrapped by the specified
+        /// object.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose wrapped value type should be returned.
+        /// </param>
+        /// <returns>
+        /// The type of the wrapped value, or null if it cannot be
+        /// determined.
+        /// </returns>
         private static Type GetWrappedObjectType(
             IObject @object
             )
@@ -3136,6 +4935,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a prefix should be applied to a
+        /// name/value pair key.
+        /// </summary>
+        /// <param name="key">
+        /// The name/value pair key being considered.
+        /// </param>
+        /// <param name="prefix">
+        /// The candidate prefix to apply to the key.
+        /// </param>
+        /// <returns>
+        /// True if the prefix should be applied to the key; otherwise, false.
+        /// </returns>
         private static bool NeedPairKeyPrefix(
             string key,
             string prefix
@@ -3146,6 +4958,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines a name/value pair key with an optional
+        /// prefix.
+        /// </summary>
+        /// <param name="key">
+        /// The original name/value pair key.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix to apply to the key.
+        /// </param>
+        /// <returns>
+        /// The key with the prefix applied, or the original key if no prefix
+        /// is needed.
+        /// </returns>
         private static string GetPairKeyWithPrefix(
             string key,
             string prefix
@@ -3159,6 +4985,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs describing the
+        /// specified object, suitable for display as introspection output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object whose details should be added to the list.
+        /// </param>
+        /// <param name="prefix">
+        /// An optional prefix to prepend to each name/value pair key.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included in the
+        /// resulting list.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this list is populated with the name/value pairs
+        /// describing the object; it is created if necessary.
+        /// </param>
+        /// <returns>
+        /// True if information was added to the list; otherwise, false.
+        /// </returns>
         protected virtual bool BuildObjectInfoList(
             Interpreter interpreter,
             IObject @object,
@@ -3405,6 +5255,30 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Variable Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified variable and, when requested via the detail flags, the
+        /// chain of variables it is linked to.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> that owns the variable, or null.
+        /// </param>
+        /// <param name="variable">
+        /// The <see cref="IVariable" /> to be described, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included, including whether linked variables are followed.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the variable
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the variable information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected internal virtual bool BuildLinkedVariableInfoList(
             Interpreter interpreter,
             IVariable variable,
@@ -3477,6 +5351,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified variable, including its flags, value or array elements,
+        /// associated call frame, traces, and any array searches.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> that owns the variable, or null.
+        /// </param>
+        /// <param name="variable">
+        /// The <see cref="IVariable" /> to be described, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the variable
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the variable information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildVariableInfoList(
             Interpreter interpreter,
             IVariable variable,
@@ -3845,6 +5743,39 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Argument Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// arguments, breakpoint, and result associated with a script
+        /// evaluation breakpoint.
+        /// </summary>
+        /// <param name="code">
+        /// The <see cref="ReturnCode" /> associated with the result.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The <see cref="BreakpointType" /> that triggered the breakpoint.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the breakpoint, or null.
+        /// </param>
+        /// <param name="arguments">
+        /// The <see cref="ArgumentList" /> being processed, or null.
+        /// </param>
+        /// <param name="result">
+        /// The <see cref="Result" /> associated with the breakpoint, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the argument
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the argument information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildArgumentInfoList(
             ReturnCode code,
             BreakpointType breakpointType,
@@ -3886,6 +5817,35 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Call Stack Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// frames contained in the specified call stack, optionally including
+        /// related frames for each entry.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> that owns the call stack, or null.
+        /// </param>
+        /// <param name="callStack">
+        /// The <see cref="CallStack" /> whose frames are to be described, or
+        /// null.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of call frames to traverse, or zero for no
+        /// limit.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the call stack
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the call stack information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildCallStackInfoList(
             Interpreter interpreter,
             CallStack callStack,
@@ -3993,6 +5953,27 @@ namespace Eagle._Hosts
 
         #region Debugger Introspection Methods
 #if DEBUGGER
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// debugger associated with the specified interpreter, if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose debugger information is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the debugger
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the debugger information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildDebuggerInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4054,6 +6035,42 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Flag Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified sets of flags, omitting those that are set to their "None"
+        /// value unless empty content is being forced.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose host flag information is to be
+        /// included, or null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The <see cref="EngineFlags" /> to include.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The <see cref="SubstitutionFlags" /> to include.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The <see cref="EventFlags" /> to include.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The <see cref="ExpressionFlags" /> to include.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The <see cref="HeaderFlags" /> to include.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the flag information.
+        /// </param>
+        /// <returns>
+        /// True if the flag information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildFlagInfoList(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -4105,6 +6122,28 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// host(s) associated with the specified interpreter, including any
+        /// type-specific details (e.g. dimensions, formatting, colors, and
+        /// state).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose host information is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the host information.
+        /// </param>
+        /// <returns>
+        /// True if the host information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildHostInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4540,6 +6579,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Platform Introspection Methods
+        /// <summary>
+        /// This method determines whether the host should treat the current
+        /// runtime as the Mono runtime.
+        /// </summary>
+        /// <returns>
+        /// True if the current runtime should be treated as Mono; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool ShouldTreatAsMono()
         {
             return CommonOps.Runtime.IsMono();
@@ -4547,6 +6594,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should treat the current
+        /// runtime as the .NET Core runtime.
+        /// </summary>
+        /// <returns>
+        /// True if the current runtime should be treated as .NET Core;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool ShouldTreatAsDotNetCore()
         {
             return CommonOps.Runtime.IsDotNetCore();
@@ -4564,6 +6619,19 @@ namespace Eagle._Hosts
         //       it.  Subclasses may override to add platform
         //       or terminal-specific checks.
         //
+        /// <summary>
+        /// This method determines whether the host environment can render
+        /// Unicode box-drawing characters (in the U+2500 range) as
+        /// single-width glyphs.
+        /// </summary>
+        /// <param name="encoding">
+        /// The output <see cref="Encoding" /> to consider, or null if it is
+        /// unknown.
+        /// </param>
+        /// <returns>
+        /// True if Unicode box-drawing characters can be used; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool CanUseUnicodeBoxCharacters(
             Encoding encoding /* in */
             )
@@ -4615,6 +6683,27 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Interpreter Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes
+        /// auxiliary information about the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose auxiliary information is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the auxiliary
+        /// interpreter information.
+        /// </param>
+        /// <returns>
+        /// True if the auxiliary interpreter information was built successfully;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool BuildAuxiliaryInterpreterInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4627,6 +6716,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose information is to be queried,
+        /// or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the interpreter
+        /// information.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter information was built successfully;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool BuildInterpreterInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4664,6 +6774,27 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Engine Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// state of the script engine, including application domain and thread
+        /// information, callbacks, and various subsystem details.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose engine information is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the engine information.
+        /// </param>
+        /// <returns>
+        /// True if the engine information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildEngineInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4902,6 +7033,27 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Entity Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// entities (e.g. commands, procedures, variables, etc.) contained
+        /// within the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose entity information is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the entity information.
+        /// </param>
+        /// <returns>
+        /// True if the entity information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildEntityInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4938,6 +7090,25 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Stack Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// current native stack usage for the calling thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> context (this parameter is not used).
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the stack information.
+        /// </param>
+        /// <returns>
+        /// True if the stack information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildStackInfoList(
             Interpreter interpreter, /* NOT USED */
             DetailFlags detailFlags,
@@ -4999,6 +7170,26 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Control Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// control settings associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose control settings are to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the control information.
+        /// </param>
+        /// <returns>
+        /// True if the control information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildControlInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -5035,6 +7226,26 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// testing state associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose testing state is to be queried,
+        /// or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the test information.
+        /// </param>
+        /// <returns>
+        /// True if the test information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildTestInfoList(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -5074,6 +7285,28 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Token Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified token.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> context (this parameter is not used).
+        /// </param>
+        /// <param name="token">
+        /// The <see cref="IToken" /> to be described, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the token information.
+        /// </param>
+        /// <returns>
+        /// True if the token information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildTokenInfoList(
             Interpreter interpreter, /* NOT USED */
             IToken token,
@@ -5102,6 +7335,30 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Trace Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified trace information, or the cached trace information
+        /// associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose cached trace information is to
+        /// be queried, or null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The <see cref="ITraceInfo" /> to be described, or null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the trace information.
+        /// </param>
+        /// <returns>
+        /// True if the trace information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildTraceInfoList(
             Interpreter interpreter,
             ITraceInfo traceInfo,
@@ -5177,6 +7434,31 @@ namespace Eagle._Hosts
 
         #region History Introspection Methods
 #if HISTORY
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// command history associated with the specified interpreter,
+        /// optionally filtered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The <see cref="Interpreter" /> whose command history is to be
+        /// queried, or null.
+        /// </param>
+        /// <param name="historyFilter">
+        /// The <see cref="IHistoryFilter" /> used to limit which history items
+        /// are included, or null for no filtering.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the history information.
+        /// </param>
+        /// <returns>
+        /// True if the history information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildHistoryInfoList(
             Interpreter interpreter,
             IHistoryFilter historyFilter,
@@ -5217,6 +7499,37 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Result Introspection Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs that describes the
+        /// specified script result, including its return code, error line, and
+        /// flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name to use for the result information section; if null, the
+        /// value of the <see cref="ResultInfoBoxName" /> property is used.
+        /// </param>
+        /// <param name="code">
+        /// The <see cref="ReturnCode" /> associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The <see cref="Result" /> to be described.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where the error occurred, or zero if there was no
+        /// error.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The <see cref="DetailFlags" /> that control how much detail is
+        /// included.
+        /// </param>
+        /// <param name="list">
+        /// A reference to the list of name/value pairs to populate.  If null, a
+        /// new list is created.  Upon return, contains the result information.
+        /// </param>
+        /// <returns>
+        /// True if the result information was built successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool BuildResultInfoList(
             string name,
             ReturnCode code,
@@ -5270,6 +7583,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Methods
+        /// <summary>
+        /// This method determines whether the host is operating in test mode,
+        /// based on the host flags.
+        /// </summary>
+        /// <returns>
+        /// True if the host is operating in test mode; otherwise, false.
+        /// </returns>
         protected virtual bool InTestMode()
         {
             return FlagOps.HasFlags(
@@ -5278,6 +7598,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host test flags include the
+        /// specified flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The <see cref="HostTestFlags" /> to check for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero if all of the specified flags must be present; otherwise,
+        /// any one of the specified flags being present is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the host test flags include the specified flags (according
+        /// to the <paramref name="all" /> parameter); otherwise, false.
+        /// </returns>
         protected virtual bool HasTestFlags(HostTestFlags hasFlags, bool all)
         {
             return FlagOps.HasFlags(
@@ -5288,6 +7623,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Stream Helper Methods
+        /// <summary>
+        /// This method determines whether the underlying writer should be
+        /// automatically flushed after each write operation, based on the host
+        /// flags.
+        /// </summary>
+        /// <returns>
+        /// True if the underlying writer should be automatically flushed after
+        /// each write operation; otherwise, false.
+        /// </returns>
         protected virtual bool DoesAutoFlushWriter()
         {
             return FlagOps.HasFlags(
@@ -5308,6 +7652,29 @@ namespace Eagle._Hosts
         //         the console window when writing past the "end" of the
         //         screen buffer.
         //
+        /// <summary>
+        /// This method determines how many passes should be used by the core
+        /// write methods to write a value, based on whether a new line is being
+        /// written and the colors involved.  When a colored value is being
+        /// written with a new line and the host should not color the new line,
+        /// two passes are used (one for the colored value and one for the new
+        /// line written without color); otherwise, a single pass is used.
+        /// </summary>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line is being written.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to be used when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to be used when writing the value.
+        /// </param>
+        /// <returns>
+        /// An array of pass identifiers, either
+        /// <see cref="OnePassForWriteCore" /> or
+        /// <see cref="TwoPassesForWriteCore" />.  This method never returns
+        /// null.
+        /// </returns>
         protected virtual int[] GetPassesForWriteCore(
             bool newLine,
             ConsoleColor foregroundColor,
@@ -5331,6 +7698,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the value should be written during
+        /// the specified multi-pass write pass.  The pass values correspond to
+        /// the entries in the <see cref="OnePassForWriteCore" /> and
+        /// <see cref="TwoPassesForWriteCore" /> arrays.
+        /// </summary>
+        /// <param name="pass">
+        /// The zero-based pass identifier for the current write pass.
+        /// </param>
+        /// <returns>
+        /// True if the value should be written during the specified pass;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool ShouldWriteForPass(
             int pass
             )
@@ -5340,6 +7720,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the terminating new line should be
+        /// written during the specified multi-pass write pass.  The pass values
+        /// correspond to the entries in the <see cref="OnePassForWriteCore" />
+        /// and <see cref="TwoPassesForWriteCore" /> arrays.
+        /// </summary>
+        /// <param name="pass">
+        /// The zero-based pass identifier for the current write pass.
+        /// </param>
+        /// <returns>
+        /// True if the terminating new line should be written during the
+        /// specified pass; otherwise, false.
+        /// </returns>
         protected virtual bool ShouldWriteLineForPass(
             int pass
             )
@@ -5349,6 +7742,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a flush should be performed during
+        /// the specified multi-pass write pass.  The pass values correspond to
+        /// the entries in the <see cref="OnePassForWriteCore" /> and
+        /// <see cref="TwoPassesForWriteCore" /> arrays.
+        /// </summary>
+        /// <param name="pass">
+        /// The zero-based pass identifier for the current write pass.
+        /// </param>
+        /// <returns>
+        /// True if a flush should be performed during the specified pass;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool ShouldFlushForPass(
             int pass
             )
@@ -5359,6 +7765,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should be automatically
+        /// flushed after each write operation, based on the host flags.
+        /// </summary>
+        /// <returns>
+        /// True if the host should be automatically flushed after each write
+        /// operation; otherwise, false.
+        /// </returns>
         protected virtual bool DoesAutoFlushHost()
         {
             return FlagOps.HasFlags(
@@ -5367,6 +7781,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should restore the colors
+        /// after each write operation, based on the host flags.
+        /// </summary>
+        /// <returns>
+        /// True if the colors should be restored after each write operation;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool DoesRestoreColorAfterWrite()
         {
             return FlagOps.HasFlags(
@@ -5375,6 +7797,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores (or sets) the foreground and background colors
+        /// after a write operation has completed.  When the host derives from
+        /// the built-in console host, the reset and set are performed inline
+        /// using methods that do not acquire the console synchronization lock,
+        /// in order to avoid a potential deadlock with the static lock already
+        /// held by the caller.
+        /// </summary>
+        /// <param name="savedForegroundColor">
+        /// The previously saved foreground color to be restored.
+        /// </param>
+        /// <param name="savedBackgroundColor">
+        /// The previously saved background color to be restored.
+        /// </param>
+        /// <returns>
+        /// True if the colors were restored (or set) successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool RestoreOrSetColors(
             ConsoleColor savedForegroundColor,
             ConsoleColor savedBackgroundColor
@@ -5439,6 +7879,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes a character value prior to it being written
+        /// to the host.  For a single character, no normalization is performed;
+        /// the <paramref name="done" /> flag is used to track and enforce that
+        /// normalization is attempted only once.
+        /// </summary>
+        /// <param name="value">
+        /// The character value to be normalized.  Upon success, this may be
+        /// modified in place to contain the normalized value.
+        /// </param>
+        /// <param name="done">
+        /// A flag indicating whether normalization has already been performed.
+        /// Upon return, this will be non-zero to indicate that normalization is
+        /// complete.
+        /// </param>
+        /// <returns>
+        /// True if normalization succeeded; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCoreNormalizeValue(
             ref char value,
             ref bool done
@@ -5456,6 +7914,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes a string value prior to it being written to
+        /// the host, replacing any DOS (carriage-return / line-feed) new lines
+        /// with the platform new line.  Normalization is only performed once;
+        /// the <paramref name="done" /> flag is used to track and enforce this.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to be normalized.  Upon success, this may be
+        /// modified in place to contain the normalized value.
+        /// </param>
+        /// <param name="done">
+        /// A flag indicating whether normalization has already been performed.
+        /// Upon return, this will be non-zero to indicate that normalization is
+        /// complete.
+        /// </param>
+        /// <returns>
+        /// True if normalization succeeded; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCoreNormalizeValue(
             ref string value,
             ref bool done
@@ -5477,6 +7953,40 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a character value to the host a specified number
+        /// of times via the supplied callbacks, optionally followed by a new
+        /// line, using the specified colors.  The write is performed in one or
+        /// more passes, as determined by <c>GetPassesForWriteCore</c>, so that
+        /// the colored text and the terminating new line may be written
+        /// separately.
+        /// </summary>
+        /// <param name="writeCharCallback">
+        /// The callback used to write the character value.
+        /// </param>
+        /// <param name="writeLineCallback">
+        /// The callback used to write the terminating new line.  This is only
+        /// required when <paramref name="newLine" /> is non-zero.
+        /// </param>
+        /// <param name="value">
+        /// The character value to be written to the host.
+        /// </param>
+        /// <param name="count">
+        /// The number of times the character value should be written.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line should be written after the
+        /// value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCore(
             WriteCharCallback writeCharCallback,
             WriteLineCallback writeLineCallback,
@@ -5613,6 +8123,36 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string value to the host via the supplied
+        /// callbacks, optionally followed by a new line, using the specified
+        /// colors.  The write is performed in one or more passes, as
+        /// determined by <c>GetPassesForWriteCore</c>, so that the colored
+        /// text and the terminating new line may be written separately.
+        /// </summary>
+        /// <param name="writeStringCallback">
+        /// The callback used to write the string value.
+        /// </param>
+        /// <param name="writeLineCallback">
+        /// The callback used to write the terminating new line.  This is only
+        /// required when <paramref name="newLine" /> is non-zero.
+        /// </param>
+        /// <param name="value">
+        /// The string value to be written to the host.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line should be written after the
+        /// value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCore(
             WriteStringCallback writeStringCallback,
             WriteLineCallback writeLineCallback,
@@ -5741,6 +8281,38 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a character value to the host a specified number
+        /// of times, optionally followed by a new line, using the specified
+        /// write type and colors.  The write is performed in one or more
+        /// passes, as determined by <c>GetPassesForWriteCore</c>, so that the
+        /// colored text and the terminating new line may be written
+        /// separately.  The <paramref name="hostWriteType" /> selects which
+        /// output (normal, debug, error, or flush only) receives the value.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform, which selects the target
+        /// output (e.g. normal, debug, or error) or a flush-only operation.
+        /// </param>
+        /// <param name="value">
+        /// The character value to be written to the host.
+        /// </param>
+        /// <param name="count">
+        /// The number of times the character value should be written.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line should be written after the
+        /// value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCore(
             HostWriteType hostWriteType,
             char value,
@@ -5974,6 +8546,35 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string value to the host, optionally followed
+        /// by a new line, using the specified write type and colors.  The
+        /// write is performed in one or more passes, as determined by
+        /// <c>GetPassesForWriteCore</c>, so that the colored text and the
+        /// terminating new line may be written separately.  The
+        /// <paramref name="hostWriteType" /> selects which output (normal,
+        /// debug, error, or flush only) receives the value.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform, which selects the target
+        /// output (e.g. normal, debug, or error) or a flush-only operation.
+        /// </param>
+        /// <param name="value">
+        /// The string value to be written to the host.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line should be written after the
+        /// value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCore(
             HostWriteType hostWriteType,
             string value,
@@ -6268,6 +8869,37 @@ namespace Eagle._Hosts
         // NOTE: This method is used by the various Write*Info() methods
         //       of the default host.
         //
+        /// <summary>
+        /// This method writes a name and an associated list of name/value
+        /// pairs to the host, using the specified output style and colors.
+        /// Depending on the output style, the data may be rendered as a box,
+        /// as formatted output, or not at all.
+        /// </summary>
+        /// <param name="outputStyle">
+        /// The output style that determines how the name and list are
+        /// rendered (e.g. boxed, formatted, or none).
+        /// </param>
+        /// <param name="name">
+        /// The name (e.g. a heading or title) associated with the list of
+        /// name/value pairs.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to be written to the host.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero if a terminating new line should be written after the
+        /// output.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the output.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the output.
+        /// </param>
+        /// <returns>
+        /// True if the output was written (or intentionally suppressed)
+        /// successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteCore(
             OutputStyle outputStyle,
             string name,
@@ -6302,6 +8934,18 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Box Write Helper Methods
+        /// <summary>
+        /// This method gets the white space flags to use when
+        /// rendering boxes, taking into account the current host
+        /// environment and the specified output encoding.
+        /// </summary>
+        /// <param name="encoding">
+        /// The output encoding used to determine which white space
+        /// characters can be represented as single bytes.
+        /// </param>
+        /// <returns>
+        /// The white space flags to use when rendering boxes.
+        /// </returns>
         protected virtual WhiteSpaceFlags GetBoxWhiteSpaceFlags(
             Encoding encoding
             )
@@ -6359,6 +9003,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the collection of box character
+        /// sets used by this host.
+        /// </summary>
         protected virtual void InitializeBoxCharacterSets()
         {
             BoxCharacterSets = new StringList(Characters.BoxCharacterSets);
@@ -6366,6 +9014,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the box character set at the specified
+        /// index, if it is available.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index of the box character set to get.
+        /// </param>
+        /// <returns>
+        /// The box character set at the specified index, or null if it
+        /// is not available.
+        /// </returns>
         protected virtual string MaybeGetBoxCharacterSet(
             int index
             ) /* MAY RETURN NULL */
@@ -6383,6 +9042,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the box character set currently selected
+        /// for this host.
+        /// </summary>
+        /// <returns>
+        /// The currently selected box character set, or null if it is
+        /// not available.
+        /// </returns>
         protected virtual string GetBoxCharacterSet() /* MAY RETURN NULL */
         {
             return MaybeGetBoxCharacterSet(BoxCharacterSet);
@@ -6390,6 +9057,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the fallback box character set, which is
+        /// composed entirely of space characters.
+        /// </summary>
+        /// <returns>
+        /// The fallback box character set, or null if it is not
+        /// available.
+        /// </returns>
         protected virtual string GetFallbackBoxCharacterSet() /* MAY RETURN NULL */
         {
             return StringOps.StrRepeat(
@@ -6398,6 +9073,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the most appropriate box character set
+        /// based on the current output encoding and host environment.
+        /// </summary>
         protected virtual void SelectBoxCharacterSet()
         {
             Encoding encoding = null;
@@ -6422,6 +9101,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the most appropriate box character set
+        /// for the specified output encoding and the current host
+        /// environment.
+        /// </summary>
+        /// <param name="encoding">
+        /// The output encoding used to determine which box character
+        /// sets can be represented.
+        /// </param>
         protected virtual void SelectBoxCharacterSet(
             Encoding encoding
             )
@@ -6489,6 +9177,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a new line as part of rendering a box,
+        /// dispatching to the appropriate write method based on the
+        /// specified host write type.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform.
+        /// </param>
+        /// <returns>
+        /// True if the new line was written successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool WriteLineForBox(
             HostWriteType hostWriteType
             )
@@ -6525,6 +9225,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character value as part of
+        /// rendering a box, dispatching to the appropriate write method
+        /// based on the specified host write type.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform.
+        /// </param>
+        /// <param name="value">
+        /// The character value to write.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         private bool WriteForBox(
             HostWriteType hostWriteType,
             char value,
@@ -6538,6 +9258,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a character value as part of rendering a
+        /// box, dispatching to the appropriate write method based on
+        /// the specified host write type.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform.
+        /// </param>
+        /// <param name="value">
+        /// The character value to write.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character value.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a new line after the value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteForBox(
             HostWriteType hostWriteType,
             char value,
@@ -6578,6 +9324,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string value as part of rendering a
+        /// box, dispatching to the appropriate write method based on
+        /// the specified host write type.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         private bool WriteForBox(
             HostWriteType hostWriteType,
             string value,
@@ -6591,6 +9357,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string value as part of rendering a
+        /// box, dispatching to the appropriate write method based on
+        /// the specified host write type.
+        /// </summary>
+        /// <param name="hostWriteType">
+        /// The type of write operation to perform.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a new line after the value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the value.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the value.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         protected virtual bool WriteForBox(
             HostWriteType hostWriteType,
             string value,
@@ -6632,6 +9421,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Type Methods
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// default host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a default host; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsDefaultHost(
             IHost host
             )
@@ -6641,6 +9441,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is an
+        /// engine host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is an engine host; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsEngineHost(
             IHost host
             )
@@ -6650,6 +9461,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// file host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a file host; otherwise, false.
+        /// </returns>
         protected virtual bool IsFileHost(
             IHost host
             )
@@ -6659,6 +9480,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// profile host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a profile host; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsProfileHost(
             IHost host
             )
@@ -6668,6 +9500,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// shell host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a shell host; otherwise, false.
+        /// </returns>
         protected virtual bool IsShellHost(
             IHost host
             )
@@ -6677,6 +9519,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// core host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a core host; otherwise, false.
+        /// </returns>
         protected virtual bool IsCoreHost(
             IHost host
             )
@@ -6686,6 +9538,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host is a
+        /// console host.
+        /// </summary>
+        /// <param name="host">
+        /// The host instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified host is a console host; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsConsoleHost(
             IHost host
             )
@@ -6701,6 +9564,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Environment Detection Methods
+        /// <summary>
+        /// This method determines whether the host is running within
+        /// an X11 terminal environment.
+        /// </summary>
+        /// <returns>
+        /// True if running within an X11 terminal; otherwise, false.
+        /// </returns>
         protected virtual bool IsX11Terminal()
         {
             return WindowOps.IsX11Terminal();
@@ -6708,6 +9578,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host is running within
+        /// the Windows Terminal (Cascadia) application.
+        /// </summary>
+        /// <returns>
+        /// True if running within Windows Terminal; otherwise, false.
+        /// </returns>
         protected virtual bool IsWindowsTerminal()
         {
             return WindowOps.IsWindowsTerminal();
@@ -6717,6 +9594,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Capability Detection Methods
+        /// <summary>
+        /// This method determines whether the host supports
+        /// non-monochrome (i.e. colored) output.
+        /// </summary>
+        /// <returns>
+        /// True if the host supports color; otherwise, false.
+        /// </returns>
         protected virtual bool DoesSupportColor()
         {
             return FlagOps.HasFlags(
@@ -6725,6 +9609,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host supports reversed
+        /// (i.e. swapped foreground and background) colors.
+        /// </summary>
+        /// <returns>
+        /// True if the host supports reversed colors; otherwise, false.
+        /// </returns>
         protected virtual bool DoesSupportReversedColor()
         {
             return FlagOps.HasFlags(
@@ -6733,6 +9624,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host supports querying
+        /// and/or setting its size.
+        /// </summary>
+        /// <returns>
+        /// True if the host supports sizing; otherwise, false.
+        /// </returns>
         protected virtual bool DoesSupportSizing()
         {
             return FlagOps.HasFlags(
@@ -6741,6 +9639,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host supports setting
+        /// the cursor position.
+        /// </summary>
+        /// <returns>
+        /// True if the host supports positioning; otherwise, false.
+        /// </returns>
         protected virtual bool DoesSupportPositioning()
         {
             return FlagOps.HasFlags(
@@ -6749,6 +9654,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should adjust
+        /// requested colors to improve their visibility.
+        /// </summary>
+        /// <returns>
+        /// True if requested colors should be adjusted; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool DoesAdjustColor()
         {
             return FlagOps.HasFlags(
@@ -6757,6 +9670,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should avoid
+        /// applying colors when writing a new line.
+        /// </summary>
+        /// <returns>
+        /// True if colors should not be applied when writing a new
+        /// line; otherwise, false.
+        /// </returns>
         protected virtual bool DoesNoColorNewLine()
         {
             return FlagOps.HasFlags(
@@ -6765,6 +9686,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should use the
+        /// saved colors when no specific color is requested.
+        /// </summary>
+        /// <returns>
+        /// True if the saved colors should be used when no specific
+        /// color is requested; otherwise, false.
+        /// </returns>
         protected virtual bool DoesSavedColorForNone()
         {
             return FlagOps.HasFlags(
@@ -6773,6 +9702,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should reset all
+        /// color attributes prior to restoring saved colors.
+        /// </summary>
+        /// <returns>
+        /// True if all color attributes should be reset before
+        /// restoring; otherwise, false.
+        /// </returns>
         protected virtual bool DoesResetColorForRestore()
         {
             return FlagOps.HasFlags(
@@ -6781,6 +9718,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host may need to reset
+        /// the colors before setting new colors.
+        /// </summary>
+        /// <returns>
+        /// True if the colors may need to be reset before setting new
+        /// colors; otherwise, false.
+        /// </returns>
         protected internal virtual bool DoesMaybeResetColorForSet()
         {
             return FlagOps.HasFlags(
@@ -6789,6 +9734,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should emit trace
+        /// diagnostics when a requested color change has no effect.
+        /// </summary>
+        /// <returns>
+        /// True if such trace diagnostics should be emitted; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool DoesTraceColorNotChanged()
         {
             return FlagOps.HasFlags(
@@ -6797,6 +9750,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should avoid
+        /// setting the foreground color.
+        /// </summary>
+        /// <returns>
+        /// True if setting the foreground color should be avoided;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool DoesNoSetForegroundColor()
         {
             return FlagOps.HasFlags(
@@ -6805,6 +9766,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should avoid
+        /// setting the background color.
+        /// </summary>
+        /// <returns>
+        /// True if setting the background color should be avoided;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool DoesNoSetBackgroundColor()
         {
             return FlagOps.HasFlags(
@@ -6813,6 +9782,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host should normalize
+        /// line endings to the configured new line sequence.
+        /// </summary>
+        /// <returns>
+        /// True if line endings should be normalized; otherwise, false.
+        /// </returns>
         protected virtual bool DoesNormalizeToNewLine()
         {
             return FlagOps.HasFlags(
@@ -6822,6 +9798,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method determines whether the host should use native
+        /// Windows console support.
+        /// </summary>
+        /// <returns>
+        /// True if native Windows console support should be used;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool DoesNativeWindows()
         {
             return FlagOps.HasFlags(
@@ -6833,6 +9817,21 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Content Section Methods
+        /// <summary>
+        /// This method determines whether the size represented by the
+        /// specified host flags is at least as large as the size
+        /// required by another set of host flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The host flags representing the available size.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The host flags representing the required size.
+        /// </param>
+        /// <returns>
+        /// True if the available size is at least the required size;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool IsAtLeastSize(
             HostFlags flags,
             HostFlags hasFlags
@@ -6912,6 +9911,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the section associated with
+        /// the specified header flags will fit within the available
+        /// host size.
+        /// </summary>
+        /// <param name="headerFlags">
+        /// The header flags identifying the content section to check.
+        /// </param>
+        /// <param name="hostFlags">
+        /// The host flags describing the available host size.
+        /// </param>
+        /// <returns>
+        /// True if the associated section will fit; otherwise, false.
+        /// </returns>
         protected virtual bool DoesHeaderFit(
             HeaderFlags headerFlags,
             HostFlags hostFlags
@@ -6931,6 +9944,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins processing for a new content section,
+        /// advancing the output position based on the currently
+        /// configured output style.
+        /// </summary>
+        /// <param name="nextRow">
+        /// Non-zero to advance to the start of the next row before
+        /// beginning the section.
+        /// </param>
+        /// <param name="minimumLeft">
+        /// The minimum horizontal output position for the section.
+        /// </param>
+        /// <param name="maximumTop">
+        /// Upon success, this may be updated to reflect the new
+        /// vertical output position.
+        /// </param>
+        /// <param name="savedTop">
+        /// Upon success, this may be updated to reflect the saved
+        /// vertical output position for the section.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, this may be updated to reflect the number of
+        /// items written on the current row.
+        /// </param>
+        /// <returns>
+        /// True if the section was begun successfully; otherwise, false.
+        /// </returns>
         protected virtual bool BeginSection(
             bool nextRow,
             int minimumLeft,
@@ -6989,6 +10029,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method completes processing for the current content
+        /// section, updating the maximum output positions that have
+        /// been seen so far.
+        /// </summary>
+        /// <param name="maximumLeft">
+        /// Upon success, this may be updated to reflect the maximum
+        /// horizontal output position seen so far.
+        /// </param>
+        /// <param name="maximumTop">
+        /// Upon success, this may be updated to reflect the maximum
+        /// vertical output position seen so far.
+        /// </param>
+        /// <returns>
+        /// True if the section was ended successfully; otherwise, false.
+        /// </returns>
         protected virtual bool EndSection(
             ref int maximumLeft,
             ref int maximumTop
@@ -7030,7 +10086,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// The backing field for the <see cref="Name" /> property.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of this identifier.
+        /// </summary>
         public virtual string Name
         {
             get { CheckDisposed(); return name; }
@@ -7041,7 +10103,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// The backing field for the <see cref="Kind" /> property.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the enumerated kind of this identifier (for example,
+        /// command or plugin).
+        /// </summary>
         public virtual IdentifierKind Kind
         {
             get { CheckDisposed(); return kind; }
@@ -7050,7 +10119,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="Id" /> property.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the unique identifier associated with this identifier.
+        /// </summary>
         public virtual Guid Id
         {
             get { CheckDisposed(); return id; }
@@ -7061,7 +10136,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The backing field for the <see cref="ClientData" /> property.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the extra, entity-specific data associated with this
+        /// entity, if any.  This value may be null.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { CheckDisposed(); return clientData; }
@@ -7072,7 +10154,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// The backing field for the <see cref="Group" /> property.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the logical group that this identifier belongs to.
+        /// </summary>
         public virtual string Group
         {
             get { CheckDisposed(); return group; }
@@ -7081,7 +10169,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="Description" /> property.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the human-readable description of this identifier.
+        /// </summary>
         public virtual string Description
         {
             get { CheckDisposed(); return description; }
@@ -7092,6 +10186,25 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInteractiveHost Members
+        /// <summary>
+        /// This method is called when interactive processing is about to begin
+        /// at the specified nesting level.
+        /// </summary>
+        /// <param name="levels">
+        /// The current interactive nesting level.
+        /// </param>
+        /// <param name="text">
+        /// On input, the text associated with the start of processing; on
+        /// output, the possibly modified text.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public virtual ReturnCode BeginProcessing(
             int levels,
             ref string text,
@@ -7105,6 +10218,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called when interactive processing is about to end at
+        /// the specified nesting level.
+        /// </summary>
+        /// <param name="levels">
+        /// The current interactive nesting level.
+        /// </param>
+        /// <param name="text">
+        /// On input, the text associated with the end of processing; on output,
+        /// the possibly modified text.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public virtual ReturnCode EndProcessing(
             int levels,
             ref string text,
@@ -7118,6 +10250,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called when interactive processing has completed at
+        /// the specified nesting level.
+        /// </summary>
+        /// <param name="levels">
+        /// The current interactive nesting level.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public virtual ReturnCode DoneProcessing(
             int levels,
             ref Result error
@@ -7130,7 +10277,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="Title" /> property.
+        /// </summary>
         private string title;
+        /// <summary>
+        /// Gets or sets the current window or console title used by this host.
+        /// </summary>
         public virtual string Title
         {
             get { CheckDisposed(); return title; }
@@ -7139,14 +10292,48 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the host's window or console title to reflect
+        /// its current value.
+        /// </summary>
+        /// <returns>
+        /// True if the title was refreshed; otherwise, false.
+        /// </returns>
         public abstract bool RefreshTitle(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host's interactive input has been
+        /// redirected (for example, from a file or pipe).
+        /// </summary>
+        /// <returns>
+        /// True if the input is redirected; otherwise, false.
+        /// </returns>
         public abstract bool IsInputRedirected(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method displays a prompt of the specified type and reports the
+        /// flags that resulted from displaying it.
+        /// </summary>
+        /// <param name="type">
+        /// The type of prompt to display (for example, a normal or
+        /// continuation prompt).
+        /// </param>
+        /// <param name="flags">
+        /// On input, the flags that control how the prompt is displayed; on
+        /// output, the flags that resulted from displaying it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode Prompt(
             PromptType type,
             ref PromptFlags flags,
@@ -7155,19 +10342,50 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host's interactive resources are
+        /// currently open.
+        /// </summary>
+        /// <returns>
+        /// True if the host is open; otherwise, false.
+        /// </returns>
         public abstract bool IsOpen(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method pauses interactive processing, typically waiting for the
+        /// user to acknowledge before continuing.
+        /// </summary>
+        /// <returns>
+        /// True if the host was paused; otherwise, false.
+        /// </returns>
         public abstract bool Pause(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes any buffered host output.
+        /// </summary>
+        /// <returns>
+        /// True if the output was flushed; otherwise, false.
+        /// </returns>
         public abstract bool Flush(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field that holds the header flags returned by the
+        /// <see cref="GetHeaderFlags" /> method.
+        /// </summary>
         private HeaderFlags headerFlags = HeaderFlags.Default;
+        /// <summary>
+        /// This method returns the flags that control which header sections the
+        /// host displays.
+        /// </summary>
+        /// <returns>
+        /// The current header flags for this host.
+        /// </returns>
         public virtual HeaderFlags GetHeaderFlags()
         {
             CheckDisposed();
@@ -7177,7 +10395,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field that holds the detail flags returned by the
+        /// <see cref="GetDetailFlags" /> method.
+        /// </summary>
         private DetailFlags detailFlags = DetailFlags.Default;
+        /// <summary>
+        /// This method returns the flags that control how much detail the host
+        /// includes in its output.
+        /// </summary>
+        /// <returns>
+        /// The current detail flags for this host.
+        /// </returns>
         public virtual DetailFlags GetDetailFlags()
         {
             CheckDisposed();
@@ -7187,7 +10416,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field that holds the cached host flags returned by the
+        /// <see cref="GetHostFlags" /> method.
+        /// </summary>
         private HostFlags hostFlags = HostFlags.Invalid;
+        /// <summary>
+        /// This method returns the flags that describe the capabilities and
+        /// configuration of this host.
+        /// </summary>
+        /// <returns>
+        /// The current host flags for this host.
+        /// </returns>
         public virtual HostFlags GetHostFlags()
         {
             CheckDisposed();
@@ -7197,20 +10437,46 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the current nesting level of read operations in progress on
+        /// this host.
+        /// </summary>
         public abstract int ReadLevels { get; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the current nesting level of write operations in progress on
+        /// this host.
+        /// </summary>
         public abstract int WriteLevels { get; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a single line of interactive input from the host.
+        /// </summary>
+        /// <param name="value">
+        /// Upon success, this is set to the line of input that was read.
+        /// </param>
+        /// <returns>
+        /// True if a line was read; otherwise, false.
+        /// </returns>
         public abstract bool ReadLine(
             ref string value
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character to the host output.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             char value
             )
@@ -7222,6 +10488,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             string value
             )
@@ -7233,10 +10508,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes an end-of-line to the host output.
+        /// </summary>
+        /// <returns>
+        /// True if the end-of-line was written; otherwise, false.
+        /// </returns>
         public abstract bool WriteLine(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string followed by an end-of-line to the host
+        /// output.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <returns>
+        /// True if the line was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteLine(
             string value
             )
@@ -7248,6 +10539,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a formatted representation of a result, followed
+        /// by an end-of-line, to the host output.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write.
+        /// </param>
+        /// <returns>
+        /// True if the line was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteResultLine(
             ReturnCode code,
             Result result
@@ -7260,6 +10564,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a formatted representation of a result, including
+        /// an error line number, followed by an end-of-line, to the host
+        /// output.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with an error, or zero if not
+        /// applicable.
+        /// </param>
+        /// <returns>
+        /// True if the line was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteResultLine(
             ReturnCode code,
             Result result,
@@ -7275,7 +10597,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IFileSystemHost Members
+        /// <summary>
+        /// The backing field for the <see cref="StreamFlags" /> property.
+        /// </summary>
         private HostStreamFlags streamFlags = HostStreamFlags.Default;
+        /// <summary>
+        /// Gets or sets the flags that control how this host opens and manages
+        /// streams.
+        /// </summary>
         public virtual HostStreamFlags StreamFlags
         {
             get { CheckDisposed(); return streamFlags; }
@@ -7284,6 +10613,48 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens a stream for the specified path on behalf of the
+        /// engine.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or resource to open.
+        /// </param>
+        /// <param name="mode">
+        /// The mode used when opening the stream (for example, create or
+        /// open).
+        /// </param>
+        /// <param name="access">
+        /// The access requested for the stream (for example, read or write).
+        /// </param>
+        /// <param name="share">
+        /// The sharing mode permitted for the stream.
+        /// </param>
+        /// <param name="bufferSize">
+        /// The size, in bytes, of the buffer to use for the stream.
+        /// </param>
+        /// <param name="options">
+        /// The additional options used when opening the stream.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// On input, the flags that influence how the stream is opened; on
+        /// output, the flags describing the stream that was opened.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon return, this contains the fully qualified path of the stream
+        /// that was opened.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok
+        /// value with details placed in the <paramref name="error" />
+        /// parameter.
+        /// </returns>
         public abstract ReturnCode GetStream(
             string path,
             FileMode mode,
@@ -7299,6 +10670,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fetches the named data (for example, a script) on
+        /// behalf of the engine.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the data to fetch.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The flags that control how the data is located and fetched.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// On input, the flags that influence how the data is fetched; on
+        /// output, the flags describing the data that was fetched.
+        /// </param>
+        /// <param name="clientData">
+        /// On input, the extra data supplied for the request, if any; on
+        /// output, the extra data associated with the fetched data, if any.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the fetched data.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok
+        /// value with details placed in the <paramref name="result" />
+        /// parameter.
+        /// </returns>
         public abstract ReturnCode GetData(
             string name,
             DataFlags dataFlags,
@@ -7311,6 +10709,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IProcessHost Members
+        /// <summary>
+        /// Gets or sets a value indicating whether the hosting process is
+        /// permitted to exit.
+        /// </summary>
         public virtual bool CanExit
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.CanExit, true); }
@@ -7319,6 +10721,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the hosting process is
+        /// permitted to be forcibly exited.
+        /// </summary>
         public virtual bool CanForceExit
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.CanForceExit, true); }
@@ -7327,6 +10733,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the hosting process is
+        /// currently in the process of exiting.
+        /// </summary>
         public virtual bool Exiting
         {
             get { CheckDisposed(); return IsExiting(); }
@@ -7337,6 +10747,38 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IThreadHost Members
+        /// <summary>
+        /// This method creates a new thread that uses a parameterless start
+        /// delegate.
+        /// </summary>
+        /// <param name="start">
+        /// The delegate that represents the entry point for the new thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, to use for the new thread, or
+        /// zero to use the default.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will host a user interface and should be
+        /// configured for single-threaded apartment use.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero if the new thread should be created as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero if the new thread should inherit the active call stack from
+        /// the creating thread.
+        /// </param>
+        /// <param name="thread">
+        /// Upon success, this will contain the newly created thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this may contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode CreateThread(
             ThreadStart start,
             int maxStackSize,
@@ -7349,6 +10791,39 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new thread that uses a parameterized start
+        /// delegate.
+        /// </summary>
+        /// <param name="start">
+        /// The delegate that represents the entry point for the new thread and
+        /// accepts a single object argument.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, to use for the new thread, or
+        /// zero to use the default.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the new thread will host a user interface and should be
+        /// configured for single-threaded apartment use.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero if the new thread should be created as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero if the new thread should inherit the active call stack from
+        /// the creating thread.
+        /// </param>
+        /// <param name="thread">
+        /// Upon success, this will contain the newly created thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this may contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode CreateThread(
             ParameterizedThreadStart start,
             int maxStackSize,
@@ -7361,6 +10836,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a parameterless callback for execution on a
+        /// thread pool thread.
+        /// </summary>
+        /// <param name="callback">
+        /// The delegate to invoke on a thread pool thread.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how the work item is queued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this may contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode QueueWorkItem(
             ThreadStart callback,
             QueueFlags flags,
@@ -7369,6 +10861,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a callback that accepts a state object for
+        /// execution on a thread pool thread.
+        /// </summary>
+        /// <param name="callback">
+        /// The delegate to invoke on a thread pool thread.
+        /// </param>
+        /// <param name="state">
+        /// The state object to pass to the callback.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how the work item is queued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this may contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode QueueWorkItem(
             WaitCallback callback,
             object state,
@@ -7378,18 +10891,39 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method suspends the current thread for the specified amount of
+        /// time.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The amount of time to suspend the current thread, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the thread was successfully suspended; otherwise, false.
+        /// </returns>
         public abstract bool Sleep(
             int milliseconds
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to yield execution to another
+        /// thread that is ready to run on the current processor.
+        /// </summary>
+        /// <returns>
+        /// True if the operating system switched execution to another thread;
+        /// otherwise, false.
+        /// </returns>
         public abstract bool Yield(); /* PRIMITIVE */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IStreamHost Members
+        /// <summary>
+        /// Gets the default input stream for this host.
+        /// </summary>
         public virtual Stream DefaultIn
         {
             get { CheckDisposed(); return In; }
@@ -7397,6 +10931,9 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the default output stream for this host.
+        /// </summary>
         public virtual Stream DefaultOut
         {
             get { CheckDisposed(); return Out; }
@@ -7404,6 +10941,9 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the default error stream for this host.
+        /// </summary>
         public virtual Stream DefaultError
         {
             get { CheckDisposed(); return Error; }
@@ -7411,70 +10951,167 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the active input stream for this host.
+        /// </summary>
         public abstract Stream In { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the active output stream for this host.
+        /// </summary>
         public abstract Stream Out { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the active error stream for this host.
+        /// </summary>
         public abstract Stream Error { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the encoding used for the input stream.
+        /// </summary>
         public abstract Encoding InputEncoding { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the encoding used for the output stream.
+        /// </summary>
         public abstract Encoding OutputEncoding { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the encoding used for the error stream.
+        /// </summary>
         public abstract Encoding ErrorEncoding { get; set; } /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the active input stream to its default.
+        /// </summary>
+        /// <returns>
+        /// True if the input stream was reset; otherwise, false.
+        /// </returns>
         public abstract bool ResetIn(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the active output stream to its default.
+        /// </summary>
+        /// <returns>
+        /// True if the output stream was reset; otherwise, false.
+        /// </returns>
         public abstract bool ResetOut(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the active error stream to its default.
+        /// </summary>
+        /// <returns>
+        /// True if the error stream was reset; otherwise, false.
+        /// </returns>
         public abstract bool ResetError(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the output stream for this host has
+        /// been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the output stream has been redirected; otherwise, false.
+        /// </returns>
         public abstract bool IsOutputRedirected(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the error stream for this host has
+        /// been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the error stream has been redirected; otherwise, false.
+        /// </returns>
         public abstract bool IsErrorRedirected(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up the input, output, and error channels for this
+        /// host.
+        /// </summary>
+        /// <returns>
+        /// True if the channels were set up successfully; otherwise, false.
+        /// </returns>
         public abstract bool SetupChannels(); /* PRIMITIVE */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDebugHost Members
+        /// <summary>
+        /// This method creates a copy of this host.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this host, or null if it could not be
+        /// created.
+        /// </returns>
         public abstract IHost Clone(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of this host for use with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the cloned host will be associated with.
+        /// </param>
+        /// <returns>
+        /// The newly created copy of this host, or null if it could not be
+        /// created.
+        /// </returns>
         public abstract IHost Clone(
             Interpreter interpreter
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the <see cref="HostTestFlags" /> that describe the
+        /// testing capabilities of this host.
+        /// </summary>
+        /// <returns>
+        /// The host test flags for this host.
+        /// </returns>
         public abstract HostTestFlags GetTestFlags(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method requests that the current script evaluation be
+        /// canceled.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to forcibly cancel evaluation even if cancellation has
+        /// been disabled or is otherwise being prevented.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode Cancel(
             bool force,
             ref Result error
@@ -7482,6 +11119,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method requests that the interpreter exit.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to forcibly request the exit even if it has been disabled
+        /// or is otherwise being prevented.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode Exit(
             bool force,
             ref Result error
@@ -7489,10 +11140,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line terminator to the debug output of the
+        /// host.
+        /// </summary>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteDebugLine(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string, followed by a line
+        /// terminator, to the debug output of the host.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the debug output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebugLine(
             string value
             )
@@ -7504,6 +11172,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character to the debug output of
+        /// the host.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the debug output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebug(
             char value
             )
@@ -7515,6 +11193,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character to the debug output of
+        /// the host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the debug output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the character.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteDebug(
             char value,
             bool newLine
@@ -7522,6 +11213,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character a number of times to the
+        /// debug output of the host, using the specified colors and optionally
+        /// followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the debug output.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the characters.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebug(
             char value,
             int count,
@@ -7538,6 +11252,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the debug output of the
+        /// host.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the debug output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebug(
             string value
             )
@@ -7549,6 +11273,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the debug output of the
+        /// host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the debug output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteDebug(
             string value,
             bool newLine
@@ -7556,6 +11293,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the debug output of the
+        /// host, using the specified foreground color and optionally followed
+        /// by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the debug output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebug(
             string value,
             bool newLine,
@@ -7569,6 +11323,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the debug output of the
+        /// host, using the specified colors and optionally followed by a line
+        /// terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the debug output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebug(
             string value,
             bool newLine,
@@ -7584,10 +11358,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line terminator to the error output of the
+        /// host.
+        /// </summary>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteErrorLine(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string, followed by a line
+        /// terminator, to the error output of the host.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the error output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteErrorLine(
             string value
             )
@@ -7599,6 +11390,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character to the error output of
+        /// the host.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the error output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteError(
             char value
             )
@@ -7610,6 +11411,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character to the error output of
+        /// the host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the error output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the character.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteError(
             char value,
             bool newLine
@@ -7617,6 +11431,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified character a number of times to the
+        /// error output of the host, using the specified colors and optionally
+        /// followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write to the error output.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the characters.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteError(
             char value,
             int count,
@@ -7633,6 +11470,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the error output of the
+        /// host.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the error output.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteError(
             string value
             )
@@ -7644,6 +11491,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the error output of the
+        /// host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the error output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public abstract bool WriteError(
             string value,
             bool newLine
@@ -7651,6 +11511,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the error output of the
+        /// host, using the specified foreground color and optionally followed
+        /// by a line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the error output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteError(
             string value,
             bool newLine,
@@ -7668,6 +11545,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string to the error output of the
+        /// host, using the specified colors and optionally followed by a line
+        /// terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write to the error output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteError(
             string value,
             bool newLine,
@@ -7683,6 +11580,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code and result to the
+        /// host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             ReturnCode code,
             Result result,
@@ -7696,6 +11609,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code and result to the
+        /// host, optionally without additional formatting and optionally
+        /// followed by a line terminator.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to write the result without any additional formatting.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             ReturnCode code,
             Result result,
@@ -7710,6 +11643,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code, result, and error
+        /// line to the host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where an error occurred, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             ReturnCode code,
             Result result,
@@ -7724,6 +11677,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code, result, and error
+        /// line to the host, optionally without additional formatting and
+        /// optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where an error occurred, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to write the result without any additional formatting.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             ReturnCode code,
             Result result,
@@ -7739,6 +11716,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified prefix, return code, result, and
+        /// error line to the host, optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="prefix">
+        /// The string to write before the result.
+        /// </param>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where an error occurred, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             string prefix,
             ReturnCode code,
@@ -7754,6 +11754,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified prefix, return code, result, and
+        /// error line to the host, optionally without additional formatting
+        /// and optionally followed by a line terminator.
+        /// </summary>
+        /// <param name="prefix">
+        /// The string to write before the result.
+        /// </param>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where an error occurred, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to write the result without any additional formatting.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a line terminator after the result.
+        /// </param>
+        /// <returns>
+        /// True if the text was written successfully; otherwise, false.
+        /// </returns>
         public virtual bool WriteResult(
             string prefix,
             ReturnCode code,
@@ -7832,6 +11859,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInformationHost Members
+        /// <summary>
+        /// This method saves the current cursor position so that it can later
+        /// be restored by the <see cref="RestorePosition" /> method.
+        /// </summary>
+        /// <returns>
+        /// True if the position was saved (or saving was unnecessary);
+        /// otherwise, false.
+        /// </returns>
         public virtual bool SavePosition()
         {
             CheckDisposed();
@@ -7847,6 +11882,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the cursor position previously saved by the
+        /// <see cref="SavePosition" /> method, optionally moving to the start
+        /// of the next line.
+        /// </summary>
+        /// <param name="newLine">
+        /// Non-zero to position the cursor at the beginning of the line below
+        /// the saved position; otherwise, the exact saved position is
+        /// restored.
+        /// </param>
+        /// <returns>
+        /// True if the position was restored (or restoration was unnecessary);
+        /// otherwise, false.
+        /// </returns>
         public virtual bool RestorePosition(bool newLine)
         {
             CheckDisposed();
@@ -7865,6 +11914,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a centered announcement banner to the host
+        /// output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of breakpoint that triggered this announcement being
+        /// written.
+        /// </param>
+        /// <param name="value">
+        /// The announcement text to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the announcement.
+        /// </param>
+        /// <returns>
+        /// True if the announcement was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteAnnouncementInfo(
             Interpreter interpreter,
             BreakpointType breakpointType,
@@ -7882,6 +11952,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a centered announcement banner to the host
+        /// output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of breakpoint that triggered this announcement being
+        /// written.
+        /// </param>
+        /// <param name="value">
+        /// The announcement text to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the announcement.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the announcement.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the announcement.
+        /// </param>
+        /// <returns>
+        /// True if the announcement was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteAnnouncementInfo(
             Interpreter interpreter,
             BreakpointType breakpointType,
@@ -7927,6 +12024,40 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about a command invocation, including
+        /// its arguments and result, to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the command invocation.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of breakpoint that triggered this information being
+        /// written.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the breakpoint that triggered this information being
+        /// written.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to include in the output.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the command invocation.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteArgumentInfo(
             Interpreter interpreter,
             ReturnCode code,
@@ -7948,6 +12079,47 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about a command invocation, including
+        /// its arguments and result, to the host output, using the specified
+        /// colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the command invocation.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of breakpoint that triggered this information being
+        /// written.
+        /// </param>
+        /// <param name="breakpointName">
+        /// The name of the breakpoint that triggered this information being
+        /// written.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to include in the output.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the command invocation.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteArgumentInfo(
             Interpreter interpreter,
             ReturnCode code,
@@ -7979,6 +12151,41 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single, formatted call frame entry to the host
+        /// output, optionally followed by a separator line.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame to write.  If this parameter is null, only the type
+        /// designation is written.
+        /// </param>
+        /// <param name="type">
+        /// The type designation to display for the call frame.  If this
+        /// parameter is null, a type is derived from the call frame.
+        /// </param>
+        /// <param name="prefix">
+        /// The text to display immediately before the call frame type.
+        /// </param>
+        /// <param name="suffix">
+        /// The text to display immediately after the formatted call frame.
+        /// </param>
+        /// <param name="separator">
+        /// The character used to draw the separator line, or the no-separator
+        /// sentinel to skip the separator.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the call frame.
+        /// </param>
+        /// <returns>
+        /// True if the call frame was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallFrame(
             Interpreter interpreter,
             ICallFrame frame,
@@ -8070,6 +12277,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified call frame to
+        /// the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame to write information about.  If this parameter is
+        /// null, nothing is written.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallFrameInfo(
             Interpreter interpreter,
             ICallFrame frame,
@@ -8087,6 +12315,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified call frame to
+        /// the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame to write information about.  If this parameter is
+        /// null, nothing is written.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallFrameInfo(
             Interpreter interpreter,
             ICallFrame frame,
@@ -8122,6 +12377,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the call frames contained in the specified call
+        /// stack to the host output, one frame per line.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack whose call frames should be written.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the call frames.
+        /// </param>
+        /// <returns>
+        /// True if the call frames were written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallStack(
             Interpreter interpreter,
             CallStack callStack,
@@ -8137,6 +12412,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the call frames contained in the specified call
+        /// stack to the host output, one frame per line, up to the specified
+        /// limit.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack whose call frames should be written.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of call frames to write.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the call frames.
+        /// </param>
+        /// <returns>
+        /// True if the call frames were written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallStack(
             Interpreter interpreter,
             CallStack callStack,
@@ -8310,6 +12609,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified call stack to
+        /// the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack to write information about.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallStackInfo(
             Interpreter interpreter,
             CallStack callStack,
@@ -8326,6 +12645,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified call stack to
+        /// the host output, limiting the number of call frames shown.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack to write information about.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of call frames to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallStackInfo(
             Interpreter interpreter,
             CallStack callStack,
@@ -8343,6 +12685,35 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified call stack to
+        /// the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack to write information about.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of call frames to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCallStackInfo(
             Interpreter interpreter,
             CallStack callStack,
@@ -8372,6 +12743,23 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
+        /// <summary>
+        /// This method writes information about the script debugger associated
+        /// with the interpreter to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebuggerInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8387,6 +12775,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the script debugger associated
+        /// with the interpreter to the host output, using the specified
+        /// colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteDebuggerInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8413,6 +12825,39 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified sets of engine,
+        /// substitution, event, expression, and header flags to the host
+        /// output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to include in the output.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to include in the output.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to include in the output.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to include in the output.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteFlagInfo(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -8434,6 +12879,45 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified sets of engine,
+        /// substitution, event, expression, and header flags to the host
+        /// output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to include in the output.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to include in the output.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to include in the output.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to include in the output.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The header flags to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteFlagInfo(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -8465,6 +12949,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about this host to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteHostInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8480,6 +12980,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about this host to the host output,
+        /// using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteHostInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8505,6 +13028,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter itself to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteInterpreterInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8520,6 +13060,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter itself to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteInterpreterInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8545,6 +13108,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the script engine state to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteEngineInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8560,6 +13140,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the script engine state to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteEngineInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8585,6 +13188,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter entity counts
+        /// to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteEntityInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8600,6 +13220,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter entity counts
+        /// to the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteEntityInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8625,6 +13268,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the native stack usage to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteStackInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8640,6 +13300,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the native stack usage to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteStackInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8665,6 +13348,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter readiness and
+        /// flow control state to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteControlInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8680,6 +13380,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter readiness and
+        /// flow control state to the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteControlInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8705,6 +13428,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the testing subsystem to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTestInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8718,6 +13458,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the testing subsystem to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTestInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8743,6 +13506,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified token to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="token">
+        /// The token to write information about.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTokenInfo(
             Interpreter interpreter,
             IToken token,
@@ -8759,6 +13542,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified token to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="token">
+        /// The token to write information about.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTokenInfo(
             Interpreter interpreter,
             IToken token,
@@ -8785,6 +13594,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified trace operation
+        /// to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace operation to write information about.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTraceInfo(
             Interpreter interpreter,
             ITraceInfo traceInfo,
@@ -8801,6 +13630,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified trace operation
+        /// to the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace operation to write information about.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteTraceInfo(
             Interpreter interpreter,
             ITraceInfo traceInfo,
@@ -8827,6 +13682,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified variable to the
+        /// host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="variable">
+        /// The variable to write information about.  If this parameter is
+        /// null, placeholder information is written instead.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteVariableInfo(
             Interpreter interpreter,
             IVariable variable,
@@ -8844,6 +13720,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified variable to the
+        /// host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="variable">
+        /// The variable to write information about.  If this parameter is
+        /// null, placeholder information is written instead.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteVariableInfo(
             Interpreter interpreter,
             IVariable variable,
@@ -8888,6 +13791,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified opaque object
+        /// handle to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="object">
+        /// The opaque object handle to write information about.  If this
+        /// parameter is null, placeholder information is written instead.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteObjectInfo(
             Interpreter interpreter,
             IObject @object,
@@ -8904,6 +13828,33 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the specified opaque object
+        /// handle to the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="object">
+        /// The opaque object handle to write information about.  If this
+        /// parameter is null, placeholder information is written instead.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteObjectInfo(
             Interpreter interpreter,
             IObject @object,
@@ -8948,6 +13899,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the most recent complaint
+        /// raised by the interpreter to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteComplaintInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -8963,6 +13931,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the most recent complaint
+        /// raised by the interpreter to the host output, using the specified
+        /// colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteComplaintInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -9046,6 +14038,26 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if HISTORY
+        /// <summary>
+        /// This method writes information about the interpreter's command
+        /// execution history to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="historyFilter">
+        /// The filter that selects which history entries are written.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteHistoryInfo(
             Interpreter interpreter,
             IHistoryFilter historyFilter,
@@ -9062,6 +14074,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about the interpreter's command
+        /// execution history to the host output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="historyFilter">
+        /// The filter that selects which history entries are written.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteHistoryInfo(
             Interpreter interpreter,
             IHistoryFilter historyFilter,
@@ -9090,6 +14128,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes custom, host-specific information to the host
+        /// output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteCustomInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -9105,6 +14160,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes custom, host-specific information to the host
+        /// output, using the specified colors.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the information is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public abstract bool WriteCustomInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -9115,6 +14193,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes complete information about a result, including
+        /// the previous result, to the host output.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write information about.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with an error, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="previousResult">
+        /// The previous result value to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteAllResultInfo(
             ReturnCode code,
             Result result,
@@ -9133,6 +14237,39 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes complete information about a result, including
+        /// the previous result, to the host output, using the specified
+        /// colors.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write information about.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with an error, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="previousResult">
+        /// The previous result value to include in the output.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteAllResultInfo(
             ReturnCode code,
             Result result,
@@ -9263,6 +14400,32 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about a named result to the host
+        /// output.
+        /// </summary>
+        /// <param name="name">
+        /// The name associated with the result.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write information about.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with an error, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteResultInfo(
             string name,
             ReturnCode code,
@@ -9281,6 +14444,38 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes information about a named result to the host
+        /// output, using the specified colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name associated with the result.
+        /// </param>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result value to write information about.
+        /// </param>
+        /// <param name="errorLine">
+        /// The script line number associated with an error, or zero if not
+        /// applicable.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a trailing end-of-line after the information.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteResultInfo(
             string name,
             ReturnCode code,
@@ -9318,6 +14513,20 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method writes the interactive loop header to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the header is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="loopData">
+        /// The data describing the interactive loop the header is associated
+        /// with.
+        /// </param>
+        /// <param name="result">
+        /// The result value to include in the header, if any.
+        /// </param>
         public virtual void WriteHeader(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -9942,6 +15151,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the interactive loop footer to the host output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context the footer is associated with.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="loopData">
+        /// The data describing the interactive loop the footer is associated
+        /// with.
+        /// </param>
+        /// <param name="result">
+        /// The result value to include in the footer, if any.
+        /// </param>
         public virtual void WriteFooter(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -10009,6 +15232,24 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IBoxHost Members
+        /// <summary>
+        /// This method begins rendering a box with the specified name and
+        /// content.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs that make up the content of the box.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully begun; otherwise, false.
+        /// </returns>
         public abstract bool BeginBox(
             string name,
             StringPairList list,
@@ -10017,6 +15258,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ends rendering a box with the specified name and
+        /// content.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs that make up the content of the box.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully ended; otherwise, false.
+        /// </returns>
         public abstract bool EndBox(
             string name,
             StringPairList list,
@@ -10025,6 +15284,37 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10044,6 +15334,40 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name, padding the content to a minimum width.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10064,6 +15388,43 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name, using the specified content colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10086,6 +15447,47 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name, padding the content to a minimum width
+        /// and using the specified content colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10109,6 +15511,50 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name, using the specified content and box
+        /// colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <param name="boxForegroundColor">
+        /// The foreground color to use for the box frame.
+        /// </param>
+        /// <param name="boxBackgroundColor">
+        /// The background color to use for the box frame.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10133,6 +15579,53 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified string value as the content of a
+        /// box with the specified name, padding the content to a minimum width
+        /// and using the specified content and box colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="value">
+        /// The string value to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <param name="boxForegroundColor">
+        /// The foreground color to use for the box frame.
+        /// </param>
+        /// <param name="boxBackgroundColor">
+        /// The background color to use for the box frame.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             string value,
@@ -10158,6 +15651,37 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10177,6 +15701,41 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name, padding the content to a
+        /// minimum width.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10198,6 +15757,44 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name, using the specified content
+        /// colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10220,6 +15817,47 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name, padding the content to a
+        /// minimum width and using the specified content colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10243,6 +15881,50 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name, using the specified content
+        /// and box colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <param name="boxForegroundColor">
+        /// The foreground color to use for the box frame.
+        /// </param>
+        /// <param name="boxBackgroundColor">
+        /// The background color to use for the box frame.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10267,6 +15949,53 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified list of name/value pairs as the
+        /// content of a box with the specified name, padding the content to a
+        /// minimum width and using the specified content and box colors.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to write as the content of the box.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="minimumLength">
+        /// The minimum width, in characters, of the box content.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to emit a trailing line terminator after the box.
+        /// </param>
+        /// <param name="restore">
+        /// Non-zero to restore the cursor position after writing the box.
+        /// </param>
+        /// <param name="left">
+        /// On input, the column at which to begin writing; upon return,
+        /// receives the resulting column.
+        /// </param>
+        /// <param name="top">
+        /// On input, the row at which to begin writing; upon return, receives
+        /// the resulting row.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use for the box content.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use for the box content.
+        /// </param>
+        /// <param name="boxForegroundColor">
+        /// The foreground color to use for the box frame.
+        /// </param>
+        /// <param name="boxBackgroundColor">
+        /// The background color to use for the box frame.
+        /// </param>
+        /// <returns>
+        /// True if the box was successfully written; otherwise, false.
+        /// </returns>
         public virtual bool WriteBox(
             string name,
             StringPairList list,
@@ -10962,6 +16691,11 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IColorHost Members
+        /// <summary>
+        /// Gets or sets a value indicating whether colorized output is
+        /// disabled for this host.  When true, color operations have no
+        /// visible effect.
+        /// </summary>
         public virtual bool NoColor
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoColor, true); }
@@ -10970,10 +16704,30 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the host foreground and background colors to their
+        /// default values.
+        /// </summary>
+        /// <returns>
+        /// True if the colors were reset; otherwise, false.
+        /// </returns>
         public abstract bool ResetColors(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the current foreground and background colors of the
+        /// host.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// Upon success, receives the current foreground color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon success, receives the current background color.
+        /// </param>
+        /// <returns>
+        /// True if the colors were obtained; otherwise, false.
+        /// </returns>
         public abstract bool GetColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -10981,6 +16735,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adjusts the specified foreground and background colors
+        /// as necessary so that they are suitable for use by the host (e.g. to
+        /// avoid an unreadable combination).
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// On input, the desired foreground color; on output, the adjusted
+        /// foreground color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the desired background color; on output, the adjusted
+        /// background color.
+        /// </param>
+        /// <returns>
+        /// True if the colors were adjusted; otherwise, false.
+        /// </returns>
         public abstract bool AdjustColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -10988,18 +16758,56 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the host foreground color.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// The foreground color to set.
+        /// </param>
+        /// <returns>
+        /// True if the foreground color was set; otherwise, false.
+        /// </returns>
         public abstract bool SetForegroundColor(
             ConsoleColor foregroundColor
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the host background color.
+        /// </summary>
+        /// <param name="backgroundColor">
+        /// The background color to set.
+        /// </param>
+        /// <returns>
+        /// True if the background color was set; otherwise, false.
+        /// </returns>
         public abstract bool SetBackgroundColor(
             ConsoleColor backgroundColor
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the host foreground and/or background colors.
+        /// </summary>
+        /// <param name="foreground">
+        /// Non-zero to set the foreground color.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to set the background color.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to set, used only when
+        /// <paramref name="foreground" /> is true.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to set, used only when
+        /// <paramref name="background" /> is true.
+        /// </param>
+        /// <returns>
+        /// True if the requested colors were set; otherwise, false.
+        /// </returns>
         public virtual bool SetColors(
             bool foreground,
             bool background,
@@ -11037,6 +16845,36 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the foreground and/or background colors associated
+        /// with a named entry within a color theme.
+        /// </summary>
+        /// <param name="theme">
+        /// The name of the color theme to query, or null to use the active
+        /// theme.
+        /// </param>
+        /// <param name="name">
+        /// The name of the color entry within the theme.
+        /// </param>
+        /// <param name="foreground">
+        /// Non-zero to obtain the foreground color.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to obtain the background color.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// Upon success, receives the foreground color, when requested.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon success, receives the background color, when requested.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode GetColors(
             string theme, /* RESERVED */
             string name,
@@ -11049,6 +16887,38 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the foreground and/or background colors associated
+        /// with a named entry within a color theme.
+        /// </summary>
+        /// <param name="theme">
+        /// The name of the color theme to modify, or null to use the active
+        /// theme.
+        /// </param>
+        /// <param name="name">
+        /// The name of the color entry within the theme.
+        /// </param>
+        /// <param name="foreground">
+        /// Non-zero to set the foreground color.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to set the background color.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to set, used only when
+        /// <paramref name="foreground" /> is true.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to set, used only when
+        /// <paramref name="background" /> is true.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="error" /> parameter.
+        /// </returns>
         public abstract ReturnCode SetColors(
             string theme, /* RESERVED */
             string name,
@@ -11063,6 +16933,12 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPositionHost Members
+        /// <summary>
+        /// This method resets the current position to its default value.
+        /// </summary>
+        /// <returns>
+        /// True if the position was reset; otherwise, false.
+        /// </returns>
         public virtual bool ResetPosition()
         {
             CheckDisposed();
@@ -11075,6 +16951,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the current position.
+        /// </summary>
+        /// <param name="left">
+        /// Upon success, receives the zero-based column (horizontal)
+        /// coordinate of the current position.
+        /// </param>
+        /// <param name="top">
+        /// Upon success, receives the zero-based row (vertical) coordinate
+        /// of the current position.
+        /// </param>
+        /// <returns>
+        /// True if the position was obtained; otherwise, false.
+        /// </returns>
         public abstract bool GetPosition(
             ref int left,
             ref int top
@@ -11082,6 +16972,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the current position.
+        /// </summary>
+        /// <param name="left">
+        /// The zero-based column (horizontal) coordinate to set as the
+        /// current position.
+        /// </param>
+        /// <param name="top">
+        /// The zero-based row (vertical) coordinate to set as the current
+        /// position.
+        /// </param>
+        /// <returns>
+        /// True if the position was set; otherwise, false.
+        /// </returns>
         public abstract bool SetPosition(
             int left,
             int top
@@ -11089,6 +16993,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default position.
+        /// </summary>
+        /// <param name="left">
+        /// Upon success, receives the zero-based column (horizontal)
+        /// coordinate of the default position.
+        /// </param>
+        /// <param name="top">
+        /// Upon success, receives the zero-based row (vertical) coordinate
+        /// of the default position.
+        /// </param>
+        /// <returns>
+        /// True if the default position was obtained; otherwise, false.
+        /// </returns>
         public virtual bool GetDefaultPosition(
             ref int left,
             ref int top
@@ -11104,6 +17022,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the default position.
+        /// </summary>
+        /// <param name="left">
+        /// The zero-based column (horizontal) coordinate to set as the
+        /// default position.
+        /// </param>
+        /// <param name="top">
+        /// The zero-based row (vertical) coordinate to set as the default
+        /// position.
+        /// </param>
+        /// <returns>
+        /// True if the default position was set; otherwise, false.
+        /// </returns>
         public virtual bool SetDefaultPosition(
             int left,
             int top
@@ -11121,12 +17053,40 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISizeHost Members
+        /// <summary>
+        /// This method resets the size of the specified host buffer and/or
+        /// window to its default.
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The <see cref="HostSizeType" /> value indicating which size should
+        /// be reset.
+        /// </param>
+        /// <returns>
+        /// True if the size was reset successfully; otherwise, false.
+        /// </returns>
         public abstract bool ResetSize(
             HostSizeType hostSizeType
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the size of the specified host buffer and/or
+        /// window.
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The <see cref="HostSizeType" /> value indicating which size should
+        /// be queried.
+        /// </param>
+        /// <param name="width">
+        /// Upon success, this contains the width, in characters.
+        /// </param>
+        /// <param name="height">
+        /// Upon success, this contains the height, in characters.
+        /// </param>
+        /// <returns>
+        /// True if the size was queried successfully; otherwise, false.
+        /// </returns>
         public abstract bool GetSize(
             HostSizeType hostSizeType,
             ref int width,
@@ -11135,6 +17095,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the size of the specified host buffer and/or
+        /// window.
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The <see cref="HostSizeType" /> value indicating which size should
+        /// be changed.
+        /// </param>
+        /// <param name="width">
+        /// The new width, in characters.
+        /// </param>
+        /// <param name="height">
+        /// The new height, in characters.
+        /// </param>
+        /// <returns>
+        /// True if the size was changed successfully; otherwise, false.
+        /// </returns>
         public abstract bool SetSize(
             HostSizeType hostSizeType,
             int width,
@@ -11145,12 +17122,35 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IReadHost Members
+        /// <summary>
+        /// This method reads a single character from the host.
+        /// </summary>
+        /// <param name="value">
+        /// Upon success, receives the character that was read, or a negative
+        /// value if the end of the input was reached.
+        /// </param>
+        /// <returns>
+        /// True if the character was read; otherwise, false.
+        /// </returns>
         public abstract bool Read(
             ref int value
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a single key press from the host.
+        /// </summary>
+        /// <param name="intercept">
+        /// Non-zero to intercept the key press so that it is not displayed by
+        /// the host.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the data describing the key that was pressed.
+        /// </param>
+        /// <returns>
+        /// True if the key press was read; otherwise, false.
+        /// </returns>
         public abstract bool ReadKey(
             bool intercept,
             ref IClientData value
@@ -11159,6 +17159,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+        /// <summary>
+        /// This method reads a single key press from the host.
+        /// </summary>
+        /// <param name="intercept">
+        /// Non-zero to intercept the key press so that it is not displayed by
+        /// the host.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the data describing the key that was pressed.
+        /// </param>
+        /// <returns>
+        /// True if the key press was read; otherwise, false.
+        /// </returns>
         [Obsolete()]
         public abstract bool ReadKey(
             bool intercept,
@@ -11170,6 +17183,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IWriteHost Members
+        /// <summary>
+        /// This method writes a single character to the host output, optionally
+        /// followed by a newline.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the character.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public abstract bool Write(
             char value,
             bool newLine
@@ -11177,6 +17203,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character to the host output the
+        /// specified number of times.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             char value,
             int count
@@ -11189,6 +17228,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character to the host output the
+        /// specified number of times, optionally followed by a newline.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the characters.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             char value,
             int count,
@@ -11202,6 +17257,29 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character to the host output the
+        /// specified number of times, optionally followed by a newline, using
+        /// the specified foreground and background colors.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="count">
+        /// The number of times to write the character.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the characters.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             char value,
             int count,
@@ -11218,6 +17296,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a single character to the host output using the
+        /// specified foreground and background colors.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the character was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             char value,
             ConsoleColor foregroundColor,
@@ -11231,6 +17325,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output using the specified
+        /// foreground color.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             string value,
             ConsoleColor foregroundColor
@@ -11243,6 +17350,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output using the specified
+        /// foreground and background colors.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             string value,
             ConsoleColor foregroundColor,
@@ -11256,6 +17379,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output, optionally followed
+        /// by a newline.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the string.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public abstract bool Write(
             string value,
             bool newLine
@@ -11263,6 +17399,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output, optionally followed
+        /// by a newline, using the specified foreground color.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             string value,
             bool newLine,
@@ -11276,6 +17428,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string to the host output, optionally followed
+        /// by a newline, using the specified foreground and background colors.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the string.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool Write(
             string value,
             bool newLine,
@@ -11291,6 +17462,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a formatted list of name and value pairs to the
+        /// host output, optionally followed by a newline, using the specified
+        /// foreground and background colors.
+        /// </summary>
+        /// <param name="list">
+        /// The list of name and value pairs to write.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to write a newline after the formatted output.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the formatted output was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteFormat(
             StringPairList list,
             bool newLine,
@@ -11310,6 +17502,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string followed by a newline to the host
+        /// output using the specified foreground color.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteLine(
             string value,
             ConsoleColor foregroundColor
@@ -11322,6 +17527,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a string followed by a newline to the host
+        /// output using the specified foreground and background colors.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.  This parameter may be null.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing.
+        /// </param>
+        /// <returns>
+        /// True if the string was written; otherwise, false.
+        /// </returns>
         public virtual bool WriteLine(
             string value,
             ConsoleColor foregroundColor,
@@ -11337,7 +17558,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IHost Members
+        /// <summary>
+        /// The backing field for the <see cref="Profile" /> property.
+        /// </summary>
         private string profile = null;
+        /// <summary>
+        /// Gets or sets the name of the profile used to load and persist this
+        /// host's saved settings.
+        /// </summary>
         public virtual string Profile
         {
             get { CheckDisposed(); return profile; }
@@ -11346,7 +17574,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="DefaultTitle" /> property.
+        /// </summary>
         private string defaultTitle;
+        /// <summary>
+        /// Gets or sets the default window or console title used by this host
+        /// when no more specific title has been set.
+        /// </summary>
         public virtual string DefaultTitle
         {
             get { CheckDisposed(); return defaultTitle; }
@@ -11355,7 +17590,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="HostCreateFlags" /> property.
+        /// </summary>
         private HostCreateFlags hostCreateFlags;
+        /// <summary>
+        /// Gets or sets the flags that were (or will be) used to create and
+        /// configure this host.
+        /// </summary>
         public virtual HostCreateFlags HostCreateFlags
         {
             get { CheckDisposed(); return hostCreateFlags; }
@@ -11364,6 +17606,11 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host should attach to
+        /// an existing host environment (for example, an existing console)
+        /// rather than creating a new one.
+        /// </summary>
         public virtual bool UseAttach
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.UseAttach, true); }
@@ -11372,6 +17619,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether host operations that would
+        /// normally be skipped or refused should instead be forced.
+        /// </summary>
         public virtual bool UseForce
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.UseForce, true); }
@@ -11380,6 +17631,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host should suppress
+        /// changes to the window or console title.
+        /// </summary>
         public virtual bool NoTitle
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoTitle, true); }
@@ -11388,6 +17643,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host should suppress
+        /// changes to the window or console icon.
+        /// </summary>
         public virtual bool NoIcon
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoIcon, true); }
@@ -11396,6 +17655,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host should skip
+        /// loading and saving its profile-based settings.
+        /// </summary>
         public virtual bool NoProfile
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoProfile, true); }
@@ -11404,6 +17667,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host should disable
+        /// interactive cancellation (for example, the cancel key handler).
+        /// </summary>
         public virtual bool NoCancel
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.NoCancel, true); }
@@ -11412,6 +17679,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether this host echoes the input
+        /// it reads back to its output.
+        /// </summary>
         public virtual bool Echo
         {
             get { CheckDisposed(); return HasCreateFlags(HostCreateFlags.Echo, true); }
@@ -11420,12 +17691,36 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a snapshot of this host's current state, with
+        /// the amount of detail controlled by the supplied flags.
+        /// </summary>
+        /// <param name="detailFlags">
+        /// The flags that select how much state detail is included in the
+        /// result.
+        /// </param>
+        /// <returns>
+        /// A list describing the requested host state.
+        /// </returns>
         public abstract StringList QueryState(
             DetailFlags detailFlags
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits an audible tone through the host, when supported.
+        /// </summary>
+        /// <param name="frequency">
+        /// The tone frequency, in hertz.
+        /// </param>
+        /// <param name="duration">
+        /// The tone duration, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the tone was emitted; otherwise, false (for example, when
+        /// the host does not support audible output).
+        /// </returns>
         public abstract bool Beep(
             int frequency,
             int duration
@@ -11433,14 +17728,34 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the host currently has no pending
+        /// interactive input or output activity.
+        /// </summary>
+        /// <returns>
+        /// True if the host is idle; otherwise, false.
+        /// </returns>
         public abstract bool IsIdle(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the host's display area, when supported.
+        /// </summary>
+        /// <returns>
+        /// True if the display was cleared; otherwise, false.
+        /// </returns>
         public abstract bool Clear(); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets this host's configuration flags to their default
+        /// values.
+        /// </summary>
+        /// <returns>
+        /// True if the flags were reset; otherwise, false.
+        /// </returns>
         public virtual bool ResetHostFlags()
         {
             CheckDisposed();
@@ -11450,12 +17765,42 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the host's interactive input history.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode ResetHistory(
             ref Result error
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the current mode of one of the host's standard
+        /// channels.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel whose mode is to be retrieved (for example, input or
+        /// output).
+        /// </param>
+        /// <param name="mode">
+        /// Upon success, this is set to the current channel mode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode GetMode(
             ChannelType channelType,
             ref uint mode,
@@ -11464,6 +17809,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the mode of one of the host's standard channels.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel whose mode is to be set (for example, input or output).
+        /// </param>
+        /// <param name="mode">
+        /// The new channel mode to apply.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode SetMode(
             ChannelType channelType,
             uint mode,
@@ -11472,24 +17834,71 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens, or re-opens, the host's underlying interactive
+        /// resources.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode Open(
             ref Result error
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the host's underlying interactive resources.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode Close(
             ref Result error
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discards any buffered host input and/or output without
+        /// closing the host.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public abstract ReturnCode Discard(
             ref Result error
             ); /* PRIMITIVE */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the host to its initial state, reinitializing its
+        /// interactive resources.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="error" />.
+        /// </returns>
         public virtual ReturnCode Reset(
             ref Result error
             )
@@ -11507,6 +17916,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins a named output section, allowing the host to
+        /// group or visually delimit related output.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the section to begin.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with the section, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the section was begun; otherwise, false.
+        /// </returns>
         public abstract bool BeginSection(
             string name,
             IClientData clientData
@@ -11514,6 +17938,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ends a named output section previously begun with
+        /// <c>BeginSection</c>.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the section to end.  This parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with the section, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if the section was ended; otherwise, false.
+        /// </returns>
         public abstract bool EndSection(
             string name,
             IClientData clientData
@@ -11523,6 +17961,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this host has been disposed.
+        /// </summary>
         public virtual bool Disposed
         {
             get
@@ -11535,6 +17976,11 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this host is currently in the
+        /// process of being disposed.  This property is not implemented; its get
+        /// accessor always throws <see cref="NotImplementedException" />.
+        /// </summary>
         public virtual bool Disposing
         {
             get
@@ -11549,6 +17995,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Support Methods
+        /// <summary>
+        /// This method returns the identifier of the thread that currently
+        /// holds the static lock, if any.
+        /// </summary>
+        /// <returns>
+        /// The identifier of the thread holding the static lock, or zero if the
+        /// lock is not currently held.
+        /// </returns>
         private static long MaybeWhoHasStaticLock()
         {
             return Interlocked.CompareExchange(
@@ -11557,6 +18011,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the calling thread as the holder of the static
+        /// lock when the lock has just been acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// True if the static lock was acquired and the calling thread should
+        /// be recorded as its holder; otherwise, false.
+        /// </param>
         private static void MaybeSomebodyHasStaticLock(
             bool locked /* in */
             )
@@ -11571,6 +18033,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the record of which thread holds the static lock
+        /// when the calling thread has just released it.
+        /// </summary>
+        /// <param name="locked">
+        /// True if the static lock was held and is being released by the
+        /// calling thread; otherwise, false.
+        /// </param>
         private static void MaybeNobodyHasStaticLock(
             bool locked /* in */
             )
@@ -11585,6 +18055,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         private void PrivateStaticTryLock(
             ref bool locked
             )
@@ -11598,6 +18075,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock, waiting for the
+        /// configured wait-lock timeout for it to become available.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         private void PrivateStaticTryLockWithWait(
             ref bool locked
             )
@@ -11612,6 +18097,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock, waiting up to the
+        /// specified amount of time for it to become available.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time to wait, in milliseconds, for the lock to
+        /// become available.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         private void PrivateStaticTryLock(
             int timeout,
             ref bool locked
@@ -11626,6 +18123,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the static lock if it is currently held by the
+        /// calling thread.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, indicates whether the lock is currently held and should be
+        /// released.  Upon return, this is set to false if the lock was
+        /// released.
+        /// </param>
         private void PrivateStaticExitLock(
             ref bool locked
             )
@@ -11645,6 +18151,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeStatic Members
+        /// <summary>
+        /// This method attempts to acquire the static lock without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         public virtual void StaticTryLock(
             ref bool locked
             )
@@ -11656,6 +18169,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock, waiting for a
+        /// default amount of time for it to become available.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         public virtual void StaticTryLockWithWait(
             ref bool locked
             )
@@ -11667,6 +18188,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the static lock, waiting up to the
+        /// specified amount of time for it to become available.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time to wait, in milliseconds, for the lock to
+        /// become available.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this is set to true if the lock was acquired;
+        /// otherwise, false.
+        /// </param>
         public virtual void StaticTryLock(
             int timeout,
             ref bool locked
@@ -11679,6 +18212,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the static lock if it was previously acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, indicates whether the lock is currently held and should be
+        /// released.  Upon return, this is set to false if the lock was
+        /// released.
+        /// </param>
         public virtual void StaticExitLock(
             ref bool locked
             )
@@ -11692,6 +18233,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this host and suppresses
+        /// finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -11702,7 +18247,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// The backing field that indicates whether this host has been
+        /// disposed.  This field backs the <see cref="Disposed" /> property.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an <see cref="InterpreterDisposedException" /> if
+        /// this host has been disposed and the engine is configured to throw on
+        /// access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -11713,6 +18267,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this host.  It implements
+        /// the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// True if this method is being called explicitly via the
+        /// <see cref="Dispose()" /> method; otherwise, false, indicating it is
+        /// being called from the finalizer and only unmanaged resources should
+        /// be released.
+        /// </param>
         protected virtual void Dispose(bool disposing)
         {
             if (!disposed)
@@ -11736,6 +18300,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of the <see cref="Default" /> class, releasing
+        /// any unmanaged resources held by this host.
+        /// </summary>
         ~Default()
         {
             Dispose(false);

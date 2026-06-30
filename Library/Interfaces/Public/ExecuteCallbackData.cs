@@ -14,6 +14,14 @@ using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Public
 {
+    /// <summary>
+    /// This interface represents the data associated with a dynamic execute
+    /// callback.  It is an aggregate that composes the identifier naming
+    /// (<see cref="IIdentifierName" />), wrapper metadata
+    /// (<see cref="IWrapperData" />), associated client data
+    /// (<see cref="IHaveClientData" />), and the dynamic-execute callback
+    /// itself (<see cref="IDynamicExecuteCallback" />).
+    /// </summary>
     [ObjectId("4fe571c6-48a0-4ddf-bf28-dd0892b930ea")]
     public interface IExecuteCallbackData : IIdentifierName, IWrapperData, IHaveClientData, IDynamicExecuteCallback
     {

@@ -27,10 +27,19 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps lambda names to their
+    /// <see cref="LambdaWrapper" /> instances.  It adds support for producing a
+    /// filtered list of lambda names based on their procedure flags and an
+    /// optional name pattern.
+    /// </summary>
     [ObjectId("b1b72fd7-6519-43e4-81ec-e989965a3a18")]
     internal sealed class LambdaWrapperDictionary :
             WrapperDictionary<string, LambdaWrapper>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public LambdaWrapperDictionary()
             : base()
         {
@@ -39,6 +48,50 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of the lambda names in this dictionary,
+        /// optionally filtered by the procedure flags of each lambda and by a
+        /// name pattern.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The procedure flags that a lambda must have in order to be included.
+        /// If this is <see cref="ProcedureFlags.None" />, this filter is not
+        /// applied.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The procedure flags that a lambda must not have in order to be
+        /// included.  If this is <see cref="ProcedureFlags.None" />, this filter
+        /// is not applied.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero if a lambda must have all of the flags specified by
+        /// <paramref name="hasFlags" />; zero if having any of them is
+        /// sufficient.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero if a lambda must have all of the flags specified by
+        /// <paramref name="notHasFlags" /> to be excluded; zero if having any
+        /// of them is sufficient.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the lambda names that are included in the
+        /// result.  This parameter may be null, in which case all names are
+        /// included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, receives the list of matching lambda names.  If this is
+        /// null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode ToList(
             ProcedureFlags hasFlags,
             ProcedureFlags notHasFlags,

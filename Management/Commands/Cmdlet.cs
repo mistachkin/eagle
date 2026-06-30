@@ -23,12 +23,28 @@ using _Public = Eagle._Components.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>cmdlet</c> command, which serves as
+    /// the bridge between the interpreter and the Windows PowerShell hosting
+    /// environment.  Its sub-commands let scripts query the hosting plugin,
+    /// write debug, error, verbose, and progress records to the PowerShell
+    /// host, invoke PowerShell pipelines, inspect the script cmdlet state, and
+    /// remove the meta-command.  The script cmdlet context that backs these
+    /// operations is supplied through the per-command client data.
+    /// </summary>
     [ObjectId("b62ba209-838c-46ad-8782-2269e470cf7a")]
     [CommandFlags(CommandFlags.Unsafe)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Cmdlet : Default
     {
         #region Public Constructor
+        /// <summary>
+        /// Constructs an instance of the <c>cmdlet</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Cmdlet(
             ICommandData commandData
             )
@@ -43,6 +59,26 @@ namespace Eagle._Commands
 
         #region Private Methods
         #region Pseudo-Plugin Helper Methods
+        /// <summary>
+        /// This method extracts the script cmdlet context that backs this
+        /// command from the supplied client data, unwrapping any nested client
+        /// data as necessary and verifying that the contained script cmdlet has
+        /// not been disposed.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data supplied to this command, expected to contain (or
+        /// wrap) the script cmdlet context.  This parameter may be null, in
+        /// which case the lookup fails.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message describing
+        /// why the script cmdlet could not be obtained.
+        /// </param>
+        /// <returns>
+        /// The script cmdlet context contained in the client data, or null if
+        /// it could not be obtained, in which case the <paramref name="error" />
+        /// parameter is set.
+        /// </returns>
         private static _Cmdlets.Script GetScriptCmdlet(
             IClientData clientData,
             ref Result error
@@ -81,6 +117,24 @@ namespace Eagle._Commands
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the binder to use when marshalling values
+        /// returned from a PowerShell pipeline back into the interpreter.  The
+        /// interpreter binder cannot be used when the plugin has been loaded
+        /// into an application domain different from the interpreter, or when
+        /// there is no interpreter from which to obtain it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter from which to obtain the binder.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data used to determine whether this plugin resides in an
+        /// application domain different from the interpreter.
+        /// </param>
+        /// <returns>
+        /// The interpreter binder, or null if no suitable binder is available.
+        /// </returns>
         private static IBinder GetBinder(
             Interpreter interpreter,
             IPluginData pluginData
@@ -106,6 +160,21 @@ namespace Eagle._Commands
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the list of compile-time define constants that
+        /// describe how this library was built.  It is used as a fallback for
+        /// the <c>options</c> sub-command when there is no plugin context to
+        /// provide its own option information.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the list of define constants.  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="result" /> parameter.
+        /// </returns>
         private static ReturnCode GetDefineConstants(
             ref Result result
             )
@@ -128,6 +197,20 @@ namespace Eagle._Commands
         ////////////////////////////////////////////////////////////////////////
 
         #region PowerShell Helper Methods
+        /// <summary>
+        /// This method creates a nested PowerShell pipeline, using the default
+        /// runspace, for the specified command text.
+        /// </summary>
+        /// <param name="command">
+        /// The PowerShell command text used to populate the pipeline.
+        /// </param>
+        /// <param name="addToHistory">
+        /// Non-zero to add the command to the PowerShell command history.
+        /// </param>
+        /// <returns>
+        /// The newly created nested pipeline, or null if there is no default
+        /// runspace available.
+        /// </returns>
         private static Pipeline CreatePipeline(
             string command,
             bool addToHistory
@@ -141,6 +224,30 @@ namespace Eagle._Commands
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a nested PowerShell pipeline for the specified
+        /// command text and synchronously invokes it, collecting any objects it
+        /// produces.  Currently, this requires the default runspace and always
+        /// creates a nested pipeline.
+        /// </summary>
+        /// <param name="command">
+        /// The PowerShell command text to invoke.
+        /// </param>
+        /// <param name="addToHistory">
+        /// Non-zero to add the command to the PowerShell command history.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon success, this contains the collection of objects produced by
+        /// the invoked pipeline.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="error" /> parameter.
+        /// </returns>
         private static ReturnCode InvokePipeline(
             string command,
             bool addToHistory,
@@ -172,6 +279,10 @@ namespace Eagle._Commands
         ////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-command names supported by the <c>cmdlet</c> command
+        /// ensemble.
+        /// </summary>
         private EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "about", "debug", "error", "invoke", "options",
@@ -180,6 +291,10 @@ namespace Eagle._Commands
 
         ////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the dictionary of sub-command names supported by the
+        /// <c>cmdlet</c> command ensemble.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -190,6 +305,41 @@ namespace Eagle._Commands
         ////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>cmdlet</c> command.  It dispatches to one
+        /// of the ensemble sub-commands (for example <c>about</c>, <c>debug</c>,
+        /// <c>error</c>, <c>invoke</c>, <c>options</c>, <c>progress</c>,
+        /// <c>remove</c>, <c>status</c>, or <c>verbose</c>), most of which act
+        /// upon the script cmdlet context obtained from the client data, the
+        /// hosting PowerShell environment, or the command plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created; this is expected to contain (or wrap) the script cmdlet
+        /// context.  This parameter should not be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the arguments for the selected sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command, such as the script cmdlet status, the plugin or define
+        /// constant information, the value produced by an invoked pipeline, or
+        /// an empty string.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

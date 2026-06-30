@@ -22,6 +22,13 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides managed (non-WinTrust) support for verifying the
+    /// trust status of a file on platforms, such as .NET Core, where the
+    /// native WinTrust API is not available.  It attempts to verify an
+    /// Authenticode signature using managed cryptography and, failing that,
+    /// falls back to matching the file against a set of trusted file hashes.
+    /// </summary>
     [ObjectId("51860eb6-c91c-484b-a41a-8663909108f6")]
     internal static partial class WinTrustDotNet
     {
@@ -31,12 +38,31 @@ namespace Eagle._Components.Private
         //       API; however, it is still needed even when the WINDOWS
         //       compile-time option is disabled.
         //
+        /// <summary>
+        /// The Windows success status code (zero), used to indicate that a
+        /// file is trusted.
+        /// </summary>
         private const uint ERROR_SUCCESS = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method adds an error to the specified list of errors, creating
+        /// the list first if necessary.  If the supplied error is null, nothing
+        /// is added.
+        /// </summary>
+        /// <param name="errors">
+        /// The list of errors to add to.  If this is null and an error is
+        /// added, a new list is created and stored here.
+        /// </param>
+        /// <param name="error">
+        /// The error to add.  If this is null, this method does nothing.
+        /// </param>
+        /// <returns>
+        /// True if the error was added; otherwise, false.
+        /// </returns>
         private static bool MaybeAddError(
             ref ResultList errors, /* in, out */
             Result error           /* in */
@@ -54,6 +80,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to verify that the specified file is trusted by
+        /// matching its hash against a set of trusted file hashes.  This is only
+        /// supported when the use of trusted hashes is enabled and either the
+        /// runtime is .NET Core or the use of trusted hashes is being forced.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted file hashes to match against, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose hash is to be checked.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to add to upon failure.  If this is null and an
+        /// error is added, a new list is created and stored here.
+        /// </param>
+        /// <returns>
+        /// True if the file hash is trusted; otherwise, false.
+        /// </returns>
         private static bool MaybeMatchTrustedFileHash(
             Interpreter interpreter,  /* in: OPTIONAL */
             StringList trustedHashes, /* in: OPTIONAL */
@@ -95,16 +144,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to verify the Authenticode signature of the
+        /// specified portable executable (PE) file using managed cryptography.
+        /// This is only supported when the netstandard 2.0 cryptographic APIs
+        /// are available; on other platforms it always fails.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the portable executable file whose signature is to be
+        /// verified.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero to perform online certificate revocation checking as part
+        /// of the verification.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to add to upon failure.  If this is null and an
+        /// error is added, a new list is created and stored here.
+        /// </param>
+        /// <returns>
+        /// True if the file signature was successfully verified as valid;
+        /// otherwise, false.
+        /// </returns>
         private static bool TryVerifyPeFileSignature(
             string fileName,      /* in */
+            bool revocation,      /* in */
             ref ResultList errors /* in, out */
             )
         {
 #if NET_STANDARD_20
             try
             {
+                VerificationOptions options = null;
+
+                if (revocation)
+                {
+                    options = new VerificationOptions();
+                    options.RevocationMode = X509RevocationMode.Online;
+                }
+
                 VerificationResult result = VerifyPeFileSignature(
-                    fileName, null); /* throw */
+                    fileName, options); /* throw */
 
                 if ((result != null) && result.AllValid)
                     return true;
@@ -128,6 +208,41 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the specified file is trusted,
+        /// returning the result as a simple boolean value.  It delegates to the
+        /// overload that returns detailed status and error information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted file hashes to match against, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose trust status is to be checked.
+        /// </param>
+        /// <param name="fileHandle">
+        /// An open handle to the file, if any.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if a user interface may be displayed during verification.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero to perform online certificate revocation checking as part
+        /// of the verification.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being checked as part of an install
+        /// operation.
+        /// </param>
+        /// <returns>
+        /// True if the file is trusted; otherwise, false.
+        /// </returns>
         public static bool IsFileTrusted(
             Interpreter interpreter,  /* in */
             StringList trustedHashes, /* in */
@@ -171,6 +286,53 @@ namespace Eagle._Components.Private
         //         called when running on Windows or when running
         //         on the .NET Framework.
         //
+        /// <summary>
+        /// This method determines whether the specified file is trusted by
+        /// first attempting to verify its Authenticode signature and then, if
+        /// that fails, attempting to match its hash against a set of trusted
+        /// file hashes.  It also emits a diagnostic trace describing the result.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted file hashes to match against, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose trust status is to be checked.
+        /// </param>
+        /// <param name="fileHandle">
+        /// An open handle to the file, if any.  This parameter is not used.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if a user interface may be displayed during verification.
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.  This
+        /// parameter is not used.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero to perform online certificate revocation checking as part
+        /// of the verification.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being checked as part of an install
+        /// operation.  This parameter is not used.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon success, this is set to <see cref="ERROR_SUCCESS" /> to indicate
+        /// that the file is trusted; otherwise, it is left with a non-success
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains the collected error information.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the file is trusted; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode IsFileTrusted(
             Interpreter interpreter,  /* in */
             StringList trustedHashes, /* in */
@@ -178,7 +340,7 @@ namespace Eagle._Components.Private
             IntPtr fileHandle,        /* in: NOT USED */
             bool userInterface,       /* in: NOT USED */
             bool userPrompt,          /* in: NOT USED */
-            bool revocation,          /* in: NOT USED */
+            bool revocation,          /* in */
             bool install,             /* in: NOT USED */
             ref int returnValue,      /* out */
             ref Result error          /* out */
@@ -195,7 +357,8 @@ namespace Eagle._Components.Private
                 goto done;
             }
 
-            if (TryVerifyPeFileSignature(fileName, ref errors))
+            if (TryVerifyPeFileSignature(
+                    fileName, revocation, ref errors))
             {
                 returnValue = (int)ERROR_SUCCESS;
                 code = ReturnCode.Ok;

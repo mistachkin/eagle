@@ -23,6 +23,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>namespace</c> command, which provides
+    /// a limited emulation of the Tcl <c>namespace</c> ensemble (for example
+    /// <c>eval</c>, <c>current</c>, <c>which</c>, and <c>tail</c>).  Eagle does
+    /// not actually support namespaces; this command exists primarily to improve
+    /// source compatibility with simple scripts that wrap themselves in a
+    /// <c>namespace eval</c> block.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("dbf1b8e2-0eb9-4246-ba2c-cfef01861d1d")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
@@ -31,6 +40,13 @@ namespace Eagle._Commands
     [ObjectName("namespace")]
     internal sealed class Namespace1 : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>namespace</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Namespace1(
             ICommandData commandData
             )
@@ -42,6 +58,10 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-commands supported by the <c>namespace</c>
+        /// command, keyed by sub-command name.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "children", "code", "current", "delete", "descendants",
@@ -53,6 +73,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-commands supported by the
+        /// <c>namespace</c> command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -62,11 +86,44 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>namespace</c> command.  It dispatches to
+        /// the requested sub-command (for example <c>eval</c>, <c>current</c>,
+        /// <c>which</c>, or <c>tail</c>), emulating Tcl namespace behavior on
+        /// top of the single, always-present global namespace.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any remaining
+        /// elements are the arguments to that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the requested
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (for example <see cref="ReturnCode.Error" />) when the interpreter
+        /// is null, the argument list is null, the wrong number of arguments is
+        /// supplied, an unknown sub-command is requested, or the requested
+        /// sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

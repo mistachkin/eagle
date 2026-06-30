@@ -16,6 +16,11 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class holds the metadata describing a named execute callback
+    /// exposed to an interpreter, including the callback delegate, its client
+    /// data, and the token used to identify it.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -23,6 +28,24 @@ namespace Eagle._Components.Public
     public class ExecuteCallbackData : IExecuteCallbackData
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an execute callback data instance wrapping the specified
+        /// name, callback, client data, and token.
+        /// </summary>
+        /// <param name="name">
+        /// The name of this execute callback.
+        /// </param>
+        /// <param name="callback">
+        /// The execute callback delegate to be invoked.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with this execute callback, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="token">
+        /// The token used to identify this execute callback within the
+        /// interpreter.
+        /// </param>
         public ExecuteCallbackData(
             string name,
             ExecuteCallback callback,
@@ -40,7 +63,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of this execute callback data.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of this execute callback data.
+        /// </summary>
         public virtual string Name
         {
             get { return name; }
@@ -51,7 +80,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the client data associated with this execute callback data.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with this execute callback
+        /// data.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -62,7 +98,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDynamicExecuteCallback Members
+        /// <summary>
+        /// Stores the execute callback delegate wrapped by this execute
+        /// callback data.
+        /// </summary>
         private ExecuteCallback callback;
+        /// <summary>
+        /// Gets or sets the execute callback delegate wrapped by this execute
+        /// callback data.
+        /// </summary>
         public virtual ExecuteCallback Callback
         {
             get { return callback; }
@@ -73,7 +117,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IWrapperData Members
+        /// <summary>
+        /// Stores the token used to identify this execute callback data within
+        /// the interpreter.
+        /// </summary>
         private long token;
+        /// <summary>
+        /// Gets or sets the token used to identify this execute callback data
+        /// within the interpreter.
+        /// </summary>
         public virtual long Token
         {
             get { return token; }
@@ -84,6 +136,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string representation of this execute
+        /// callback data using its name only.
+        /// </summary>
+        /// <returns>
+        /// The name of this execute callback data, or an empty string when it
+        /// has no name.
+        /// </returns>
         public override string ToString()
         {
             return (name != null) ? name : String.Empty;

@@ -30,6 +30,17 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class manages the event queues associated with an Eagle
+    /// interpreter.  It implements the machinery behind asynchronous and
+    /// deferred script execution (e.g. the <c>after</c> and <c>vwait</c>
+    /// commands), maintaining both a normal event queue and a separate idle
+    /// event queue, each ordered by event priority and scheduled time.  Events
+    /// may be queued, peeked, dequeued, listed, canceled, and serviced; the
+    /// class also exposes the wait handles and sleep/yield helpers used to
+    /// coordinate event processing across threads.  It implements
+    /// <see cref="IEventManager" /> and is disposable.
+    /// </summary>
     [ObjectId("ac231a31-e777-41e3-89de-e74cb4092467")]
     public class EventManager :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -41,12 +52,30 @@ namespace Eagle._Components.Public
         //
         // NOTE: All values are in milliseconds unless otherwise noted.
         //
+        /// <summary>
+        /// The default amount of time, in milliseconds, to sleep when no more
+        /// specific sleep time has been configured.
+        /// </summary>
         internal static readonly int DefaultSleepTime = 0;
+
+        /// <summary>
+        /// The minimum amount of time, in milliseconds, that may be used as a
+        /// sleep time.
+        /// </summary>
         internal static readonly int MinimumSleepTime = 50;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum amount of time, in milliseconds, by which the value
+        /// returned from the "now" callback must advance between successive
+        /// calls.
+        /// </summary>
         internal static readonly int MinimumEventTime = 1;
+
+        /// <summary>
+        /// The minimum amount of time, in milliseconds, to wait while idle.
+        /// </summary>
         internal static readonly int MinimumIdleWaitTime = 1000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -54,53 +83,162 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, failures encountered during event processing are not
+        /// reported via the complaint mechanism.
+        /// </summary>
         internal static bool DefaultNoComplain = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the data in this event
+        /// manager.
+        /// </summary>
         private readonly object syncRoot = new object();
 
+        /// <summary>
+        /// The high-water mark for the number of events in the normal event
+        /// queue.
+        /// </summary>
         private int maximumCount;
+
+        /// <summary>
+        /// The high-water mark for the number of events in the idle event
+        /// queue.
+        /// </summary>
         private int maximumIdleCount;
 
+        /// <summary>
+        /// The running total of events queued to the normal event queue.
+        /// </summary>
         private int queueCount;
+
+        /// <summary>
+        /// The running total of events queued to the idle event queue.
+        /// </summary>
         private int queueIdleCount;
 
+        /// <summary>
+        /// The number of times an event was considered for disposal.
+        /// </summary>
         private int maybeDisposeCount;
+
+        /// <summary>
+        /// The number of times an event was actually disposed.
+        /// </summary>
         private int reallyDisposeCount;
 
+        /// <summary>
+        /// The total number of times a caller waited for an event queue to
+        /// become empty.
+        /// </summary>
         private int waitForEmptyQueueTotalCount;
+
+        /// <summary>
+        /// The number of times waiting for an event queue to become empty
+        /// resulted in an error.
+        /// </summary>
         private int waitForEmptyQueueErrorCount;
 
+        /// <summary>
+        /// The total number of times a caller waited for an event to be
+        /// enqueued.
+        /// </summary>
         private int waitForEventEnqueuedTotalCount;
+
+        /// <summary>
+        /// The number of times waiting for an event to be enqueued resulted in
+        /// an error.
+        /// </summary>
         private int waitForEventEnqueuedErrorCount;
 
+        /// <summary>
+        /// The most recent value returned by the "now" callback, used to
+        /// guarantee that time advances monotonically.
+        /// </summary>
         private DateTime lastNow;
 
+        /// <summary>
+        /// The normal (non-idle) event queue.
+        /// </summary>
         private EventQueue events;
+
+        /// <summary>
+        /// The idle event queue.
+        /// </summary>
         private EventQueue idleEvents;
 
+        /// <summary>
+        /// The wait handle signaled when the normal event queue becomes empty.
+        /// </summary>
         private EventWaitHandle emptyEvent;
+
+        /// <summary>
+        /// The wait handle signaled when an event is enqueued to the normal
+        /// event queue.
+        /// </summary>
         private EventWaitHandle enqueueEvent;
+
+        /// <summary>
+        /// The wait handle signaled when the idle event queue becomes empty.
+        /// </summary>
         private EventWaitHandle idleEmptyEvent;
+
+        /// <summary>
+        /// The wait handle signaled when an event is enqueued to the idle
+        /// event queue.
+        /// </summary>
         private EventWaitHandle idleEnqueueEvent;
+
+        /// <summary>
+        /// An optional array of caller-supplied wait handles that are not
+        /// owned by this event manager.
+        /// </summary>
         private EventWaitHandle[] userEvents;
 
+        /// <summary>
+        /// The per-sleep-type configured sleep times, in milliseconds.
+        /// </summary>
         private SleepTypeIntDictionary sleepTimes;
+
+        /// <summary>
+        /// The per-sleep-type configured minimum sleep times, in milliseconds.
+        /// </summary>
         private SleepTypeIntDictionary minimumSleepTimes;
 
+        /// <summary>
+        /// When greater than zero, event processing is enabled.
+        /// </summary>
         private int enabled;
+
+        /// <summary>
+        /// The current event processing nesting level.
+        /// </summary>
         private int levels;
+
+        /// <summary>
+        /// When greater than zero, notifications are not sent for event
+        /// activity.
+        /// </summary>
         private int noNotify;
 
+        /// <summary>
+        /// The optional callback used to obtain the current date and time.
+        /// </summary>
         private DateTimeNowCallback nowCallback;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an event manager, initializing the event queues, wait
+        /// handles, counters, and other internal state to their default
+        /// values.
+        /// </summary>
         private EventManager()
         {
             maximumCount = 0;
@@ -141,6 +279,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an event manager associated with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns this event manager.
+        /// </param>
         public EventManager(
             Interpreter interpreter
             )
@@ -154,6 +299,20 @@ namespace Eagle._Components.Public
 
         #region Private Static Methods
         #region Event Formatting Methods
+        /// <summary>
+        /// This method formats the specified event as a string suitable for
+        /// inclusion in a list of events.
+        /// </summary>
+        /// <param name="index">
+        /// The position of the event within its event queue.
+        /// </param>
+        /// <param name="event">
+        /// The event to format.
+        /// </param>
+        /// <returns>
+        /// The string representation of the event, or null if the event is
+        /// null.
+        /// </returns>
         private static string EventToList(
             int index,
             IEvent @event
@@ -206,6 +365,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Event Checking Methods
+        /// <summary>
+        /// This method determines whether the priority of the specified event
+        /// is high enough relative to the requested priority.
+        /// </summary>
+        /// <param name="event">
+        /// The event whose priority is to be checked.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is considered ready.
+        /// </param>
+        /// <returns>
+        /// True if the event is ready based on its priority; otherwise, false.
+        /// </returns>
         private static bool IsEventPriorityReady(
             IEvent @event,
             EventPriority priority
@@ -228,6 +400,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the scheduled time of the specified
+        /// event has arrived.
+        /// </summary>
+        /// <param name="event">
+        /// The event whose scheduled time is to be checked.
+        /// </param>
+        /// <param name="dateTime">
+        /// The current date and time.
+        /// </param>
+        /// <returns>
+        /// True if the event is ready based on its scheduled time; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsEventDateTimeReady(
             IEvent @event,
             DateTime dateTime
@@ -246,6 +432,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event is targeted at a
+        /// thread that the caller is willing to service.
+        /// </summary>
+        /// <param name="event">
+        /// The event whose target thread is to be checked.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern thread matching, including the greedy
+        /// thread flag.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the caller is servicing events for, or
+        /// null to service events not targeted at a specific thread.
+        /// </param>
+        /// <returns>
+        /// True if the event is ready based on its target thread; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsEventThreadReady(
             IEvent @event,
             EventFlags eventFlags,
@@ -285,6 +490,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the flags of the specified event
+        /// match the requested event flags.
+        /// </summary>
+        /// <param name="event">
+        /// The event whose flags are to be checked.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to match against the event flags.
+        /// </param>
+        /// <param name="notHas">
+        /// Non-zero to invert the sense of the match (i.e. the event is ready
+        /// when it does not have the requested flags).
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require all of the requested flags to be present; zero
+        /// to require any of them.
+        /// </param>
+        /// <returns>
+        /// True if the event flags are ready; otherwise, false.
+        /// </returns>
         private static bool AreEventFlagsReady(
             IEvent @event,
             EventFlags eventFlags,
@@ -307,6 +533,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event flags indicate
+        /// an idle event.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags to check.
+        /// </param>
+        /// <returns>
+        /// True if the flags indicate an idle event; otherwise, false.
+        /// </returns>
         private static bool IsIdleEvent(
             EventFlags eventFlags
             )
@@ -316,6 +552,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event is an idle
+        /// event.
+        /// </summary>
+        /// <param name="event">
+        /// The event to check.
+        /// </param>
+        /// <returns>
+        /// True if the event is an idle event; otherwise, false.
+        /// </returns>
         private static bool IsIdleEvent(
             IEvent @event
             )
@@ -325,6 +571,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event is a script
+        /// event (i.e. one whose callback evaluates a script).
+        /// </summary>
+        /// <param name="event">
+        /// The event to check.
+        /// </param>
+        /// <returns>
+        /// True if the event is a script event; otherwise, false.
+        /// </returns>
         internal static bool IsScriptEvent(
             IEvent @event
             )
@@ -335,6 +591,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the name of the specified event
+        /// equals the specified pattern.
+        /// </summary>
+        /// <param name="event">
+        /// The event whose name is to be compared.
+        /// </param>
+        /// <param name="pattern">
+        /// The name to compare against the event name.
+        /// </param>
+        /// <returns>
+        /// True if the event name matches; otherwise, false.
+        /// </returns>
         private static bool MatchEventName(
             IEvent @event,
             string pattern
@@ -346,6 +615,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the text of the specified script
+        /// equals the specified pattern.
+        /// </summary>
+        /// <param name="script">
+        /// The script whose text is to be compared.
+        /// </param>
+        /// <param name="pattern">
+        /// The text to compare against the script text.
+        /// </param>
+        /// <returns>
+        /// True if the script text matches; otherwise, false.
+        /// </returns>
         private static bool MatchScriptText(
             IScript script,
             string pattern
@@ -357,6 +639,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event matches using
+        /// the supplied match callback.  When there is no callback, the event
+        /// is considered to match.
+        /// </summary>
+        /// <param name="event">
+        /// The event to test for a match.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to test the event, or null to match any event.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the match callback.
+        /// </param>
+        /// <returns>
+        /// True if the event matches; otherwise, false.
+        /// </returns>
         private static bool MatchEvent(
             IEvent @event,
             EventMatchCallback callback,
@@ -396,6 +695,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an idle event should be dequeued,
+        /// based on the requested event flags and the number of pending
+        /// non-idle events.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags that govern idle event handling.
+        /// </param>
+        /// <param name="nonIdleCount">
+        /// The number of pending non-idle events.
+        /// </param>
+        /// <returns>
+        /// True if an idle event should be dequeued; otherwise, false.
+        /// </returns>
         private static bool ShouldDequeueIdleEvent(
             EventFlags eventFlags,
             int nonIdleCount
@@ -415,6 +728,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves an automatic event priority into a concrete
+        /// priority, based on the event flags.  Any explicitly specified
+        /// priority is returned unchanged.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to determine the priority when the requested
+        /// priority is automatic.
+        /// </param>
+        /// <param name="priority">
+        /// The requested priority, which may be automatic.
+        /// </param>
+        /// <returns>
+        /// The resolved event priority.
+        /// </returns>
         private static EventPriority GetAutomaticEventPriority(
             EventFlags eventFlags,
             EventPriority priority
@@ -466,6 +794,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the effective priority at which the specified
+        /// event should be considered ready, based on its event flags and the
+        /// lowest priority the caller is willing to accept.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags of the event being considered.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority the caller is accepting.
+        /// </param>
+        /// <returns>
+        /// The effective event priority.
+        /// </returns>
         private static EventPriority GetReadyEventPriority(
             EventFlags eventFlags,
             EventPriority priority
@@ -516,6 +858,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves an automatic event thread identifier into a
+        /// concrete thread identifier.  A null identifier (consume all) is
+        /// returned unchanged, a non-zero identifier (consume specific) is
+        /// returned unchanged, and a zero identifier is resolved to the
+        /// current system thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The requested thread identifier, which may be null or zero.
+        /// </param>
+        /// <returns>
+        /// The resolved thread identifier.
+        /// </returns>
         private static long? GetAutomaticEventThread(
             long? threadId
             )
@@ -536,6 +891,16 @@ namespace Eagle._Components.Public
 
         #region ParameterizedThreadStart Methods
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method is a thread start routine that queues a script event on
+        /// the interpreter contained in the supplied state object.  Any
+        /// resulting status is reported via the interpreter's interactive host.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread state object, expected to be an
+        /// <see cref="IAnyPair{Interpreter, IScript}" /> containing the
+        /// interpreter and the script to queue.
+        /// </param>
         internal static void QueueEventThreadStart(
             object obj
             )
@@ -598,6 +963,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is a thread start routine that services events for the
+        /// interpreter contained in the supplied state object until an error
+        /// occurs.  Any resulting status is reported via the interpreter's
+        /// interactive host.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread state object, expected to be a
+        /// <see cref="ServiceEventClientData" /> describing the interpreter and
+        /// the event servicing parameters.
+        /// </param>
         internal static void ServiceEventsThreadStart(
             object obj
             )
@@ -685,6 +1061,27 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ScriptEventCallback (ExecuteCallback) Methods
+        /// <summary>
+        /// This method performs the call frame management required before
+        /// evaluating a script event.  It creates and pushes the appropriate
+        /// call frame, taking interpreter namespace support into account.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the script event will be evaluated.
+        /// </param>
+        /// <param name="name">
+        /// The name to associate with the created call frame.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that will be used to evaluate the script event.
+        /// </param>
+        /// <param name="useNamespaces">
+        /// Upon return, non-zero if namespaces are enabled for the interpreter
+        /// and a namespace call frame was pushed; otherwise, zero.
+        /// </param>
+        /// <param name="frame">
+        /// Upon return, the call frame that was created and pushed, if any.
+        /// </param>
         private static void ScriptEventPrologue(
             Interpreter interpreter,
             string name,
@@ -742,6 +1139,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the call frame cleanup required after
+        /// evaluating a script event.  It pops the call frame that was pushed
+        /// by <c>ScriptEventPrologue</c>, taking interpreter namespace support
+        /// into account.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the script event was evaluated.
+        /// </param>
+        /// <param name="useNamespaces">
+        /// Non-zero if a namespace call frame was pushed and must now be
+        /// popped.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame that was pushed and is now to be popped.
+        /// </param>
         private static void ScriptEventEpilogue(
             Interpreter interpreter,
             bool useNamespaces,
@@ -788,6 +1201,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a trace message describing a script event that is
+        /// being evaluated.
+        /// </summary>
+        /// <param name="prefix">
+        /// A short prefix describing the trace point.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter in which the script event is being evaluated.
+        /// </param>
+        /// <param name="scriptName">
+        /// The name of the script being evaluated.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode used to evaluate the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags used to evaluate the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags used to evaluate the script.
+        /// </param>
+        /// <param name="combinedEventFlags">
+        /// The combined event flags used to evaluate the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags used to evaluate the script.
+        /// </param>
+        /// <param name="code">
+        /// The return code produced by evaluating the script, if any.
+        /// </param>
+        /// <param name="text">
+        /// The script text being evaluated.
+        /// </param>
+        /// <param name="result">
+        /// The result produced by evaluating the script, if any.
+        /// </param>
         private static void ScriptEventTrace(
             string prefix,
             Interpreter interpreter,
@@ -823,6 +1273,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the text of a script event using the engine
+        /// operation selected by the specified engine mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which to evaluate the script.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that selects which engine operation to perform.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the result of the evaluation; upon failure, an error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the evaluation succeeded.
+        /// </returns>
         private static ReturnCode ScriptEventCore(
             Interpreter interpreter,
             EngineMode engineMode,
@@ -895,6 +1377,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the event callback used for script events.  It
+        /// extracts the script from the event client data and evaluates each
+        /// of its sections within a managed call frame, stopping if any
+        /// section raises an error.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which to evaluate the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The event client data, expected to contain the
+        /// <see cref="IScript" /> to evaluate.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, the result of the evaluation; upon failure, an error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the evaluation succeeded.
+        /// </returns>
         private static ReturnCode ScriptEventCallback(
             Interpreter interpreter,
             IClientData clientData,
@@ -1057,6 +1559,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether event processing is currently
+        /// enabled.
+        /// </summary>
+        /// <returns>
+        /// True if event processing is enabled; otherwise, false.
+        /// </returns>
         private bool IsEnabled()
         {
             return Interlocked.CompareExchange(ref enabled, 0, 0) > 0;
@@ -1064,6 +1573,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether event processing is currently active
+        /// (i.e. in progress on some thread).
+        /// </summary>
+        /// <returns>
+        /// True if event processing is active; otherwise, false.
+        /// </returns>
         private bool IsActive()
         {
             return Interlocked.CompareExchange(ref levels, 0, 0) > 0;
@@ -1071,6 +1587,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether notifications are currently
+        /// suppressed for event activity.
+        /// </summary>
+        /// <returns>
+        /// True if notifications are suppressed; otherwise, false.
+        /// </returns>
         private bool IsNoNotify()
         {
             return Interlocked.CompareExchange(ref noNotify, 0, 0) > 0;
@@ -1078,6 +1601,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method increments the event processing nesting level.
+        /// </summary>
+        /// <returns>
+        /// The new event processing nesting level.
+        /// </returns>
         private int EnterLevel()
         {
             return Interlocked.Increment(ref levels);
@@ -1085,6 +1614,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements the event processing nesting level.
+        /// </summary>
+        /// <returns>
+        /// The new event processing nesting level.
+        /// </returns>
         private int ExitLevel()
         {
             return Interlocked.Decrement(ref levels);
@@ -1092,6 +1627,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current date and time, using the configured
+        /// "now" callback when present.  It guarantees that the returned value
+        /// advances by at least a minimal amount between successive calls.
+        /// </summary>
+        /// <returns>
+        /// The current date and time.
+        /// </returns>
         private DateTime GetNow()
         {
             //
@@ -1121,6 +1664,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the normal or idle event queue.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to return the idle event queue; zero to return the normal
+        /// event queue.
+        /// </param>
+        /// <returns>
+        /// The requested event queue.
+        /// </returns>
         private EventQueue GetEventQueue(
             bool idle
             )
@@ -1133,6 +1686,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of events in the normal or idle
+        /// event queue.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to count the idle event queue; zero to count the normal
+        /// event queue.
+        /// </param>
+        /// <returns>
+        /// The number of events in the requested event queue.
+        /// </returns>
         private int GetEventCount(
             bool idle
             )
@@ -1150,6 +1714,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether either the normal or idle event
+        /// queue currently exists.
+        /// </summary>
+        /// <returns>
+        /// True if at least one event queue exists; otherwise, false.
+        /// </returns>
         private bool HaveAnyEventQueue()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1160,6 +1731,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the total number of events in both the normal
+        /// and idle event queues.
+        /// </summary>
+        /// <returns>
+        /// The total number of pending events.
+        /// </returns>
         private int GetTotalEventCount()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1175,6 +1753,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified event queue is the
+        /// idle event queue.
+        /// </summary>
+        /// <param name="eventQueue">
+        /// The event queue to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified event queue is the idle event queue;
+        /// otherwise, false.
+        /// </returns>
         private bool IsIdleEventQueue(
             EventQueue eventQueue
             )
@@ -1187,6 +1776,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a key used to order an event within an event
+        /// queue, combining the event priority, scheduled time, and a unique
+        /// sequence number.
+        /// </summary>
+        /// <param name="priority">
+        /// The priority of the event.
+        /// </param>
+        /// <param name="dateTime">
+        /// The scheduled time of the event.
+        /// </param>
+        /// <returns>
+        /// The created event queue key.
+        /// </returns>
         private EventQueueKey CreateEventQueueKey(
             EventPriority priority,
             DateTime dateTime
@@ -1198,6 +1801,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified event if it is flagged as
+        /// fire-and-forget, and then clears the reference to it.  The
+        /// maybe-dispose counter is always incremented.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags governing this dispose operation.
+        /// </param>
+        /// <param name="event">
+        /// The event to maybe dispose.  Upon return, the reference is cleared.
+        /// </param>
         private void MaybeDispose(
             EventFlags eventFlags, /* in */
             ref IEvent @event      /* in, out */
@@ -1222,6 +1836,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the configured sleep time for the
+        /// specified sleep type.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose configured time is to be retrieved.
+        /// </param>
+        /// <param name="minimum">
+        /// Non-zero to retrieve from the minimum sleep times; zero to retrieve
+        /// from the normal sleep times.
+        /// </param>
+        /// <param name="sleepTime">
+        /// Upon success, the configured sleep time, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if a sleep time was configured for the specified sleep type;
+        /// otherwise, false.
+        /// </returns>
         private bool TryGetSleepTime(
             SleepType sleepType,
             bool minimum,
@@ -1246,6 +1878,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or removes the configured sleep time for the
+        /// specified sleep type.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose configured time is to be set or removed.
+        /// </param>
+        /// <param name="minimum">
+        /// Non-zero to operate on the minimum sleep times; zero to operate on
+        /// the normal sleep times.
+        /// </param>
+        /// <param name="sleepTime">
+        /// The sleep time to set, in milliseconds, or null to remove any
+        /// existing configured sleep time.
+        /// </param>
+        /// <returns>
+        /// True if the configured sleep times were changed; otherwise, false.
+        /// </returns>
         private bool TrySetSleepTime(
             SleepType sleepType,
             bool minimum,
@@ -1291,6 +1941,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dequeues the next ready event, discarding any error
+        /// information.  It is a convenience wrapper over the overload that
+        /// reports an error.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The current date and time, used to determine which events are
+        /// scheduled to run.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success with no event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the dequeued event, if any.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         private ReturnCode DequeueAnyReadyEvent(
             DateTime dateTime,
             EventFlags eventFlags,
@@ -1309,6 +1988,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dequeues the next ready event from the specified event
+        /// queue.  Events are considered in priority and scheduled-time order;
+        /// the first event matching the requested priority, time, thread, and
+        /// flags is removed and returned.
+        /// </summary>
+        /// <param name="eventQueue">
+        /// The event queue to dequeue from.
+        /// </param>
+        /// <param name="dateTime">
+        /// The current date and time, used to determine which events are
+        /// scheduled to run.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success with no event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the dequeued event, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no event could be
+        /// dequeued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         private ReturnCode DequeueAnyReadyEvent(
             EventQueue eventQueue,
             DateTime dateTime,
@@ -1460,6 +2176,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports a failure via the complaint mechanism, unless
+        /// the code indicates success or complaints have been suppressed.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to check; a non-success code may trigger a
+        /// complaint.
+        /// </param>
+        /// <param name="error">
+        /// The error information to report.
+        /// </param>
         private void MaybeComplain(
             ReturnCode code,
             Result error
@@ -1480,6 +2207,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the wait handle that is signaled when the
+        /// normal or idle event queue becomes empty.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to return the idle empty-queue wait handle; zero to return
+        /// the normal empty-queue wait handle.
+        /// </param>
+        /// <returns>
+        /// The requested empty-queue wait handle.
+        /// </returns>
         private EventWaitHandle GetEmptyEvent(
             bool idle
             )
@@ -1492,6 +2230,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the normal or idle event queue is
+        /// currently empty.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to check the idle event queue; zero to check the normal
+        /// event queue.
+        /// </param>
+        /// <returns>
+        /// True if the requested event queue is empty; otherwise, false.
+        /// </returns>
         private bool CheckForEmptyQueue(
             bool idle
             )
@@ -1501,6 +2250,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals that the normal or idle event queue has become
+        /// empty, complaining if the signal could not be raised.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to signal the idle event queue; zero to signal the normal
+        /// event queue.
+        /// </param>
         private void SignalEmptyQueue(
             bool idle
             )
@@ -1515,6 +2272,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals that the normal or idle event queue has become
+        /// empty.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to signal the idle event queue; zero to signal the normal
+        /// event queue.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the signal could not
+        /// be raised.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the signal was raised.
+        /// </returns>
         private ReturnCode SignalEmptyQueue(
             bool idle,
             ref Result error
@@ -1543,6 +2315,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the wait handle that is signaled when an event
+        /// is enqueued to the normal or idle event queue.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to return the idle enqueue wait handle; zero to return the
+        /// normal enqueue wait handle.
+        /// </param>
+        /// <returns>
+        /// The requested enqueue wait handle.
+        /// </returns>
         private EventWaitHandle GetEnqueueEvent(
             bool idle
             )
@@ -1555,6 +2338,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the normal or idle event queue
+        /// currently has any enqueued events.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to check the idle event queue; zero to check the normal
+        /// event queue.
+        /// </param>
+        /// <returns>
+        /// True if the requested event queue has at least one event;
+        /// otherwise, false.
+        /// </returns>
         private bool CheckForEventEnqueued(
             bool idle
             )
@@ -1564,6 +2359,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals that an event has been enqueued to the normal
+        /// or idle event queue, complaining if the signal could not be raised.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to signal the idle event queue; zero to signal the normal
+        /// event queue.
+        /// </param>
         private void SignalEventEnqueued(
             bool idle
             )
@@ -1578,6 +2381,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals that an event has been enqueued to the normal
+        /// or idle event queue.
+        /// </summary>
+        /// <param name="idle">
+        /// Non-zero to signal the idle event queue; zero to signal the normal
+        /// event queue.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the signal could not
+        /// be raised.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the signal was raised.
+        /// </returns>
         private ReturnCode SignalEventEnqueued(
             bool idle,
             ref Result error
@@ -1608,7 +2426,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The interpreter that owns this event manager.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets or sets the interpreter that owns this event manager.
+        /// </summary>
         public Interpreter Interpreter
         {
             get
@@ -1647,6 +2471,10 @@ namespace Eagle._Components.Public
         //       check for this problem from the few critical places in the
         //       code where this kind of safety check is required.
         //
+        /// <summary>
+        /// Gets a value indicating whether this event manager has been
+        /// disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -1665,6 +2493,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this event manager is in the
+        /// process of being disposed.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -1679,6 +2511,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeSimple Members
+        /// <summary>
+        /// This method attempts to acquire the synchronization lock for this
+        /// event manager without blocking.
+        /// </summary>
+        /// <returns>
+        /// True if the lock was acquired; otherwise, false.
+        /// </returns>
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public bool TryLock() /* NOT USED BY CORE */
         {
@@ -1692,6 +2531,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method acquires the synchronization lock for this event
+        /// manager, blocking until it is available.
+        /// </summary>
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public void Lock() /* NOT USED BY CORE */
         {
@@ -1705,6 +2548,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the synchronization lock for this event
+        /// manager.
+        /// </summary>
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public void Unlock() /* NOT USED BY CORE */
         {
@@ -1720,6 +2567,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeBase Members
+        /// <summary>
+        /// Gets the object used to synchronize access to this event manager.
+        /// </summary>
         /* DANGEROUS: EXTERNAL USE ONLY. */
         public object SyncRoot
         {
@@ -1730,6 +2580,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Members
+        /// <summary>
+        /// This method attempts to acquire the synchronization lock for this
+        /// event manager without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, non-zero if the lock was acquired; otherwise, zero.
+        /// </param>
         /* EXTERNAL USE ONLY. */
         public void TryLock(
             ref bool locked
@@ -1745,6 +2602,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the synchronization lock for this
+        /// event manager, waiting up to the default wait-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, non-zero if the lock was acquired; otherwise, zero.
+        /// </param>
         /* EXTERNAL USE ONLY. */
         public void TryLockWithWait(
             ref bool locked
@@ -1762,6 +2626,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the synchronization lock for this
+        /// event manager without blocking and without throwing if this event
+        /// manager has been disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, non-zero if the lock was acquired; otherwise, zero.
+        /// </param>
         public void TryLockNoThrow(
             ref bool locked
             )
@@ -1776,6 +2648,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the synchronization lock for this
+        /// event manager, waiting up to the specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, non-zero if the lock was acquired; otherwise, zero.
+        /// </param>
         /* EXTERNAL USE ONLY. */
         public void TryLock(
             int timeout,
@@ -1792,6 +2674,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the synchronization lock for this event
+        /// manager, if it is currently held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is currently held.  Upon return,
+        /// zero if the lock was released.
+        /// </param>
         /* EXTERNAL USE ONLY. */
         public void ExitLock(
             ref bool locked
@@ -1813,6 +2703,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IEventManager Members
+        /// <summary>
+        /// Gets the running total of events queued to the normal event queue.
+        /// </summary>
         public int QueueEventCount
         {
             get
@@ -1828,6 +2721,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the running total of events queued to the idle event queue.
+        /// </summary>
         public int QueueIdleEventCount
         {
             get
@@ -1843,6 +2739,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of events currently in the normal event queue.
+        /// </summary>
         public int EventCount
         {
             get
@@ -1855,6 +2754,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of events currently in the idle event queue.
+        /// </summary>
         public int IdleEventCount
         {
             get
@@ -1867,6 +2769,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the total number of events currently in both the normal and
+        /// idle event queues.
+        /// </summary>
         public int TotalEventCount
         {
             get
@@ -1879,6 +2785,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the high-water mark for the number of events in the normal
+        /// event queue.
+        /// </summary>
         public int MaximumEventCount
         {
             get
@@ -1894,6 +2804,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the high-water mark for the number of events in the idle event
+        /// queue.
+        /// </summary>
         public int MaximumIdleEventCount
         {
             get
@@ -1909,6 +2823,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of times an event was considered for disposal.
+        /// </summary>
         public int MaybeDisposeEventCount
         {
             get
@@ -1922,6 +2839,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of times an event was actually disposed.
+        /// </summary>
         public int ReallyDisposeEventCount
         {
             get
@@ -1935,6 +2855,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the total number of times a caller waited for an event queue to
+        /// become empty.
+        /// </summary>
         public int WaitForEmptyQueueTotalCount
         {
             get
@@ -1948,6 +2872,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of times waiting for an event queue to become empty
+        /// resulted in an error.
+        /// </summary>
         public int WaitForEmptyQueueErrorCount
         {
             get
@@ -1961,6 +2889,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the total number of times a caller waited for an event to be
+        /// enqueued.
+        /// </summary>
         public int WaitForEventEnqueuedTotalCount
         {
             get
@@ -1974,6 +2906,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the number of times waiting for an event to be enqueued
+        /// resulted in an error.
+        /// </summary>
         public int WaitForEventEnqueuedErrorCount
         {
             get
@@ -1987,6 +2923,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the wait handle signaled when the normal event queue becomes
+        /// empty.
+        /// </summary>
         public EventWaitHandle EmptyEvent
         {
             get { CheckDisposed(); lock (syncRoot) { return emptyEvent; } }
@@ -1994,6 +2934,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the wait handle signaled when an event is enqueued to the
+        /// normal event queue.
+        /// </summary>
         public EventWaitHandle EnqueueEvent
         {
             get { CheckDisposed(); lock (syncRoot) { return enqueueEvent; } }
@@ -2001,6 +2945,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the wait handle signaled when the idle event queue becomes
+        /// empty.
+        /// </summary>
         public EventWaitHandle IdleEmptyEvent
         {
             get { CheckDisposed(); lock (syncRoot) { return idleEmptyEvent; } }
@@ -2008,6 +2956,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the wait handle signaled when an event is enqueued to the idle
+        /// event queue.
+        /// </summary>
         public EventWaitHandle IdleEnqueueEvent
         {
             get { CheckDisposed(); lock (syncRoot) { return idleEnqueueEvent; } }
@@ -2015,6 +2967,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the array of caller-supplied wait handles that are not
+        /// owned by this event manager.  The accessors return and accept a copy
+        /// of the array.
+        /// </summary>
         public EventWaitHandle[] UserEvents
         {
             get
@@ -2067,6 +3024,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether event processing is
+        /// enabled.
+        /// </summary>
         public bool Enabled
         {
             get
@@ -2088,6 +3049,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether event processing is
+        /// currently active.  Setting this property enters or exits an event
+        /// processing level.
+        /// </summary>
         public bool Active
         {
             get
@@ -2109,6 +3075,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether notifications are suppressed
+        /// for event activity.
+        /// </summary>
         public bool NoNotify
         {
             get
@@ -2130,6 +3100,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the optional callback used to obtain the current date
+        /// and time.
+        /// </summary>
         public DateTimeNowCallback NowCallback
         {
             get { CheckDisposed(); lock (syncRoot) { return nowCallback; } }
@@ -2138,6 +3112,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the current enabled state of event processing and
+        /// then forces event processing to be disabled.
+        /// </summary>
+        /// <param name="savedEnabled">
+        /// Upon return, the previous enabled state, suitable for passing to
+        /// <see cref="RestoreEnabled" />.
+        /// </param>
         public void SaveEnabledAndForceDisabled(
             ref int savedEnabled
             )
@@ -2149,6 +3131,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores a previously saved enabled state of event
+        /// processing.
+        /// </summary>
+        /// <param name="savedEnabled">
+        /// The previously saved enabled state, as returned by
+        /// <see cref="SaveEnabledAndForceDisabled" />.
+        /// </param>
+        /// <returns>
+        /// True if event processing is enabled after the restore; otherwise,
+        /// false.
+        /// </returns>
         public bool RestoreEnabled(
             int savedEnabled
             )
@@ -2160,6 +3154,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list describing every event currently in the
+        /// normal and idle event queues.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, a list describing the queued events; upon failure, an
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode Dump(
             ref Result result
             )
@@ -2220,6 +3225,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes every event from both the normal and idle event
+        /// queues.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the events could not
+        /// be cleared.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode ClearEvents(
             ref Result error
             )
@@ -2278,6 +3294,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the next event from the normal event queue, or
+        /// the idle event queue when the normal queue is empty, without
+        /// removing it.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success with no event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the peeked event, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no event could be
+        /// peeked.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode PeekEvent( /* NOT USED BY CORE */
             bool strict,
             ref IEvent @event,
@@ -2341,6 +3376,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the normal and idle event queues for an event
+        /// whose name matches the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event to find, or null to match any event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the matching event.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no matching event was
+        /// found.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether a matching event was found.
+        /// </returns>
         public ReturnCode GetEvent(
             string name,
             ref IEvent @event,
@@ -2406,6 +3458,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes and discards a single event from the normal
+        /// event queue, or the idle event queue when the normal queue is empty.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no event could be
+        /// discarded.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode DiscardEvent( /* NOT USED BY CORE */
             bool strict,
             ref Result error
@@ -2492,6 +3559,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes and returns a single event from the normal
+        /// event queue, or the idle event queue when the normal queue is empty.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success with no event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the dequeued event, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no event could be
+        /// dequeued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode DequeueEvent( /* NOT USED BY CORE */
             bool strict,
             ref IEvent @event,
@@ -2581,6 +3666,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a fire-and-forget event that invokes the
+        /// specified callback when it is serviced.
+        /// </summary>
+        /// <param name="name">
+        /// The name to associate with the event.
+        /// </param>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the event is serviced.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueEvent(
             string name,
             DateTime dateTime,
@@ -2604,6 +3726,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event that invokes the specified callback
+        /// when it is serviced, and returns the created event.
+        /// </summary>
+        /// <param name="name">
+        /// The name to associate with the event.
+        /// </param>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke when the event is serviced.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the event that was created and queued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueEvent(
             string name,
             DateTime dateTime,
@@ -2734,6 +3896,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a fire-and-forget event that evaluates the
+        /// specified script text when it is serviced.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when evaluating the script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when evaluating the script.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueScript(
             DateTime dateTime,
             string text,
@@ -2759,6 +3961,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event that evaluates the specified script text
+        /// when it is serviced, and returns the created event.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when evaluating the script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when evaluating the script.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the event that was created and queued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueScript(
             DateTime dateTime,
             string text,
@@ -2798,6 +4043,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a fire-and-forget event that evaluates the
+        /// specified script object when it is serviced.
+        /// </summary>
+        /// <param name="name">
+        /// The name to associate with the event.
+        /// </param>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="script">
+        /// The script object to evaluate.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueScript(
             string name,
             DateTime dateTime,
@@ -2821,6 +4100,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues an event that evaluates the specified script
+        /// object when it is serviced, and returns the created event.
+        /// </summary>
+        /// <param name="name">
+        /// The name to associate with the event.
+        /// </param>
+        /// <param name="dateTime">
+        /// The earliest time at which the event should be serviced.
+        /// </param>
+        /// <param name="script">
+        /// The script object to evaluate.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that govern how the event is queued and serviced.
+        /// </param>
+        /// <param name="priority">
+        /// The priority of the event, which may be automatic.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread the event is targeted at, or null for
+        /// no specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events allowed in the target queue, or zero
+        /// or less for no limit.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the event that was created and queued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the event could not be
+        /// queued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the event was queued.
+        /// </returns>
         public ReturnCode QueueScript(
             string name,
             DateTime dateTime,
@@ -2842,6 +4158,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dequeues the next ready event, considering the normal
+        /// event queue first and then, if appropriate, the idle event queue.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The current date and time, used to determine which events are
+        /// scheduled to run.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of events as an error; zero to treat
+        /// it as success with no event.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, the dequeued event, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why no event could be
+        /// dequeued.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode DequeueAnyReadyEvent(
             DateTime dateTime,
             EventFlags eventFlags,
@@ -2915,6 +4263,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of the events in the normal and idle
+        /// event queues whose string representations match the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the events, or null to match all events.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, the list of matching events.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the events could not
+        /// be listed.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode ListEvents(
             string pattern,
             bool noCase,
@@ -2966,6 +4335,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a collection of the events in the normal and
+        /// idle event queues that match using the supplied match callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to test each event, or null to match all events.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the match callback.
+        /// </param>
+        /// <param name="events">
+        /// Upon success, the collection of matching events.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the events could not
+        /// be listed.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode ListEvents( /* NOT USED BY CORE */
             EventMatchCallback callback,
             IClientData clientData,
@@ -3031,6 +4420,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method cancels events in the normal and idle event queues that
+        /// match the specified name or script text.  Events are first matched
+        /// by name and then by script text.
+        /// </summary>
+        /// <param name="nameOrScript">
+        /// The event name or script text to match, or null to match any event.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat matching zero events as an error; zero to treat it
+        /// as success.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to cancel all matching events; zero to cancel only the
+        /// first matching event.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the events could not
+        /// be canceled.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the operation succeeded.
+        /// </returns>
         public ReturnCode CancelEvents(
             string nameOrScript,
             bool strict,
@@ -3275,6 +4687,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured sleep time for the specified
+        /// sleep type, falling back to the interpreter or default sleep time
+        /// when none has been configured.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose sleep time is to be returned.
+        /// </param>
+        /// <returns>
+        /// The sleep time, in milliseconds.
+        /// </returns>
         public int GetSleepTime(
             SleepType sleepType
             )
@@ -3303,6 +4726,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or removes the configured sleep time for the
+        /// specified sleep type.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose sleep time is to be set or removed.
+        /// </param>
+        /// <param name="sleepTime">
+        /// The sleep time to set, in milliseconds, or null to remove any
+        /// existing configured sleep time.
+        /// </param>
+        /// <returns>
+        /// True if the configured sleep times were changed; otherwise, false.
+        /// </returns>
         public bool SetSleepTime(
             SleepType sleepType,
             int? sleepTime
@@ -3315,6 +4752,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the effective minimum sleep time for the
+        /// specified sleep type, ensuring the result is not below the minimum
+        /// allowed sleep time.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose minimum sleep time is to be returned.
+        /// </param>
+        /// <returns>
+        /// The minimum sleep time, in milliseconds.
+        /// </returns>
         public int GetMinimumSleepTime(
             SleepType sleepType
             )
@@ -3338,6 +4786,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or removes the configured minimum sleep time for
+        /// the specified sleep type.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose minimum sleep time is to be set or removed.
+        /// </param>
+        /// <param name="sleepTime">
+        /// The minimum sleep time to set, in milliseconds, or null to remove
+        /// any existing configured minimum sleep time.
+        /// </param>
+        /// <returns>
+        /// True if the configured minimum sleep times were changed; otherwise,
+        /// false.
+        /// </returns>
         public bool SetMinimumSleepTime(
             SleepType sleepType,
             int? sleepTime
@@ -3350,6 +4813,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sleeps for the configured amount of time for the
+        /// specified sleep type.
+        /// </summary>
+        /// <param name="sleepType">
+        /// The sleep type whose sleep time governs how long to sleep.
+        /// </param>
+        /// <param name="minimum">
+        /// Non-zero to use the minimum sleep time; zero to use the normal
+        /// sleep time.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the sleep could not be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// True if the sleep completed successfully; otherwise, false.
+        /// </returns>
         public bool Sleep(
             SleepType sleepType,
             bool minimum,
@@ -3381,6 +4862,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method yields the current thread, giving other threads an
+        /// opportunity to run.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the yield could not be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// True if the yield completed successfully; otherwise, false.
+        /// </returns>
         public bool Yield(
             ref Result error
             )
@@ -3406,6 +4898,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events, dispatching each ready event
+        /// to its callback until the queue is exhausted or a stopping
+        /// condition is reached.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero or less for no
+        /// limit.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of processing.
+        /// </returns>
         public ReturnCode ProcessEvents( /* NOT USED BY CORE */
             EventFlags eventFlags,
             EventPriority priority,
@@ -3427,6 +4951,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events, dispatching each ready event
+        /// to its callback until the queue is exhausted or a stopping
+        /// condition is reached, and reports the number of events processed.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero or less for no
+        /// limit.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="eventCount">
+        /// On input, the initial event count.  Upon return, increased by the
+        /// number of events that were processed.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of processing.
+        /// </returns>
         public ReturnCode ProcessEvents(
             EventFlags eventFlags,
             EventPriority priority,
@@ -3696,6 +5256,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events and, optionally, any pending
+        /// user-interface messages.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero for all.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to also process pending user-interface messages.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of processing.
+        /// </returns>
         public ReturnCode DoOneEvent( /* NOT USED BY CORE */
             EventFlags eventFlags,
             EventPriority priority,
@@ -3718,6 +5311,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes pending events and, optionally, any pending
+        /// user-interface messages, and reports the number of events
+        /// processed.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process, or zero for all.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to also process pending user-interface messages.
+        /// </param>
+        /// <param name="eventCount">
+        /// On input, the initial event count.  Upon return, increased by the
+        /// number of events that were processed.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of processing.
+        /// </returns>
         public ReturnCode DoOneEvent(
             EventFlags eventFlags,
             EventPriority priority,
@@ -3762,6 +5393,51 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method repeatedly processes pending events while the
+        /// interpreter remains valid, yielding between iterations, until an
+        /// error occurs.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for an event to
+        /// become ready, or null for no timeout.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process per iteration, or zero for
+        /// all.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to ignore script cancellation while waiting.
+        /// </param>
+        /// <param name="noGlobalCancel">
+        /// Non-zero to ignore global script cancellation while waiting.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to also process pending user-interface messages.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of servicing.
+        /// </returns>
         public ReturnCode ServiceEvents(
             EventFlags eventFlags,
             EventPriority priority,
@@ -3788,6 +5464,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method repeatedly processes pending events while the
+        /// interpreter remains valid, yielding between iterations, until an
+        /// error occurs, and reports the number of events processed.
+        /// </summary>
+        /// <param name="eventFlags">
+        /// The event flags used to select which events are eligible and to
+        /// govern processing behavior.
+        /// </param>
+        /// <param name="priority">
+        /// The lowest relative priority that is eligible.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread events must be targeted at, or null to
+        /// consider events not targeted at a specific thread.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for an event to
+        /// become ready, or null for no timeout.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of events to process per iteration, or zero for
+        /// all.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to ignore script cancellation while waiting.
+        /// </param>
+        /// <param name="noGlobalCancel">
+        /// Non-zero to ignore global script cancellation while waiting.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing upon the first event that fails.
+        /// </param>
+        /// <param name="errorOnEmpty">
+        /// Non-zero to treat the absence of further ready events as an error.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to also process pending user-interface messages.
+        /// </param>
+        /// <param name="eventCount">
+        /// On input, the initial event count.  Upon return, increased by the
+        /// number of events that were processed.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, the accumulated error information.
+        /// </param>
+        /// <returns>
+        /// The return code indicating the overall outcome of servicing.
+        /// </returns>
         public ReturnCode ServiceEvents(
             EventFlags eventFlags,
             EventPriority priority,
@@ -3863,6 +5588,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the normal or idle event queue to become
+        /// empty, up to the specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to wait for the idle event queue; zero to wait for the
+        /// normal event queue.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require an explicit empty-queue signal; zero to also
+        /// succeed if the queue is observed to be empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the wait did not
+        /// succeed.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether the queue became empty.
+        /// </returns>
         public ReturnCode WaitForEmptyQueue(
             int timeout,
             bool idle,
@@ -3956,6 +5703,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for an event to be enqueued to the normal or idle
+        /// event queue, up to the specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait.
+        /// </param>
+        /// <param name="idle">
+        /// Non-zero to wait on the idle event queue; zero to wait on the
+        /// normal event queue.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require an explicit enqueue signal; zero to also succeed
+        /// if an event is observed to be enqueued.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, an error message describing why the wait did not
+        /// succeed.
+        /// </param>
+        /// <returns>
+        /// The return code indicating whether an event was enqueued.
+        /// </returns>
         public ReturnCode WaitForEventEnqueued(
             int timeout,
             bool idle,
@@ -4044,7 +5813,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this event manager has been
+        /// disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this event manager has already
+        /// been disposed.  It is called at the start of most members to guard
+        /// against use after disposal.
+        /// </summary>
+        /// <exception cref="InterpreterDisposedException">
+        /// Thrown when this event manager has been disposed and the engine is
+        /// configured to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -4055,6 +5837,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this event manager.  It
+        /// implements the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from
+        /// <see cref="Dispose()" /> (i.e. deterministically); zero if it is
+        /// being called from the finalizer.  When non-zero, managed resources
+        /// are released.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -4143,6 +5935,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources held by this event manager and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -4153,6 +5949,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this event manager, releasing any resources that were not
+        /// released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~EventManager()
         {
             Dispose(false);

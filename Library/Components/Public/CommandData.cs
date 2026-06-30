@@ -16,6 +16,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides a concrete, mutable container for the metadata that
+    /// describes an Eagle command, including its name, group, description,
+    /// client data, type name and type, flags, owning plugin, and token.  It
+    /// implements <see cref="ICommandData" /> and is typically used to carry
+    /// command metadata when registering or constructing commands.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -23,6 +30,36 @@ namespace Eagle._Components.Public
     public class CommandData : ICommandData
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class using the specified command
+        /// metadata.  The object identifier is obtained from the
+        /// <see cref="ObjectIdAttribute" /> applied to this instance.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the command.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="typeName">
+        /// The type name of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags associated with the command.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin that owns the command.  This parameter may be null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the command.
+        /// </param>
         public CommandData(
             string name,
             string group,
@@ -42,6 +79,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, copying the command metadata
+        /// from the specified command data.
+        /// </summary>
+        /// <param name="commandData">
+        /// The command data to copy the metadata from.  If this parameter is
+        /// null, the new instance is left in its default state.
+        /// </param>
         public CommandData(
             ICommandData commandData
             )
@@ -69,6 +114,42 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class using the fully specified set
+        /// of command metadata.  This is the most general constructor; the
+        /// public constructor overloads delegate to it.
+        /// </summary>
+        /// <param name="id">
+        /// The globally unique identifier of the command.
+        /// </param>
+        /// <param name="name">
+        /// The name of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the command.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="typeName">
+        /// The type name of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the command.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags associated with the command.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin that owns the command.  This parameter may be null.
+        /// </param>
+        /// <param name="token">
+        /// The token associated with the command.
+        /// </param>
         internal CommandData(
             Guid id,
             string name,
@@ -99,7 +180,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of the command.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the name of the command.
+        /// </summary>
         public virtual string Name
         {
             get { return name; }
@@ -110,7 +197,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// Stores the identifier kind of the command.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the identifier kind of the command.
+        /// </summary>
         public virtual IdentifierKind Kind
         {
             get { return kind; }
@@ -119,7 +212,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the globally unique identifier of the command.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the globally unique identifier of the command.
+        /// </summary>
         public virtual Guid Id
         {
             get { return id; }
@@ -130,7 +229,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the client data associated with the command.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with the command.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -141,7 +246,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// Stores the group of the command.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group of the command.
+        /// </summary>
         public virtual string Group
         {
             get { return group; }
@@ -150,7 +261,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the description of the command.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the description of the command.
+        /// </summary>
         public virtual string Description
         {
             get { return description; }
@@ -161,7 +278,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ITypeAndName Members
+        /// <summary>
+        /// Stores the type name of the command.
+        /// </summary>
         private string typeName;
+        /// <summary>
+        /// Gets or sets the type name of the command.
+        /// </summary>
         public virtual string TypeName
         {
             get { return typeName; }
@@ -170,7 +293,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the type of the command.
+        /// </summary>
         private Type type;
+        /// <summary>
+        /// Gets or sets the type of the command.
+        /// </summary>
         public virtual Type Type
         {
             get { return type; }
@@ -181,6 +310,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICommandBaseData Members
+        /// <summary>
+        /// Gets or sets the flags associated with the command.
+        /// </summary>
         public virtual CommandFlags CommandFlags
         {
             get { return flags; }
@@ -191,7 +323,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHavePlugin Members
+        /// <summary>
+        /// Stores the plugin that owns the command.
+        /// </summary>
         private IPlugin plugin;
+        /// <summary>
+        /// Gets or sets the plugin that owns the command.
+        /// </summary>
         public virtual IPlugin Plugin
         {
             get { return plugin; }
@@ -202,7 +340,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICommandData Members
+        /// <summary>
+        /// Stores the flags associated with the command.
+        /// </summary>
         private CommandFlags flags;
+        /// <summary>
+        /// Gets or sets the flags associated with the command.
+        /// </summary>
         public virtual CommandFlags Flags
         {
             get { return flags; }
@@ -213,7 +357,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IWrapperData Members
+        /// <summary>
+        /// Stores the token associated with the command.
+        /// </summary>
         private long token;
+        /// <summary>
+        /// Gets or sets the token associated with the command.
+        /// </summary>
         public virtual long Token
         {
             get { return token; }
@@ -224,6 +374,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of the command.
+        /// </summary>
+        /// <returns>
+        /// The name of the command, or an empty string if the name is null.
+        /// </returns>
         public override string ToString()
         {
             return (name != null) ? name : String.Empty;

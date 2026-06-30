@@ -29,17 +29,48 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of static helper methods used to query
+    /// and manipulate assemblies and assembly names, including locating
+    /// assemblies in an application domain, loading assemblies, reading assembly
+    /// metadata (such as the version, public key, and code base path), accessing
+    /// manifest resources, and obtaining strong name, hash, and certificate
+    /// information for an assembly.
+    /// </summary>
     [ObjectId("adb2230c-58c9-4950-991d-d2e83931ad47")]
     internal static class AssemblyOps
     {
         #region Private Constants
+        /// <summary>
+        /// The uppercase file extension used by the .NET Framework runtime in
+        /// the code base of a dynamic-link library assembly.
+        /// </summary>
         private const string CodeBaseDll = ".DLL"; /* CASE-SENSITIVE */
+
+        /// <summary>
+        /// The uppercase file extension used by the .NET Framework runtime in
+        /// the code base of an executable assembly.
+        /// </summary>
         private const string CodeBaseExe = ".EXE"; /* CASE-SENSITIVE */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Support Methods
+        /// <summary>
+        /// This method determines whether two assembly names refer to the same
+        /// assembly, comparing them by reference and by full name.
+        /// </summary>
+        /// <param name="assemblyName1">
+        /// The first assembly name to compare.
+        /// </param>
+        /// <param name="assemblyName2">
+        /// The second assembly name to compare.
+        /// </param>
+        /// <returns>
+        /// True if the assembly names are considered the same (including when
+        /// both are null); otherwise, false.
+        /// </returns>
         public static bool IsSameAssemblyName(
             AssemblyName assemblyName1,
             AssemblyName assemblyName2
@@ -65,6 +96,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an assembly name matches the specified
+        /// criteria.  Each criterion that is null is ignored.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name to test.
+        /// </param>
+        /// <param name="name">
+        /// The simple name to require, or null to ignore the name.
+        /// </param>
+        /// <param name="version">
+        /// The version to require, or null to ignore the version.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to require, or null to ignore the culture.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token to require, or null to ignore the public key
+        /// token.
+        /// </param>
+        /// <returns>
+        /// True if the assembly name matches all of the specified criteria;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchAssemblyName(
             AssemblyName assemblyName, /* in */
             string name,               /* in: OPTIONAL */
@@ -105,6 +160,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the full name of an assembly name
+        /// matches the specified pattern, using the specified matching mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used during pattern matching.
+        /// </param>
+        /// <param name="assemblyName">
+        /// The assembly name whose full name is tested.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against the full name.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used to compare the full name to the pattern.
+        /// </param>
+        /// <returns>
+        /// True if the full name matches the pattern; otherwise, false.
+        /// </returns>
         private static bool MatchAssemblyName(
             Interpreter interpreter,   /* in */
             AssemblyName assemblyName, /* in */
@@ -121,6 +195,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an assembly name object from its string
+        /// representation.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The string representation of the assembly name to parse.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The parsed assembly name, or null on failure.
+        /// </returns>
         public static AssemblyName GetName(
             string assemblyName,
             ref Result error
@@ -148,6 +235,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds an assembly loaded into the specified application
+        /// domain whose name is the same as the specified assembly name.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to search.  When null, the current application
+        /// domain is used.
+        /// </param>
+        /// <param name="assemblyName">
+        /// The assembly name to search for.
+        /// </param>
+        /// <returns>
+        /// The matching assembly, or null when no matching assembly is found.
+        /// </returns>
         public static Assembly FindInAppDomain(
             AppDomain appDomain,
             AssemblyName assemblyName
@@ -184,6 +285,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds an assembly loaded into the specified application
+        /// domain whose location refers to the same file as the specified path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when comparing file paths.  This value is not
+        /// otherwise used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request.  This value is not
+        /// used.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search.  When null, the current application
+        /// domain is used.
+        /// </param>
+        /// <param name="path">
+        /// The file path to match against each assembly location.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first assembly to consider.  When null, the search
+        /// starts at the beginning.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The matching assembly, or null when no matching assembly is found.
+        /// </returns>
         public static Assembly FindInAppDomain(
             Interpreter interpreter, /* in: NOT USED */
             IClientData clientData,  /* in: NOT USED */
@@ -259,6 +389,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds an assembly loaded into the specified application
+        /// domain whose name matches the specified simple name, version, and
+        /// public key token.  Each criterion that is null is ignored.
+        /// </summary>
+        /// <param name="appDomain">
+        /// The application domain to search.  When null, the current application
+        /// domain is used.
+        /// </param>
+        /// <param name="name">
+        /// The simple name to require, or null to ignore the name.
+        /// </param>
+        /// <param name="version">
+        /// The version to require, or null to ignore the version.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token to require, or null to ignore the public key
+        /// token.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The matching assembly, or null when no matching assembly is found.
+        /// </returns>
         public static Assembly FindInAppDomain(
             AppDomain appDomain,   /* in: OPTIONAL */
             string name,           /* in: OPTIONAL */
@@ -274,6 +429,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds an assembly loaded into the specified application
+        /// domain whose name matches the specified simple name, version,
+        /// culture, and public key token.  Each criterion that is null is
+        /// ignored.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.  This value is not
+        /// used.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request.  This value is not
+        /// used.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search.  When null, the current application
+        /// domain is used.
+        /// </param>
+        /// <param name="name">
+        /// The simple name to require, or null to ignore the name.
+        /// </param>
+        /// <param name="version">
+        /// The version to require, or null to ignore the version.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to require, or null to ignore the culture.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token to require, or null to ignore the public key
+        /// token.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode associated with the request.  This value is not
+        /// used.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first assembly to consider.  When null, the search
+        /// starts at the beginning.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The matching assembly, or null when no matching assembly is found.
+        /// </returns>
         public static Assembly FindInAppDomain(
             Interpreter interpreter, /* in: NOT USED */
             IClientData clientData,  /* in: NOT USED */
@@ -341,6 +541,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds an assembly loaded into the specified application
+        /// domain whose full name matches the specified pattern, using the
+        /// specified matching mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used during pattern matching.  This value may be
+        /// null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to search.  When null, the current application
+        /// domain is used.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used to compare each full name to the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against each assembly full name, or null to
+        /// match any assembly.
+        /// </param>
+        /// <param name="noCase">
+        /// When non-zero, the pattern match is performed without regard to
+        /// case.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first assembly to consider.  When null, the search
+        /// starts at the beginning.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The matching assembly, or null when no matching assembly is found.
+        /// </returns>
         public static Assembly FindInAppDomain(
             Interpreter interpreter, /* in: OPTIONAL */
             AppDomain appDomain,     /* in: OPTIONAL */
@@ -405,6 +639,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an assembly from the bytes available in the
+        /// specified stream.
+        /// </summary>
+        /// <param name="stream">
+        /// The readable, seekable stream containing the raw assembly bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The loaded assembly, or null on failure.
+        /// </returns>
         public static Assembly LoadFromStream(
             Stream stream,
             ref Result error
@@ -448,6 +695,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies the assembly file with the specified name,
+        /// optionally checking that it is trusted and that it has the expected
+        /// public key token.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the assembly file to verify.  The file must exist.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token, or null to skip the public key token
+        /// check.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the request.  This value is not
+        /// used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the assembly file is verified;
+        /// otherwise, an error code.
+        /// </returns>
         public static ReturnCode VerifyFromFile(
             string fileName,        /* in */
             byte[] publicKeyToken,  /* in: OPTIONAL */
@@ -500,6 +770,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Property Helper Methods
+        /// <summary>
+        /// This method gets the full name of the assembly that contains the
+        /// specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose containing assembly full name is returned.
+        /// </param>
+        /// <returns>
+        /// The full name of the containing assembly, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string GetFullName(
             Type type
             )
@@ -529,6 +810,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the public key of the specified assembly name as a
+        /// hexadecimal string.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose public key is returned.
+        /// </param>
+        /// <returns>
+        /// The public key as a hexadecimal string, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string GetPublicKey(
             AssemblyName assemblyName
             )
@@ -551,6 +843,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the public key token of the specified assembly name
+        /// as a hexadecimal string.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose public key token is returned.
+        /// </param>
+        /// <returns>
+        /// The public key token as a hexadecimal string, or null when it cannot
+        /// be determined.
+        /// </returns>
         public static string GetPublicKeyToken(
             AssemblyName assemblyName
             )
@@ -573,6 +876,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the version of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose version is returned.
+        /// </param>
+        /// <returns>
+        /// The version of the assembly, or null when it cannot be determined.
+        /// </returns>
         public static Version GetVersion(
             Assembly assembly
             )
@@ -597,6 +909,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the version of the specified assembly name.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose version is returned.
+        /// </param>
+        /// <returns>
+        /// The version of the assembly name, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static Version GetVersion(
             AssemblyName assemblyName
             )
@@ -618,6 +940,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the runtime version string of the common language
+        /// runtime image for the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose image runtime version is returned.
+        /// </param>
+        /// <returns>
+        /// The image runtime version string, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string GetImageRuntimeVersion(
             Assembly assembly
             )
@@ -639,6 +972,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the module version identifier of the manifest module
+        /// for the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose manifest module version identifier is returned.
+        /// </param>
+        /// <returns>
+        /// The module version identifier, or <see cref="Guid.Empty" /> when it
+        /// cannot be determined.
+        /// </returns>
         public static Guid GetModuleVersionId(
             Assembly assembly
             )
@@ -663,6 +1007,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the directory of the current location of the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose current directory is returned.
+        /// </param>
+        /// <returns>
+        /// The directory of the assembly location, or null when it cannot be
+        /// determined.
+        /// </returns>
         public static string GetCurrentPath(
             Assembly assembly
             )
@@ -687,6 +1042,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the directory of the original code base location of
+        /// the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose original code base directory is returned.
+        /// </param>
+        /// <returns>
+        /// The directory of the original code base location, or null when it
+        /// cannot be determined.
+        /// </returns>
         public static string GetOriginalPath(
             Assembly assembly
             )
@@ -708,6 +1074,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the original local file path derived from the code
+        /// base of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose original local file path is returned.
+        /// </param>
+        /// <returns>
+        /// The original local file path, or null when it cannot be determined.
+        /// </returns>
         public static string GetOriginalLocalPath(
             Assembly assembly
             )
@@ -729,6 +1105,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the original local file path derived from the code
+        /// base of the specified assembly name.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose original local file path is returned.
+        /// </param>
+        /// <returns>
+        /// The original local file path, or null when it cannot be determined.
+        /// </returns>
         public static string GetOriginalLocalPath(
             AssemblyName assemblyName
             )
@@ -750,6 +1136,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the directory of the original local file path
+        /// derived from the specified code base.
+        /// </summary>
+        /// <param name="codeBase">
+        /// The code base from which the original directory is derived.
+        /// </param>
+        /// <returns>
+        /// The directory of the original local file path, or null when it cannot
+        /// be determined.
+        /// </returns>
         public static string GetOriginalPath(
             string codeBase
             )
@@ -774,6 +1171,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the original local file path derived from the
+        /// specified code base, fixing up the hard-coded uppercase ".DLL" and
+        /// ".EXE" file extensions used by the .NET Framework runtime.
+        /// </summary>
+        /// <param name="codeBase">
+        /// The code base from which the original local file path is derived.
+        /// </param>
+        /// <returns>
+        /// The original local file path, or null when it cannot be determined or
+        /// the code base does not refer to a file.
+        /// </returns>
         public static string GetOriginalLocalPath(
             string codeBase
             )
@@ -827,6 +1236,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the assembly anchor path from the environment, which
+        /// may be used to override the base directory when resolving assembly
+        /// paths.
+        /// </summary>
+        /// <returns>
+        /// The configured assembly anchor path, or null when none is configured.
+        /// </returns>
         public static string GetAnchorPath() /* MAY RETURN NULL */
         {
             return CommonOps.Environment.GetVariable(
@@ -835,6 +1252,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines a usable directory path for the specified
+        /// assembly that resides underneath the base directory of the current
+        /// application domain, preferring the current location and then the
+        /// original location, and falling back to the current location when
+        /// neither resides underneath the base directory.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when comparing paths.  This value may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose path is determined.
+        /// </param>
+        /// <returns>
+        /// A directory path for the assembly.  This method cannot return null.
+        /// </returns>
         public static string GetPath(
             Interpreter interpreter, /* OPTIONAL */
             Assembly assembly
@@ -896,6 +1329,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Resource Helper Methods
+        /// <summary>
+        /// This method gets the manifest resource stream with the specified name
+        /// from the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to read the manifest resource from.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource.
+        /// </param>
+        /// <returns>
+        /// The manifest resource stream, or null when it cannot be obtained.
+        /// </returns>
         public static Stream GetResourceStream(
             Assembly assembly,
             string name
@@ -908,6 +1354,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the manifest resource stream with the specified name
+        /// from the specified assembly, reporting any error that occurs.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to read the manifest resource from.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The manifest resource stream, or null on failure.
+        /// </returns>
         public static Stream GetResourceStream(
             Assembly assembly,
             string name,
@@ -952,6 +1414,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the contents of the manifest resource stream with
+        /// the specified name from the specified assembly, returning either the
+        /// raw bytes or the decoded text.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to read the manifest resource from.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to decode the resource as text.  When null, a
+        /// default encoding is used.  This value is ignored when
+        /// <paramref name="raw" /> is non-zero.
+        /// </param>
+        /// <param name="raw">
+        /// When non-zero, the raw bytes are returned; otherwise, the decoded
+        /// text is returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The byte array or string read from the resource, or null on failure.
+        /// </returns>
         public static object GetResourceStreamData(
             Assembly assembly,
             string name,
@@ -1013,6 +1501,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the contents of the manifest resource stream with
+        /// the specified name from the specified assembly and parses it as a
+        /// list, optionally enforcing minimum and maximum element counts.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to read the manifest resource from.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to decode the resource as text.  When null, a
+        /// default encoding is used.
+        /// </param>
+        /// <param name="minimumCount">
+        /// The minimum number of elements required, or a negative value to skip
+        /// the minimum check.
+        /// </param>
+        /// <param name="maximumCount">
+        /// The maximum number of elements allowed, or a negative value to skip
+        /// the maximum check.
+        /// </param>
+        /// <param name="readOnly">
+        /// When non-zero, the resulting list is created as read-only.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The parsed list, or null on failure.
+        /// </returns>
         public static StringList GetResourceStreamList(
             Assembly assembly,
             string name,
@@ -1095,6 +1615,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the manifest resource stream that contains the icon
+        /// for the core library package.
+        /// </summary>
+        /// <returns>
+        /// The icon resource stream, or null when it cannot be obtained.
+        /// </returns>
         public static Stream GetIconStream()
         {
             Assembly assembly = GlobalState.GetAssembly();
@@ -1116,6 +1643,15 @@ namespace Eagle._Components.Private
 
         #region Assembly StrongName Helper Methods
 #if CAS_POLICY
+        /// <summary>
+        /// This method gets the strong name evidence of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose strong name is returned.
+        /// </param>
+        /// <returns>
+        /// The strong name of the assembly, or null when it cannot be obtained.
+        /// </returns>
         public static StrongName GetStrongName(
             Assembly assembly
             )
@@ -1136,6 +1672,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the strong name evidence of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose strong name is returned.
+        /// </param>
+        /// <param name="strongName">
+        /// Upon success, receives the strong name of the assembly.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetStrongName(
             Assembly assembly,
             ref StrongName strongName
@@ -1148,6 +1696,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the strong name evidence of the specified assembly,
+        /// reporting any error that occurs.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose strong name is returned.
+        /// </param>
+        /// <param name="strongName">
+        /// Upon success, receives the strong name of the assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetStrongName(
             Assembly assembly,
             ref StrongName strongName,
@@ -1204,6 +1768,15 @@ namespace Eagle._Components.Private
 
         #region Assembly Hash Helper Methods
 #if CAS_POLICY
+        /// <summary>
+        /// This method gets the hash evidence of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose hash is returned.
+        /// </param>
+        /// <returns>
+        /// The hash of the assembly, or null when it cannot be obtained.
+        /// </returns>
         public static Hash GetHash(
             Assembly assembly
             )
@@ -1221,6 +1794,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the hash evidence of the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose hash is returned.
+        /// </param>
+        /// <param name="hash">
+        /// Upon success, receives the hash of the assembly.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode GetHash(
             Assembly assembly,
             ref Hash hash
@@ -1233,6 +1818,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the hash evidence of the specified assembly,
+        /// reporting any error that occurs.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose hash is returned.
+        /// </param>
+        /// <param name="hash">
+        /// Upon success, receives the hash of the assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetHash(
             Assembly assembly,
             ref Hash hash,
@@ -1288,6 +1889,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Certificate Helper Methods
+        /// <summary>
+        /// This method gets the X.509 certificate used to sign the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose signer certificate is returned.
+        /// </param>
+        /// <returns>
+        /// The signer certificate, or null when it cannot be obtained.
+        /// </returns>
         public static X509Certificate GetCertificate(
             Assembly assembly
             )
@@ -1308,6 +1919,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the X.509 certificate used to sign the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose signer certificate is returned.
+        /// </param>
+        /// <param name="certificate">
+        /// Upon success, receives the signer certificate of the assembly.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetCertificate(
             Assembly assembly,
             ref X509Certificate certificate
@@ -1320,6 +1944,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the X.509 certificate used to sign the specified
+        /// assembly, reporting any error that occurs.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose signer certificate is returned.
+        /// </param>
+        /// <param name="certificate">
+        /// Upon success, receives the signer certificate of the assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetCertificate(
             Assembly assembly,
             ref X509Certificate certificate,
@@ -1383,6 +2023,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an X.509 certificate from the raw bytes of an
+        /// assembly.
+        /// </summary>
+        /// <param name="assemblyBytes">
+        /// The raw assembly bytes from which the certificate is created.
+        /// </param>
+        /// <param name="certificate">
+        /// Upon success, receives the certificate created from the bytes.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetCertificate(
             byte[] assemblyBytes,
             ref X509Certificate certificate
@@ -1395,6 +2048,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an X.509 certificate from the raw bytes of an
+        /// assembly, reporting any error that occurs.
+        /// </summary>
+        /// <param name="assemblyBytes">
+        /// The raw assembly bytes from which the certificate is created.
+        /// </param>
+        /// <param name="certificate">
+        /// Upon success, receives the certificate created from the bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetCertificate(
             byte[] assemblyBytes,
             ref X509Certificate certificate,
@@ -1429,6 +2098,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the X.509 version 2 certificate used to sign the
+        /// specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose signer certificate is returned.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, the absence of a certificate is treated as a failure;
+        /// otherwise, a missing certificate yields a successful return with a
+        /// null certificate.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, receives the version 2 signer certificate of the
+        /// assembly, which may be null when <paramref name="strict" /> is zero
+        /// and no certificate is present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetCertificate2(
             Assembly assembly,
             bool strict,

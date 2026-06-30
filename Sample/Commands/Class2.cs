@@ -124,7 +124,7 @@ namespace Sample
         /// This is a custom TraceCallback that intercepts attempts to get,
         /// set, or unset monitored variables.
         /// </summary>
-        /// <param name="type">
+        /// <param name="breakpointType">
         /// The type of variable operation we are being called in response to.
         /// </param>
         /// <param name="interpreter">

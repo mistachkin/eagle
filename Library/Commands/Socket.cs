@@ -24,11 +24,26 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>socket</c> command, which opens a
+    /// TCP/IP network connection, either as a client connecting to a remote
+    /// host and port or, when <c>-server</c> is supplied, as a listening
+    /// server that accepts incoming connections.  A successful invocation
+    /// registers a channel and returns its identifier.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("2cb67080-894d-4232-a2d9-ae2a65da012e")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard)]
     [ObjectGroup("network")]
     internal sealed class Socket : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>socket</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Socket(
             ICommandData commandData
             )
@@ -38,11 +53,48 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>socket</c> command.  It parses the
+        /// supported options (for example <c>-server</c>, <c>-myaddr</c>,
+        /// <c>-myport</c>, <c>-keepalive</c>, <c>-buffer</c>, and the various
+        /// timeout options), then either starts a server socket that listens
+        /// for incoming connections or creates a client socket connected to
+        /// the given host and port.  On success it registers the resulting
+        /// channel with the interpreter and reports its identifier.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements are the options followed by
+        /// the host and port (for a client socket) or the port (for a server
+        /// socket).  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the identifier of the newly created
+        /// channel.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the channel
+        /// identifier placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an option is invalid, the interpreter or argument
+        /// list is null, the channel already exists, or the connection
+        /// cannot be established, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

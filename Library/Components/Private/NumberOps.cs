@@ -29,30 +29,60 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for working with numeric
+    /// types, including a registry that maps numeric types to their type codes
+    /// and a family of methods that convert values (including
+    /// arbitrary-precision integers) to the various primitive numeric types.
+    /// </summary>
     [ObjectId("9cf2e8f7-39ea-4fa6-8799-c0d75d5794c5")]
     internal static class NumberOps
     {
         #region Private Constants
 #if NET_40
+        /// <summary>
+        /// The minimum decimal value, expressed as an arbitrary-precision integer,
+        /// used to range-check conversions to decimal.
+        /// </summary>
         private static readonly BigInteger MinimumDecimal =
             (BigInteger)decimal.MinValue;
 
+        /// <summary>
+        /// The maximum decimal value, expressed as an arbitrary-precision integer,
+        /// used to range-check conversions to decimal.
+        /// </summary>
         private static readonly BigInteger MaximumDecimal =
             (BigInteger)decimal.MaxValue;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum single-precision value, truncated and expressed as an
+        /// arbitrary-precision integer, used to range-check conversions to single.
+        /// </summary>
         private static readonly BigInteger MinimumSingle =
             (BigInteger)Math.Truncate((double)float.MinValue);
 
+        /// <summary>
+        /// The maximum single-precision value, truncated and expressed as an
+        /// arbitrary-precision integer, used to range-check conversions to single.
+        /// </summary>
         private static readonly BigInteger MaximumSingle =
             (BigInteger)Math.Truncate((double)float.MaxValue);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum double-precision value, truncated and expressed as an
+        /// arbitrary-precision integer, used to range-check conversions to double.
+        /// </summary>
         private static readonly BigInteger MinimumDouble =
             (BigInteger)Math.Truncate((double)double.MinValue);
 
+        /// <summary>
+        /// The maximum double-precision value, truncated and expressed as an
+        /// arbitrary-precision integer, used to range-check conversions to double.
+        /// </summary>
         private static readonly BigInteger MaximumDouble =
             (BigInteger)Math.Truncate((double)double.MaxValue);
 #endif
@@ -61,13 +91,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// The object used to synchronize access to the type registry.
+        /// </summary>
         private static readonly object syncRoot = new object();
+        /// <summary>
+        /// The registry mapping each supported numeric type to its type code, or
+        /// null when it has not yet been initialized.
+        /// </summary>
         private static TypeTypeCodeDictionary types;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Type Management Support
+        /// <summary>
+        /// This method initializes the shared registry of supported numeric types
+        /// and their type codes.
+        /// </summary>
         public static void InitializeTypes()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -78,6 +119,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified registry with the supported numeric
+        /// types and their type codes, creating the registry first when necessary.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to recreate the registry even when it already exists.
+        /// </param>
+        /// <param name="types">
+        /// The registry to populate.  When null, or when force is non-zero, a new
+        /// registry is created and stored here.
+        /// </param>
         public static void MaybeInitializeTypes(
             bool force,                      /* in */
             ref TypeTypeCodeDictionary types /* in, out */
@@ -112,6 +164,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is present in the
+        /// registry of supported numeric types.
+        /// </summary>
+        /// <param name="type">
+        /// The type to look up.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type is a supported numeric type; otherwise, false.
+        /// </returns>
         public static bool HaveType(
             Type type /* in */
             )
@@ -130,6 +192,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified value is a
+        /// supported numeric type.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type is looked up.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value has a supported numeric type; otherwise, false.
+        /// </returns>
         public static bool HaveType(
             object value /* in */
             )
@@ -141,6 +213,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified value is a
+        /// supported numeric type, also returning the resolved type.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type is looked up.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, this is set to the resolved type of the value.
+        /// </param>
+        /// <returns>
+        /// True if the value has a supported numeric type; otherwise, false.
+        /// </returns>
         public static bool HaveType(
             object value, /* in */
             ref Type type /* out */
@@ -159,6 +244,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type has an associated type
+        /// code in the registry.
+        /// </summary>
+        /// <param name="type">
+        /// The type to look up.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type has an associated type code; otherwise, false.
+        /// </returns>
         public static bool HaveTypeCode(
             Type type /* in */
             )
@@ -170,6 +265,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type has an associated type
+        /// code in the registry, also returning that type code.
+        /// </summary>
+        /// <param name="type">
+        /// The type to look up.  This parameter may be null.
+        /// </param>
+        /// <param name="typeCode">
+        /// Upon success, this is set to the type code associated with the type.
+        /// </param>
+        /// <returns>
+        /// True if the type has an associated type code; otherwise, false.
+        /// </returns>
         public static bool HaveTypeCode(
             Type type,            /* in */
             ref TypeCode typeCode /* out */
@@ -200,6 +308,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified value has an
+        /// associated type code in the registry.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type is looked up.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value's type has an associated type code; otherwise, false.
+        /// </returns>
         public static bool HaveTypeCode(
             object value /* in */
             )
@@ -211,6 +329,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified value has an
+        /// associated type code in the registry, also returning that type code.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type is looked up.  This parameter may be null.
+        /// </param>
+        /// <param name="typeCode">
+        /// Upon success, this is set to the type code associated with the value's
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the value's type has an associated type code; otherwise, false.
+        /// </returns>
         public static bool HaveTypeCode(
             object value,         /* in */
             ref TypeCode typeCode /* out */
@@ -229,6 +361,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the type code of the specified value, recognizing
+        /// the arbitrary-precision integer type in addition to the standard types.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type code is returned.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The type code of the specified value.
+        /// </returns>
         public static TypeCode GetTypeCode(
             object value /* in */
             )
@@ -244,6 +386,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method determines whether an exponentiation operation involving the
+        /// specified operand type codes should be performed using
+        /// arbitrary-precision integer arithmetic.
+        /// </summary>
+        /// <param name="lexeme">
+        /// The operator lexeme being evaluated.
+        /// </param>
+        /// <param name="typeCode1">
+        /// The type code of the first operand.
+        /// </param>
+        /// <param name="typeCode2">
+        /// The type code of the second operand, or null when there is none.
+        /// </param>
+        /// <returns>
+        /// True if the operation should use arbitrary-precision integer
+        /// arithmetic; otherwise, false.
+        /// </returns>
         public static bool IsBigIntegerExponent(
             Lexeme lexeme,      /* in */
             TypeCode typeCode1, /* in */
@@ -263,6 +423,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of bits to use for a bitwise rotation,
+        /// falling back to a default when none is specified.
+        /// </summary>
+        /// <param name="bits">
+        /// The requested number of bits, or null to use the default.
+        /// </param>
+        /// <returns>
+        /// The number of bits to use for a bitwise rotation.
+        /// </returns>
         public static int GetRotateBits(
             int? bits /* in: OPTIONAL */
             )
@@ -281,6 +451,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the number of bits to use for a bitwise rotation,
+        /// based on the configuration of the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose configuration is consulted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The number of bits to use for a bitwise rotation, or null when none is
+        /// configured.
+        /// </returns>
         public static int? GetRotateBits(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -298,6 +480,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a list of all the supported numeric types in the
+        /// registry.
+        /// </summary>
+        /// <returns>
+        /// A list of the supported numeric types, or null when the registry has not
+        /// been initialized.
+        /// </returns>
         private static TypeList GetTypes()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -311,6 +501,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends all the supported numeric types in the registry to
+        /// the specified list, creating the list first when necessary.
+        /// </summary>
+        /// <param name="types">
+        /// The list to append to.  When null, a new list is created and stored
+        /// here.
+        /// </param>
+        /// <returns>
+        /// True if the supported types were appended; otherwise, false (e.g. when
+        /// the registry has not been initialized).
+        /// </returns>
         public static bool AddTypes(
             ref TypeList types /* in, out */
             )
@@ -334,6 +536,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Type Conversion Support
+        /// <summary>
+        /// This method determines whether the specified value container holds a
+        /// non-null value that can be converted, returning that value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container to examine.  This parameter may be null.
+        /// </param>
+        /// <param name="objectValue">
+        /// Upon success, this is set to the non-null value obtained from the
+        /// container.
+        /// </param>
+        /// <returns>
+        /// True if a non-null value was obtained; otherwise, false.
+        /// </returns>
         private static bool CanConvert(
             IGetValue getValue,    /* in */
             out object objectValue /* out */
@@ -355,6 +571,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a boolean value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToBoolean(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -394,6 +627,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a signed byte value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToSignedByte(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -433,6 +683,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a byte value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToByte(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -472,6 +739,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a 16-bit signed integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToNarrowInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -511,6 +795,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to an unsigned 16-bit integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToUnsignedNarrowInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -550,6 +851,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a character value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToCharacter(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -589,6 +907,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a 32-bit signed integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -628,6 +963,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to an unsigned 32-bit integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToUnsignedInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -667,6 +1019,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a 64-bit signed integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToWideInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -706,6 +1075,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to an unsigned 64-bit integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToUnsignedWideInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -745,6 +1131,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a return code value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToReturnCode(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -777,6 +1180,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a match mode value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToMatchMode(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -809,6 +1229,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a midpoint rounding value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToMidpointRounding(
             IGetValue getValue,        /* in */
             CultureInfo cultureInfo,   /* in */
@@ -841,6 +1278,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a decimal value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToDecimal(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -881,6 +1335,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to an arbitrary-precision integer value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToBigInteger(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -1052,6 +1523,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a single-precision floating-point value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToSingle(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -1091,6 +1579,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value held by the specified value container
+        /// to a double-precision floating-point value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value container whose value is converted.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was converted successfully; otherwise, false.
+        /// </returns>
         public static bool ToDouble(
             IGetValue getValue,      /* in */
             CultureInfo cultureInfo, /* in */
@@ -1131,6 +1636,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a boolean value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToBoolean(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1143,6 +1666,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a signed byte value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToSignedByte(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1161,6 +1702,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a byte value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToByte(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1179,6 +1738,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a 16-bit signed integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToNarrowInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1197,6 +1774,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// an unsigned 16-bit integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToUnsignedNarrowInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1215,6 +1810,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a character value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToCharacter(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1233,6 +1846,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a 32-bit signed integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1251,6 +1882,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// an unsigned 32-bit integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToUnsignedInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1269,6 +1918,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a 64-bit signed integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToWideInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1287,6 +1954,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// an unsigned 64-bit integer value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToUnsignedWideInteger(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1305,6 +1990,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a decimal value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToDecimal(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1323,6 +2026,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a single-precision floating-point value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToSingle(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */
@@ -1341,6 +2062,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified arbitrary-precision integer to
+        /// a double-precision floating-point value, when it is within the range of the target type.
+        /// </summary>
+        /// <param name="bigInteger">
+        /// The arbitrary-precision integer to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to perform the conversion.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the converted value.
+        /// </param>
+        /// <returns>
+        /// True if the value was within range and was converted successfully;
+        /// otherwise, false.
+        /// </returns>
         public static bool ToDouble(
             BigInteger bigInteger,   /* in */
             CultureInfo cultureInfo, /* in: NOT USED */

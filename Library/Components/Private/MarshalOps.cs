@@ -52,6 +52,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private marshalling support routines used to
+    /// bridge between Eagle script values and the managed type system,
+    /// including type resolution, method and property lookup, parameter
+    /// binding, delegate creation, and related reflection and COM interop
+    /// helpers.
+    /// </summary>
 #if NATIVE
 #if NET_40
     [SecurityCritical()]
@@ -63,6 +70,11 @@ namespace Eagle._Components.Private
     internal static class MarshalOps
     {
         #region ToString Method Cache Support Class
+        /// <summary>
+        /// This class provides a per-type cache of the <c>ToString</c> method
+        /// used to format object values, along with the helper methods used to
+        /// look up and invoke it.
+        /// </summary>
         [ObjectId("ca62cc83-a193-4814-b5f2-0df3550f2baa")]
         internal static class ToStringCache
         {
@@ -70,21 +82,46 @@ namespace Eagle._Components.Private
             //
             // HACK: These are purposely not read-only.
             //
+            /// <summary>
+            /// The name of the method used to format an object value as a
+            /// string.
+            /// </summary>
             private static string formatMethodName = "ToString";
+            /// <summary>
+            /// The binding flags used when looking up the format method.
+            /// </summary>
             private static BindingFlags formatBindingFlags;
+            /// <summary>
+            /// The parameter types used when looking up the format method.
+            /// </summary>
             private static Type[] formatParameters = { typeof(string) };
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Data
+            /// <summary>
+            /// The object used to synchronize access to the cached format
+            /// methods.
+            /// </summary>
             private static readonly object syncRoot = new object();
+            /// <summary>
+            /// The cache of format methods, keyed by the type they belong to.
+            /// </summary>
             private static Dictionary<Type, MethodInfo> formatMethodInfos;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method initializes the binding flags and method cache used
+            /// by this class.
+            /// </summary>
+            /// <param name="force">
+            /// Non-zero to force re-initialization even if it has already been
+            /// performed.
+            /// </param>
             private static void Initialize(
                 bool force /* in */
                 )
@@ -104,6 +141,24 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method looks up the format method for the specified type
+            /// using reflection, without consulting the cache.
+            /// </summary>
+            /// <param name="type">
+            /// The type whose format method should be looked up.
+            /// </param>
+            /// <param name="binder">
+            /// The optional binder used to resolve the method; this value may
+            /// be null.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// The format method for the specified type, or null if it could
+            /// not be found.
+            /// </returns>
             private static MethodInfo LookupFormatMethodInfo(
                 Type type,       /* in */
                 IBinder binder,  /* in: OPTIONAL */
@@ -135,6 +190,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method returns the format method for the specified type,
+            /// consulting the cache first and looking it up via reflection if
+            /// necessary.
+            /// </summary>
+            /// <param name="type">
+            /// The type whose format method should be returned.
+            /// </param>
+            /// <param name="binder">
+            /// The optional binder used to resolve the method; this value may
+            /// be null.
+            /// </param>
+            /// <param name="error">
+            /// Upon failure, receives information about the error.
+            /// </param>
+            /// <returns>
+            /// The format method for the specified type, or null if it could
+            /// not be found.
+            /// </returns>
             private static MethodInfo GetFormatMethodInfo(
                 Type type,       /* in */
                 IBinder binder,  /* in: OPTIONAL */
@@ -194,6 +268,12 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method clears the cache of format methods.
+            /// </summary>
+            /// <returns>
+            /// The number of cached entries that were removed.
+            /// </returns>
             public static int Clear()
             {
                 lock (syncRoot) /* TRANSACTIONAL */
@@ -214,6 +294,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method attempts to format an object value as a string
+            /// using its cached format method.
+            /// </summary>
+            /// <param name="value">
+            /// The object value to format.
+            /// </param>
+            /// <param name="format">
+            /// The format string to pass to the format method.
+            /// </param>
+            /// <param name="binder">
+            /// The optional binder used to resolve the method; this value may
+            /// be null.
+            /// </param>
+            /// <param name="cultureInfo">
+            /// The optional culture used when formatting; this value may be
+            /// null.
+            /// </param>
+            /// <param name="result">
+            /// Upon success, receives the formatted string.
+            /// </param>
+            /// <returns>
+            /// True if the value was formatted successfully; otherwise, false.
+            /// </returns>
             public static bool TryFormat(
                 object value,            /* in */
                 string format,           /* in */
@@ -289,35 +393,76 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character used to introduce the generic parameter portion of a
+        /// type name.
+        /// </summary>
         private const char ParameterDelimiter = Characters.OpenBracket;
+        /// <summary>
+        /// The string form of the namespace delimiter used within type names.
+        /// </summary>
         private static readonly string TypeDelimiterString = Type.Delimiter.ToString();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !MONO
+        /// <summary>
+        /// The full name of the runtime assembly type used via reflection.
+        /// </summary>
         private const string RuntimeAssemblyTypeName = "System.Reflection.RuntimeAssembly";
+        /// <summary>
+        /// The name of the method used to enumerate the runtime assembly
+        /// cache.
+        /// </summary>
         private const string EnumerateCacheMethodName = "EnumerateCache";
 #endif
 
+        /// <summary>
+        /// The prefix used when synthesizing names for unnamed parameters.
+        /// </summary>
         private const string ParameterNamePrefix = "parameter";
 
+        /// <summary>
+        /// The method name used for an implicit conversion operator.
+        /// </summary>
         internal const string ImplicitOperatorMethodName = "op_Implicit";
+        /// <summary>
+        /// The method name used for an explicit conversion operator.
+        /// </summary>
         internal const string ExplicitOperatorMethodName = "op_Explicit";
 
+        /// <summary>
+        /// The method name prefixes used by property accessor methods.
+        /// </summary>
         private static readonly StringList AccessorPrefixes = new StringList(new string[] {
             "get_", "set_"
         });
 
+        /// <summary>
+        /// The maximum number of nested type levels that will be processed.
+        /// </summary>
         private const int MaximumTypeLevels = 10;
 
+        /// <summary>
+        /// The regular expression used to match the numeric identifier portion
+        /// of an object handle.
+        /// </summary>
         private static readonly Regex ObjectHandleIdRegEx = RegExOps.Create(
             Characters.NumberSign.ToString() + "\\d+|" +
             Characters.NumberSign.ToString() + "x[0-9A-Z]+");
 
+        /// <summary>
+        /// The characters used to delimit a type name from a trailing object
+        /// handle identifier.
+        /// </summary>
         private static readonly char[] TypeAndHandleDelimiters = {
             Type.Delimiter, Characters.NumberSign
         };
@@ -331,11 +476,19 @@ namespace Eagle._Components.Private
         #region Dead Code
 #if DEAD_CODE
 #if !NET_STANDARD_20 || !NET_STANDARD_21
+        /// <summary>
+        /// The UTF-8 encoding used when converting native strings; this value
+        /// may be null, in which case a default encoding is used.
+        /// </summary>
         private static Encoding UTF8 = null;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The UTF-16 encoding used when converting native strings; this value
+        /// may be null, in which case a default encoding is used.
+        /// </summary>
         private static Encoding UTF16 = null;
 #endif
         #endregion
@@ -345,27 +498,53 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The UTF-32 encoding used when converting native strings; this value
+        /// may be null, in which case a default encoding is used.
+        /// </summary>
         private static Encoding UTF32 = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The shared, immutable client data used to mark a result as carrying
+        /// an opaque object value.
+        /// </summary>
         /* IMMUTABLE */
         private static readonly IClientData ObjectValueData = ClientData.Empty;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The runtime type used to represent a system COM object.
+        /// </summary>
         private static readonly Type ComObjectType = Type.GetType("System.__ComObject");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The by-reference type derived from the object type.
+        /// </summary>
         private static readonly Type ByRefObjectType = typeof(object).MakeByRefType();
+        /// <summary>
+        /// The by-reference type derived from the value type.
+        /// </summary>
         private static readonly Type ByRefValueType = typeof(ValueType).MakeByRefType();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The by-reference type derived from the string type.
+        /// </summary>
         private static readonly Type ByRefStringType = typeof(string).MakeByRefType();
+        /// <summary>
+        /// The by-reference type derived from the string pair type.
+        /// </summary>
         private static readonly Type ByRefStringPairType = typeof(StringPair).MakeByRefType();
+        /// <summary>
+        /// The by-reference type derived from the string list type.
+        /// </summary>
         private static readonly Type ByRefStringListType = typeof(StringList).MakeByRefType();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -373,8 +552,18 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default name used for an object when none is otherwise
+        /// available; this value may be null.
+        /// </summary>
         private static Result DefaultObjectName = null;
+        /// <summary>
+        /// The score penalty applied when matching against the string type.
+        /// </summary>
         private static int StringTypePenalty = -1;
+        /// <summary>
+        /// The score bonus applied when matching against the string type.
+        /// </summary>
         private static int StringTypeBonus = 1;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -382,32 +571,75 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The marshalling flags used when checking whether two types are the
+        /// same.
+        /// </summary>
         private static MarshalFlags IsSameTypeMarshalFlags = MarshalFlags.SpecialValueType;
+        /// <summary>
+        /// The marshalling flags used when converting a value to its string
+        /// form.
+        /// </summary>
         private static MarshalFlags ConvertValueToStringMarshalFlags = MarshalFlags.None;
+        /// <summary>
+        /// The marshalling flags used when checking whether one type is
+        /// assignable from another.
+        /// </summary>
         private static MarshalFlags IsAssignableFromMarshalFlags = MarshalFlags.None;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The runtime type used to represent a reflected type, which differs
+        /// between the Mono and non-Mono runtimes.
+        /// </summary>
         private static readonly Type RuntimeType = CommonOps.Runtime.IsMono() ?
             Type.GetType("System.MonoType") : Type.GetType("System.RuntimeType");
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the option used to control whether assembly resolution
+        /// includes a search.
+        /// </summary>
         private const string ResolveAssemblySearchOption = "ResolveAssemblySearch";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// The name of the environment method used to exit the process.
+        /// </summary>
         private const string ExitMethodName = "Exit";
+        /// <summary>
+        /// The name of the environment method used to fail fast.
+        /// </summary>
         private const string FailFastMethodName = "FailFast";
 
+        /// <summary>
+        /// The name of the process method used to close a process.
+        /// </summary>
         private const string CloseMethodName = "Close";
+        /// <summary>
+        /// The name of the process method used to kill a process.
+        /// </summary>
         private const string KillMethodName = "Kill";
 
+        /// <summary>
+        /// The cached reflection information for the environment exit method.
+        /// </summary>
         private static MethodInfo ExitMethodInfo;
+        /// <summary>
+        /// The cached reflection information for the first overload of the
+        /// environment fail-fast method.
+        /// </summary>
         private static MethodInfo FailFast1MethodInfo;
 
 #if NET_40
+        /// <summary>
+        /// The cached reflection information for the second overload of the
+        /// environment fail-fast method.
+        /// </summary>
         private static MethodInfo FailFast2MethodInfo;
 #endif
 #endif
@@ -424,6 +656,10 @@ namespace Eagle._Components.Private
         //       the [sql execute] command -AND- and then only if the
         //       DecimalDataFormat is null.
         //
+        /// <summary>
+        /// The default format string used when formatting a Decimal value for
+        /// the [sql execute] command; this value may be null.
+        /// </summary>
         private static string DefaultDecimalDataFormat = null;
 
         //
@@ -436,6 +672,10 @@ namespace Eagle._Components.Private
         //       SingleDataFormat is null and NeedSingleFormat() returns
         //       true for the value.
         //
+        /// <summary>
+        /// The default format string used when formatting a Single value for
+        /// the [sql execute] command.
+        /// </summary>
         private static string DefaultSingleDataFormat = "E8";
 
         //
@@ -448,6 +688,10 @@ namespace Eagle._Components.Private
         //       DoubleDataFormat is null and NeedDoubleFormat() returns
         //       true for the value.
         //
+        /// <summary>
+        /// The default format string used when formatting a Double value for
+        /// the [sql execute] command.
+        /// </summary>
         private static string DefaultDoubleDataFormat = "E16";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -459,6 +703,10 @@ namespace Eagle._Components.Private
         //       when handling data reader values to be returned from the
         //       [sql execute] command.
         //
+        /// <summary>
+        /// The format string used when formatting a Decimal value for the
+        /// [sql execute] command; this value may be null.
+        /// </summary>
         private static string DecimalDataFormat = null;
 
         //
@@ -468,6 +716,10 @@ namespace Eagle._Components.Private
         //       when handling data reader values to be returned from the
         //       [sql execute] command.
         //
+        /// <summary>
+        /// The format string used when formatting a Single value for the
+        /// [sql execute] command; this value may be null.
+        /// </summary>
         private static string SingleDataFormat = null;
 
         //
@@ -477,6 +729,10 @@ namespace Eagle._Components.Private
         //       when handling data reader values to be returned from the
         //       [sql execute] command.
         //
+        /// <summary>
+        /// The format string used when formatting a Double value for the
+        /// [sql execute] command; this value may be null.
+        /// </summary>
         private static string DoubleDataFormat = null;
 #endif
 
@@ -488,30 +744,69 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the unmanaged COM interface definitions used by
+        /// this class via P/Invoke.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("90b718a7-90f2-4fba-ba0d-caaf2c25b5ad")]
         internal static class UnsafeNativeMethods
         {
+            /// <summary>
+            /// This interface provides access to the type information for the
+            /// class of a COM object.
+            /// </summary>
             [ComImport()]
             [Guid("b196b283-bab4-101a-b69c-00aa00341d07")]
             [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
             [ObjectId("031c7925-e195-4c67-b5fd-b60c8bbc757d")]
             public interface IProvideClassInfo
             {
+                /// <summary>
+                /// This method returns the type information for the class of
+                /// the COM object.
+                /// </summary>
+                /// <returns>
+                /// The type information for the class of the COM object.
+                /// </returns>
                 [return: MarshalAs(UnmanagedType.Interface)]
                 ITypeInfo GetClassInfo();
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This interface exposes the standard OLE automation dispatch
+            /// methods of a COM object.
+            /// </summary>
             [ComImport()]
             [Guid("00020400-0000-0000-c000-000000000046")]
             [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
             [ObjectId("2adc2a0c-f981-4800-8a1f-a34731420a9f")]
             public interface IDispatch
             {
+                /// <summary>
+                /// This method returns the number of type information
+                /// interfaces provided by the COM object.
+                /// </summary>
+                /// <returns>
+                /// The number of type information interfaces provided by the
+                /// COM object.
+                /// </returns>
                 uint GetTypeInfoCount();
 
+                /// <summary>
+                /// This method returns the type information for the COM object.
+                /// </summary>
+                /// <param name="typeInfoId">
+                /// The index of the type information to return.
+                /// </param>
+                /// <param name="localeId">
+                /// The locale identifier used to resolve the type information.
+                /// </param>
+                /// <returns>
+                /// The requested type information for the COM object.
+                /// </returns>
                 [return: MarshalAs(UnmanagedType.Interface)]
                 ITypeInfo GetTypeInfo(
                     [In()]
@@ -520,6 +815,29 @@ namespace Eagle._Components.Private
                     int localeId
                     );
 
+                /// <summary>
+                /// This method maps a set of member names to their
+                /// corresponding dispatch identifiers.
+                /// </summary>
+                /// <param name="iid">
+                /// The interface identifier; this must be the null identifier.
+                /// </param>
+                /// <param name="names">
+                /// The array of names to be mapped.
+                /// </param>
+                /// <param name="count">
+                /// The number of names to be mapped.
+                /// </param>
+                /// <param name="localeId">
+                /// The locale identifier used to interpret the names.
+                /// </param>
+                /// <param name="dispatchIds">
+                /// Upon success, receives the dispatch identifiers
+                /// corresponding to the supplied names.
+                /// </param>
+                /// <returns>
+                /// An HRESULT indicating success or failure.
+                /// </returns>
                 [PreserveSig()]
                 int GetIDsOfNames(
                     [In()]
@@ -534,6 +852,39 @@ namespace Eagle._Components.Private
                     int[] dispatchIds
                     );
 
+                /// <summary>
+                /// This method provides access to the properties and methods
+                /// exposed by the COM object.
+                /// </summary>
+                /// <param name="dispatchId">
+                /// The dispatch identifier of the member to invoke.
+                /// </param>
+                /// <param name="iid">
+                /// The interface identifier; this must be the null identifier.
+                /// </param>
+                /// <param name="localeId">
+                /// The locale identifier used to interpret arguments.
+                /// </param>
+                /// <param name="flags">
+                /// The flags describing the context of the invocation.
+                /// </param>
+                /// <param name="dispParams">
+                /// The structure containing the arguments passed to the
+                /// member.
+                /// </param>
+                /// <param name="result">
+                /// Upon success, receives the result of the invocation.
+                /// </param>
+                /// <param name="excepInfo">
+                /// The structure that receives exception information, if any.
+                /// </param>
+                /// <param name="argumentError">
+                /// Upon failure due to an argument, receives the index of the
+                /// offending argument.
+                /// </param>
+                /// <returns>
+                /// An HRESULT indicating success or failure.
+                /// </returns>
                 [PreserveSig()]
                 int Invoke(
                     [In()]
@@ -561,11 +912,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IComparer Helper Classes
+        /// <summary>
+        /// This class associates a method index pair with its parameter count
+        /// pair and its list of parameter type depths, for use when ordering
+        /// candidate methods.
+        /// </summary>
         [ObjectId("d519117f-c9d6-4cdd-9d0a-f7523f5c7f3d")]
         private sealed class ParameterDataTriplet :
                 AnyTriplet<IPair<int>, IPair<int>, IntList>
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="x">
+            /// The method index pair.
+            /// </param>
+            /// <param name="y">
+            /// The parameter count pair.
+            /// </param>
+            /// <param name="z">
+            /// The list of parameter type depths.
+            /// </param>
             public ParameterDataTriplet(
                 IPair<int> x,
                 IPair<int> y,
@@ -580,6 +948,12 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region System.Object Overrides
+            /// <summary>
+            /// This method returns a string representation of this instance.
+            /// </summary>
+            /// <returns>
+            /// A string representation of this instance.
+            /// </returns>
             public override string ToString()
             {
                 IPair<int> x = this.X;
@@ -597,6 +971,16 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Static Methods
+            /// <summary>
+            /// This method returns a string representation of the specified
+            /// instance.
+            /// </summary>
+            /// <param name="triplet">
+            /// The instance to represent as a string; this value may be null.
+            /// </param>
+            /// <returns>
+            /// A string representation of the specified instance.
+            /// </returns>
             public static string ToString(
                 ParameterDataTriplet triplet
                 )
@@ -611,23 +995,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class compares two parameter data triplets, taking into
+        /// account parameter counts and parameter type depths according to the
+        /// configured reordering flags.
+        /// </summary>
         [ObjectId("2be7ddf5-2fe2-4e77-acb9-d039cad9c2a1")]
         private sealed class ParameterDataComparer :
                 IComparer<ParameterDataTriplet>
         {
             #region Private Data
+            /// <summary>
+            /// The flags that control how the comparison is performed.
+            /// </summary>
             private ReorderFlags reorderFlags;
+            /// <summary>
+            /// Non-zero if parameter counts should be used in the comparison.
+            /// </summary>
             private bool useParameterCounts;
+            /// <summary>
+            /// Non-zero if parameter type depths should be used in the
+            /// comparison.
+            /// </summary>
             private bool useTypeDepths;
+            /// <summary>
+            /// Non-zero if parameter type depths should be compared before
+            /// parameter counts.
+            /// </summary>
             private bool typeDepthsFirst;
+            /// <summary>
+            /// The comparer used to compare integer values.
+            /// </summary>
             private IComparer<int> intComparer;
+            /// <summary>
+            /// The comparer used to compare parameter count pairs.
+            /// </summary>
             private IComparer<IPair<int>> countComparer;
+            /// <summary>
+            /// The comparer used to compare parameter type depth lists.
+            /// </summary>
             private IComparer<IntList> depthComparer;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="reorderFlags">
+            /// The flags that control how the comparison is performed.
+            /// </param>
             public ParameterDataComparer(
                 ReorderFlags reorderFlags
                 )
@@ -642,6 +1060,10 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method derives the boolean comparison options from the
+            /// configured reordering flags.
+            /// </summary>
             private void SetupFlags()
             {
                 useParameterCounts = FlagOps.HasFlags(
@@ -656,6 +1078,9 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method creates the child comparers used by this comparer.
+            /// </summary>
             private void SetupComparers()
             {
                 intComparer = Comparer<int>.Default;
@@ -669,6 +1094,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method creates the comparer used to order candidate
+            /// methods by their parameter counts.
+            /// </summary>
+            /// <returns>
+            /// The comparer used to order candidate methods by their parameter
+            /// counts.
+            /// </returns>
             private IComparer<IPair<int>> CreateParameterCountComparer()
             {
                 bool ascending = false;
@@ -694,6 +1127,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method creates the comparer used to order candidate
+            /// methods by their parameter type depths.
+            /// </summary>
+            /// <returns>
+            /// The comparer used to order candidate methods by their parameter
+            /// type depths.
+            /// </returns>
             private IComparer<IntList> CreateParameterTypeDepthComparer()
             {
                 bool ascending = false;
@@ -728,6 +1169,20 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IComparer<ParameterDataTriplet> Members
+            /// <summary>
+            /// This method compares two parameter data triplets.
+            /// </summary>
+            /// <param name="left">
+            /// The first triplet to compare; this value may be null.
+            /// </param>
+            /// <param name="right">
+            /// The second triplet to compare; this value may be null.
+            /// </param>
+            /// <returns>
+            /// Zero if the triplets are equal, a negative number if the first
+            /// triplet sorts before the second, or a positive number if the
+            /// first triplet sorts after the second.
+            /// </returns>
             public int Compare(
                 ParameterDataTriplet left,
                 ParameterDataTriplet right
@@ -821,18 +1276,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Parameter Counts
+        /// <summary>
+        /// This class compares two parameter count pairs, taking into account
+        /// whether the comparison should be ascending and whether the maximum
+        /// or minimum count should be used.
+        /// </summary>
         [ObjectId("a63ad040-72ca-414e-993d-c1febc4109b7")]
         private sealed class ParameterCountComparer : IComparer<IPair<int>>
         {
             #region Private Data
+            /// <summary>
+            /// The comparer used to compare integer values.
+            /// </summary>
             private IComparer<int> comparer;
+            /// <summary>
+            /// Non-zero if the comparison should be in ascending order.
+            /// </summary>
             private bool ascending;
+            /// <summary>
+            /// Non-zero if the maximum count should be used as the primary
+            /// value for the comparison.
+            /// </summary>
             private bool maximum;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="comparer">
+            /// The comparer used to compare integer values.
+            /// </param>
+            /// <param name="ascending">
+            /// Non-zero if the comparison should be in ascending order.
+            /// </param>
+            /// <param name="maximum">
+            /// Non-zero if the maximum count should be used as the primary
+            /// value for the comparison.
+            /// </param>
             public ParameterCountComparer(
                 IComparer<int> comparer,
                 bool ascending,
@@ -848,6 +1331,20 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Static Methods
+            /// <summary>
+            /// This method returns the value of a parameter count pair to use
+            /// for comparison, substituting a sentinel for an invalid count.
+            /// </summary>
+            /// <param name="value">
+            /// The parameter count pair.
+            /// </param>
+            /// <param name="maximum">
+            /// Non-zero to return the maximum count; otherwise, the minimum
+            /// count is returned.
+            /// </param>
+            /// <returns>
+            /// The value to use for comparison.
+            /// </returns>
             private static int GetValueForCompare(
                 IPair<int> value,
                 bool maximum
@@ -877,6 +1374,16 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method returns the primary value of a parameter count pair
+            /// to use for comparison.
+            /// </summary>
+            /// <param name="value">
+            /// The parameter count pair.
+            /// </param>
+            /// <returns>
+            /// The primary value to use for comparison.
+            /// </returns>
             private int GetPrimaryValueForCompare(
                 IPair<int> value
                 )
@@ -886,6 +1393,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method returns the secondary value of a parameter count
+            /// pair to use for comparison when the primary values are equal.
+            /// </summary>
+            /// <param name="value">
+            /// The parameter count pair.
+            /// </param>
+            /// <returns>
+            /// The secondary value to use for comparison.
+            /// </returns>
             private int GetSecondaryValueForCompare(
                 IPair<int> value
                 )
@@ -895,6 +1412,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method compares two integer parameter counts, handling the
+            /// invalid count sentinel.
+            /// </summary>
+            /// <param name="left">
+            /// The first count to compare.
+            /// </param>
+            /// <param name="right">
+            /// The second count to compare.
+            /// </param>
+            /// <returns>
+            /// Zero if the counts are equal, a negative number if the first
+            /// count sorts before the second, or a positive number if the
+            /// first count sorts after the second.
+            /// </returns>
             private int Compare(
                 int left,
                 int right
@@ -920,6 +1452,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adjusts a comparison result to account for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="result">
+            /// The comparison result to adjust.
+            /// </param>
+            /// <returns>
+            /// The adjusted comparison result.
+            /// </returns>
             private int AdjustResultForCompare(
                 int result
                 )
@@ -931,6 +1473,22 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IComparer<IPair<int>> Members
+            /// <summary>
+            /// This method compares two parameter count pairs.
+            /// </summary>
+            /// <param name="left">
+            /// The first parameter count pair to compare; this value may be
+            /// null.
+            /// </param>
+            /// <param name="right">
+            /// The second parameter count pair to compare; this value may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// Zero if the pairs are equal, a negative number if the first pair
+            /// sorts before the second, or a positive number if the first pair
+            /// sorts after the second.
+            /// </returns>
             public int Compare(
                 IPair<int> left,
                 IPair<int> right
@@ -983,19 +1541,56 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Parameter Type Depths
+        /// <summary>
+        /// This class compares two lists of parameter type depths, taking into
+        /// account whether the comparison should be ascending, whether the
+        /// maximum or minimum depth should be favored, and whether the total
+        /// of all depths should be used.
+        /// </summary>
         [ObjectId("c932e6b7-cdce-4757-829a-331c158bef43")]
         private sealed class ParameterTypeDepthComparer : IComparer<IntList>
         {
             #region Private Data
+            /// <summary>
+            /// The comparer used to compare integer values.
+            /// </summary>
             private IComparer<int> comparer;
+            /// <summary>
+            /// Non-zero if the comparison should be in ascending order.
+            /// </summary>
             private bool ascending;
+            /// <summary>
+            /// Non-zero if the maximum depth should be favored when a list is
+            /// missing.
+            /// </summary>
             private bool maximum;
+            /// <summary>
+            /// Non-zero if the total of all type depths should be used instead
+            /// of comparing each depth individually.
+            /// </summary>
             private bool total;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="comparer">
+            /// The comparer used to compare integer values.
+            /// </param>
+            /// <param name="ascending">
+            /// Non-zero if the comparison should be in ascending order.
+            /// </param>
+            /// <param name="maximum">
+            /// Non-zero if the maximum depth should be favored when a list is
+            /// missing.
+            /// </param>
+            /// <param name="total">
+            /// Non-zero if the total of all type depths should be used instead
+            /// of comparing each depth individually.
+            /// </param>
             public ParameterTypeDepthComparer(
                 IComparer<int> comparer,
                 bool ascending,
@@ -1013,6 +1608,23 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method compares two lists of parameter type depths without
+            /// adjusting for the configured sort direction.
+            /// </summary>
+            /// <param name="left">
+            /// The first list of type depths to compare; this value may be
+            /// null.
+            /// </param>
+            /// <param name="right">
+            /// The second list of type depths to compare; this value may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// Zero if the lists are equal, a negative number if the first list
+            /// sorts before the second, or a positive number if the first list
+            /// sorts after the second.
+            /// </returns>
             private int PrivateCompare(
                 IntList left,
                 IntList right
@@ -1054,6 +1666,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adjusts a comparison result to account for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="result">
+            /// The comparison result to adjust.
+            /// </param>
+            /// <returns>
+            /// The adjusted comparison result.
+            /// </returns>
             private int AdjustResultForCompare(
                 int result
                 )
@@ -1065,6 +1687,22 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IComparer<IntList> Members
+            /// <summary>
+            /// This method compares two lists of parameter type depths.
+            /// </summary>
+            /// <param name="left">
+            /// The first list of type depths to compare; this value may be
+            /// null.
+            /// </param>
+            /// <param name="right">
+            /// The second list of type depths to compare; this value may be
+            /// null.
+            /// </param>
+            /// <returns>
+            /// Zero if the lists are equal, a negative number if the first list
+            /// sorts before the second, or a positive number if the first list
+            /// sorts after the second.
+            /// </returns>
             public int Compare(
                 IntList left,
                 IntList right
@@ -1094,18 +1732,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region MethodBase Name / Parameter Counts
+        /// <summary>
+        /// This class compares two methods by their name, parameter counts,
+        /// and parameter types, optionally in descending order.
+        /// </summary>
         [ObjectId("1ed97fe6-11a2-42a1-91d1-07fa97e7cc0a")]
         private sealed class MethodBaseComparer : IComparer<MethodBase>
         {
             #region Private Data
+            /// <summary>
+            /// The comparer used to compare method and type names.
+            /// </summary>
             private IComparer<string> nameComparer;
+            /// <summary>
+            /// The comparer used to compare parameter counts.
+            /// </summary>
             private IComparer<int> countComparer;
+            /// <summary>
+            /// Non-zero if the comparison should be in ascending order.
+            /// </summary>
             private bool ascending;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="ascending">
+            /// Non-zero if the comparison should be in ascending order.
+            /// </param>
             public MethodBaseComparer(
                 bool ascending
                 )
@@ -1119,6 +1776,9 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method creates the child comparers used by this comparer.
+            /// </summary>
             private void SetupComparers()
             {
                 nameComparer = StringOps.GetStringComparer(
@@ -1129,6 +1789,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method compares two methods without adjusting for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="left">
+            /// The first method to compare; this value may be null.
+            /// </param>
+            /// <param name="right">
+            /// The second method to compare; this value may be null.
+            /// </param>
+            /// <returns>
+            /// Zero if the methods are equal, a negative number if the first
+            /// method sorts before the second, or a positive number if the
+            /// first method sorts after the second.
+            /// </returns>
             private int PrivateCompare(
                 MethodBase left,
                 MethodBase right
@@ -1235,6 +1910,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adjusts a comparison result to account for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="result">
+            /// The comparison result to adjust.
+            /// </param>
+            /// <returns>
+            /// The adjusted comparison result.
+            /// </returns>
             private int AdjustResultForCompare(
                 int result
                 )
@@ -1246,6 +1931,20 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IComparer<MethodBase> Members
+            /// <summary>
+            /// This method compares two methods.
+            /// </summary>
+            /// <param name="left">
+            /// The first method to compare; this value may be null.
+            /// </param>
+            /// <param name="right">
+            /// The second method to compare; this value may be null.
+            /// </param>
+            /// <returns>
+            /// Zero if the methods are equal, a negative number if the first
+            /// method sorts before the second, or a positive number if the
+            /// first method sorts after the second.
+            /// </returns>
             public int Compare(
                 MethodBase left,
                 MethodBase right
@@ -1275,19 +1974,48 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region PropertyInfo Name / Parameter Counts
+        /// <summary>
+        /// This class compares two properties by their name and the
+        /// characteristics of their get accessor method, optionally in
+        /// descending order.
+        /// </summary>
         [ObjectId("df110a5e-cc74-4742-a32a-c5ace09fa391")]
         private sealed class PropertyInfoComparer : IComparer<PropertyInfo>
         {
             #region Private Data
+            /// <summary>
+            /// The comparer used to compare property names.
+            /// </summary>
             private IComparer<string> nameComparer;
+            /// <summary>
+            /// The comparer used to compare the get accessor methods of two
+            /// properties.
+            /// </summary>
             private IComparer<MethodBase> methodComparer;
+            /// <summary>
+            /// Non-zero if the comparison should be in ascending order.
+            /// </summary>
             private bool ascending;
+            /// <summary>
+            /// Non-zero if non-public get accessor methods should be
+            /// considered.
+            /// </summary>
             private bool nonPublic;
             #endregion
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class.
+            /// </summary>
+            /// <param name="ascending">
+            /// Non-zero if the comparison should be in ascending order.
+            /// </param>
+            /// <param name="nonPublic">
+            /// Non-zero if non-public get accessor methods should be
+            /// considered.
+            /// </param>
             public PropertyInfoComparer(
                 bool ascending,
                 bool nonPublic
@@ -1303,6 +2031,9 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method creates the child comparers used by this comparer.
+            /// </summary>
             private void SetupComparers()
             {
                 nameComparer = StringOps.GetStringComparer(
@@ -1313,6 +2044,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method compares two properties without adjusting for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="left">
+            /// The first property to compare; this value may be null.
+            /// </param>
+            /// <param name="right">
+            /// The second property to compare; this value may be null.
+            /// </param>
+            /// <returns>
+            /// Zero if the properties are equal, a negative number if the first
+            /// property sorts before the second, or a positive number if the
+            /// first property sorts after the second.
+            /// </returns>
             private int PrivateCompare(
                 PropertyInfo left,
                 PropertyInfo right
@@ -1362,6 +2108,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method adjusts a comparison result to account for the
+            /// configured sort direction.
+            /// </summary>
+            /// <param name="result">
+            /// The comparison result to adjust.
+            /// </param>
+            /// <returns>
+            /// The adjusted comparison result.
+            /// </returns>
             private int AdjustResultForCompare(
                 int result
                 )
@@ -1373,6 +2129,20 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////////////////////////////
 
             #region IComparer<PropertyInfo> Members
+            /// <summary>
+            /// This method compares two properties.
+            /// </summary>
+            /// <param name="left">
+            /// The first property to compare; this value may be null.
+            /// </param>
+            /// <param name="right">
+            /// The second property to compare; this value may be null.
+            /// </param>
+            /// <returns>
+            /// Zero if the properties are equal, a negative number if the first
+            /// property sorts before the second, or a positive number if the
+            /// first property sorts after the second.
+            /// </returns>
             public int Compare(
                 PropertyInfo left,
                 PropertyInfo right
@@ -1404,6 +2174,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines whether the specified result carries an
+        /// opaque object value, as indicated by its shared client data marker.
+        /// </summary>
+        /// <param name="result">
+        /// The result to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the result carries an opaque object value; otherwise, false.
+        /// </returns>
         private static bool IsObjectHandle(
             Result result
             )
@@ -1416,6 +2196,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a block of bytes from the specified unmanaged
+        /// memory location.
+        /// </summary>
+        /// <param name="ptr">
+        /// The unmanaged memory location to read from.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read.
+        /// </param>
+        /// <param name="canThrow">
+        /// Non-zero if an exception encountered while reading should be
+        /// re-thrown rather than suppressed.
+        /// </param>
+        /// <returns>
+        /// The bytes that were read, or null if they could not be read.
+        /// </returns>
         private static byte[] ReadBytes(
             IntPtr ptr,   /* in */
             int count,    /* in */
@@ -1449,6 +2246,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads bytes from the specified unmanaged memory
+        /// location and decodes them into a string using the specified
+        /// encoding.
+        /// </summary>
+        /// <param name="encoding">
+        /// The encoding used to decode the bytes; this value may be null.
+        /// </param>
+        /// <param name="ptr">
+        /// The unmanaged memory location to read from.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read.
+        /// </param>
+        /// <param name="canThrow">
+        /// Non-zero if an exception encountered while reading or decoding
+        /// should be re-thrown rather than suppressed.
+        /// </param>
+        /// <returns>
+        /// The decoded string, or null if it could not be read or decoded.
+        /// </returns>
         private static string PtrToEncodedString(
             Encoding encoding, /* in */
             IntPtr ptr,        /* in */
@@ -1491,6 +2309,20 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts a block of unmanaged memory containing UTF-8
+        /// encoded data into a managed string.
+        /// </summary>
+        /// <param name="ptr">
+        /// The unmanaged memory location to read from.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read.
+        /// </param>
+        /// <returns>
+        /// The managed string that was decoded, or null if it could not be
+        /// decoded.
+        /// </returns>
         private static string PtrToStringUTF8(
             IntPtr ptr, /* in */
             int count   /* in */
@@ -1514,6 +2346,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a block of unmanaged memory containing UTF-16
+        /// encoded data into a managed string.
+        /// </summary>
+        /// <param name="ptr">
+        /// The unmanaged memory location to read from.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read.
+        /// </param>
+        /// <returns>
+        /// The managed string that was decoded, or null if it could not be
+        /// decoded.
+        /// </returns>
         private static string PtrToStringUTF16(
             IntPtr ptr, /* in */
             int count   /* in */
@@ -1531,6 +2377,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a UTF-32 encoded string from the specified
+        /// unmanaged memory location.
+        /// </summary>
+        /// <param name="ptr">
+        /// The unmanaged memory location to read from.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read.
+        /// </param>
+        /// <returns>
+        /// The decoded string, or null if it could not be read or decoded.
+        /// </returns>
         public static string PtrToStringUTF32(
             IntPtr ptr, /* in */
             int count   /* in */
@@ -1546,6 +2405,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the return parameter and the parameters of the
+        /// specified method.
+        /// </summary>
+        /// <param name="method">
+        /// The method to query; this value may be null.
+        /// </param>
+        /// <param name="returnInfo">
+        /// Upon return, receives the return parameter of the method, or null
+        /// if it is not available.
+        /// </param>
+        /// <param name="parameterInfos">
+        /// Upon return, receives the parameters of the method, or null if they
+        /// are not available.
+        /// </param>
         public static void GetParameterInfos(
             MethodBase method,
             out ParameterInfo returnInfo,
@@ -1567,6 +2441,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method finds the public methods of the specified type that
+        /// match the specified name.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose methods should be searched; this value may be null.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the methods to find, or null to match all methods.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The optional binding flags used to find the methods; this value may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The list of matching methods, or null if none could be found.
+        /// </returns>
         private static MethodInfoList FindPublicMethods(
             Type type,                 /* in */
             string methodName,         /* in */
@@ -1610,6 +2501,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the cached reflection information for the
+        /// environment methods that are forbidden in kiosk mode.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force re-initialization even if it has already been
+        /// performed.
+        /// </param>
         public static void Initialize(
             bool force /* in */
             )
@@ -1655,6 +2554,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types are the same for the
+        /// purposes of kiosk mode enforcement, comparing by type name as a
+        /// fallback.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare; this value may be null.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the types are considered the same; otherwise, false.
+        /// </returns>
         private static bool IsSameTypeForKiosk(
             Type type1,
             Type type2
@@ -1675,6 +2588,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether invoking the specified method is
+        /// forbidden in kiosk mode.
+        /// </summary>
+        /// <param name="methodInfo">
+        /// The method to check; this value may be null.
+        /// </param>
+        /// <param name="object">
+        /// The object instance the method would be invoked on, if any.
+        /// </param>
+        /// <returns>
+        /// True if invoking the method is forbidden in kiosk mode; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsForbiddenForKiosk(
             MethodInfo methodInfo,
             object @object
@@ -1747,6 +2674,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a named method on the value of a named opaque
+        /// object, as an instance member.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may not be null.
+        /// </param>
+        /// <param name="objectName">
+        /// The name of the opaque object whose value provides the instance.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the type expected to declare the method.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method to resolve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The optional culture used during resolution; this value may be null.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used to resolve the method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The resolved typed member, or null if it could not be resolved.
+        /// </returns>
         private static ITypedMember GetInstanceTypedMember(
             Interpreter interpreter,
             string objectName,
@@ -1823,6 +2778,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a named method on a named type, as a static
+        /// member.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="objectName">
+        /// The name of the opaque object associated with the request, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the type that declares the method.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method to resolve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The optional culture used during resolution; this value may be null.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used to resolve the method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The resolved typed member, or null if it could not be resolved.
+        /// </returns>
         private static ITypedMember GetStaticTypedMember(
             Interpreter interpreter,
             string objectName,
@@ -1879,6 +2862,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a delegate from a two-element list naming an
+        /// object or type and a method, trying an instance member first and
+        /// then a static member.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="delegateType">
+        /// The type of the delegate to create.
+        /// </param>
+        /// <param name="delegateList">
+        /// The two-element list naming the object or type and the method.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The optional culture used during resolution; this value may be null.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used to resolve the method.
+        /// </param>
+        /// <param name="throwOnBindFailure">
+        /// Non-zero if delegate creation should throw on a binding failure.
+        /// </param>
+        /// <param name="delegate">
+        /// Upon success, receives the created delegate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode LookupSimpleCallback(
             Interpreter interpreter,
             Type delegateType,
@@ -1957,6 +2973,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method lists the properties of the specified object, along
+        /// with their values, as a name/value list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use; this value may be null.
+        /// </param>
+        /// <param name="object">
+        /// The object whose properties should be listed.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The optional binding flags used to find the properties; this value
+        /// may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// An optional pattern used to filter property names; this value may be
+        /// null.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include a placeholder for properties whose values
+        /// cannot be represented as a string.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the resulting name/value list; if this value
+        /// is not null on entry, the results are appended to it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ListProperties(
             Interpreter interpreter,
             object @object,
@@ -2062,6 +3111,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sorts the specified array of methods in place if the
+        /// marshalling flags request it.
+        /// </summary>
+        /// <param name="methods">
+        /// The array of methods to sort; this value may be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that control whether and how the methods are
+        /// sorted.
+        /// </param>
         public static void MaybeSortMethods(
             MethodBase[] methods,
             MarshalFlags marshalFlags
@@ -2080,6 +3140,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sorts the specified array of properties in place if the
+        /// marshalling flags request it.
+        /// </summary>
+        /// <param name="propertyInfo">
+        /// The array of properties to sort; this value may be null.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that control whether and how the properties
+        /// are sorted.
+        /// </param>
         public static void MaybeSortProperties(
             PropertyInfo[] propertyInfo,
             MarshalFlags marshalFlags
@@ -2102,6 +3173,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the marshalling flags from the specified list
+        /// of enumerated values.
+        /// </summary>
+        /// <param name="list">
+        /// The list of enumerated values to filter; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The list of marshalling flags found in the specified list, or null
+        /// if the list was null.
+        /// </returns>
         public static MarshalFlagsList GetParameterMarshalFlags(
             EnumList list
             )
@@ -2121,6 +3203,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the system COM
+        /// object type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is the system COM object type;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsSystemComObjectType(
             Type type
             )
@@ -2130,6 +3223,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type name appears to
+        /// be qualified with a namespace.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to check; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type name appears to be namespace-qualified; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsNamespaceQualifiedTypeName(
             string typeName
             )
@@ -2167,6 +3271,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type name appears to
+        /// be qualified with an assembly name.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to check; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type name appears to be assembly-qualified; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsAssemblyQualifiedTypeName(
             string typeName
             )
@@ -2178,6 +3293,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type name appears to
+        /// be qualified with an assembly name, returning the index of the
+        /// delimiting comma when one is found.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to check; this value may be null.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, receives the index of the comma that separates the
+        /// type name from the assembly name, when one is found.
+        /// </param>
+        /// <returns>
+        /// True if the type name appears to be assembly-qualified; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsAssemblyQualifiedTypeName(
             string typeName,
             ref int index
@@ -2254,6 +3385,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the specified type name with any trailing
+        /// assembly name removed.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to process; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The type name without its assembly name, or the original type name
+        /// if it was not assembly-qualified.
+        /// </returns>
         public static string GetTypeNameWithoutAssembly(
             string typeName
             )
@@ -2272,6 +3414,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the assembly name portion of the specified
+        /// assembly-qualified type name.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to process; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The assembly name portion of the type name, or null if the type
+        /// name was not assembly-qualified.
+        /// </returns>
         private static string GetAssemblyFromTypeName(
             string typeName
             )
@@ -2291,6 +3444,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a
+        /// one-dimensional array type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is a one-dimensional array type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsOneDimensionalArrayType(
             Type type
             )
@@ -2302,6 +3466,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a
+        /// one-dimensional array type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the element type of the array.
+        /// </param>
+        /// <returns>
+        /// True if the type is a one-dimensional array type; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsOneDimensionalArrayType(
             Type type,
             ref Type elementType
@@ -2320,6 +3498,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to its string
+        /// representation, using the default object flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="value">
+        /// The value to convert to a string.
+        /// </param>
+        /// <param name="ignoreAlias">
+        /// Non-zero to ignore any opaque object handle alias when
+        /// converting the value.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the resulting string value. Upon
+        /// failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetVariableValueAsString(
             Interpreter interpreter,
             object value,
@@ -2340,6 +3540,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified array index string into an
+        /// array of integer indexes.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing integer values.
+        /// </param>
+        /// <param name="index">
+        /// The array index string to parse.
+        /// </param>
+        /// <param name="indexes">
+        /// Upon success, receives the array of parsed integer indexes.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetArrayIndexes(
             CultureInfo cultureInfo,
             string index,
@@ -2354,6 +3571,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified array index string into an
+        /// array of integer indexes.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing integer values.
+        /// </param>
+        /// <param name="index">
+        /// The array index string to parse.
+        /// </param>
+        /// <param name="indexes">
+        /// Upon success, receives the array of parsed integer indexes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayIndexes(
             CultureInfo cultureInfo,
             string index,
@@ -2408,6 +3645,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the value of an element of the specified
+        /// managed array at the given indexes.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder to use, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use, if any.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element value from.
+        /// </param>
+        /// <param name="indexes">
+        /// The indexes of the array element to retrieve.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the array element.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetArrayElementValue(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -2424,6 +3684,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the value of an element of the specified
+        /// managed array at the given indexes.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder to use, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use, if any.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element value from.
+        /// </param>
+        /// <param name="indexes">
+        /// The indexes of the array element to retrieve.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the array element.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayElementValue(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -2454,6 +3740,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the value of an element of the specified
+        /// managed array at the given indexes, converting the value to
+        /// the array element type as necessary.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder to use when changing the value type.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when changing the value type.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to set the element value on.
+        /// </param>
+        /// <param name="indexes">
+        /// The indexes of the array element to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to set the array element to.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetArrayElementValue(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -2544,6 +3857,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the index keys of the elements of the
+        /// specified managed array that match the given pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element keys from.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing keys against the
+        /// pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match keys against, or null to match all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="keys">
+        /// Upon success, receives the list of matching index keys.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayElementKeys(
             Interpreter interpreter,
             Array array,
@@ -2595,6 +3938,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the values of the elements of the
+        /// specified managed array that match the given pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element values from.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing values against the
+        /// pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match values against, or null to match all
+        /// values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="values">
+        /// Upon success, receives the list of matching element values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayElementValues(
             Interpreter interpreter,
             Array array,
@@ -2646,6 +4020,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the index keys and values of the
+        /// elements of the specified managed array that match the given
+        /// key and value patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element keys and values
+        /// from.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing keys and values
+        /// against the patterns.
+        /// </param>
+        /// <param name="keyPattern">
+        /// The pattern to match keys against, or null to match all keys.
+        /// </param>
+        /// <param name="valuePattern">
+        /// The pattern to match values against, or null to match all
+        /// values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="keysAndValues">
+        /// Upon success, receives the dictionary of matching keys and
+        /// values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayElementKeysAndValues(
             Interpreter interpreter,
             Array array,
@@ -2699,6 +4110,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the index keys and values of the
+        /// elements of the specified managed array that match the given
+        /// pattern, where the key and/or value portion may participate
+        /// in the match.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to retrieve the element keys and values
+        /// from.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against, or null to match all elements.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="matchKey">
+        /// Non-zero to include the index key in the value being matched.
+        /// </param>
+        /// <param name="matchValue">
+        /// Non-zero to include the element value in the value being
+        /// matched.
+        /// </param>
+        /// <param name="keysAndValues">
+        /// Upon success, receives the dictionary of matching keys and
+        /// values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetArrayElementKeysAndValues(
             Interpreter interpreter,
             Array array,
@@ -2753,6 +4204,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method iterates over the elements of the specified
+        /// managed array, capturing the index keys and/or values that
+        /// match the given key and value patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to iterate over.
+        /// </param>
+        /// <param name="keys">
+        /// Non-zero to capture the index keys of the matching elements.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to capture the values of the matching elements.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing against the patterns.
+        /// </param>
+        /// <param name="keyPattern">
+        /// The pattern to match keys against, or null to match all keys.
+        /// </param>
+        /// <param name="valuePattern">
+        /// The pattern to match values against, or null to match all
+        /// values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the captured keys and/or values. Upon
+        /// failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetArrayElementKeysAndOrValues(
             Interpreter interpreter,
             Array array,
@@ -2851,6 +4340,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method iterates over the elements of the specified
+        /// managed array, capturing the index keys and/or values that
+        /// match the given pattern, where the key and/or value portion
+        /// may participate in the match.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="array">
+        /// The managed array to iterate over.
+        /// </param>
+        /// <param name="keys">
+        /// Non-zero to capture the index keys of the matching elements.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to capture the values of the matching elements.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when comparing against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against, or null to match all elements.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="matchKey">
+        /// Non-zero to include the index key in the value being matched.
+        /// </param>
+        /// <param name="matchValue">
+        /// Non-zero to include the element value in the value being
+        /// matched.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the captured keys and/or values. Upon
+        /// failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetArrayElementKeysAndOrValues(
             Interpreter interpreter,
             Array array,
@@ -2969,6 +4500,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an element exists at the
+        /// specified index within the managed array backing the given
+        /// variable.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder to use, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use, if any.
+        /// </param>
+        /// <param name="variable">
+        /// The variable whose backing managed array should be checked.
+        /// </param>
+        /// <param name="index">
+        /// The array index string identifying the element to check.
+        /// </param>
+        /// <returns>
+        /// True if the array element exists; otherwise, false.
+        /// </returns>
         public static bool DoesArrayElementExist(
             IBinder binder,
             CultureInfo cultureInfo,
@@ -3003,6 +4554,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type has an
+        /// element type and whether its array status matches the
+        /// requested value.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="isArray">
+        /// The array status that the type is required to match.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the element type of the type.
+        /// </param>
+        /// <returns>
+        /// True if the type has an element type and its array status
+        /// matches <paramref name="isArray" />; otherwise, false.
+        /// </returns>
         private static bool HasElementType(
             Type type,
             bool isArray,
@@ -3021,6 +4590,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// object type, optionally including the by-reference object
+        /// type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to also treat the by-reference object type as a
+        /// match.
+        /// </param>
+        /// <returns>
+        /// True if the type is the object type (or, when
+        /// <paramref name="output" /> is non-zero, the by-reference
+        /// object type); otherwise, false.
+        /// </returns>
         private static bool IsObjectType(
             Type type,
             bool output
@@ -3042,6 +4628,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is the
+        /// string type, optionally including the by-reference string
+        /// type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to also treat the by-reference string type as a
+        /// match.
+        /// </param>
+        /// <returns>
+        /// True if the type is the string type (or, when
+        /// <paramref name="output" /> is non-zero, the by-reference
+        /// string type); otherwise, false.
+        /// </returns>
         private static bool IsStringType(
             Type type,
             bool output
@@ -3063,6 +4666,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value is a
+        /// managed array.
+        /// </summary>
+        /// <param name="value">
+        /// The value to check.
+        /// </param>
+        /// <param name="array">
+        /// Upon success, receives the value cast to a managed array.
+        /// </param>
+        /// <returns>
+        /// True if the value is a managed array; otherwise, false.
+        /// </returns>
         private static bool IsArrayValue(
             object value,
             ref Array array
@@ -3077,6 +4693,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified variable
+        /// represents an array, computing its rank and element type.
+        /// </summary>
+        /// <param name="variable">
+        /// The variable to check.
+        /// </param>
+        /// <param name="rank">
+        /// Upon success, receives the rank of the array. An empty array
+        /// has a rank of one.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the element type of the array,
+        /// defaulting to the object type when not already specified.
+        /// </param>
+        /// <returns>
+        /// True if the variable represents an array; otherwise, false.
+        /// </returns>
         private static bool IsArrayType(
             IVariable variable,  /* in */
             ref int rank,        /* in, out */
@@ -3136,6 +4770,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an array
+        /// type (or a by-reference array type).
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is an array type; otherwise, false.
+        /// </returns>
         private static bool IsArrayType(
             Type type
             )
@@ -3147,6 +4791,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an array
+        /// type (or a by-reference array type) and computes its element
+        /// type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the element type of the array.
+        /// </param>
+        /// <returns>
+        /// True if the type is an array type; otherwise, false.
+        /// </returns>
         private static bool IsArrayType(
             Type type,
             ref Type elementType
@@ -3159,6 +4817,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an array
+        /// type (or a by-reference array type) and computes its rank and
+        /// element type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="rank">
+        /// Upon success, receives the rank of the array.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the element type of the array.
+        /// </param>
+        /// <returns>
+        /// True if the type is an array type; otherwise, false.
+        /// </returns>
         private static bool IsArrayType(
             Type type,
             ref int rank,
@@ -3193,6 +4868,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the specified type name parts, from the
+        /// beginning through the given last index, into a single type
+        /// name string.
+        /// </summary>
+        /// <param name="parts">
+        /// The array of type name parts to join.
+        /// </param>
+        /// <param name="lastIndex">
+        /// The index of the last part to include in the joined name.
+        /// </param>
+        /// <returns>
+        /// The joined type name, or null if the inputs are invalid.
+        /// </returns>
         public static string JoinTypeName(
             string[] parts,
             int lastIndex
@@ -3203,6 +4892,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method joins the specified type name parts, from the
+        /// given start index through the given last index, into a single
+        /// type name string.
+        /// </summary>
+        /// <param name="parts">
+        /// The array of type name parts to join.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first part to include in the joined name.
+        /// </param>
+        /// <param name="lastIndex">
+        /// The index of the last part to include in the joined name.
+        /// </param>
+        /// <returns>
+        /// The joined type name, or null if the inputs are invalid.
+        /// </returns>
         public static string JoinTypeName(
             string[] parts,
             int startIndex,
@@ -3230,6 +4936,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified type name on embedded null
+        /// characters, returning the trailing parts and updating the
+        /// type name to its leading portion.
+        /// </summary>
+        /// <param name="typeName">
+        /// On input, the type name to split; upon success, receives the
+        /// leading portion of the type name.
+        /// </param>
+        /// <returns>
+        /// The array of trailing type name parts, or null if the type
+        /// name contains no embedded null characters.
+        /// </returns>
         public static string[] MaybePreSplitTypeName(
             ref string typeName /* in, out */
             )
@@ -3257,6 +4976,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method prepends any extra parts associated with the
+        /// specified typed instance to the given member name, producing a
+        /// fully-qualified member name.
+        /// </summary>
+        /// <param name="typedInstance">
+        /// The typed instance whose extra parts should be used, if any.
+        /// </param>
+        /// <param name="memberName">
+        /// The member name to qualify with the extra parts.
+        /// </param>
+        /// <returns>
+        /// The member name qualified with the extra parts, or the
+        /// original member name when there are no extra parts.
+        /// </returns>
         public static string MaybeUseExtraParts(
             ITypedInstance typedInstance,
             string memberName
@@ -3285,6 +5019,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified type name into its component
+        /// parts, ignoring any generic arity suffix.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to split.
+        /// </param>
+        /// <returns>
+        /// The array of type name parts, or null if the type name is
+        /// null or empty.
+        /// </returns>
         public static string[] SplitTypeName(
             string typeName
             )
@@ -3307,6 +5052,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable flags to use when accessing
+        /// an array variable, optionally requiring that the variable be
+        /// defined.
+        /// </summary>
+        /// <param name="input">
+        /// Non-zero to require that the array variable already be
+        /// defined.
+        /// </param>
+        /// <returns>
+        /// The variable flags to use when accessing the array variable.
+        /// </returns>
         private static VariableFlags GetArrayVariableFlags(
             bool input
             )
@@ -3318,6 +5075,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an opaque object handle should
+        /// be marshalled by value (i.e. as a scalar) based on the
+        /// specified marshalling flags and direction.
+        /// </summary>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that control handle-by-value behavior.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the handle is being marshalled as an input value.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the handle is being marshalled as an output value.
+        /// </param>
+        /// <returns>
+        /// True if the handle should be marshalled by value; otherwise,
+        /// false.
+        /// </returns>
         private static bool MaybeUseScalarForHandle(
             MarshalFlags marshalFlags,
             bool input,
@@ -3347,6 +5122,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified text into an object value,
+        /// optionally dereferencing it through a variable when handle-by-
+        /// value marshalling is in effect.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="text">
+        /// The text identifying the object (or variable) to resolve.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that control handle-by-value behavior.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the value is being marshalled as an input value.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the value is being marshalled as an output value.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved object value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetObject(
             Interpreter interpreter,
             string text,
@@ -3387,6 +5189,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified variable is a
+        /// scalar whose string value refers to an opaque object handle,
+        /// and if so, retrieves the underlying object value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when resolving the object
+        /// handle.
+        /// </param>
+        /// <param name="variable">
+        /// The variable to check.
+        /// </param>
+        /// <param name="nullOrEmpty">
+        /// The value to return when the variable holds a null or empty
+        /// value, or refers to a null object.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the underlying object value.
+        /// </param>
+        /// <param name="haveValue">
+        /// Upon success, receives non-zero if an object value was
+        /// retrieved.
+        /// </param>
+        /// <returns>
+        /// True if the variable is a scalar referring to an object (or
+        /// the configured <paramref name="nullOrEmpty" /> value for null
+        /// or empty cases); otherwise, false.
+        /// </returns>
         private static bool IsScalarWithObject(
             Interpreter interpreter, /* in */
             IVariable variable,      /* in */
@@ -3437,6 +5267,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the value of the specified scalar
+        /// variable is null or an empty string.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="variable">
+        /// The variable whose value should be examined.
+        /// </param>
+        /// <returns>
+        /// True if the variable holds a scalar object value that is null or an
+        /// empty string; otherwise, false.
+        /// </returns>
         private static bool IsScalarWithNullOrEmpty(
             Interpreter interpreter,
             IVariable variable
@@ -3471,6 +5315,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the value of the specified scalar
+        /// variable is an opaque object handle whose value is of the specified
+        /// type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="variable">
+        /// The variable whose value should be examined.
+        /// </param>
+        /// <param name="type">
+        /// The type to check the object value against.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <param name="assignable">
+        /// Non-zero if a type that is merely assignable from the value type
+        /// should be considered a match; otherwise, an exact type match is
+        /// required.
+        /// </param>
+        /// <returns>
+        /// True if the variable holds an object value of the specified type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsScalarWithObjectOfType(
             Interpreter interpreter,
             IVariable variable,
@@ -3498,6 +5368,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type, or any of its
+        /// base types, implements the specified interface type, directly or
+        /// indirectly.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="interfaceType">
+        /// The interface type to look for.
+        /// </param>
+        /// <returns>
+        /// True if the type implements the specified interface; otherwise,
+        /// false.
+        /// </returns>
         private static bool DoesImplementAnyInterface(
             Type type,         /* in */
             Type interfaceType /* in */
@@ -3543,6 +5428,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type can be assigned
+        /// to all of the generic parameter constraints of another type.
+        /// </summary>
+        /// <param name="type1">
+        /// The generic parameter type whose constraints should be checked.
+        /// </param>
+        /// <param name="type2">
+        /// The type to check against the generic parameter constraints.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <returns>
+        /// True if the type satisfies all of the generic parameter constraints;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsAssignableFromGenericParameterConstraint(
             Type type1,               /* in */
             Type type2,               /* in */
@@ -3574,6 +5476,21 @@ namespace Eagle._Components.Private
         // NOTE: For use by the Eagle._Commands._Hash.IsHashAlgorithm method
         //       only.
         //
+        /// <summary>
+        /// This method determines whether an instance of the second type can
+        /// be assigned to a variable of the first type, using the default
+        /// marshalling flags.
+        /// </summary>
+        /// <param name="type1">
+        /// The type to be assigned to.
+        /// </param>
+        /// <param name="type2">
+        /// The type to be assigned from.
+        /// </param>
+        /// <returns>
+        /// True if a value of the second type can be assigned to the first
+        /// type; otherwise, false.
+        /// </returns>
         public static bool IsAssignableFrom(
             Type type1, /* in */
             Type type2  /* in */
@@ -3584,6 +5501,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an instance of the second type can
+        /// be assigned to a variable of the first type.
+        /// </summary>
+        /// <param name="type1">
+        /// The type to be assigned to.
+        /// </param>
+        /// <param name="type2">
+        /// The type to be assigned from.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <returns>
+        /// True if a value of the second type can be assigned to the first
+        /// type; otherwise, false.
+        /// </returns>
         public static bool IsAssignableFrom(
             Type type1,               /* in */
             Type type2,               /* in */
@@ -3638,6 +5572,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the named variable exists and is an
+        /// array variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="variableFlags">
+        /// Flags that control how the variable is looked up.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable to examine.
+        /// </param>
+        /// <param name="variable">
+        /// The variable to examine.  If null upon entry, the variable is looked
+        /// up by name and, upon success, the resulting variable is stored here.
+        /// </param>
+        /// <returns>
+        /// True if the variable exists and is an array; otherwise, false.
+        /// </returns>
         private static bool IsArray(
             Interpreter interpreter,     /* in */
             VariableFlags variableFlags, /* in */
@@ -3659,6 +5613,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the runtime type of the specified
+        /// value should be obtained via its GetType method, taking transparent
+        /// proxy objects into account.
+        /// </summary>
+        /// <param name="value">
+        /// The value to examine.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <returns>
+        /// True if the GetType method should be used to obtain the type of the
+        /// value; otherwise, false.
+        /// </returns>
         public static bool ShouldUseObjectGetType(
             object value,
             MarshalFlags marshalFlags
@@ -3683,6 +5652,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the value wrapped by the specified
+        /// opaque object is of the specified type.
+        /// </summary>
+        /// <param name="object">
+        /// The opaque object whose wrapped value should be examined.
+        /// </param>
+        /// <param name="type">
+        /// The type to check the value against.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <param name="assignable">
+        /// Non-zero if a type that is merely assignable from the value type
+        /// should be considered a match; otherwise, an exact type match is
+        /// required.
+        /// </param>
+        /// <returns>
+        /// True if the wrapped value is of the specified type; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsOfType(
             IObject @object,
             Type type,
@@ -3698,6 +5689,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value is of the
+        /// specified type.
+        /// </summary>
+        /// <param name="value">
+        /// The value to examine.
+        /// </param>
+        /// <param name="type">
+        /// The type to check the value against.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <param name="assignable">
+        /// Non-zero if a type that is merely assignable from the value type
+        /// should be considered a match; otherwise, an exact type match is
+        /// required.
+        /// </param>
+        /// <returns>
+        /// True if the value is of the specified type; otherwise, false.
+        /// </returns>
         private static bool IsOfType(
             object value,
             Type type,
@@ -3740,6 +5752,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes any opaque object handle identifier suffix from
+        /// the specified object name, leaving only the type name portion.
+        /// </summary>
+        /// <param name="objectName">
+        /// The object name to process.
+        /// </param>
+        /// <returns>
+        /// The object name with any handle identifier removed, or the original
+        /// value if it is null, empty, or cannot be processed.
+        /// </returns>
         private static string MaybeExtractObjectHandleTypeName(
             string objectName
             )
@@ -3757,6 +5780,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compares two type names and computes a score that
+        /// reflects how similar they are, based on their delimited name parts.
+        /// </summary>
+        /// <param name="typeName1">
+        /// The first type name to compare.
+        /// </param>
+        /// <param name="typeName2">
+        /// The second type name to compare.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The type of string comparison to use when comparing the name parts.
+        /// </param>
+        /// <returns>
+        /// An integer score that increases with the number of similar name
+        /// parts; a higher value indicates a closer match.
+        /// </returns>
         public static int CompareSimilarTypeNames(
             string typeName1,
             string typeName2,
@@ -3848,6 +5888,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two objects have the same runtime
+        /// type.
+        /// </summary>
+        /// <param name="object1">
+        /// The first object to examine.
+        /// </param>
+        /// <param name="object2">
+        /// The second object to examine.
+        /// </param>
+        /// <returns>
+        /// True if both objects have the same type; otherwise, false.
+        /// </returns>
         public static bool IsSameObjectType(
             object object1,
             object object2
@@ -3860,6 +5913,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types have the same fully
+        /// qualified name.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <returns>
+        /// True if both types have the same full name; otherwise, false.
+        /// </returns>
         public static bool IsSameTypeName(
             Type type1,
             Type type2
@@ -3873,6 +5939,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types are considered the same,
+        /// using the default marshalling flags.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two types are considered the same; otherwise, false.
+        /// </returns>
         public static bool IsSameType(
             Type type1,
             Type type2
@@ -3883,6 +5962,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types are considered the same,
+        /// using the specified marshalling flags.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <returns>
+        /// True if the two types are considered the same; otherwise, false.
+        /// </returns>
         private static bool IsSameType(
             Type type1,
             Type type2,
@@ -3897,6 +5992,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two value types are considered the
+        /// same.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two value types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsSameValueType(
             Type type1,
             Type type2
@@ -3907,6 +6016,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two value types are considered the
+        /// same, optionally taking by-reference types into account.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two value types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSameValueType(
             Type type1,
             Type type2,
@@ -3918,6 +6045,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two value types are considered the
+        /// same, optionally taking by-reference types and special value types
+        /// into account.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <param name="special">
+        /// Non-zero if special value types should be taken into account when
+        /// comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two value types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSameValueType(
             Type type1,
             Type type2,
@@ -3930,6 +6080,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two value types are considered the
+        /// same, optionally taking nullable types, by-reference types, and
+        /// special value types into account.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="nullable">
+        /// Non-zero if nullable types should be taken into account when
+        /// comparing the types.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <param name="special">
+        /// Non-zero if special value types should be taken into account when
+        /// comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two value types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSameValueType(
             Type type1,
             Type type2,
@@ -3958,6 +6135,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types are considered the same
+        /// special value type, such as <see cref="ValueType" /> or a subclass
+        /// thereof.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two types are considered the same special value type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsSpecialValueType(
             Type type1,
             Type type2,
@@ -3978,6 +6174,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two types are considered the same
+        /// special value type, optionally taking nullable types into account.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="nullable">
+        /// Non-zero if nullable types should be taken into account when
+        /// comparing the types.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two types are considered the same special value type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsSpecialValueType(
             Type type1,
             Type type2,
@@ -4009,6 +6227,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two reference types are considered
+        /// the same or assignment-compatible.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <returns>
+        /// True if the two reference types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsSameReferenceType(
             Type type1,
             Type type2,
@@ -4020,6 +6255,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two reference types are considered
+        /// the same or assignment-compatible, optionally taking by-reference
+        /// types into account.
+        /// </summary>
+        /// <param name="type1">
+        /// The first type to compare.
+        /// </param>
+        /// <param name="type2">
+        /// The second type to compare.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Flags that control how marshalling and type checking are performed.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account
+        /// when comparing the types.
+        /// </param>
+        /// <returns>
+        /// True if the two reference types are considered the same; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsSameReferenceType(
             Type type1,
             Type type2,
@@ -4045,6 +6302,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a value type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <returns>
+        /// True if the type is a value type; otherwise, false.
+        /// </returns>
         public static bool IsValueType(
             Type type
             )
@@ -4054,6 +6320,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a value type,
+        /// optionally taking by-reference types into account.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account.
+        /// </param>
+        /// <returns>
+        /// True if the type is a value type; otherwise, false.
+        /// </returns>
         private static bool IsValueType(
             Type type,
             bool output
@@ -4066,6 +6345,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a special
+        /// value type, such as <see cref="ValueType" />.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account.
+        /// </param>
+        /// <returns>
+        /// True if the type is a special value type; otherwise, false.
+        /// </returns>
         private static bool IsSpecialValueType(
             Type type,
             bool output
@@ -4087,6 +6379,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a value type,
+        /// optionally taking by-reference types into account, and returns the
+        /// underlying element type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the underlying value type element type.
+        /// </param>
+        /// <returns>
+        /// True if the type is a value type; otherwise, false.
+        /// </returns>
         private static bool IsValueType(
             Type type,
             bool output,
@@ -4119,6 +6428,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a nullable
+        /// value type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <returns>
+        /// True if the type is a nullable value type; otherwise, false.
+        /// </returns>
         public static bool IsNullableType(
             Type type
             )
@@ -4128,6 +6447,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a nullable
+        /// value type, optionally taking by-reference types into account.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account.
+        /// </param>
+        /// <returns>
+        /// True if the type is a nullable value type; otherwise, false.
+        /// </returns>
         private static bool IsNullableType(
             Type type,
             bool output
@@ -4140,6 +6472,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a nullable
+        /// value type, optionally taking by-reference types into account, and
+        /// returns the underlying value type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if by-reference (output) types should be taken into account.
+        /// </param>
+        /// <param name="valueType">
+        /// Upon success, receives the underlying value type of the nullable
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the type is a nullable value type; otherwise, false.
+        /// </returns>
         public static bool IsNullableType(
             Type type,
             bool output,
@@ -4181,6 +6531,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a value
+        /// of the specified target type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data.  This parameter is not used.
+        /// </param>
+        /// <param name="type">
+        /// The target type to convert the string into.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The optional flags that control how the value is parsed.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The optional format string to use when parsing date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The kind to use when parsing date and time values.
+        /// </param>
+        /// <param name="dateTimeStyles">
+        /// The styles to use when parsing date and time values.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode TryGetValueOfType(
             Interpreter interpreter,       /* in: OPTIONAL */
             IClientData clientData,        /* in: OPTIONAL, NOT USED */
@@ -4592,6 +6980,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value is compatible
+        /// with the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to compare against the value.
+        /// </param>
+        /// <param name="value">
+        /// The value to compare against the type. This parameter is optional
+        /// and may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value matches the type; otherwise, false. When the
+        /// value is null, this method returns true only if the type is a
+        /// nullable type.
+        /// </returns>
         public static bool DoesValueMatchType(
             Type type,   /* in */
             object value /* in: OPTIONAL */
@@ -4607,6 +7011,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two return types match, optionally
+        /// requiring an exact reference match.
+        /// </summary>
+        /// <param name="returnType1">
+        /// The first return type to compare.
+        /// </param>
+        /// <param name="returnType2">
+        /// The second return type to compare.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to permit either return type to be null; when both are
+        /// null they are considered a match.
+        /// </param>
+        /// <param name="exactOnly">
+        /// Non-zero to require the two return types to be the same object
+        /// reference; otherwise, a type-equivalence comparison is used.
+        /// </param>
+        /// <returns>
+        /// True if the return types match; otherwise, false.
+        /// </returns>
         public static bool MatchReturnType(
             Type returnType1, /* in */
             Type returnType2, /* in */
@@ -4642,6 +7067,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two arrays of parameter information
+        /// describe matching parameter types, optionally requiring an exact
+        /// reference match.
+        /// </summary>
+        /// <param name="parameterInfos1">
+        /// The first array of parameter information to compare.
+        /// </param>
+        /// <param name="parameterInfos2">
+        /// The second array of parameter information to compare.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to permit null arrays and null elements; when both arrays
+        /// or both elements are null they are considered a match.
+        /// </param>
+        /// <param name="exactOnly">
+        /// Non-zero to require corresponding parameter types to be the same
+        /// object reference; otherwise, a type-equivalence comparison is used.
+        /// </param>
+        /// <returns>
+        /// True if the arrays have the same length and every corresponding
+        /// parameter type matches; otherwise, false.
+        /// </returns>
         public static bool MatchParameterTypes(
             ParameterInfo[] parameterInfos1, /* in */
             ParameterInfo[] parameterInfos2, /* in */
@@ -4726,6 +7174,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a list of parameter types is
+        /// compatible with an array of parameter information, optionally
+        /// requiring an exact count and an exact type match.
+        /// </summary>
+        /// <param name="parameterTypes">
+        /// The list of parameter types to compare.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The array of parameter information to compare against.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags used when checking type assignability.
+        /// </param>
+        /// <param name="strictCount">
+        /// Non-zero to require the number of parameter types to equal the
+        /// number of parameters.
+        /// </param>
+        /// <param name="strictType">
+        /// Non-zero to require each parameter type to be exactly equal to the
+        /// corresponding parameter type; otherwise, an assignability check is
+        /// used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// True if the parameter types match; otherwise, false.
+        /// </returns>
         private static bool MatchParameterTypes(
             TypeList parameterTypes,       /* in */
             ParameterInfo[] parameterInfo, /* in */
@@ -4818,6 +7296,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !MONO
+        /// <summary>
+        /// This method attempts to resolve a (possibly partial) assembly name
+        /// to its full assembly name using a private framework method, falling
+        /// back to a normal load if that method is not available.
+        /// </summary>
+        /// <param name="name">
+        /// The (possibly partial) assembly name to resolve.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be set to the resolved full
+        /// assembly name string. Upon failure, this parameter will be set to
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ResolveAssemblyClean(
             string name,      /* in */
             ref Result result /* out */
@@ -4946,6 +7441,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve a (possibly partial) assembly name
+        /// by loading the matching assembly via its partial name.
+        /// </summary>
+        /// <param name="name">
+        /// The (possibly partial) assembly name to resolve.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be set to the resolved full
+        /// assembly name string. Upon failure, this parameter will be set to
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ResolveAssemblyDefault(
             string name,      /* in */
             ref Result result /* out */
@@ -4988,6 +7499,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve a (possibly partial) assembly name
+        /// by searching the assemblies already loaded into the current
+        /// application domain for one whose name matches the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when performing the string match.
+        /// This parameter is optional and may be null.
+        /// </param>
+        /// <param name="name">
+        /// The assembly name pattern to match against the loaded assemblies.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be set to the matching assembly
+        /// name string. Upon failure, this parameter will be set to an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ResolveAssemblySearch(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -5058,6 +7591,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a (possibly partial) assembly name to its full
+        /// assembly name, selecting an appropriate resolution strategy based on
+        /// the interpreter options and the runtime in use.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose options may influence how the
+        /// assembly is resolved. This parameter is optional and may be null.
+        /// </param>
+        /// <param name="name">
+        /// The (possibly partial) assembly name to resolve.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will be set to the resolved full
+        /// assembly name string. Upon failure, this parameter will be set to
+        /// an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ResolveAssembly(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -5086,6 +7640,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects a default method index from a list of candidate
+        /// method indexes, preferring the candidate with the fewest optional
+        /// parameters.
+        /// </summary>
+        /// <param name="methods">
+        /// The array of candidate methods referenced by the method index list.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// The list of indexes into the methods array identifying the candidate
+        /// methods.
+        /// </param>
+        /// <param name="index">
+        /// On input, the preferred index into the method index list, or an
+        /// invalid index to use the first entry. On output, the selected index
+        /// into the method index list.
+        /// </param>
+        /// <param name="methodIndex">
+        /// On output, the selected index into the methods array.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SelectDefaultMethodIndex(
             MethodBase[] methods,    /* in */
             IntList methodIndexList, /* in */
@@ -5188,6 +7770,67 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects which method index to use from a list of
+        /// candidate method indexes, optionally delegating the final decision
+        /// to a script binder.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for the method selection.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use; when it is a script binder, it is given the
+        /// opportunity to select the method index.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use during method selection.
+        /// </param>
+        /// <param name="type">
+        /// The type that declares the candidate methods.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate methods referenced by the method index list.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The list of parameter types for the candidate methods.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The list of per-parameter marshalling flags.
+        /// </param>
+        /// <param name="args">
+        /// The array of arguments to be passed to the selected method.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// The list of indexes into the methods array identifying the candidate
+        /// methods.
+        /// </param>
+        /// <param name="argsList">
+        /// The list of candidate argument arrays corresponding to the candidate
+        /// methods.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that influence how the method index is
+        /// selected.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// The reorder flags. This parameter is not used.
+        /// </param>
+        /// <param name="index">
+        /// On input, the preferred index into the method index list, or an
+        /// invalid index to use the first entry. On output, the selected index
+        /// into the method index list.
+        /// </param>
+        /// <param name="methodIndex">
+        /// On output, the selected index into the methods array.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SelectMethodIndex(
             Interpreter interpreter,                /* in */
             IBinder binder,                         /* in */
@@ -5280,6 +7923,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates argument information for a parameter, treating
+        /// the parameter as an input parameter and optionally as an output
+        /// parameter.
+        /// </summary>
+        /// <param name="parameterIndex">
+        /// The zero-based index of the parameter.
+        /// </param>
+        /// <param name="parameterType">
+        /// The type of the parameter.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the parameter is also an output parameter.
+        /// </param>
+        /// <returns>
+        /// The newly created argument information.
+        /// </returns>
         private static ArgumentInfo CreateArgumentInfo(
             int parameterIndex,
             Type parameterType,
@@ -5297,6 +7957,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates argument information for a parameter, allowing
+        /// the input and output directions to be specified explicitly.
+        /// </summary>
+        /// <param name="parameterIndex">
+        /// The zero-based index of the parameter.
+        /// </param>
+        /// <param name="parameterType">
+        /// The type of the parameter.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the parameter is an input parameter.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the parameter is an output parameter.
+        /// </param>
+        /// <returns>
+        /// The newly created argument information.
+        /// </returns>
         private static ArgumentInfo CreateArgumentInfo(
             int parameterIndex,
             Type parameterType,
@@ -5311,6 +7990,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts each argument in an argument array to match its
+        /// corresponding parameter type, committing the converted values back
+        /// to the caller's argument array upon success.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for the argument conversion.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when converting argument values.
+        /// </param>
+        /// <param name="options">
+        /// The options that influence how arguments are converted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use during argument conversion.
+        /// </param>
+        /// <param name="objectName">
+        /// The name of the object whose method is being invoked, used for
+        /// error reporting.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method being invoked, used for error reporting.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The list of parameter types that the arguments must be converted to.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The list of per-parameter marshalling flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags that influence how arguments are converted.
+        /// </param>
+        /// <param name="args">
+        /// On input, the array of arguments to convert. On output, the array
+        /// of converted arguments.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require the number of arguments to exactly match the
+        /// number of parameter types.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FixupArguments(
             Interpreter interpreter,                /* in */
             IBinder binder,                         /* in */
@@ -5398,6 +8126,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method assigns unique, randomly generated temporary variable
+        /// names to each argument information entry, for use with by-reference
+        /// arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to generate the random portion of the
+        /// variable names.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// The list of argument information entries whose names are to be set.
+        /// </param>
         public static void SetupTemporaryByRefVariableNames(
             Interpreter interpreter,
             ArgumentInfoList argumentInfoList
@@ -5422,6 +8162,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of argument information entries for the
+        /// by-reference parameters within the specified parameter type list.
+        /// </summary>
+        /// <param name="parameterTypes">
+        /// The list of parameter types to examine for by-reference parameters.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The list of per-parameter marshalling flags. This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags. This parameter is not used.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// Upon success, this parameter will be populated with the argument
+        /// information entries for the by-reference parameters; it is created
+        /// when needed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetByRefArgumentInfo(
             TypeList parameterTypes,                /* in */
             MarshalFlagsList parameterMarshalFlags, /* in: NOT USED */
@@ -5462,6 +8229,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a closed generic type from an open generic
+        /// type using the specified type arguments, when applicable.
+        /// </summary>
+        /// <param name="type">
+        /// The type that may be an open generic type to be closed.
+        /// </param>
+        /// <param name="objectTypes">
+        /// The list of type arguments used to close the generic type.
+        /// </param>
+        /// <param name="flags">
+        /// The value flags that control whether exceptions are recorded.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this parameter will have any encountered errors added
+        /// to it; it is created when needed.
+        /// </param>
+        /// <returns>
+        /// The constructed closed generic type, or the original type when no
+        /// generic construction was performed.
+        /// </returns>
         public static Type MaybeGenericType(
             Type type,            /* in */
             TypeList objectTypes, /* in */
@@ -5501,6 +8289,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a closed generic method from the open
+        /// generic method at the specified index, when applicable, replacing
+        /// the original method in the array with the constructed method.
+        /// </summary>
+        /// <param name="methods">
+        /// The array of methods; on output, the entry at the matched index may
+        /// be replaced with the constructed closed generic method.
+        /// </param>
+        /// <param name="matchIndex">
+        /// The index into the methods array identifying the method to process.
+        /// </param>
+        /// <param name="methodTypes">
+        /// The list of type arguments used to close the generic method.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to record every encountered error; otherwise, only the
+        /// first error is recorded.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this parameter will have any encountered errors added
+        /// to it; it is created when needed.
+        /// </param>
+        /// <returns>
+        /// The constructed closed generic method, or the original method when
+        /// no generic construction was performed; null when the index is out
+        /// of bounds.
+        /// </returns>
         private static MethodBase MaybeGenericMethod(
             MethodBase[] methods,  /* in, out */
             int matchIndex,        /* in */
@@ -5583,6 +8399,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a by-reference
+        /// type and, if so, returns its element type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate by-reference (output)
+        /// type.
+        /// </param>
+        /// <param name="byValType">
+        /// Upon success, this parameter will be set to the by-value element
+        /// type of the by-reference type.
+        /// </param>
+        /// <returns>
+        /// True if the type is a by-reference type; otherwise, false.
+        /// </returns>
         private static bool IsByRefType(
             Type type,
             bool output,
@@ -5608,6 +8442,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of wrapping sub-types (by-reference,
+        /// array, and nullable) for the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose sub-types are to be counted.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate output (by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// The number of wrapping sub-types for the type.
+        /// </returns>
         private static int CountSubTypes(
             Type type,
             bool output
@@ -5620,6 +8468,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of wrapping sub-types (by-reference,
+        /// array, and nullable) for the specified type and returns the
+        /// innermost unwrapped type.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose sub-types are to be counted.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate output (by-reference)
+        /// type.
+        /// </param>
+        /// <param name="subType">
+        /// Upon return, this parameter will be set to the innermost unwrapped
+        /// type.
+        /// </param>
+        /// <returns>
+        /// The number of wrapping sub-types for the type.
+        /// </returns>
         private static int CountSubTypes(
             Type type,
             bool output,
@@ -5649,6 +8516,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a base type of
+        /// value types, namely the object type or the special value type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate output (by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the type is the object type or the special value type;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsBaseOfValueType(
             Type type,
             bool output
@@ -5659,6 +8541,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method applies a penalty or bonus to a running type depth total
+        /// for types that are trivially convertible from a string.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="stringDepth">
+        /// The adjustment to apply, constrained to the range negative one
+        /// through one.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate output (by-reference)
+        /// type.
+        /// </param>
+        /// <param name="totalDepth">
+        /// The running type depth total to adjust.
+        /// </param>
         private static void AdjustTypeDepthForStringTypes(
             Type type,
             int stringDepth, /* -1 <= x <= 1 */
@@ -5677,6 +8577,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates an inheritance and wrapping depth metric for
+        /// the specified type, used when ranking candidate type conversions.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose depth is to be calculated.
+        /// </param>
+        /// <param name="stringDepth">
+        /// The adjustment applied for types trivially convertible from a
+        /// string, constrained to the range negative one through one.
+        /// </param>
+        /// <param name="subTypes">
+        /// Non-zero to include wrapping sub-types in the depth calculation.
+        /// </param>
+        /// <param name="valueTypes">
+        /// Non-zero to account for value types specially in the depth
+        /// calculation.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero to consider the type as a candidate output (by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// The calculated type depth.
+        /// </returns>
         private static int CalculateTypeDepth(
             Type type,
             int stringDepth, /* -1 <= x <= 1 */
@@ -5738,6 +8663,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the type "depth" for each argument in the
+        /// supplied array, optionally taking into account the formal
+        /// parameter types of the associated method overload.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of formal parameter information for the method overload.
+        /// </param>
+        /// <param name="args">
+        /// The array of arguments for which type depths are to be calculated.
+        /// </param>
+        /// <param name="stringDepth">
+        /// The adjustment, between negative one and one inclusive, applied to
+        /// the calculated depth for types that are trivially convertible from
+        /// a string.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Non-zero to consider the formal parameter types when an argument is
+        /// null or is a string type.
+        /// </param>
+        /// <param name="subTypes">
+        /// Non-zero to take sub-types into account when calculating the type
+        /// depth.
+        /// </param>
+        /// <param name="valueTypes">
+        /// Non-zero to take value types into account when calculating the type
+        /// depth.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the calculation is being performed in the context of an
+        /// output parameter.
+        /// </param>
+        /// <param name="depths">
+        /// Upon success, receives the list of calculated type depths, one per
+        /// argument; if null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CalculateTypeDepths(
             ParameterInfo[] parameterInfo,
             object[] args,
@@ -5804,6 +8772,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the minimum and maximum parameter counts for a
+        /// method overload, optionally substituting the actual argument counts
+        /// when a method takes an arbitrary number of parameters.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of formal parameter information for the method overload.
+        /// </param>
+        /// <param name="args">
+        /// The array of arguments to be passed to the method overload.
+        /// </param>
+        /// <param name="argumentCounts">
+        /// Non-zero to convert an invalid minimum or maximum count into the
+        /// actual argument count, which is zero for the minimum and the number
+        /// of supplied arguments for the maximum.
+        /// </param>
+        /// <param name="minimumCount">
+        /// Upon success, receives the minimum parameter count.
+        /// </param>
+        /// <param name="maximumCount">
+        /// Upon success, receives the maximum parameter count.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetParameterCounts(
             ParameterInfo[] parameterInfo, /* in */
             object[] args,                 /* in */
@@ -5843,6 +8840,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits diagnostic trace output describing a list of
+        /// method overloads and their associated argument lists.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used to format the method arguments for display.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to format the method arguments for display.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate method overloads.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The list of per-parameter marshal flags, if any.
+        /// </param>
+        /// <param name="argsList">
+        /// The list of argument arrays, one per method overload.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// The list of indexes into the method array to be traced.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
         private static void TraceMethodOverloads(
             IBinder binder,                         /* in */
             CultureInfo cultureInfo,                /* in */
@@ -5860,6 +8882,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits diagnostic trace output describing a list of
+        /// method overloads and their associated argument lists, including the
+        /// reorder flags in effect for the operation.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used to format the method arguments for display.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to format the method arguments for display.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate method overloads.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The list of per-parameter marshal flags, if any.
+        /// </param>
+        /// <param name="argsList">
+        /// The list of argument arrays, one per method overload.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// The list of indexes into the method array to be traced.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// The reorder flags in effect for the operation.
+        /// </param>
         private static void TraceMethodOverloads(
             IBinder binder,                         /* in */
             CultureInfo cultureInfo,                /* in */
@@ -5947,6 +8998,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits diagnostic trace output describing the result of
+        /// reordering a list of method overloads, based on the supplied
+        /// parameter data triplets.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used to format the method arguments for display.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used to format the method arguments for display.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate method overloads.
+        /// </param>
+        /// <param name="argsList">
+        /// The list of argument arrays, one per method overload.
+        /// </param>
+        /// <param name="parameterDataTriplets">
+        /// The list of parameter data triplets describing the reordered method
+        /// overloads.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// The reorder flags in effect for the operation.
+        /// </param>
         private static void TraceReorderedMethods(
             IBinder binder,                                   /* in */
             CultureInfo cultureInfo,                          /* in */
@@ -6039,6 +9117,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reorders a list of method overload indexes into
+        /// "priority" order, taking into account the least or greatest number
+        /// of total parameters, optionally in combination with the relative
+        /// positions of the parameter types in the overall type hierarchy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for the operation, if any.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used during the operation; if it implements the script
+        /// binder interface, it may handle the reordering itself.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during the operation.
+        /// </param>
+        /// <param name="type">
+        /// The type whose methods are being reordered.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate method overloads.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// The reorder flags that control the criteria used to reorder the
+        /// method overloads.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// On input, the list of method overload indexes to reorder; upon
+        /// success, receives the reordered list of method overload indexes.
+        /// </param>
+        /// <param name="argsList">
+        /// On input, the list of argument arrays, one per method overload;
+        /// upon success, receives the reordered list of argument arrays.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives information about the errors.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         //
         // NOTE: Permit reordering of the method index list by taking into
         //       account the least or greatest number of total parameters
@@ -6478,6 +9600,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to look up the argument information list
+        /// associated with a method overload index.
+        /// </summary>
+        /// <param name="argumentInfoListDictionary">
+        /// The dictionary that maps method overload indexes to their argument
+        /// information lists.
+        /// </param>
+        /// <param name="methodIndex">
+        /// The method overload index to look up.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// Upon success, receives the argument information list associated with
+        /// the method overload index; otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the argument information list was found; otherwise, false.
+        /// </returns>
         public static bool TryGetArgumentInfoList(
             IntArgumentInfoListDictionary argumentInfoListDictionary, /* in */
             int methodIndex,                                          /* in */
@@ -6497,6 +9637,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a parameter should be treated as an
+        /// input parameter, based on its attributes and the marshal flags in
+        /// effect.
+        /// </summary>
+        /// <param name="parameterType">
+        /// The type of the parameter being examined.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The formal parameter information for the parameter being examined.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
+        /// <returns>
+        /// True if the parameter should be treated as an input parameter;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsInput(
             Type parameterType, /* NOT USED */
             ParameterInfo parameterInfo,
@@ -6523,6 +9681,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a parameter should be treated as an
+        /// output parameter, based on its attributes and the marshal flags in
+        /// effect.
+        /// </summary>
+        /// <param name="parameterType">
+        /// The type of the parameter being examined.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The formal parameter information for the parameter being examined.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshal flags in effect for the operation.
+        /// </param>
+        /// <returns>
+        /// True if the parameter should be treated as an output parameter;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsOutput(
             Type parameterType,
             ParameterInfo parameterInfo,
@@ -6549,6 +9725,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a method is allowed to be called via
+        /// reflection, deferring to the script binder when one is available.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder used during the operation; if it implements the script
+        /// binder interface, it determines whether the method is allowed.
+        /// </param>
+        /// <param name="method">
+        /// The method being examined.
+        /// </param>
+        /// <returns>
+        /// True if the method is allowed to be called; otherwise, false.
+        /// </returns>
         private static bool IsAllowed(
             IBinder binder,   /* in */
             MethodBase method /* in */
@@ -6573,6 +9763,96 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method represents the method overload resolution engine.  It
+        /// examines the candidate methods, attempting to match each one against
+        /// the supplied arguments, taking into account the number of arguments,
+        /// their coerced types, the (in, out) attributes, and the params
+        /// argument, if any.  Matching methods, their converted arguments, and
+        /// any by-reference argument information are accumulated for the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for argument conversion, or null if
+        /// none is available.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when determining whether a method is allowed and
+        /// when converting arguments.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence argument conversion.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for argument conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type that declares the candidate methods.
+        /// </param>
+        /// <param name="objectName">
+        /// The simple name of the object.  This parameter is reserved and not
+        /// presently used.
+        /// </param>
+        /// <param name="fullObjectName">
+        /// The fully qualified name of the object, used when constructing error
+        /// messages.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method to match against the candidate methods.
+        /// </param>
+        /// <param name="fullMethodName">
+        /// The fully qualified name of the method, used when constructing error
+        /// messages.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The member types used when matching the method name.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used when matching the method name.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate methods to consider.
+        /// </param>
+        /// <param name="methodTypes">
+        /// The list of types used to resolve generic methods, if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The optional list of parameter type hints that, when supplied, must
+        /// match the parameter types of a candidate method.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The optional list of per-parameter marshalling flags.
+        /// </param>
+        /// <param name="args">
+        /// The arguments supplied by the caller, or null if no argument
+        /// conversion and filtering is desired.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of matching methods to find, or a value less than
+        /// or equal to zero for no limit.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control the marshalling and matching behavior.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// Upon success, receives the list of indexes of the matching methods
+        /// within the candidate method array.
+        /// </param>
+        /// <param name="argsList">
+        /// Upon success, receives the list of converted argument arrays, one per
+        /// matching method.
+        /// </param>
+        /// <param name="argumentInfoListDictionary">
+        /// Upon success, receives a dictionary mapping a matching method index
+        /// to the list of by-reference argument information for that method.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered while
+        /// attempting to match the candidate methods.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FindMethodsAndFixupArguments( /* METHOD OVERLOAD RESOLUTION ENGINE */
             Interpreter interpreter,                                      /* in */
             IBinder binder,                                               /* in */
@@ -7407,6 +10687,89 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method represents a legacy method overload resolution helper.
+        /// It defers to the current overload resolution engine to find matching
+        /// methods and then selects the first one that matches, returning its
+        /// converted arguments and by-reference argument information.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for argument conversion, or null if
+        /// none is available.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when determining whether a method is allowed and
+        /// when converting arguments.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence argument conversion.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for argument conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type that declares the candidate methods.
+        /// </param>
+        /// <param name="objectName">
+        /// The simple name of the object.  This parameter is reserved and not
+        /// presently used.
+        /// </param>
+        /// <param name="fullObjectName">
+        /// The fully qualified name of the object, used when constructing error
+        /// messages.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method to match against the candidate methods.
+        /// </param>
+        /// <param name="fullMethodName">
+        /// The fully qualified name of the method, used when constructing error
+        /// messages.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The member types used when matching the method name.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used when matching the method name.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate methods to consider.
+        /// </param>
+        /// <param name="methodTypes">
+        /// The list of types used to resolve generic methods, if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The optional list of parameter type hints that, when supplied, must
+        /// match the parameter types of a candidate method.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The optional list of per-parameter marshalling flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control the marshalling and matching behavior.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to enable breaking into the debugger during method overload
+        /// resolution.
+        /// </param>
+        /// <param name="args">
+        /// Upon entry, the arguments supplied by the caller.  Upon success,
+        /// this contains the converted arguments for the selected method.
+        /// </param>
+        /// <param name="methodIndex">
+        /// Upon success, receives the index of the selected method within the
+        /// candidate method array.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// Upon success, receives the list of by-reference argument information
+        /// for the selected method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [Obsolete()]
         private static ReturnCode OldFindMethodAndFixupArguments( /* NOT USED */
             Interpreter interpreter,                /* in */
@@ -7498,6 +10861,76 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method represents the original, self-contained method overload
+        /// resolution engine.  It examines the candidate methods, attempting to
+        /// match each one against the supplied arguments, taking into account
+        /// the number of arguments, their coerced types, the (in, out)
+        /// attributes, and the params argument, if any, selecting the first
+        /// method that matches.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for argument conversion, or null if
+        /// none is available.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when determining whether a method is allowed and
+        /// when converting arguments.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence argument conversion.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for argument conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type that declares the candidate methods.
+        /// </param>
+        /// <param name="objectName">
+        /// The name of the object, used when constructing error messages.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method to match against the candidate methods.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The member types used when matching the method name.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used when matching the method name.
+        /// </param>
+        /// <param name="methods">
+        /// The array of candidate methods to consider.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// The optional list of parameter type hints that, when supplied, must
+        /// match the parameter types of a candidate method.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// The optional list of per-parameter marshalling flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control the marshalling and matching behavior.
+        /// </param>
+        /// <param name="args">
+        /// Upon entry, the arguments supplied by the caller, or null if no
+        /// argument conversion and filtering is desired.  Upon success, this
+        /// contains the converted arguments for the matching method.
+        /// </param>
+        /// <param name="methodIndex">
+        /// Upon success, receives the index of the matching method within the
+        /// candidate method array.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// Upon success, receives the list of by-reference argument information
+        /// for the matching method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [Obsolete()]
         private static ReturnCode AncientFindMethodAndFixupArguments( /* LEGACY */ /* NOT USED */
             Interpreter interpreter,                /* in */
@@ -8025,6 +11458,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of types from an array of parameter
+        /// information.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of parameter information to extract types from.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to use strict semantics when extracting the types.
+        /// </param>
+        /// <param name="types">
+        /// Upon success, receives the list of types extracted from the parameter
+        /// information.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetTypeListFromParameterInfo(
             ParameterInfo[] parameterInfo,
             bool strict,
@@ -8039,6 +11490,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list containing the parameter types extracted
+        /// from an array of parameter information objects.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of parameter information objects to process.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero if at least one parameter is required; otherwise, an empty
+        /// parameter array is permitted.
+        /// </param>
+        /// <param name="types">
+        /// Upon success, receives the list of parameter types.  If this is
+        /// null, a new list will be created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetTypeListFromParameterInfo(
             ParameterInfo[] parameterInfo,
             bool strict,
@@ -8085,6 +11558,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an HRESULT value indicates success.
+        /// </summary>
+        /// <param name="hResult">
+        /// The HRESULT value to check.
+        /// </param>
+        /// <returns>
+        /// True if the HRESULT indicates success; otherwise, false.
+        /// </returns>
         public static bool ComSucceeded(
             int hResult
             )
@@ -8094,6 +11576,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the event attributes for the specified member,
+        /// if it is an event.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member information object to query.
+        /// </param>
+        /// <returns>
+        /// The event attributes when the member is an event; otherwise, null.
+        /// </returns>
         public static EventAttributes? GetEventAttributes(
             MemberInfo memberInfo
             )
@@ -8104,6 +11596,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the field attributes for the specified member,
+        /// if it is a field.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member information object to query.
+        /// </param>
+        /// <returns>
+        /// The field attributes when the member is a field; otherwise, null.
+        /// </returns>
         public static FieldAttributes? GetFieldAttributes(
             MemberInfo memberInfo
             )
@@ -8114,6 +11616,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method constructs a synthetic parameter name based on its
+        /// index and, optionally, its type.
+        /// </summary>
+        /// <param name="index">
+        /// The zero-based index of the parameter.
+        /// </param>
+        /// <param name="type">
+        /// The type of the parameter, which may be null.
+        /// </param>
+        /// <returns>
+        /// The constructed parameter name.
+        /// </returns>
         private static string GetParameterName(
             int index,
             Type type
@@ -8126,6 +11641,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default value for the specified type.
+        /// </summary>
+        /// <param name="type">
+        /// The type for which to obtain the default value.
+        /// </param>
+        /// <returns>
+        /// The default value for a value type; otherwise, null.
+        /// </returns>
         public static object GetDefaultValue(
             Type type
             )
@@ -8136,6 +11660,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default value for a parameter, preferring
+        /// its declared default value and falling back to the default value of
+        /// its type.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The parameter information object whose default value is sought,
+        /// which may be null.
+        /// </param>
+        /// <param name="parameterType">
+        /// The type of the parameter, used to compute a fallback default value.
+        /// </param>
+        /// <returns>
+        /// The default value for the parameter.
+        /// </returns>
         private static object GetDefaultValue(
             ParameterInfo parameterInfo,
             Type parameterType
@@ -8175,6 +11714,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a COM object supports the interface
+        /// represented by the specified type.
+        /// </summary>
+        /// <param name="unknown">
+        /// The IUnknown pointer for the COM object to query.
+        /// </param>
+        /// <param name="type">
+        /// The interface type to check for.
+        /// </param>
+        /// <returns>
+        /// True if the COM object supports the interface; otherwise, false.
+        /// </returns>
         private static bool DoesComObjectSupportInterface(
             IntPtr unknown,
             Type type
@@ -8221,6 +11773,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of interface types that are supported by
+        /// the specified COM object.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, which may participate in caching of
+        /// COM type lists.
+        /// </param>
+        /// <param name="text">
+        /// The original object text, used for diagnostic purposes.
+        /// </param>
+        /// <param name="part">
+        /// The object part, used for diagnostic purposes.
+        /// </param>
+        /// <param name="object">
+        /// The COM object to examine.
+        /// </param>
+        /// <param name="interfaces">
+        /// The dictionary of candidate interface types and their associated
+        /// names and priorities.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use when querying the COM object.
+        /// </param>
+        /// <param name="types">
+        /// Upon success, receives the list of supported interface types.  If
+        /// this is null, a new list will be created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetTypeListFromComObject(
             Interpreter interpreter,
             string text,
@@ -8389,6 +11976,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method attempts to obtain type information for a COM object via
+        /// the IProvideClassInfo and IDispatch interfaces.
+        /// </summary>
+        /// <param name="object">
+        /// The COM object to query.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use when querying the COM object.
+        /// </param>
+        /// <param name="typeInfo1">
+        /// Upon success, receives the type information obtained via
+        /// IProvideClassInfo, which may be null.
+        /// </param>
+        /// <param name="typeInfo2">
+        /// Upon success, receives the type information obtained via IDispatch,
+        /// which may be null.
+        /// </param>
+        /// <returns>
+        /// True if at least one type information object was obtained;
+        /// otherwise, false.
+        /// </returns>
         private static bool GetTypeInfoFromComObject(
             object @object,
             CultureInfo cultureInfo,
@@ -8436,6 +12045,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the type names for a COM object via
+        /// its associated type information objects.
+        /// </summary>
+        /// <param name="object">
+        /// The COM object to query.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use when querying the COM object.
+        /// </param>
+        /// <param name="typeName1">
+        /// Upon success, receives the type name obtained via IProvideClassInfo,
+        /// which may be null.
+        /// </param>
+        /// <param name="typeName2">
+        /// Upon success, receives the type name obtained via IDispatch, which
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if at least one type name was obtained; otherwise, false.
+        /// </returns>
         private static bool GetTypeNamesFromComObject(
             object @object,
             CultureInfo cultureInfo,
@@ -8515,6 +12145,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a single interface type for the specified COM
+        /// object, using the supplied binder to disambiguate when multiple
+        /// candidate types are found.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="text">
+        /// The original object text, used for diagnostic purposes.
+        /// </param>
+        /// <param name="part">
+        /// The object part, used for diagnostic purposes.
+        /// </param>
+        /// <param name="object">
+        /// The COM object to examine.
+        /// </param>
+        /// <param name="interfaces">
+        /// The dictionary of candidate interface types and their associated
+        /// names and priorities.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used to select among multiple candidate types, which may
+        /// be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information to use when querying the COM object.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to use when selecting a type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The resolved interface type, or null if no type could be resolved.
+        /// </returns>
         public static Type GetTypeFromComObject(
             Interpreter interpreter,
             string text,
@@ -8612,6 +12279,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the method attributes for the specified member,
+        /// if it is a method base.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member information object to query.
+        /// </param>
+        /// <returns>
+        /// The method attributes when the member is a method base; otherwise,
+        /// null.
+        /// </returns>
         public static MethodAttributes? GetMethodAttributes(
             MemberInfo memberInfo
             )
@@ -8622,6 +12300,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the property attributes for the specified
+        /// member, if it is a property.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member information object to query.
+        /// </param>
+        /// <returns>
+        /// The property attributes when the member is a property; otherwise,
+        /// null.
+        /// </returns>
         public static PropertyAttributes? GetPropertyAttributes(
             MemberInfo memberInfo
             )
@@ -8632,6 +12321,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the type attributes for the specified member,
+        /// if it is a type.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member information object to query.
+        /// </param>
+        /// <returns>
+        /// The type attributes when the member is a type; otherwise, null.
+        /// </returns>
         public static TypeAttributes? GetTypeAttributes(
             MemberInfo memberInfo
             )
@@ -8642,6 +12341,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of the parameter names for the specified
+        /// method, when requested.
+        /// </summary>
+        /// <param name="methodInfo">
+        /// The method information object whose parameter names are sought.
+        /// </param>
+        /// <param name="useParameterNames">
+        /// Non-zero to collect the parameter names; otherwise, the resulting
+        /// list will be null.
+        /// </param>
+        /// <param name="parameterNames">
+        /// Upon return, receives the list of parameter names, or null when the
+        /// names were not collected or could not be obtained.
+        /// </param>
         public static void GetParameterNames(
             MethodInfo methodInfo,
             bool useParameterNames,
@@ -8690,6 +12404,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the return type and the list of parameter types
+        /// for the specified method.
+        /// </summary>
+        /// <param name="methodInfo">
+        /// The method information object to examine.
+        /// </param>
+        /// <param name="returnType">
+        /// Upon return, receives the return type of the method, or null when
+        /// the method information is null.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the list of parameter types, or null when the
+        /// parameter information could not be obtained.
+        /// </param>
         public static void GetReturnAndParameterTypes(
             MethodInfo methodInfo,
             out Type returnType,
@@ -8736,6 +12465,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the return parameter information for the
+        /// specified method base, if it is a method.
+        /// </summary>
+        /// <param name="methodBase">
+        /// The method base object to examine.
+        /// </param>
+        /// <returns>
+        /// The return parameter information, or null if it could not be
+        /// obtained.
+        /// </returns>
         public static ParameterInfo GetReturnParameterInfo(
             MethodBase methodBase
             )
@@ -8762,6 +12502,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an array of method base objects from an array of
+        /// member information objects, flattening event and property accessor
+        /// methods into the result.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The array of member information objects to process.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags that control which accessor methods are included.
+        /// </param>
+        /// <param name="methodBase">
+        /// Upon success, receives the array of method base objects.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetMethodBaseFromMemberInfo(
             MemberInfo[] memberInfo,
             BindingFlags bindingFlags,
@@ -8874,6 +12635,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an array of method information objects from an
+        /// array of event information objects, including the add, raise,
+        /// remove, and other methods associated with each event.
+        /// </summary>
+        /// <param name="eventInfo">
+        /// The array of event information objects to process.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags that control whether non-public methods are
+        /// included.
+        /// </param>
+        /// <param name="methodInfo">
+        /// Upon success, receives the array of method information objects.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetMethodInfoFromEventInfo(
             EventInfo[] eventInfo,
             BindingFlags bindingFlags,
@@ -8963,6 +12746,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds an array of method information objects from an
+        /// array of property information objects, flattening the get and set
+        /// accessor methods of each property into the result.
+        /// </summary>
+        /// <param name="propertyInfo">
+        /// The array of property information objects to process.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags that control whether non-public accessor methods
+        /// are included.
+        /// </param>
+        /// <param name="methodInfo">
+        /// Upon success, receives the array of method information objects;
+        /// individual entries may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetMethodInfoFromPropertyInfo(
             PropertyInfo[] propertyInfo,
             BindingFlags bindingFlags,
@@ -9034,6 +12840,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a candidate method name matches the
+        /// requested method name, optionally allowing the leading property
+        /// accessor prefix to be ignored.
+        /// </summary>
+        /// <param name="checkMethodName">
+        /// The candidate method name to test.
+        /// </param>
+        /// <param name="methodName">
+        /// The requested method name; a null or empty value matches anything.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The member types being considered, which controls whether property
+        /// accessor prefixes are stripped before comparison.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags that control whether the comparison is
+        /// case-insensitive.
+        /// </param>
+        /// <returns>
+        /// True if the candidate name matches the requested name; otherwise,
+        /// false.
+        /// </returns>
         private static bool MatchMethodName(
             string checkMethodName,
             string methodName,
@@ -9119,6 +12948,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the minimum and maximum parameter counts for an
+        /// array of parameter information objects.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of parameter information objects to process.
+        /// </param>
+        /// <param name="minimumCount">
+        /// Upon success, receives the minimum number of required parameters.
+        /// </param>
+        /// <param name="maximumCount">
+        /// Upon success, receives the maximum number of allowed parameters.
+        /// </param>
+        /// <param name="noMaximum">
+        /// Upon success, receives non-zero if there is no maximum number of
+        /// parameters (i.e. a parameter array is present).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetParameterCounts(
             ParameterInfo[] parameterInfo, /* in */
             ref int minimumCount,          /* out */
@@ -9135,6 +12985,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the minimum and maximum parameter counts for an
+        /// array of parameter information objects, reporting an unbounded
+        /// maximum as an invalid count.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of parameter information objects to process.
+        /// </param>
+        /// <param name="minimumCount">
+        /// Upon success, receives the minimum number of required parameters.
+        /// </param>
+        /// <param name="maximumCount">
+        /// Upon success, receives the maximum number of allowed parameters, or
+        /// an invalid count when there is no maximum.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetParameterCounts(
             ParameterInfo[] parameterInfo, /* in */
             ref int minimumCount,          /* out */
@@ -9159,6 +13031,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the minimum and maximum parameter counts for an
+        /// array of parameter information objects, taking into account optional
+        /// parameters and parameter arrays.
+        /// </summary>
+        /// <param name="parameterInfo">
+        /// The array of parameter information objects to process.
+        /// </param>
+        /// <param name="minimumCount">
+        /// Upon success, receives the minimum number of required parameters.
+        /// </param>
+        /// <param name="maximumCount">
+        /// Upon success, receives the maximum number of allowed parameters.
+        /// </param>
+        /// <param name="noMaximum">
+        /// Upon success, receives non-zero if there is no maximum number of
+        /// parameters (i.e. a parameter array is present).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetParameterCounts(
             ParameterInfo[] parameterInfo, /* in */
             ref int minimumCount,          /* out */
@@ -9225,6 +13122,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a primitive
+        /// type, optionally considering by-reference types when output is
+        /// involved.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is a primitive type; otherwise, false.
+        /// </returns>
         public static bool IsPrimitiveType(
             Type type,
             bool output
@@ -9237,6 +13149,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a primitive
+        /// type, optionally considering by-reference types when output is
+        /// involved.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the primitive type that was detected.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is a primitive type; otherwise, false.
+        /// </returns>
         private static bool IsPrimitiveType(
             Type type,
             bool output,
@@ -9270,6 +13200,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an enumerated
+        /// type, optionally considering nullable and by-reference types.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="nullable">
+        /// Non-zero to also consider nullable enumerated types.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is an enumerated type; otherwise, false.
+        /// </returns>
         public static bool IsEnumType(
             Type type,
             bool nullable,
@@ -9283,6 +13230,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an enumerated
+        /// type, optionally considering nullable and by-reference types.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="nullable">
+        /// Non-zero to also consider nullable enumerated types.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <param name="elementType">
+        /// Upon success, receives the enumerated type that was detected.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is an enumerated type; otherwise, false.
+        /// </returns>
         public static bool IsEnumType(
             Type type,
             bool nullable,
@@ -9330,6 +13297,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a "simple"
+        /// type for the purpose of conversion to a string, taking into account
+        /// any change-type callbacks registered with the specified binder.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder that may contain a change-type callback for the type.
+        /// </param>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is considered "simple" for string
+        /// conversion; otherwise, false.
+        /// </returns>
         private static bool IsSimpleTypeForToString(
             IBinder binder,
             Type type
@@ -9362,6 +13344,21 @@ namespace Eagle._Components.Private
         // NOTE: This method returns non-zero for all the types that can be
         //       converted by the default script binder to a StringList object.
         //
+        /// <summary>
+        /// This method determines whether the specified type can be converted
+        /// by the default script binder to a <see cref="StringList" /> object.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder that may contain the core string-list change-type
+        /// callback for the type.
+        /// </param>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified type can be converted to a string list;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsStringListForChangeType(
             IBinder binder,
             Type type
@@ -9390,6 +13387,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is a "simple"
+        /// type for the purpose of conversion to a string, considering the
+        /// string, string-pair, and string-list types as well as their
+        /// by-reference variants.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is considered "simple" for string
+        /// conversion; otherwise, false.
+        /// </returns>
         private static bool IsSimpleTypeForToString(
             Type type,
             bool output
@@ -9420,6 +13434,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type, or any of its
+        /// base types, is a generic <see cref="List{T}" /> type, optionally
+        /// considering by-reference types.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder associated with the type check.  This parameter is not
+        /// used.
+        /// </param>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the specified type is a generic list type; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsGenericListType(
             IBinder binder, /* NOT USED */
             Type type,
@@ -9452,6 +13486,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the type associated with the specified typed
+        /// instance, preferring the type of its contained object value when
+        /// one is present.
+        /// </summary>
+        /// <param name="typedInstance">
+        /// The typed instance to query.
+        /// </param>
+        /// <returns>
+        /// The type associated with the specified typed instance, or null if
+        /// it cannot be determined.
+        /// </returns>
         public static Type GetType(
             TypedInstance typedInstance /* in */
             )
@@ -9473,6 +13519,14 @@ namespace Eagle._Components.Private
         // HACK: For use by the GenericOps.KeysAndValues
         //       method overloads only.
         //
+        /// <summary>
+        /// This method returns the binder associated with the currently active
+        /// interpreter, if any.
+        /// </summary>
+        /// <returns>
+        /// The binder for the active interpreter, or null if there is no
+        /// active interpreter.
+        /// </returns>
         public static IBinder GetActiveBinder()
         {
             Interpreter interpreter =
@@ -9486,6 +13540,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the type that represents this runtime library.
+        /// </summary>
+        /// <returns>
+        /// The runtime type.
+        /// </returns>
         public static Type GetRuntimeType()
         {
             return RuntimeType;
@@ -9493,6 +13553,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the type hierarchy of the specified type, looking
+        /// for a generic type, while tracking the types that have been seen.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <param name="levels">
+        /// The current type nesting level, used when recording seen types.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary used to track the types that have been seen, keyed
+        /// by type, with the nesting level as the value.
+        /// </param>
+        /// <param name="genericType">
+        /// Upon success, receives the generic type definition that was
+        /// detected.
+        /// </param>
+        /// <param name="genericArguments">
+        /// Upon success, receives the generic arguments of the detected
+        /// generic type.
+        /// </param>
+        /// <returns>
+        /// True if a valid generic type was detected; otherwise, false.
+        /// </returns>
         private static bool GetGenericTypeInfo(
             Type type,
             int levels,
@@ -9548,6 +13633,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified generic type is
+        /// "simple" for the purpose of conversion to a string (i.e. all of its
+        /// generic arguments are themselves simple, non-circular types).
+        /// </summary>
+        /// <param name="binder">
+        /// The binder that may contain change-type callbacks for the involved
+        /// types.
+        /// </param>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <returns>
+        /// True if the specified generic type is considered "simple" for
+        /// string conversion; otherwise, false.
+        /// </returns>
         private static bool IsSimpleGenericTypeForToString(
             IBinder binder,
             Type type,
@@ -9563,6 +13668,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified generic type is
+        /// "simple" for the purpose of conversion to a string (i.e. all of its
+        /// generic arguments are themselves simple, non-circular types), while
+        /// tracking the type nesting level and the types that have been seen.
+        /// </summary>
+        /// <param name="binder">
+        /// The binder that may contain change-type callbacks for the involved
+        /// types.
+        /// </param>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the type is being used as an output (i.e. by-reference)
+        /// type.
+        /// </param>
+        /// <param name="levels">
+        /// The current type nesting level.  This value is incremented as the
+        /// type hierarchy is traversed and is used to enforce a maximum
+        /// nesting limit.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary used to track the types that have been seen, keyed
+        /// by type, with the nesting level as the value.  This is used to
+        /// detect circular type references.
+        /// </param>
+        /// <returns>
+        /// True if the specified generic type is considered "simple" for
+        /// string conversion; otherwise, false.
+        /// </returns>
         private static bool IsSimpleGenericTypeForToString(
             IBinder binder,
             Type type,
@@ -9641,6 +13777,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a string using the
+        /// to-string callback of the specified script binder.
+        /// </summary>
+        /// <param name="scriptBinder">
+        /// The script binder that provides the to-string callback used for the
+        /// conversion.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when performing the conversion.
+        /// </param>
+        /// <param name="value">
+        /// The value to convert to a string.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the resulting string value.  Upon failure,
+        /// receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ConvertValueToString(
             IScriptBinder scriptBinder, /* in */
             CultureInfo cultureInfo,    /* in */
@@ -9656,6 +13814,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value of the specified type to a
+        /// string using the to-string callback of the specified script binder.
+        /// </summary>
+        /// <param name="scriptBinder">
+        /// The script binder that provides the to-string callback used for the
+        /// conversion.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when performing the conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type of the value being converted.
+        /// </param>
+        /// <param name="options">
+        /// The options associated with the conversion.
+        /// </param>
+        /// <param name="value">
+        /// The value to convert to a string.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to bypass the binder to-string conversion, causing this
+        /// method to fail with an informational error message.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the resulting string value.  Upon failure,
+        /// receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode ConvertValueToString(
             IScriptBinder scriptBinder, /* in */
             CultureInfo cultureInfo,    /* in */
@@ -9698,6 +13888,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the opaque object handle name to use for the
+        /// specified assembly, honoring any explicitly specified object name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when generating the handle name, if
+        /// any.
+        /// </param>
+        /// <param name="objectName">
+        /// The explicitly specified object name.  If this value is not null,
+        /// it is returned verbatim.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly for which a handle name is being generated.
+        /// </param>
+        /// <returns>
+        /// The opaque object handle name to use for the specified assembly.
+        /// </returns>
         private static string GetObjectHandleName(
             Interpreter interpreter, /* in */
             string objectName,       /* in */
@@ -9722,6 +13930,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the opaque object handle name to use for the
+        /// specified value, honoring any explicitly specified object name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when generating the handle name, if
+        /// any.
+        /// </param>
+        /// <param name="objectName">
+        /// The explicitly specified object name.  If this value is not null,
+        /// it is returned verbatim.
+        /// </param>
+        /// <param name="value">
+        /// The value for which a handle name is being generated.
+        /// </param>
+        /// <param name="valueType">
+        /// The type of the value for which a handle name is being generated.
+        /// </param>
+        /// <param name="runtime">
+        /// Non-zero if the value is a runtime (i.e. core library) object,
+        /// which affects how its type name is formatted.
+        /// </param>
+        /// <returns>
+        /// The opaque object handle name to use for the specified value.
+        /// </returns>
         private static string GetObjectHandleName(
             Interpreter interpreter, /* in */
             string objectName,       /* in */
@@ -9749,6 +13982,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method examines the specified value and, when it is recognized
+        /// as a well-known Eagle core library object type, modifies the object
+        /// flags accordingly (e.g. to prevent disposal of objects that are
+        /// critical to the interpreter).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to recognize active objects, if any.
+        /// </param>
+        /// <param name="value">
+        /// The value to examine.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to be modified based on the recognized type of the
+        /// value.
+        /// </param>
+        /// <param name="wellKnown">
+        /// Upon return, non-zero if the value was recognized as a well-known
+        /// object type from this library.
+        /// </param>
         private static void MaybeModifyReturnValueObjectFlags(
             Interpreter interpreter,     /* in */
             object value,                /* in */
@@ -10225,6 +14478,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the type of the specified return value, modifies
+        /// the object flags based on its recognized type, and determines the
+        /// opaque object handle name to use for it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when generating the handle name and
+        /// recognizing active objects, if any.
+        /// </param>
+        /// <param name="objectName">
+        /// The explicitly specified object name, if any.
+        /// </param>
+        /// <param name="value">
+        /// The return value to check.
+        /// </param>
+        /// <param name="valueType">
+        /// The type of the return value.
+        /// </param>
+        /// <param name="runtime">
+        /// Non-zero if the value is a runtime (i.e. core library) object.
+        /// </param>
+        /// <param name="application">
+        /// Non-zero if the value is an application object.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to be modified based on the recognized type of the
+        /// value.
+        /// </param>
+        /// <param name="localObjectName">
+        /// Upon return, receives the opaque object handle name to use for the
+        /// value.
+        /// </param>
         private static void CheckReturnValueType(
             Interpreter interpreter,     /* in */
             string objectName,           /* in */
@@ -10339,6 +14624,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally enables the creation of a sticky command
+        /// alias based on the object flags of the specified entity.
+        /// </summary>
+        /// <param name="haveObjectFlags">
+        /// The entity whose object flags are examined; if this is null, this
+        /// method does nothing.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to be modified; upon return, the
+        /// <see cref="ObjectFlags.StickAlias" /> flag may be added.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether a command alias should be created; upon return,
+        /// this may be set to true.
+        /// </param>
         public static void CheckForStickyAlias(
             IHaveObjectFlags haveObjectFlags, /* in */
             ref ObjectFlags objectFlags,      /* in, out */
@@ -10372,6 +14673,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a returned object value into a string result
+        /// (possibly a new opaque object handle) using default settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="value">
+        /// The object value to translate into a result.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether a command alias should be created for the resulting
+        /// opaque object handle.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the translated result; upon failure, receives
+        /// an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode FixupReturnValue(
             Interpreter interpreter, /* in */
             object value,            /* in */
@@ -10388,6 +14710,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a returned object value into a string result
+        /// (possibly a new opaque object handle), optionally honoring the return
+        /// option semantics indicated by the specified delegate flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The delegate flags that may influence how the return value options
+        /// are determined.
+        /// </param>
+        /// <param name="value">
+        /// The object value to translate into a result.
+        /// </param>
+        /// <param name="create">
+        /// Indicates whether an opaque object handle should be created for the
+        /// value.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether a command alias should be created for the resulting
+        /// opaque object handle.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Indicates whether the created alias should add a reference to the
+        /// associated object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the translated result; upon failure, receives
+        /// an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode FixupReturnValue(
             Interpreter interpreter,     /* in */
             DelegateFlags delegateFlags, /* in */
@@ -10419,6 +14775,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a returned object value into a string result
+        /// (possibly a new opaque object handle), using the specified object
+        /// flags and option settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="type">
+        /// The type associated with the opaque object handle to be created, if
+        /// any.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to use when creating the opaque object handle.
+        /// </param>
+        /// <param name="currentOptions">
+        /// The options currently in effect for the calling command, if any.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to associate with any command alias that is created.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that selects the appropriate set of options.
+        /// </param>
+        /// <param name="objectName">
+        /// The requested name for the opaque object handle, or null to generate
+        /// one automatically.
+        /// </param>
+        /// <param name="value">
+        /// The object value to translate into a result.
+        /// </param>
+        /// <param name="create">
+        /// Indicates whether an opaque object handle should be created for the
+        /// value.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether a command alias should be created for the resulting
+        /// opaque object handle.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Indicates whether the created alias should add a reference to the
+        /// associated object.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the translated result; upon failure, receives
+        /// an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode FixupReturnValue(
             Interpreter interpreter,           /* in */
             Type type,                         /* in */
@@ -10463,6 +14869,77 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a returned object value into a string result,
+        /// possibly creating (and adding to the interpreter) a new opaque object
+        /// handle, an associated command alias, and a bridged Tcl command. Upon
+        /// failure, any partially completed actions are undone and the object may
+        /// be disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used to convert values to and from their string
+        /// representations.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information used during value conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type associated with the opaque object handle to be created, if
+        /// any.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to use when creating the opaque object handle.
+        /// </param>
+        /// <param name="currentOptions">
+        /// The options currently in effect for the calling command, if any.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to associate with any command alias that is created.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that selects the appropriate set of options.
+        /// </param>
+        /// <param name="objectName">
+        /// The requested name for the opaque object handle, or null to generate
+        /// one automatically.
+        /// </param>
+        /// <param name="interpName">
+        /// The name of the target Tcl interpreter for a bridged command, or null
+        /// if no bridged command should be created.
+        /// </param>
+        /// <param name="value">
+        /// The object value to translate into a result.
+        /// </param>
+        /// <param name="create">
+        /// Indicates whether an opaque object handle should be created for the
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// Indicates whether the object may be disposed if it cannot be added to
+        /// the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether a command alias should be created for the resulting
+        /// opaque object handle.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Indicates whether the created alias should add a reference to the
+        /// associated object.
+        /// </param>
+        /// <param name="toString">
+        /// Indicates whether the string representation of the value should be
+        /// returned instead of an opaque object handle.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the translated result; upon failure, receives
+        /// an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode FixupReturnValue(
             Interpreter interpreter,           /* in */
             IBinder binder,                    /* in */
@@ -10985,6 +15462,77 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively translates the elements of a by-reference
+        /// array argument into the elements of an interpreter array variable,
+        /// converting each element value into a string result (possibly a new
+        /// opaque object handle).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used to convert values to and from their string
+        /// representations.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information used during value conversion.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to use when creating opaque object handles.
+        /// </param>
+        /// <param name="currentOptions">
+        /// The options currently in effect for the calling command, if any.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to associate with any command aliases that are created.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that selects the appropriate set of options.
+        /// </param>
+        /// <param name="interpName">
+        /// The name of the target Tcl interpreter for a bridged command, or null
+        /// if no bridged command should be created.
+        /// </param>
+        /// <param name="array">
+        /// The source array whose elements are translated into the target
+        /// variable.
+        /// </param>
+        /// <param name="name">
+        /// The name of the interpreter array variable to populate.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags to use; this parameter is not currently used.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// The flags that control how by-reference arguments are processed.
+        /// </param>
+        /// <param name="create">
+        /// Indicates whether opaque object handles should be created for element
+        /// values.
+        /// </param>
+        /// <param name="dispose">
+        /// Indicates whether objects may be disposed if they cannot be added to
+        /// the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether command aliases should be created for the resulting
+        /// opaque object handles.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Indicates whether created aliases should add a reference to the
+        /// associated objects.
+        /// </param>
+        /// <param name="toString">
+        /// Indicates whether the string representation of values should be
+        /// returned instead of opaque object handles.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode FixupByRefArray(
             Interpreter interpreter,               /* in */
             IBinder binder,                        /* in */
@@ -11249,6 +15797,89 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the by-reference (output) arguments of a method
+        /// invocation back into interpreter variables, converting each argument
+        /// value into a string result (possibly a new opaque object handle) and
+        /// handling array arguments specially.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used to convert values to and from their string
+        /// representations.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture information used during value conversion.
+        /// </param>
+        /// <param name="argumentInfoList">
+        /// The list describing the by-reference arguments to be processed.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags to use when creating opaque object handles.
+        /// </param>
+        /// <param name="currentOptions">
+        /// The options currently in effect for the calling command, if any.
+        /// </param>
+        /// <param name="aliasOptions">
+        /// The options to associate with any command aliases that are created.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that selects the appropriate set of options.
+        /// </param>
+        /// <param name="interpName">
+        /// The name of the target Tcl interpreter for a bridged command, or null
+        /// if no bridged command should be created.
+        /// </param>
+        /// <param name="args">
+        /// The array of argument values produced by the method invocation.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags to use when comparing argument and parameter
+        /// types.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// The flags that control how by-reference arguments are processed.
+        /// </param>
+        /// <param name="strict">
+        /// Indicates whether strict type checking should be performed between
+        /// each argument value and its formal parameter type.
+        /// </param>
+        /// <param name="create">
+        /// Indicates whether opaque object handles should be created for argument
+        /// values.
+        /// </param>
+        /// <param name="dispose">
+        /// Indicates whether objects may be disposed if they cannot be added to
+        /// the interpreter.
+        /// </param>
+        /// <param name="alias">
+        /// Indicates whether command aliases should be created for the resulting
+        /// opaque object handles.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Indicates whether created aliases should add a reference to the
+        /// associated objects.
+        /// </param>
+        /// <param name="toString">
+        /// Indicates whether the string representation of values should be
+        /// returned instead of opaque object handles.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Indicates whether array arguments should be treated as scalar values
+        /// rather than being expanded into interpreter array variables.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Indicates whether array arguments should be linked to interpreter
+        /// system array variables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode FixupByRefArguments(
             Interpreter interpreter,               /* in */
             IBinder binder,                        /* in */
@@ -11669,6 +16300,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fixes up a scalar argument value by resolving the
+        /// variable name it references and converting the resulting value to
+        /// the specified type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when converting the value, if any.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence how the value is converted, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when converting the value, if any.
+        /// </param>
+        /// <param name="type">
+        /// The target type that the value should be converted to.
+        /// </param>
+        /// <param name="argumentInfo">
+        /// The argument information associated with the value being fixed up.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how the value is marshalled.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the argument is used for input.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the argument is used for output.
+        /// </param>
+        /// <param name="arg">
+        /// Upon input, the variable name reference to fix up.  Upon success,
+        /// receives the converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode FixupScalar(
             Interpreter interpreter,   /* in */
             IBinder binder,            /* in */
@@ -11760,6 +16434,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fixes up an array argument value by resolving the
+        /// variable name it references and converting the elements of the
+        /// script array (or list) into a managed array of the specified type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when converting the element values, if any.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence how the element values are
+        /// converted, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when converting the element values, if any.
+        /// </param>
+        /// <param name="type">
+        /// The target array type that the value should be converted to.
+        /// </param>
+        /// <param name="elementType">
+        /// The type of the array elements.
+        /// </param>
+        /// <param name="variable">
+        /// The variable that contains the array value, if any.
+        /// </param>
+        /// <param name="argumentInfo">
+        /// The argument information associated with the value being fixed up.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags used to control how the value is marshalled.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the argument is used for input.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the argument is used for output.
+        /// </param>
+        /// <param name="arg">
+        /// Upon input, the variable name reference (or list) to fix up.  Upon
+        /// success, receives the converted array value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode FixupArray(
             Interpreter interpreter,   /* in */
             IBinder binder,            /* in */
@@ -12320,6 +17044,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA || XML
+        /// <summary>
+        /// This method converts the specified date and time value so that it
+        /// has the requested kind, optionally forcing the kind to be set when
+        /// the value currently has an unspecified kind.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value to convert.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The kind that the resulting date and time value should have.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the requested kind onto a value that currently has
+        /// an unspecified kind.
+        /// </param>
+        /// <returns>
+        /// The date and time value adjusted to the requested kind.
+        /// </returns>
         public static DateTime ToDateTimeInKind(
             DateTime value,
             DateTimeKind dateTimeKind,
@@ -12353,6 +17095,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// This method determines whether the specified single-precision
+        /// floating point value requires special formatting.
+        /// </summary>
+        /// <param name="value">
+        /// The single-precision floating point value to check.
+        /// </param>
+        /// <returns>
+        /// True if the value requires special formatting; otherwise, false.
+        /// </returns>
         private static bool NeedSingleFormat(
             float value
             )
@@ -12362,6 +17114,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified double-precision
+        /// floating point value requires special formatting.
+        /// </summary>
+        /// <param name="value">
+        /// The double-precision floating point value to check.
+        /// </param>
+        /// <returns>
+        /// True if the value requires special formatting; otherwise, false.
+        /// </returns>
         private static bool NeedDoubleFormat(
             double value
             )
@@ -12371,6 +17133,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a byte array value into its string
+        /// representation according to the specified blob behavior.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// The byte array value to format, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when formatting the value, if any.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior that controls how the byte array value is formatted.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format string to use for the numeric portions of the value, if
+        /// any.
+        /// </param>
+        /// <param name="errorValue">
+        /// The value to return when formatting fails, if any.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create an alias for the resulting opaque object handle,
+        /// when applicable.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the byte array value, or the
+        /// error value upon failure.
+        /// </returns>
         private static string FixupByteArrayDataValue(
             Interpreter interpreter,   /* in: OPTIONAL */
             byte[] value,              /* in: OPTIONAL */
@@ -12495,6 +17288,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a date and time value into its string
+        /// representation according to the specified date and time behavior.
+        /// </summary>
+        /// <param name="value">
+        /// The date and time value to format.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when formatting the value, if any.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior that controls how the date and time value is formatted.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The kind that the date and time value should be converted to prior
+        /// to formatting.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format string to use when formatting the value as a string, if
+        /// any.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format string to use for the numeric portions of the value, if
+        /// any.
+        /// </param>
+        /// <param name="errorValue">
+        /// The value to return when formatting fails, if any.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the date and time value, or
+        /// the error value upon failure.
+        /// </returns>
         private static string FixupDateTimeDataValue(
             DateTime value,                    /* in */
             CultureInfo cultureInfo,           /* in: OPTIONAL */
@@ -12592,6 +17417,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a decimal value into its string representation
+        /// using the specified or configured numeric format.
+        /// </summary>
+        /// <param name="value">
+        /// The decimal value to format.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when formatting the value, if any.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format string to use when formatting the value, if any.
+        /// </param>
+        /// <returns>
+        /// The formatted string representation of the decimal value.
+        /// </returns>
         private static string FixupDecimalDataValue(
             decimal value,           /* in */
             CultureInfo cultureInfo, /* in: OPTIONAL */
@@ -12633,6 +17474,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single-precision floating-point data value
+        /// into its string representation, taking into account the configured
+        /// formatting rules for single-precision values.
+        /// </summary>
+        /// <param name="value">
+        /// The single-precision floating-point value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default formatting behavior.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The numeric format string to use, or null to fall back to the
+        /// configured single-precision data format.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified value.
+        /// </returns>
         private static string FixupSingleDataValue(
             float value,
             CultureInfo cultureInfo,
@@ -12675,6 +17535,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a double-precision floating-point data value
+        /// into its string representation, taking into account the configured
+        /// formatting rules for double-precision values.
+        /// </summary>
+        /// <param name="value">
+        /// The double-precision floating-point value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default formatting behavior.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The numeric format string to use, or null to fall back to the
+        /// configured double-precision data format.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified value.
+        /// </returns>
         private static string FixupDoubleDataValue(
             double value,
             CultureInfo cultureInfo,
@@ -12717,6 +17596,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert a boxed numeric (or boolean) data
+        /// value into its string representation, taking into account the
+        /// optional culture-specific and numeric formatting information.
+        /// </summary>
+        /// <param name="value">
+        /// The boxed value to convert.  Supported types include the boolean
+        /// type and all of the built-in integral types.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default formatting behavior.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The numeric format string to use, or null to use the default
+        /// numeric formatting behavior.
+        /// </param>
+        /// <param name="stringValue">
+        /// Upon success, receives the string representation of the specified
+        /// value; upon failure, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the value was of a supported type and was converted;
+        /// otherwise, false.
+        /// </returns>
         private static bool TryFixupNumberDataValue(
             object value,
             CultureInfo cultureInfo,
@@ -12903,6 +17807,54 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an arbitrary data value into its string
+        /// representation, dispatching to the appropriate type-specific
+        /// conversion based on the runtime type of the specified value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null if none is available.
+        /// </param>
+        /// <param name="value">
+        /// The data value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default formatting behavior.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior to use when converting binary large object (byte
+        /// array) values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior to use when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind to use when converting date and time
+        /// values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format string to use when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The numeric format string to use when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string to return when the value is null.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string to return when the value is the database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string to return when a conversion error is encountered.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero if opaque object handles should be created using the
+        /// aliasing behavior.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified value.
+        /// </returns>
         public static string FixupDataValue(
             Interpreter interpreter,
             object value,
@@ -12976,6 +17928,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a value into its string representation for use
+        /// as a return value, substituting the default object name when the
+        /// value is null.
+        /// </summary>
+        /// <param name="value">
+        /// The value to convert, or null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the value, or the default object name
+        /// if the value is null.
+        /// </returns>
         private static Result ToStringOrDefaultReturnValue(
             object value
             )
@@ -12988,6 +17952,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the display name of the specified member for use
+        /// in error messages.
+        /// </summary>
+        /// <param name="memberInfo">
+        /// The member whose name is to be formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted member name suitable for use in error messages.
+        /// </returns>
         public static string GetErrorMemberName(
             MemberInfo memberInfo
             )
@@ -12997,6 +17971,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the display name of the type of the specified
+        /// value for use in error messages.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type name is to be formatted, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name suitable for use in error messages.
+        /// </returns>
         public static string GetErrorTypeName(
             object value
             )
@@ -13006,6 +17990,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the display name of the specified type for use
+        /// in error messages.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose name is to be formatted, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name suitable for use in error messages.
+        /// </returns>
         public static string GetErrorTypeName(
             Type type
             )
@@ -13015,6 +18009,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the display name of the type of the specified
+        /// value for use in error messages, using the value-oriented type name
+        /// formatting.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type name is to be formatted, or null.
+        /// </param>
+        /// <returns>
+        /// The formatted type name suitable for use in error messages.
+        /// </returns>
         public static string GetErrorValueTypeName(
             object value
             )
@@ -13024,6 +18029,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the runtime type of the specified
+        /// value should be obtained by calling its GetType method, taking into
+        /// account whether the value is a transparent proxy and the configured
+        /// object flags.
+        /// </summary>
+        /// <param name="value">
+        /// The value to examine.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags that govern how transparent proxies are handled.
+        /// </param>
+        /// <returns>
+        /// True if the GetType method should be used to obtain the runtime
+        /// type; otherwise, false.
+        /// </returns>
         private static bool ShouldUseObjectGetType(
             object value,
             ObjectFlags objectFlags
@@ -13050,6 +18071,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the runtime type of the specified value, falling
+        /// back to the object type when the value is null or when obtaining its
+        /// runtime type is not appropriate.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose type is to be obtained, or null.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags that govern how transparent proxies are handled.
+        /// </param>
+        /// <returns>
+        /// The runtime type of the value, or the object type when the value is
+        /// null or its runtime type should not be used.
+        /// </returns>
         private static Type GetValueTypeOrObjectType(
             object value,
             ObjectFlags objectFlags
@@ -13066,6 +18102,53 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single (non-array) argument value into the
+        /// specified target type, first attempting to interpret it as an opaque
+        /// object handle and then attempting type conversions via the selected
+        /// binder and the built-in conversion facilities.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when converting the value, or null if none is
+        /// available.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence the conversion behavior.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default behavior.
+        /// </param>
+        /// <param name="type">
+        /// The target type to which the argument value should be converted.
+        /// </param>
+        /// <param name="argumentInfo">
+        /// The argument tracking information used to avoid repeating handle
+        /// lookups.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags that govern the marshalling and conversion behavior.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the argument is used for input.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the argument is used for output.
+        /// </param>
+        /// <param name="arg">
+        /// On input, the argument value to convert.  Upon success, receives the
+        /// converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode FixupValue(
             Interpreter interpreter,   /* in */
             IBinder binder,            /* in */
@@ -13468,6 +18551,53 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an argument value into the specified target
+        /// type, handling array and non-array types as well as input-only,
+        /// output-only, and input-output (by reference) argument semantics,
+        /// including resolution of script variable names for output arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="binder">
+        /// The binder to use when converting the value, or null if none is
+        /// available.
+        /// </param>
+        /// <param name="options">
+        /// The options that may influence the conversion behavior.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, or null to use
+        /// the default behavior.
+        /// </param>
+        /// <param name="type">
+        /// The target type to which the argument value should be converted.
+        /// </param>
+        /// <param name="argumentInfo">
+        /// The argument tracking information used to avoid repeating handle
+        /// lookups.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The flags that govern the marshalling and conversion behavior.
+        /// </param>
+        /// <param name="input">
+        /// Non-zero if the argument is used for input.
+        /// </param>
+        /// <param name="output">
+        /// Non-zero if the argument is used for output.
+        /// </param>
+        /// <param name="arg">
+        /// On input, the argument value to convert.  Upon success, receives the
+        /// converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode FixupArgument(
             Interpreter interpreter,   /* in */
             IBinder binder,            /* in */

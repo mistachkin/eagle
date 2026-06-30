@@ -18,11 +18,25 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>for</c> command, which provides a
+    /// general looping construct composed of a start script, a test
+    /// expression, a next script, and a body script, with an optional final
+    /// script.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("5ca5bf1e-8f0d-4b3e-a836-3dcf89b990eb")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("loop")]
     internal sealed class For : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>for</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public For(
             ICommandData commandData
             )
@@ -32,11 +46,47 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>for</c> command.  It evaluates the
+        /// start script once, then repeatedly evaluates the test expression
+        /// and, while it remains true, evaluates the body script followed by
+        /// the next script; an optional final script is evaluated once the
+        /// loop completes normally.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; elements one through four are the start script, the
+        /// test expression, the next script, and the body script; an optional
+        /// element five supplies the final script.  This parameter should not
+        /// be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this is reset to an empty result.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the loop completes normally
+        /// (including when terminated by a <c>break</c> within the body);
+        /// otherwise, a non-Ok value such as <see cref="ReturnCode.Error" />
+        /// (e.g. when the wrong number of arguments is supplied, the
+        /// interpreter is null, the argument list is null, the iteration limit
+        /// is exceeded, or one of the evaluated scripts or the test expression
+        /// fails) or a control-flow value propagated out of the body, with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

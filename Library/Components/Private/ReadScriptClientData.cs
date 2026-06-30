@@ -16,6 +16,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a container for the client data produced when a script
+    /// file is read, capturing the script file name, the original and processed
+    /// text, the raw bytes, and a flag indicating whether reading errors should
+    /// be silent.
+    /// </summary>
     [ObjectId("4f9aa772-b73f-479f-92d9-0d4eb32a1910")]
     internal class ReadScriptClientData : ClientData, IHaveText
     {
@@ -23,12 +29,27 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default value used to indicate whether script reading is silent
+        /// when no specific value is available.
+        /// </summary>
         private static bool DefaultSilent = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Static Helper Methods
+        /// <summary>
+        /// This method determines whether script reading should be silent, based
+        /// on the supplied client data, falling back to the default value when
+        /// no client data is available.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if script reading should be silent; otherwise, false.
+        /// </returns>
         public static bool IsSilent(
             ReadScriptClientData clientData /* in */
             )
@@ -43,6 +64,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class wrapping the specified opaque
+        /// data payload.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data payload to associate with this object.  This
+        /// parameter may be null.
+        /// </param>
         private ReadScriptClientData(
             object data
             )
@@ -53,6 +82,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class capturing the full set of state
+        /// describing a script that has been read.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data payload to associate with this object.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="scriptFileName">
+        /// The name of the script file that was read.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="originalText">
+        /// The original, unprocessed text of the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The processed text of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The raw bytes of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="silent">
+        /// Non-zero if errors encountered while reading the script should be
+        /// silent.
+        /// </param>
         protected ReadScriptClientData(
             object data,           /* in */
             string scriptFileName, /* in */
@@ -81,6 +136,29 @@ namespace Eagle._Components.Private
         //       will allow callers to obtain the value of "bytes" using the
         //       IClientData interface.
         //
+        /// <summary>
+        /// Constructs an instance of this class describing a script that has
+        /// been read, exposing the raw bytes through both the client data
+        /// payload and the dedicated bytes property.
+        /// </summary>
+        /// <param name="scriptFileName">
+        /// The name of the script file that was read.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="originalText">
+        /// The original, unprocessed text of the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The processed text of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The raw bytes of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="silent">
+        /// Non-zero if errors encountered while reading the script should be
+        /// silent.
+        /// </param>
         public ReadScriptClientData(
             string scriptFileName, /* in */
             string originalText,   /* in */
@@ -95,6 +173,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, optionally initializing its
+        /// state from the supplied script client data and overriding the script
+        /// file name.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data payload to associate with this object.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="getScriptClientData">
+        /// The script client data from which to initialize this object.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="scriptFileName">
+        /// The script file name used to override the one obtained from
+        /// <paramref name="getScriptClientData" />.  This parameter may be null.
+        /// </param>
         public ReadScriptClientData(
             object data,                             /* in */
             GetScriptClientData getScriptClientData, /* in */
@@ -109,6 +204,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method initializes the state of this object from the supplied
+        /// script client data, when available, and overrides the script file
+        /// name when one is supplied.
+        /// </summary>
+        /// <param name="getScriptClientData">
+        /// The script client data from which to initialize this object.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="scriptFileName">
+        /// The script file name used to override the one obtained from
+        /// <paramref name="getScriptClientData" />.  This parameter may be null.
+        /// </param>
         private void MaybeInitializeFrom(
             GetScriptClientData getScriptClientData, /* in */
             string scriptFileName                    /* in */
@@ -131,7 +239,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveText Members
+        /// <summary>
+        /// Stores the original, unprocessed text of the script.
+        /// </summary>
         private string originalText;
+        /// <summary>
+        /// Gets or sets the original, unprocessed text of the script.
+        /// </summary>
         public string OriginalText
         {
             get { return originalText; }
@@ -140,7 +254,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the processed text of the script.
+        /// </summary>
         private string text;
+        /// <summary>
+        /// Gets or sets the processed text of the script.
+        /// </summary>
         public string Text
         {
             get { return text; }
@@ -151,7 +271,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the name of the script file that was read.
+        /// </summary>
         private string scriptFileName;
+        /// <summary>
+        /// Gets or sets the name of the script file that was read.
+        /// </summary>
         public string ScriptFileName
         {
             get { return scriptFileName; }
@@ -160,7 +286,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the raw bytes of the script.
+        /// </summary>
         private ByteList bytes;
+        /// <summary>
+        /// Gets or sets the raw bytes of the script.
+        /// </summary>
         public ByteList Bytes
         {
             get { return bytes; }
@@ -169,7 +301,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether errors encountered while reading
+        /// the script should be silent.
+        /// </summary>
         private bool silent;
+        /// <summary>
+        /// Gets or sets a value indicating whether errors encountered while
+        /// reading the script should be silent.
+        /// </summary>
         public bool Silent
         {
             get { return silent; }
@@ -180,6 +320,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method produces a list of name/value pairs describing the state
+        /// of this object, suitable for diagnostic display.
+        /// </summary>
+        /// <returns>
+        /// An <see cref="IStringList" /> containing the populated details of this
+        /// object.
+        /// </returns>
         public virtual IStringList ToList()
         {
             IStringList list = new StringPairList();
@@ -209,6 +357,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of the state of this
+        /// object.
+        /// </summary>
+        /// <returns>
+        /// A string containing the details of this object.
+        /// </returns>
         public override string ToString()
         {
             return ToList().ToString();

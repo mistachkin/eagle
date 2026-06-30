@@ -31,10 +31,19 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps native pointer keys to
+    /// interpreter values.  It extends the underlying generic dictionary of
+    /// <see cref="Interpreter" /> objects, supports cloning, and provides a
+    /// helper for producing a filtered string form of its keys.
+    /// </summary>
     [ObjectId("f2367147-1421-40a9-8a4a-1558432232d1")]
     internal sealed class IntPtrInterpreterDictionary : SomeDictionary, ICloneable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty native-pointer-to-interpreter dictionary.
+        /// </summary>
         public IntPtrInterpreterDictionary()
             : base()
         {
@@ -43,6 +52,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a native-pointer-to-interpreter dictionary that is
+        /// initialized with the entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public IntPtrInterpreterDictionary(
             IDictionary<IntPtr, Interpreter> dictionary
             )
@@ -55,6 +72,14 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// This method creates a new dictionary that is a shallow copy of this
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// A new dictionary containing the same key/value pairs as this
+        /// dictionary.
+        /// </returns>
         public object Clone()
         {
             return new IntPtrInterpreterDictionary(this);
@@ -64,6 +89,20 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -80,6 +119,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The list of keys formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

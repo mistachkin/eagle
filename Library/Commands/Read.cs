@@ -26,12 +26,23 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>read</c> command, which reads data
+    /// from a channel (for example a file or socket), optionally up to a
+    /// specified number of characters, and returns it as a string or wrapped
+    /// object.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("8bde05f7-44aa-4d1c-a350-15c02319305a")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("channel")]
     internal sealed class Read : Core
     {
         #region Private Constants
+        /// <summary>
+        /// The error message used when the <c>read</c> command is invoked with
+        /// the wrong number of arguments.
+        /// </summary>
         private static readonly string WrongNumArgs =
             "wrong # args: should be \"read ?options? channelId ?numChars?\"";
         #endregion
@@ -39,6 +50,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>read</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Read(
             ICommandData commandData
             )
@@ -51,11 +69,43 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>read</c> command.  It parses any
+        /// options, resolves the requested channel, reads the requested number
+        /// of characters (or to end-of-file when no count is supplied), and
+        /// returns the data either as a string or as a wrapped object.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements supply any options, the
+        /// channel identifier, and an optional character count.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the data read from the channel (as a
+        /// string or wrapped object).  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the data read placed
+        /// in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the arguments are invalid, the
+        /// channel cannot be resolved, or an exception occurs, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

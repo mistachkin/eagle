@@ -15,9 +15,16 @@ using Eagle._Attributes;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a list of <see cref="MethodBase" /> objects, each
+    /// of which describes a method or constructor obtained via reflection.
+    /// </summary>
     [ObjectId("3f0fe2eb-2331-4cd4-8d68-7fe89abaae22")]
     internal sealed class MethodBaseList : List<MethodBase>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public MethodBaseList()
             : base()
         {

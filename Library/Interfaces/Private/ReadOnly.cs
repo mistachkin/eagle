@@ -14,9 +14,18 @@ using Eagle._Components.Public;
 
 namespace Eagle._Interfaces.Private
 {
+    /// <summary>
+    /// This interface is implemented by entities that can report whether they
+    /// are currently read-only, i.e. whether their state is allowed to be
+    /// modified.
+    /// </summary>
     [ObjectId("eb1581f0-2d25-4f61-87af-c8de7982ad5b")]
     internal interface IReadOnly
     {
+        /// <summary>
+        /// Gets a value indicating whether this entity is read-only.  True if
+        /// the entity is read-only and may not be modified; otherwise, false.
+        /// </summary>
         bool IsReadOnly { get; }
     }
 }

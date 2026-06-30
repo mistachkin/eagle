@@ -24,15 +24,34 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>switch</c> command, which matches a
+    /// string against a series of patterns and evaluates the body associated
+    /// with the first pattern that matches.  Matching may be performed using
+    /// exact, glob, regular expression, substring, or integer modes, and an
+    /// optional <c>default</c> arm matches when no other pattern does.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("b4d8bb06-f6bf-4343-8b8a-b00184c14aa3")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("conditional")]
     internal sealed class Switch : Core
     {
+        /// <summary>
+        /// The reserved pattern word that, when it appears as the final
+        /// pattern in the list, always matches the input string.
+        /// </summary>
         private const string Default = "default";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>switch</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Switch(
             ICommandData commandData
             )
@@ -42,11 +61,48 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>switch</c> command.  It parses any
+        /// leading switches that select the match mode and options (for
+        /// example <c>-exact</c>, <c>-glob</c>, <c>-regexp</c>,
+        /// <c>-substring</c>, <c>-integer</c>, <c>-nocase</c>, and
+        /// <c>-subst</c>), then matches the input string against each pattern
+        /// and evaluates the body of the first matching arm.  The pattern and
+        /// body words may be supplied either as separate arguments or grouped
+        /// into a single list argument.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by optional switches, the string to match,
+        /// and the pattern/body pairs (optionally including a final
+        /// <c>default</c> arm).  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the matching arm's body
+        /// (or an empty string when nothing matched).  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when a matching arm's body (if any) is
+        /// evaluated successfully; otherwise, a non-Ok value such as
+        /// <see cref="ReturnCode.Error" /> when the arguments are invalid, an
+        /// option is unrecognized, the pattern/body list is malformed, or the
+        /// evaluated body itself fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

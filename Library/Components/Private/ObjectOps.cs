@@ -47,6 +47,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private static helper methods and default
+    /// settings used by the Eagle interpreter when integrating native CLR
+    /// objects with scripts.  It centralizes the default values and option
+    /// sets for the various object-related sub-commands, builds and processes
+    /// the option dictionaries that drive object creation, member lookup,
+    /// reflection, marshalling, and invocation, and provides supporting
+    /// services for garbage collection and object disposal.
+    /// </summary>
     [ObjectId("21953933-d364-453c-b848-01e348a8f8ac")]
     internal static class ObjectOps
     {
@@ -54,7 +63,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The set of regular expression patterns used to recognize the names
+        /// of fields that indicate whether an object has been disposed.
+        /// </summary>
         private static string[] DisposedFieldNames;
+        /// <summary>
+        /// The set of property names used to recognize the properties that
+        /// indicate whether an object has been disposed.
+        /// </summary>
         private static string[] DisposedPropertyNames;
 
         ///////////////////////////////////////////////////////////////////////
@@ -65,6 +82,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The cached full name of the core CLR assembly (i.e. the one that
+        /// contains the <see cref="System.Object" /> type).
+        /// </summary>
         private static string clrSimpleName;
 
         ///////////////////////////////////////////////////////////////////////
@@ -75,6 +96,9 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The cached full name of the Eagle assembly.
+        /// </summary>
         private static string eagleSimpleName;
 
         ///////////////////////////////////////////////////////////////////////
@@ -85,6 +109,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The cached name of the namespace that contains the private "guru"
+        /// (i.e. advanced) types used by the interpreter.
+        /// </summary>
         private static string guruNamespace;
 
         ///////////////////////////////////////////////////////////////////////
@@ -92,6 +120,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default list of CLR namespaces that are implicitly searched
+        /// when resolving an unqualified type name.
+        /// </summary>
         private static string[] DefaultClrNamespaces;
 
         ///////////////////////////////////////////////////////////////////////
@@ -99,6 +131,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default list of Eagle namespaces that are implicitly searched
+        /// when resolving an unqualified type name.
+        /// </summary>
         private static string[] DefaultEagleNamespaces;
 
         ///////////////////////////////////////////////////////////////////////
@@ -106,6 +142,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The lookup table that maps each <see cref="MetaMemberTypes" /> value
+        /// to its corresponding combination of <see cref="MemberTypes" />
+        /// flags.
+        /// </summary>
         private static MemberTypes[] metaMemberTypesMappings;
 
         ///////////////////////////////////////////////////////////////////////
@@ -113,6 +154,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The lookup table that maps each <see cref="MetaBindingFlags" /> value
+        /// to its corresponding combination of <see cref="BindingFlags" />
+        /// flags.
+        /// </summary>
         private static BindingFlags[] metaBindingFlagsMappings;
         #endregion
 
@@ -125,10 +171,26 @@ namespace Eagle._Components.Private
         //
         // HACK: These are the defaults for the [sql execute] sub-command.
         //
+        /// <summary>
+        /// The default command type used by the [sql execute] sub-command.
+        /// </summary>
         private static CommandType DefaultCommandType = CommandType.Text;
+        /// <summary>
+        /// The default command behavior used by the [sql execute] sub-command.
+        /// </summary>
         private static CommandBehavior DefaultCommandBehavior = CommandBehavior.Default;
+        /// <summary>
+        /// The default execution type used by the [sql execute] sub-command.
+        /// </summary>
         private static DbExecuteType DefaultExecuteType = DbExecuteType.Default;
+        /// <summary>
+        /// The default result format used by the [sql execute] sub-command.
+        /// </summary>
         private static DbResultFormat DefaultResultFormat = DbResultFormat.Default;
+        /// <summary>
+        /// The default value flags used when converting values for the
+        /// [sql execute] sub-command.
+        /// </summary>
         private static ValueFlags DefaultValueFlags = ValueFlags.AnyNonCharacter;
 #endif
         #endregion
@@ -136,6 +198,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region DateTime Format, Kind, and NTP Servers
+        /// <summary>
+        /// The default format string used when converting DateTime values to
+        /// and from their string representation; null selects the built-in
+        /// default behavior.
+        /// </summary>
         private static string DefaultDateTimeFormat = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -144,6 +211,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is the default for [sql execute].
         //
+        /// <summary>
+        /// The default DateTime behavior used by the [sql execute]
+        /// sub-command.
+        /// </summary>
         private static DateTimeBehavior DefaultDateTimeBehavior =
             DateTimeBehavior.Default;
 
@@ -152,6 +223,9 @@ namespace Eagle._Components.Private
         //
         // HACK: This is the default for [sql execute].
         //
+        /// <summary>
+        /// The default BLOB behavior used by the [sql execute] sub-command.
+        /// </summary>
         private static BlobBehavior DefaultBlobBehavior =
             BlobBehavior.Default;
 #endif
@@ -162,11 +236,18 @@ namespace Eagle._Components.Private
         // HACK: Default to "unspecified" for DateTime values.  Perhaps this
         //       should be "UTC" instead?
         //
+        /// <summary>
+        /// The default DateTimeKind used when interpreting DateTime values
+        /// whose kind is otherwise unknown.
+        /// </summary>
         private static DateTimeKind DefaultDateTimeKind =
             DateTimeKind.Unspecified;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default DateTime styles used when parsing DateTime values.
+        /// </summary>
         private static DateTimeStyles DefaultDateTimeStyles =
             DateTimeStyles.None;
 
@@ -175,12 +256,20 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default list of NTP time servers; null selects the built-in
+        /// default list.
+        /// </summary>
         private static IEnumerable<string> DefaultTimeServers = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Pattern-Related Flags
+        /// <summary>
+        /// The default pattern matching mode used when matching member names
+        /// and similar values.
+        /// </summary>
         private static MatchMode DefaultMatchMode = MatchMode.None;
         #endregion
 
@@ -191,7 +280,15 @@ namespace Eagle._Components.Private
         // NOTE: The default behavior for the -create / -nocreate options
         //       is controlled by these fields.
         //
+        /// <summary>
+        /// The default value for the -create option; non-zero means a new
+        /// managed object should be created by default.
+        /// </summary>
         private static bool DefaultCreate = false;
+        /// <summary>
+        /// The default value for the -nocreate option; non-zero means a new
+        /// managed object should not be created by default.
+        /// </summary>
         private static bool DefaultNoCreate = true;
         #endregion
 
@@ -203,6 +300,10 @@ namespace Eagle._Components.Private
         //       options; therefore, it cannot be (easily) kept directly in
         //       the meta member types map.
         //
+        /// <summary>
+        /// The default member types used by all object sub-command options
+        /// that do not specify their own.
+        /// </summary>
         private static MemberTypes DefaultMemberTypes; /* EXEMPT */
 
         ///////////////////////////////////////////////////////////////////////
@@ -212,60 +313,105 @@ namespace Eagle._Components.Private
         //       options; therefore, it cannot be (easily) kept directly in
         //       the meta binding flags map.
         //
+        /// <summary>
+        /// The default binding flags used by all object sub-command options
+        /// that do not specify their own.
+        /// </summary>
         private static BindingFlags DefaultBindingFlags; /* EXEMPT */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Marshal-Related Flags
+        /// <summary>
+        /// The default load type used when loading an assembly.
+        /// </summary>
         private static LoadType DefaultLoadType = LoadType.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default marshalling flags used when converting values between
+        /// the script and managed worlds.
+        /// </summary>
         private static MarshalFlags DefaultMarshalFlags =
             MarshalFlags.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default marshalling flags used when converting individual
+        /// method parameters.
+        /// </summary>
         private static MarshalFlags DefaultParameterMarshalFlags =
             MarshalFlags.None;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default reordering flags used when matching and reordering
+        /// method overload arguments.
+        /// </summary>
         private static ReorderFlags DefaultReorderFlags =
             ReorderFlags.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default flags applied to by-reference (ref or out) method
+        /// arguments.
+        /// </summary>
         private static ByRefArgumentFlags DefaultByRefArgumentFlags =
             ByRefArgumentFlags.None;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default object flags applied to managed objects added to the
+        /// interpreter.
+        /// </summary>
         private static ObjectFlags DefaultObjectFlags =
             ObjectFlags.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default object flags applied to managed objects produced from
+        /// by-reference (ref or out) method arguments.
+        /// </summary>
         private static ObjectFlags DefaultByRefObjectFlags =
             ObjectFlags.None;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default callback flags used when creating script callbacks for
+        /// managed delegates.
+        /// </summary>
         private static CallbackFlags DefaultCallbackFlags =
             CallbackFlags.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default object option type used when no specific option type is
+        /// requested.
+        /// </summary>
         private static ObjectOptionType DefaultObjectOptionType =
             ObjectOptionType.Default;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default value flags used when converting object values.
+        /// </summary>
         private static ValueFlags DefaultObjectValueFlags = ValueFlags.None;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default value flags used when converting member values.
+        /// </summary>
         private static ValueFlags DefaultMemberValueFlags = ValueFlags.None;
         #endregion
 
@@ -276,6 +422,10 @@ namespace Eagle._Components.Private
         // NOTE: Non-zero means an object should be disposed prior to it
         //       being removed fro the interpreter.
         //
+        /// <summary>
+        /// The default value controlling whether an object is disposed prior to
+        /// being removed from the interpreter; non-zero means dispose.
+        /// </summary>
         private static bool DefaultDispose = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -283,7 +433,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The pattern matching mode used when matching disposed field and
+        /// property names.
+        /// </summary>
         private static MatchMode IsDisposedPatternMode = MatchMode.RegExp;
+        /// <summary>
+        /// Non-zero if matching of disposed field and property names should be
+        /// case-insensitive.
+        /// </summary>
         private static bool IsDisposedPatterNoCase = true;
         #endregion
 
@@ -295,6 +453,10 @@ namespace Eagle._Components.Private
         //       removing a managed object from the interpreter; however,
         //       that did have negative performance implications.
         //
+        /// <summary>
+        /// The default value controlling whether garbage collection is
+        /// performed synchronously; non-zero means synchronous.
+        /// </summary>
         private static bool DefaultSynchronous = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -303,6 +465,10 @@ namespace Eagle._Components.Private
         // NOTE: The default behavior is not to wait for pending finalizers
         //       to finish.
         //
+        /// <summary>
+        /// The default value controlling whether to wait for pending
+        /// finalizers to finish after collecting garbage; non-zero means wait.
+        /// </summary>
         private static bool DefaultWaitForGC = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -313,6 +479,10 @@ namespace Eagle._Components.Private
         //       heap; however, compacting it can be useful if many large
         //       objects are being created and finalized.
         //
+        /// <summary>
+        /// The default value controlling whether the large object heap is
+        /// compacted during garbage collection; non-zero means compact.
+        /// </summary>
         private static bool DefaultCompactLargeObjectHeap = false;
 #endif
         #endregion
@@ -324,15 +494,45 @@ namespace Eagle._Components.Private
         // NOTE: Any changes to these default option flag values will be
         //       library-wide.
         //
+        /// <summary>
+        /// The extra option flags applied to the -alias option.
+        /// </summary>
         private static OptionFlags AliasOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -create option.
+        /// </summary>
         private static OptionFlags CreateOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -nocreate option.
+        /// </summary>
         private static OptionFlags NoCreateOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -nodispose option.
+        /// </summary>
         private static OptionFlags NoDisposeOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -synchronous option.
+        /// </summary>
         private static OptionFlags SynchronousOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -debug option.
+        /// </summary>
         private static OptionFlags DebugOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -trace option.
+        /// </summary>
         private static OptionFlags TraceOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -verbose option.
+        /// </summary>
         private static OptionFlags VerboseOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -arrayaslink option.
+        /// </summary>
         private static OptionFlags ArrayAsLinkOptionFlags = OptionFlags.None;
+        /// <summary>
+        /// The extra option flags applied to the -arrayasvalue option.
+        /// </summary>
         private static OptionFlags ArrayAsValueOptionFlags = OptionFlags.None;
         #endregion
         #endregion
@@ -341,6 +541,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Initialization Methods
+        /// <summary>
+        /// This method initializes all of the static state used by this class,
+        /// including the disposed name patterns, the default namespaces, the
+        /// meta member type and binding flag mappings, and the reflection
+        /// defaults.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         public static void Initialize(
             bool force
             )
@@ -357,6 +567,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the cached global-state values used by this
+        /// class, including the core CLR assembly name, the Eagle assembly
+        /// name, and the guru namespace name.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         public static void InitializeGlobalState(
             bool force
             )
@@ -388,6 +607,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Initialization Methods
+        /// <summary>
+        /// This method initializes the field name patterns and property names
+        /// used to detect whether an object has been disposed.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         private static void InitializeDisposedNames(
             bool force
             )
@@ -415,6 +642,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the default lists of CLR and Eagle
+        /// namespaces that are implicitly searched when resolving unqualified
+        /// type names.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         private static void InitializeNamespaces(
             bool force
             )
@@ -472,6 +708,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the lookup table that maps each
+        /// <see cref="MetaMemberTypes" /> value to its corresponding
+        /// combination of <see cref="MemberTypes" /> flags.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         private static void InitializeMetaMemberTypesMappings(
             bool force
             )
@@ -496,6 +741,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the lookup table that maps each
+        /// <see cref="MetaBindingFlags" /> value to its corresponding
+        /// combination of <see cref="BindingFlags" /> flags.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         private static void InitializeMetaBindingFlagsMappings(
             bool force
             )
@@ -679,6 +933,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the default member types and binding flags
+        /// used by the object sub-command options, deriving them from the meta
+        /// member type and binding flag mappings.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re)initialization even if the relevant state has
+        /// already been initialized.
+        /// </param>
         private static void InitializeReflectionDefaults(
             bool force
             )
@@ -702,6 +965,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region DateTime Default Settings Support Methods
+        /// <summary>
+        /// This method returns the default format string used when converting
+        /// DateTime values to and from their string representation.
+        /// </summary>
+        /// <returns>
+        /// The default DateTime format string, or null to use the built-in
+        /// default behavior.
+        /// </returns>
         public static string GetDefaultDateTimeFormat()
         {
             return DefaultDateTimeFormat;
@@ -709,6 +980,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default DateTimeKind used when interpreting
+        /// DateTime values whose kind is otherwise unknown.
+        /// </summary>
+        /// <returns>
+        /// The default DateTimeKind.
+        /// </returns>
         public static DateTimeKind GetDefaultDateTimeKind()
         {
             return DefaultDateTimeKind;
@@ -716,6 +994,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default DateTime styles used when parsing
+        /// DateTime values.
+        /// </summary>
+        /// <returns>
+        /// The default DateTime styles.
+        /// </returns>
         public static DateTimeStyles GetDefaultDateTimeStyles()
         {
             return DefaultDateTimeStyles;
@@ -723,6 +1008,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default list of NTP time servers.
+        /// </summary>
+        /// <returns>
+        /// The default list of time servers, or null to use the built-in
+        /// default list.
+        /// </returns>
         public static IEnumerable<string> GetDefaultTimeServers()
         {
             return DefaultTimeServers;
@@ -732,6 +1024,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Default Settings Support Methods
+        /// <summary>
+        /// This method returns the default value controlling whether an object
+        /// is disposed prior to being removed from the interpreter.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if objects should be disposed by default; otherwise, zero.
+        /// </returns>
         public static bool GetDefaultDispose()
         {
             return DefaultDispose;
@@ -739,6 +1038,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default value controlling whether garbage
+        /// collection is performed synchronously.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if garbage collection should be synchronous by default;
+        /// otherwise, zero.
+        /// </returns>
         public static bool GetDefaultSynchronous()
         {
             return DefaultSynchronous;
@@ -746,6 +1053,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps the specified <see cref="MetaMemberTypes" /> value
+        /// to its corresponding combination of <see cref="MemberTypes" />
+        /// flags.
+        /// </summary>
+        /// <param name="metaMemberTypes">
+        /// The meta member types value to map.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress the error reported when the mapping cannot be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// The mapped member types, or zero if the mapping cannot be performed.
+        /// </returns>
         public static MemberTypes GetMemberTypes(
             MetaMemberTypes metaMemberTypes,
             bool noComplain
@@ -772,6 +1094,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps the specified <see cref="MetaMemberTypes" /> value
+        /// to its corresponding combination of <see cref="MemberTypes" />
+        /// flags, using the meta member types lookup table.
+        /// </summary>
+        /// <param name="metaMemberTypes">
+        /// The meta member types value to map.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The member types value to return when the mapping cannot be
+        /// performed; this may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The mapped member types upon success, or the value of
+        /// <paramref name="memberTypes" /> upon failure.
+        /// </returns>
         private static MemberTypes? GetMemberTypes(
             MetaMemberTypes metaMemberTypes, /* in */
             MemberTypes? memberTypes,        /* in: OPTIONAL */
@@ -801,6 +1142,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps the specified <see cref="MetaBindingFlags" /> value
+        /// to its corresponding combination of <see cref="BindingFlags" />
+        /// flags.
+        /// </summary>
+        /// <param name="metaBindingFlags">
+        /// The meta binding flags value to map.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress the error reported when the mapping cannot be
+        /// performed.
+        /// </param>
+        /// <returns>
+        /// The mapped binding flags, or <see cref="BindingFlags.Default" /> if
+        /// the mapping cannot be performed.
+        /// </returns>
         public static BindingFlags GetBindingFlags(
             MetaBindingFlags metaBindingFlags,
             bool noComplain
@@ -827,6 +1184,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method maps the specified <see cref="MetaBindingFlags" /> value
+        /// to its corresponding combination of <see cref="BindingFlags" />
+        /// flags, using the meta binding flags lookup table.
+        /// </summary>
+        /// <param name="metaBindingFlags">
+        /// The meta binding flags value to map.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags value to return when the mapping cannot be
+        /// performed; this may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The mapped binding flags upon success, or the value of
+        /// <paramref name="bindingFlags" /> upon failure.
+        /// </returns>
         private static BindingFlags? GetBindingFlags(
             MetaBindingFlags metaBindingFlags, /* in */
             BindingFlags? bindingFlags,        /* in: OPTIONAL */
@@ -856,6 +1232,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the member types and binding flags that are
+        /// considered unsafe from the specified values.
+        /// </summary>
+        /// <param name="memberTypes">
+        /// The member types to be masked; upon return, the unsafe member types
+        /// will have been removed.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags to be masked; upon return, the unsafe binding
+        /// flags will have been removed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// Non-zero on success; otherwise, zero.
+        /// </returns>
         private static bool MaskUnsafeMemberTypesAndBindingFlags(
             ref MemberTypes memberTypes,   /* in, out */
             ref BindingFlags bindingFlags, /* in, out */
@@ -882,6 +1276,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default binding flags used by the object
+        /// sub-command options.
+        /// </summary>
+        /// <returns>
+        /// The default binding flags.
+        /// </returns>
         public static BindingFlags GetDefaultBindingFlags()
         {
             return DefaultBindingFlags;
@@ -889,6 +1290,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default marshalling flags used when
+        /// converting values between the script and managed worlds.
+        /// </summary>
+        /// <returns>
+        /// The default marshalling flags.
+        /// </returns>
         public static MarshalFlags GetDefaultMarshalFlags()
         {
             return DefaultMarshalFlags;
@@ -896,6 +1304,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default object flags applied to managed
+        /// objects added to the interpreter.
+        /// </summary>
+        /// <returns>
+        /// The default object flags.
+        /// </returns>
         public static ObjectFlags GetDefaultObjectFlags()
         {
             return DefaultObjectFlags;
@@ -903,6 +1318,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default object option type used when no
+        /// specific option type is requested.
+        /// </summary>
+        /// <returns>
+        /// The default object option type.
+        /// </returns>
         public static ObjectOptionType GetDefaultObjectOptionType()
         {
             return DefaultObjectOptionType;
@@ -910,6 +1332,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default value flags used when converting
+        /// object values.
+        /// </summary>
+        /// <returns>
+        /// The default object value flags.
+        /// </returns>
         public static ValueFlags GetDefaultObjectValueFlags()
         {
             return DefaultObjectValueFlags;
@@ -919,6 +1348,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Type Support Methods
+        /// <summary>
+        /// This method retrieves the client data associated with the specified
+        /// object, if it implements <see cref="IGetClientData" />.
+        /// </summary>
+        /// <param name="object">
+        /// The object from which to retrieve the client data.
+        /// </param>
+        /// <returns>
+        /// The client data associated with the object, or null if it does not
+        /// expose any.
+        /// </returns>
         public static IClientData GetClientData(
             object @object
             )
@@ -933,6 +1373,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the dictionary of default namespaces that are
+        /// implicitly searched when resolving unqualified type names.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when reporting any error encountered
+        /// while building the dictionary.
+        /// </param>
+        /// <param name="namespaces">
+        /// Upon return, this will contain the dictionary of default namespaces.
+        /// </param>
         public static void GetNamespaces(
             Interpreter interpreter,
             out StringLongPairStringDictionary namespaces
@@ -952,6 +1403,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the configured default namespaces, selected by the
+        /// specified flags, to the provided dictionary.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags that select which sets of default namespaces (e.g. Eagle
+        /// and/or CLR) are added.
+        /// </param>
+        /// <param name="namespaces">
+        /// The dictionary to which the selected namespaces are added; if it is
+        /// null, a new dictionary will be created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode AddNamespaces(
             ObjectNamespace flags,
             ref StringLongPairStringDictionary namespaces,
@@ -1025,6 +1495,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Garbage Collection Support Methods
+        /// <summary>
+        /// This method determines whether the Eagle library should manually
+        /// invoke garbage collection, based on the relevant environment
+        /// variable.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if manual garbage collection is permitted; otherwise, zero.
+        /// </returns>
         private static bool ShouldGC()
         {
             //
@@ -1043,6 +1521,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the large object heap should be
+        /// compacted during garbage collection, based on the relevant
+        /// environment variable and memory load.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if the large object heap should be compacted; otherwise,
+        /// zero.
+        /// </returns>
         private static bool ShouldCompactForGC()
         {
             //
@@ -1066,6 +1553,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether to wait for pending finalizers to
+        /// finish after collecting garbage, based on the relevant environment
+        /// variables and the current application domain.
+        /// </summary>
+        /// <returns>
+        /// Non-zero if pending finalizers should be awaited; otherwise, zero.
+        /// </returns>
         private static bool ShouldWaitForGC()
         {
             //
@@ -1112,6 +1607,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the garbage collector for the specified
+        /// generation, optionally compacting the large object heap.
+        /// </summary>
+        /// <param name="generation">
+        /// The generation to collect, or -1 to collect all generations.
+        /// </param>
+        /// <param name="collectionMode">
+        /// The garbage collection mode to use.
+        /// </param>
+        /// <param name="compact">
+        /// Non-zero to compact the large object heap during this collection.
+        /// </param>
         private static void CollectGarbage(
             int generation,
             GCCollectionMode collectionMode,
@@ -1150,6 +1658,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the garbage collector using the default garbage
+        /// collection flags.
+        /// </summary>
         public static void CollectGarbage() /* throw */
         {
             CollectGarbage(GarbageFlags.Default);
@@ -1157,6 +1669,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the garbage collector using the specified
+        /// garbage collection flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags controlling whether and how garbage is collected,
+        /// compacted, and waited upon.
+        /// </param>
         public static void CollectGarbage(
             GarbageFlags flags
             ) /* throw */
@@ -1166,6 +1686,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the garbage collector for the specified
+        /// generation, using the specified garbage collection flags to control
+        /// whether garbage is collected, whether the large object heap is
+        /// compacted, and whether pending finalizers are awaited.
+        /// </summary>
+        /// <param name="generation">
+        /// The generation to collect, or -1 to collect all generations.
+        /// </param>
+        /// <param name="collectionMode">
+        /// The garbage collection mode to use.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling whether and how garbage is collected,
+        /// compacted, and waited upon.
+        /// </param>
         private static void CollectGarbage(
             int generation,
             GCCollectionMode collectionMode,
@@ -1290,6 +1826,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the change in total managed memory that results
+        /// from optionally performing a garbage collection.
+        /// </summary>
+        /// <param name="collect">
+        /// Non-zero to perform a garbage collection when measuring the memory
+        /// usage after the initial measurement.
+        /// </param>
+        /// <returns>
+        /// The number of bytes by which the total managed memory decreased.
+        /// </returns>
         public static long GetTotalMemory(
             bool collect
             )
@@ -1304,6 +1851,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method measures the total managed memory in use before and,
+        /// optionally, after performing a garbage collection.
+        /// </summary>
+        /// <param name="collect">
+        /// Non-zero to perform a garbage collection before taking the second
+        /// measurement.
+        /// </param>
+        /// <param name="beforeBytes">
+        /// Upon return, this will contain the total managed memory, in bytes,
+        /// measured before any garbage collection.
+        /// </param>
+        /// <param name="afterBytes">
+        /// Upon return, this will contain the total managed memory, in bytes,
+        /// measured after garbage collection, if it was requested.
+        /// </param>
         public static void GetTotalMemory(
             bool collect,
             ref long beforeBytes,
@@ -1324,6 +1887,27 @@ namespace Eagle._Components.Private
         //
         // HACK: This is for use by the test suite only.
         //
+        /// <summary>
+        /// This method queries, enables, or disables the "guru" (i.e. advanced)
+        /// object access mode by adding or removing the guru namespace and the
+        /// associated default binding flags.  It is intended for use by the
+        /// test suite only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose object namespaces are queried or modified.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to enable the guru mode, zero to disable it, or null to
+        /// only query its current state.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this will contain the detailed list of actions taken
+        /// or, upon failure, an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode MaybeEnableGuru(
             Interpreter interpreter,
             bool? enable,
@@ -1487,6 +2071,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the object option type to use for an object
+        /// invocation, based on whether raw and/or all-overload semantics are
+        /// requested.
+        /// </summary>
+        /// <param name="raw">
+        /// Non-zero to select the raw invocation option type.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to select the all-overload invocation option type, which
+        /// takes precedence over <paramref name="raw" />.
+        /// </param>
+        /// <returns>
+        /// The selected object option type.
+        /// </returns>
         public static ObjectOptionType GetOptionType(
             bool raw,
             bool all
@@ -1507,6 +2106,20 @@ namespace Eagle._Components.Private
         // NOTE: This is for use with the MarshalOps.FixupReturnValue and
         //       MarshalOps.FixupByRefArguments methods.
         //
+        /// <summary>
+        /// This method returns the option dictionary appropriate for the
+        /// specified invoke-related object option type, for use with the
+        /// MarshalOps.FixupReturnValue and MarshalOps.FixupByRefArguments
+        /// methods.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type whose invoke-related options are requested.
+        /// </param>
+        /// <returns>
+        /// The option dictionary for the requested invoke option type, or null
+        /// if the masked option type does not denote a single invoke option
+        /// type.
+        /// </returns>
         public static OptionDictionary GetInvokeOptions(
             ObjectOptionType objectOptionType
             )
@@ -1533,6 +2146,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method derives the object option type to use for the aliases
+        /// created from by-reference (ref or out) arguments, combining the
+        /// unrelated bits of the supplied option type with the invoke option
+        /// type selected by the by-reference argument flags.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The base object option type whose invoke-related bits are replaced.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// The by-reference argument flags that select the invoke option type
+        /// (e.g. all, raw, or normal).
+        /// </param>
+        /// <returns>
+        /// The derived object option type.
+        /// </returns>
         public static ObjectOptionType GetByRefOptionType(
             ObjectOptionType objectOptionType,
             ByRefArgumentFlags byRefArgumentFlags
@@ -1569,6 +2198,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object alias] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object alias]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         public static OptionDictionary GetAliasOptions()
         {
             return new OptionDictionary(
@@ -1598,6 +2234,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is primarily for the [library call] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used primarily by the
+        /// [library call] sub-command and the InvokeDelegate method.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetCallOptions()
         {
             //
@@ -1721,6 +2364,14 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// ToCommandCallback method.  It uses the "Unsafe" option flag to
+        /// prevent a "safe" interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetCallbackOptions()
         {
             //
@@ -1773,6 +2424,13 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [library certificate] and
         //       [object certificate] sub-commands.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [library certificate] and [object certificate] sub-commands.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetCertificateOptions()
         {
             X509VerificationFlags localX509VerificationFlags;
@@ -1811,6 +2469,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object cleanup] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object cleanup] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetCleanupOptions()
         {
             return new OptionDictionary(
@@ -1838,6 +2503,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object create] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object create]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetCreateOptions()
         {
             return new OptionDictionary(
@@ -1949,6 +2621,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object declare] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object declare] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetDeclareOptions()
         {
             return new OptionDictionary(
@@ -1976,6 +2655,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [callback dequeue] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [callback dequeue] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetDequeueOptions()
         {
             return new OptionDictionary(
@@ -2022,6 +2708,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [xml deserialize] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [xml deserialize] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetDeserializeOptions()
         {
             return new OptionDictionary(
@@ -2078,6 +2771,14 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object dispose]
+        /// sub-command.  It uses the "Unsafe" option flag to prevent a "safe"
+        /// interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetDisposeOptions()
         {
             return new OptionDictionary(
@@ -2100,6 +2801,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [tcl eval] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [tcl eval]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetEvaluateOptions()
         {
             return new OptionDictionary(
@@ -2119,6 +2827,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [debug exception] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [debug exception] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetExceptionOptions()
         {
             return new OptionDictionary(
@@ -2165,6 +2880,13 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [exec] command using the currently active
         //       interpreter.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [exec] command,
+        /// using the currently active interpreter.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetExecOptions()
         {
             return GetExecOptions(Interpreter.GetActive());
@@ -2175,6 +2897,16 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [exec] command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [exec] command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose engine event flags are used as the default for
+        /// the -eventflags option; this may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetExecOptions(
             Interpreter interpreter
             )
@@ -2322,6 +3054,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary containing only the options
+        /// specific to the [sql execute] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetSqlExecuteOnlyOptions()
         {
             return new OptionDictionary(
@@ -2413,6 +3152,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
+        /// <summary>
+        /// This method builds the complete option dictionary used by the
+        /// [sql execute] sub-command, combining the sub-command-specific options
+        /// with the shared fixup-return-value options.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetSqlExecuteOptions()
         {
             return new OptionDictionary(
@@ -2429,6 +3176,16 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary shared by all code paths
+        /// that create opaque object handles via the MarshalOps.FixupReturnValue
+        /// and/or Utility.FixupReturnValue methods.  It uses the "Unsafe" option
+        /// flag to prevent a "safe" interpreter from potentially using an
+        /// option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetFixupReturnValueOptions()
         {
             //
@@ -2488,6 +3245,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object foreach] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object foreach]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetForEachOptions()
         {
             return new OptionDictionary(
@@ -2538,6 +3302,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object get] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object get]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetGetOptions()
         {
             return new OptionDictionary(
@@ -2590,6 +3361,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object import] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object import]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetImportOptions()
         {
             return new OptionDictionary(
@@ -2620,6 +3398,15 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary containing only the options
+        /// shared between the [object invoke] and [object invokeraw]
+        /// sub-commands.  It uses the "Unsafe" option flag to prevent a "safe"
+        /// interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeSharedOnlyOptions()
         {
             return new OptionDictionary(
@@ -2726,6 +3513,16 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary shared between the
+        /// [object invoke] and [object invokeraw] sub-commands, combining the
+        /// shared-only options with the fixup-return-value options.  It uses the
+        /// "Unsafe" option flag to prevent a "safe" interpreter from potentially
+        /// using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeSharedOptions()
         {
             return new OptionDictionary(
@@ -2740,6 +3537,15 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary containing only the options
+        /// specific to the [object invoke] sub-command.  It uses the "Unsafe"
+        /// option flag to prevent a "safe" interpreter from potentially using an
+        /// option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeOnlyOptions()
         {
             return new OptionDictionary(
@@ -2785,6 +3591,15 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the complete option dictionary used by the
+        /// [object invoke] sub-command, combining the invoke-only options with
+        /// the shared invoke options.  It uses the "Unsafe" option flag to
+        /// prevent a "safe" interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeOptions()
         {
             return new OptionDictionary(
@@ -2796,6 +3611,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object invokeall] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object invokeall]
+        /// sub-command, by starting from the [object invoke] options and
+        /// adjusting which options are ignored.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeAllOptions()
         {
             OptionDictionary options = GetInvokeOptions();
@@ -2820,6 +3643,15 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the option dictionary containing only the options
+        /// specific to the [object invokeraw] sub-command.  It uses the "Unsafe"
+        /// option flag to prevent a "safe" interpreter from potentially using an
+        /// option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeRawOnlyOptions()
         {
             return new OptionDictionary(
@@ -2839,6 +3671,15 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent a
         //       "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the complete option dictionary used by the
+        /// [object invokeraw] sub-command, combining the invokeraw-only options
+        /// with the shared invoke options.  It uses the "Unsafe" option flag to
+        /// prevent a "safe" interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetInvokeRawOptions()
         {
             return new OptionDictionary(
@@ -2850,6 +3691,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isdisposed] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object isdisposed] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetIsDisposedOptions()
         {
             return new OptionDictionary(
@@ -2874,6 +3722,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isnull] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object isnull]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetIsNullOptions()
         {
             return new OptionDictionary(
@@ -2897,6 +3752,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object isoftype] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object isoftype]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetIsOfTypeOptions()
         {
             return new OptionDictionary(
@@ -2931,6 +3793,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object load] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object load]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetLoadOptions()
         {
             return new OptionDictionary(
@@ -3014,6 +3883,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object members] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object members]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetMembersOptions()
         {
             return new OptionDictionary(
@@ -3069,6 +3945,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object search] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object search]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetSearchOptions()
         {
             return new OptionDictionary(
@@ -3109,6 +3992,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [xml serialize] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [xml serialize]
+        /// sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetSerializeOptions()
         {
             return new OptionDictionary(
@@ -3131,6 +4021,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [read] command.
         //
+        /// <summary>
+        /// This method builds the option dictionary containing only the options
+        /// specific to the [read] command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetReadOnlyOptions()
         {
             return new OptionDictionary(
@@ -3153,6 +4050,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [read] command.
         //
+        /// <summary>
+        /// This method builds the complete option dictionary used by the [read]
+        /// command, combining the read-only options with the fixup-return-value
+        /// options.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetReadOptions()
         {
             return new OptionDictionary(
@@ -3167,6 +4072,14 @@ namespace Eagle._Components.Private
         // NOTE: This method must use the "Unsafe" option flag to prevent
         //       a "safe" interpreter from potentially using an option.
         //
+        /// <summary>
+        /// This method builds the simplified option dictionary used by the
+        /// ToCommandCallback method.  It uses the "Unsafe" option flag to
+        /// prevent a "safe" interpreter from potentially using an option.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetSimpleCallbackOptions()
         {
             //
@@ -3206,6 +4119,13 @@ namespace Eagle._Components.Private
         // NOTE: This is for the [object type] and [object untype]
         //       sub-commands.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the [object type]
+        /// and [object untype] sub-commands.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetTypeOptions()
         {
             return new OptionDictionary(
@@ -3226,6 +4146,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object unaliasnamespace] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object unaliasnamespace] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetUnaliasNamespaceOptions()
         {
             return new OptionDictionary(
@@ -3248,6 +4175,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object undeclare] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object undeclare] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetUndeclareOptions()
         {
             return new OptionDictionary(
@@ -3270,6 +4204,13 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [object unimport] sub-command.
         //
+        /// <summary>
+        /// This method builds the option dictionary used by the
+        /// [object unimport] sub-command.
+        /// </summary>
+        /// <returns>
+        /// The newly created option dictionary.
+        /// </returns>
         private static OptionDictionary GetUnimportOptions()
         {
             return new OptionDictionary(
@@ -3289,6 +4230,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the option dictionary that corresponds to the
+        /// specified object sub-command option type, building it on demand.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type that selects which sub-command option
+        /// dictionary should be built and returned.
+        /// </param>
+        /// <returns>
+        /// The newly created option dictionary, or null if the specified
+        /// object option type is not recognized.
+        /// </returns>
         public static OptionDictionary GetObjectOptions(
             ObjectOptionType objectOptionType
             )
@@ -3398,6 +4351,34 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Option Processing Helper Methods
+        /// <summary>
+        /// This method conditionally adjusts the binding flags used when
+        /// resolving members for an object sub-command.  It exists primarily to
+        /// disable use of a private static constructor when creating an
+        /// instance of a primitive or value type.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary associated with the sub-command, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="objectType">
+        /// The type whose members are being resolved, if any.
+        /// </param>
+        /// <param name="index">
+        /// The argument index in use, or an invalid index when none applies.
+        /// </param>
+        /// <param name="invoke">
+        /// Non-zero if a member is about to be invoked.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags to be examined and possibly modified in place.
+        /// </param>
+        /// <returns>
+        /// True if the binding flags were modified; otherwise, false.
+        /// </returns>
         public static bool MaybeMutateBindingFlags(
             OptionDictionary options,          /* in */
             ObjectOptionType objectOptionType, /* in */
@@ -3448,6 +4429,27 @@ namespace Eagle._Components.Private
         // NOTE: For use by the ConversionOps.Dynamic._ToString.FromDateTime
         //       method only.
         //
+        /// <summary>
+        /// This method extracts the date/time format from the supplied options,
+        /// falling back to the specified default and then to the interpreter
+        /// settings.  It is a convenience overload that returns only the format
+        /// string.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback date/time settings,
+        /// if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the date/time related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultDateTimeFormat">
+        /// The default date/time format to use when none is present in the
+        /// options.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// Upon return, receives the resolved date/time format string.
+        /// </param>
         public static void ProcessDateTimeOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -3465,6 +4467,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the date/time kind, styles, and format from the
+        /// supplied options, falling back to the specified defaults and then to
+        /// the interpreter settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback date/time settings,
+        /// if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the date/time related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultDateTimeKind">
+        /// The default date/time kind to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultDateTimeStyles">
+        /// The default date/time styles to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultDateTimeFormat">
+        /// The default date/time format to use when none is present in the
+        /// options.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// Upon return, receives the resolved date/time kind.
+        /// </param>
+        /// <param name="dateTimeStyles">
+        /// Upon return, receives the resolved date/time styles.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// Upon return, receives the resolved date/time format string.
+        /// </param>
         public static void ProcessDateTimeOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -3526,6 +4562,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the callback related options (e.g. the return
+        /// type, parameter types, and the various flags) from the supplied
+        /// options, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the operation, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the callback related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultObjectFlags">
+        /// The default object flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultCallbackFlags">
+        /// The default callback flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="returnType">
+        /// Upon return, receives the resolved callback return type, if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of callback parameter
+        /// types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon return, receives the resolved object flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// Upon return, receives the resolved callback flags.
+        /// </param>
         public static void ProcessCallbackOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -3623,6 +4710,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the binding flags and marshal flags used for a
+        /// simple callback from the supplied options, falling back to the
+        /// specified defaults where necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the operation, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the callback related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
         public static void ProcessSimpleCallbackOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -3675,6 +4788,147 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is for the [sql execute] sub-command.
         //
+        /// <summary>
+        /// This method extracts the many options used by the [sql execute]
+        /// sub-command from the supplied options, falling back to the specified
+        /// defaults and then to the interpreter settings where necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback settings, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the database execution
+        /// related options, if any.
+        /// </param>
+        /// <param name="defaultCommandType">
+        /// The default command type to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultCommandBehavior">
+        /// The default command behavior to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultExecuteType">
+        /// The default execution type to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultResultFormat">
+        /// The default result format to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultValueFlags">
+        /// The default value flags to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBlobBehavior">
+        /// The default BLOB behavior to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultDateTimeBehavior">
+        /// The default date/time behavior to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultDateTimeKind">
+        /// The default date/time kind to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultDateTimeStyles">
+        /// The default date/time styles to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// Upon return, receives the resolved culture, if any.
+        /// </param>
+        /// <param name="commandType">
+        /// Upon return, receives the resolved command type.
+        /// </param>
+        /// <param name="commandBehavior">
+        /// Upon return, receives the resolved command behavior.
+        /// </param>
+        /// <param name="executeType">
+        /// Upon return, receives the resolved execution type.
+        /// </param>
+        /// <param name="resultFormat">
+        /// Upon return, receives the resolved result format.
+        /// </param>
+        /// <param name="valueFlags">
+        /// Upon return, receives the resolved value flags.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// Upon return, receives the resolved BLOB behavior.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// Upon return, receives the resolved date/time behavior.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// Upon return, receives the resolved date/time kind.
+        /// </param>
+        /// <param name="dateTimeStyles">
+        /// Upon return, receives the resolved date/time styles.
+        /// </param>
+        /// <param name="changedCallback">
+        /// Upon return, receives the resolved change-notification callback, if
+        /// any.
+        /// </param>
+        /// <param name="rowsVarName">
+        /// Upon return, receives the name of the variable that will receive the
+        /// row data, if any.
+        /// </param>
+        /// <param name="timeVarName">
+        /// Upon return, receives the name of the variable that will receive the
+        /// elapsed time, if any.
+        /// </param>
+        /// <param name="valueFormat">
+        /// Upon return, receives the resolved value format string, if any.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// Upon return, receives the resolved date/time format string, if any.
+        /// </param>
+        /// <param name="numberFormat">
+        /// Upon return, receives the resolved number format string, if any.
+        /// </param>
+        /// <param name="nullValue">
+        /// Upon return, receives the string used to represent a null value, if
+        /// any.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// Upon return, receives the string used to represent a database null
+        /// value, if any.
+        /// </param>
+        /// <param name="errorValue">
+        /// Upon return, receives the string used to represent an error value,
+        /// if any.
+        /// </param>
+        /// <param name="commandTimeout">
+        /// Upon return, receives the resolved command timeout, if any.
+        /// </param>
+        /// <param name="limit">
+        /// Upon return, receives the resolved maximum row limit.
+        /// </param>
+        /// <param name="nested">
+        /// Upon return, receives non-zero if nested result formatting is
+        /// enabled.
+        /// </param>
+        /// <param name="allowNull">
+        /// Upon return, receives non-zero if null values are permitted.
+        /// </param>
+        /// <param name="pairs">
+        /// Upon return, receives non-zero if results should be formatted as
+        /// name/value pairs.
+        /// </param>
+        /// <param name="names">
+        /// Upon return, receives non-zero if column names should be included.
+        /// </param>
+        /// <param name="time">
+        /// Upon return, receives non-zero if elapsed time should be captured.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, receives non-zero if values should be treated
+        /// verbatim.
+        /// </param>
+        /// <param name="noFixup">
+        /// Upon return, receives non-zero if value fixup should be skipped.
+        /// </param>
         public static void ProcessExecuteOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -4012,6 +5266,90 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options that control method discovery and
+        /// argument fixup for an object sub-command, falling back to the
+        /// specified defaults where necessary.  This convenience overload omits
+        /// several of the more detailed outputs and forwards to the most
+        /// general overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback settings, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the member lookup related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultReorderFlags">
+        /// The default reorder flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// Upon return, receives the resolved reorder flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="limit">
+        /// Upon return, receives the resolved overload-matching limit.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, receives the resolved argument index.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="strictMember">
+        /// Upon return, receives non-zero if strict member matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, receives non-zero if debug output is enabled.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         public static void ProcessFindMethodsAndFixupArgumentsOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -4073,6 +5411,101 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options that control method discovery and
+        /// argument fixup for an object sub-command, falling back to the
+        /// specified defaults where necessary.  This convenience overload omits
+        /// several of the more detailed outputs and forwards to the most
+        /// general overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback settings, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the member lookup related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultReorderFlags">
+        /// The default reorder flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// Upon return, receives the resolved reorder flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="methodTypes">
+        /// Upon return, receives the resolved list of method (signature) types,
+        /// if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of parameter types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="limit">
+        /// Upon return, receives the resolved overload-matching limit.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, receives the resolved argument index.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="strictMember">
+        /// Upon return, receives non-zero if strict member matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, receives non-zero if debug output is enabled.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         private static void ProcessFindMethodsAndFixupArgumentsOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -4134,6 +5567,122 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options that control method discovery and
+        /// argument fixup for an object sub-command, falling back to the
+        /// specified defaults where necessary.  This convenience overload omits
+        /// several of the more detailed outputs and forwards to the most
+        /// general overload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback settings, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the member lookup related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultReorderFlags">
+        /// The default reorder flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="methodTypes">
+        /// Upon return, receives the resolved list of method (signature) types,
+        /// if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of parameter types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// Upon return, receives the resolved reorder flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="limit">
+        /// Upon return, receives the resolved overload-matching limit.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, receives the resolved argument index.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="strictMember">
+        /// Upon return, receives non-zero if strict member matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="noMutateBindingFlags">
+        /// Upon return, receives non-zero if automatic mutation of the binding
+        /// flags is disabled.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, receives non-zero if debug output is enabled.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         public static void ProcessFindMethodsAndFixupArgumentsOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -4197,6 +5746,160 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the complete set of options that control method
+        /// discovery and argument fixup for an object sub-command, falling back
+        /// to the specified defaults and then to the interpreter settings where
+        /// necessary.  This is the most general overload to which the others
+        /// forward.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context that supplies fallback settings, if any.
+        /// </param>
+        /// <param name="options">
+        /// The option dictionary that may contain the member lookup related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberValueFlags">
+        /// The default member value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberTypes">
+        /// The default member types to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultReorderFlags">
+        /// The default reorder flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectType">
+        /// Upon return, receives the resolved object type, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// Upon return, receives the resolved proxy type, if any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="methodTypes">
+        /// Upon return, receives the resolved list of method (signature) types,
+        /// if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of parameter types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="memberValueFlags">
+        /// Upon return, receives the resolved member value flags.
+        /// </param>
+        /// <param name="memberTypes">
+        /// Upon return, receives the resolved member types.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// Upon return, receives the resolved reorder flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="limit">
+        /// Upon return, receives the resolved overload-matching limit.
+        /// </param>
+        /// <param name="index">
+        /// Upon return, receives the resolved argument index.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="strictMember">
+        /// Upon return, receives non-zero if strict member matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="identity">
+        /// Upon return, receives non-zero if identity handling is requested.
+        /// </param>
+        /// <param name="typeIdentity">
+        /// Upon return, receives non-zero if type-identity handling is
+        /// requested.
+        /// </param>
+        /// <param name="noNestedObject">
+        /// Upon return, receives non-zero if nested object resolution is
+        /// disabled.
+        /// </param>
+        /// <param name="noNestedMember">
+        /// Upon return, receives non-zero if nested member resolution is
+        /// disabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="noMutateBindingFlags">
+        /// Upon return, receives non-zero if automatic mutation of the binding
+        /// flags is disabled.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, receives non-zero if debug output is enabled.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         public static void ProcessFindMethodsAndFixupArgumentsOptions(
             Interpreter interpreter,
             OptionDictionary options,
@@ -4579,6 +6282,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used when fixing up the return
+        /// value of an object sub-command, falling back to the specified
+        /// defaults where necessary.  This convenience overload omits several
+        /// of the more detailed outputs and forwards to the most general
+        /// overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the return-value related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultObjectFlags">
+        /// The default object flags to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon return, receives the resolved object flags.
+        /// </param>
+        /// <param name="objectName">
+        /// Upon return, receives the resolved object name, if any.
+        /// </param>
+        /// <param name="interpName">
+        /// Upon return, receives the resolved (Tcl) interpreter name, if any.
+        /// </param>
+        /// <param name="alias">
+        /// Upon return, receives non-zero if an alias should be created.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, receives non-zero if a raw alias should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, receives non-zero if an all-encompassing alias should
+        /// be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, receives non-zero if the alias should add an object
+        /// reference.
+        /// </param>
         public static void ProcessFixupReturnValueOptions(
             OptionDictionary options,
             ObjectFlags? defaultObjectFlags,
@@ -4607,6 +6348,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used when fixing up the return
+        /// value of an object sub-command, falling back to the specified
+        /// defaults where necessary.  This convenience overload omits the
+        /// by-reference object flags output and forwards to the most general
+        /// overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the return-value related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultObjectFlags">
+        /// The default object flags to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="returnType">
+        /// Upon return, receives the resolved return type, if any.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon return, receives the resolved object flags.
+        /// </param>
+        /// <param name="objectName">
+        /// Upon return, receives the resolved object name, if any.
+        /// </param>
+        /// <param name="interpName">
+        /// Upon return, receives the resolved (Tcl) interpreter name, if any.
+        /// </param>
+        /// <param name="create">
+        /// Upon return, receives non-zero if an opaque object handle should be
+        /// created.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, receives non-zero if the object may be disposed.
+        /// </param>
+        /// <param name="alias">
+        /// Upon return, receives non-zero if an alias should be created.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, receives non-zero if a raw alias should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, receives non-zero if an all-encompassing alias should
+        /// be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, receives non-zero if the alias should add an object
+        /// reference.
+        /// </param>
+        /// <param name="toString">
+        /// Upon return, receives non-zero if the value should be converted via
+        /// its string representation.
+        /// </param>
         public static void ProcessFixupReturnValueOptions(
             OptionDictionary options,
             ObjectFlags? defaultObjectFlags,
@@ -4635,6 +6428,64 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the complete set of options used when fixing up
+        /// the return value of an object sub-command, falling back to the
+        /// specified defaults where necessary.  This is the most general
+        /// overload to which the others forward.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the return-value related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultObjectFlags">
+        /// The default object flags to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefObjectFlags">
+        /// The default by-reference object flags to use when none is present in
+        /// the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="returnType">
+        /// Upon return, receives the resolved return type, if any.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon return, receives the resolved object flags.
+        /// </param>
+        /// <param name="byRefObjectFlags">
+        /// Upon return, receives the resolved by-reference object flags.
+        /// </param>
+        /// <param name="objectName">
+        /// Upon return, receives the resolved object name, if any.
+        /// </param>
+        /// <param name="interpName">
+        /// Upon return, receives the resolved (Tcl) interpreter name, if any.
+        /// </param>
+        /// <param name="create">
+        /// Upon return, receives non-zero if an opaque object handle should be
+        /// created.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, receives non-zero if the object may be disposed.
+        /// </param>
+        /// <param name="alias">
+        /// Upon return, receives non-zero if an alias should be created.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, receives non-zero if a raw alias should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, receives non-zero if an all-encompassing alias should
+        /// be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, receives non-zero if the alias should add an object
+        /// reference.
+        /// </param>
+        /// <param name="toString">
+        /// Upon return, receives non-zero if the value should be converted via
+        /// its string representation.
+        /// </param>
         public static void ProcessFixupReturnValueOptions(
             OptionDictionary options,
             ObjectFlags? defaultObjectFlags,
@@ -4807,6 +6658,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the type-resolution
+        /// sub-commands.  This convenience overload exposes only the boolean
+        /// outputs and forwards to the most general overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type-resolution related
+        /// options, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessGetTypeOptions(
             OptionDictionary options,
             out bool verbose,
@@ -4825,6 +6695,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the type-resolution
+        /// sub-commands.  This convenience overload omits the case-insensitive
+        /// matching output and forwards to the most general overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type-resolution related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
         private static void ProcessGetTypeOptions(
             OptionDictionary options,
             out TypeList objectTypes,
@@ -4843,6 +6731,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the type-resolution
+        /// sub-commands.  This convenience overload exposes the object type list
+        /// and the boolean outputs and forwards to the most general overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type-resolution related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         private static void ProcessGetTypeOptions(
             OptionDictionary options,
             out TypeList objectTypes,
@@ -4861,6 +6771,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the complete set of options used by the
+        /// type-resolution sub-commands, falling back to the specified defaults
+        /// where necessary.  This is the most general overload to which the
+        /// others forward.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type-resolution related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessGetTypeOptions(
             OptionDictionary options,
             ValueFlags? defaultObjectValueFlags,
@@ -4931,6 +6878,128 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options that control marshalling for an
+        /// object sub-command, falling back to the specified defaults where
+        /// necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the marshalling related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberValueFlags">
+        /// The default member value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberTypes">
+        /// The default member types to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultReorderFlags">
+        /// The default reorder flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectType">
+        /// Upon return, receives the resolved object type, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// Upon return, receives the resolved proxy type, if any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="methodTypes">
+        /// Upon return, receives the resolved list of method (signature) types,
+        /// if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of parameter types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="memberValueFlags">
+        /// Upon return, receives the resolved member value flags.
+        /// </param>
+        /// <param name="memberTypes">
+        /// Upon return, receives the resolved member types.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="reorderFlags">
+        /// Upon return, receives the resolved reorder flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="noNestedObject">
+        /// Upon return, receives non-zero if nested object resolution is
+        /// disabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         private static void ProcessMarshalOptions(
             OptionDictionary options,
             ObjectOptionType objectOptionType,
@@ -5198,6 +7267,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object alias]
+        /// sub-command.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the alias related options, if
+        /// any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="aliasName">
+        /// Upon return, receives the resolved alias name, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Upon return, receives non-zero if a raw alias should be created.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Upon return, receives non-zero if an all-encompassing alias should
+        /// be created.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Upon return, receives non-zero if the alias should add an object
+        /// reference.
+        /// </param>
         public static void ProcessObjectAliasOptions(
             OptionDictionary options,
             out TypeList objectTypes,
@@ -5252,6 +7356,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the X.509 certificate verification options used
+        /// by the [object certificate] sub-command, falling back to the
+        /// specified defaults where necessary.  This convenience overload omits
+        /// the cache output and forwards to the most general overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the certificate related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultX509VerificationFlags">
+        /// The default X.509 verification flags to use when none is present in
+        /// the options, or null to use the queried default.
+        /// </param>
+        /// <param name="defaultX509RevocationMode">
+        /// The default X.509 revocation mode to use when none is present in the
+        /// options, or null to use the queried default.
+        /// </param>
+        /// <param name="defaultX509RevocationFlag">
+        /// The default X.509 revocation flag to use when none is present in the
+        /// options, or null to use the queried default.
+        /// </param>
+        /// <param name="x509VerificationFlags">
+        /// Upon return, receives the resolved X.509 verification flags.
+        /// </param>
+        /// <param name="x509RevocationMode">
+        /// Upon return, receives the resolved X.509 revocation mode.
+        /// </param>
+        /// <param name="x509RevocationFlag">
+        /// Upon return, receives the resolved X.509 revocation flag.
+        /// </param>
+        /// <param name="chain">
+        /// Upon return, receives non-zero if certificate chain building is
+        /// requested.
+        /// </param>
         public static void ProcessObjectCertificateOptions(
             OptionDictionary options,
             X509VerificationFlags? defaultX509VerificationFlags,
@@ -5274,6 +7413,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the complete set of X.509 certificate
+        /// verification options used by the [object certificate] sub-command,
+        /// falling back to the specified defaults where necessary.  This is the
+        /// most general overload to which the other forwards.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the certificate related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultX509VerificationFlags">
+        /// The default X.509 verification flags to use when none is present in
+        /// the options, or null to use the queried default.
+        /// </param>
+        /// <param name="defaultX509RevocationMode">
+        /// The default X.509 revocation mode to use when none is present in the
+        /// options, or null to use the queried default.
+        /// </param>
+        /// <param name="defaultX509RevocationFlag">
+        /// The default X.509 revocation flag to use when none is present in the
+        /// options, or null to use the queried default.
+        /// </param>
+        /// <param name="x509VerificationFlags">
+        /// Upon return, receives the resolved X.509 verification flags.
+        /// </param>
+        /// <param name="x509RevocationMode">
+        /// Upon return, receives the resolved X.509 revocation mode.
+        /// </param>
+        /// <param name="x509RevocationFlag">
+        /// Upon return, receives the resolved X.509 revocation flag.
+        /// </param>
+        /// <param name="chain">
+        /// Upon return, receives non-zero if certificate chain building is
+        /// requested.
+        /// </param>
+        /// <param name="cache">
+        /// Upon return, receives non-zero if certificate caching is requested.
+        /// </param>
         public static void ProcessObjectCertificateOptions(
             OptionDictionary options,
             X509VerificationFlags? defaultX509VerificationFlags,
@@ -5352,6 +7529,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object declare]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the declare related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="nonPublic">
+        /// Upon return, receives non-zero if non-public members should be
+        /// declared.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessObjectDeclareOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5384,6 +7593,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object import]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// This convenience overload omits the non-public output and forwards
+        /// to the most general overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the import related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="container">
+        /// Upon return, receives the resolved container name, if any.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="eagle">
+        /// Upon return, receives non-zero if Eagle namespaces should be
+        /// imported.
+        /// </param>
+        /// <param name="clr">
+        /// Upon return, receives non-zero if CLR namespaces should be imported.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessObjectImportOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5404,6 +7647,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the complete set of options used by the
+        /// [object import] sub-command, falling back to the specified defaults
+        /// where necessary.  This is the most general overload to which the
+        /// other forwards.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the import related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="container">
+        /// Upon return, receives the resolved container name, if any.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="eagle">
+        /// Upon return, receives non-zero if Eagle namespaces should be
+        /// imported.
+        /// </param>
+        /// <param name="clr">
+        /// Upon return, receives non-zero if CLR namespaces should be imported.
+        /// </param>
+        /// <param name="nonPublic">
+        /// Upon return, receives non-zero if non-public members should be
+        /// imported.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessObjectImportOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5458,6 +7739,105 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object invokeraw]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// It forwards to the more general marshalling option processing
+        /// method.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the invocation related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultByRefArgumentFlags">
+        /// The default by-reference argument flags to use when none is present
+        /// in the options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectType">
+        /// Upon return, receives the resolved object type, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// Upon return, receives the resolved proxy type, if any.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="methodTypes">
+        /// Upon return, receives the resolved list of method (signature) types,
+        /// if any.
+        /// </param>
+        /// <param name="parameterTypes">
+        /// Upon return, receives the resolved list of parameter types, if any.
+        /// </param>
+        /// <param name="parameterMarshalFlags">
+        /// Upon return, receives the resolved list of per-parameter marshal
+        /// flags, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="byRefArgumentFlags">
+        /// Upon return, receives the resolved by-reference argument flags.
+        /// </param>
+        /// <param name="noByRef">
+        /// Upon return, receives non-zero if by-reference argument handling is
+        /// disabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="strictArgs">
+        /// Upon return, receives non-zero if strict argument matching is
+        /// enabled.
+        /// </param>
+        /// <param name="noNestedObject">
+        /// Upon return, receives non-zero if nested object resolution is
+        /// disabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="invoke">
+        /// Upon return, receives non-zero if the matched member should be
+        /// invoked.
+        /// </param>
+        /// <param name="noArgs">
+        /// Upon return, receives non-zero if argument processing is disabled.
+        /// </param>
+        /// <param name="arrayAsValue">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// values.
+        /// </param>
+        /// <param name="arrayAsLink">
+        /// Upon return, receives non-zero if arrays should be treated as
+        /// linked variables.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, receives non-zero if trace output is enabled.
+        /// </param>
         public static void ProcessObjectInvokeRawOptions(
             OptionDictionary options,
             ObjectOptionType objectOptionType,
@@ -5507,6 +7887,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object isdisposed]
+        /// sub-command.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the disposal-check related
+        /// options, if any.
+        /// </param>
+        /// <param name="noComplain">
+        /// Upon return, receives non-zero if errors should be suppressed.
+        /// </param>
+        /// <param name="force">
+        /// Upon return, receives non-zero if the disposal check should be
+        /// forced.
+        /// </param>
+        /// <param name="cannotCheck">
+        /// Upon return, receives non-zero if the disposal state cannot be
+        /// checked.
+        /// </param>
+        /// <param name="caughtException">
+        /// Upon return, receives non-zero if an exception was caught while
+        /// checking the disposal state.
+        /// </param>
         public static void ProcessObjectIsDisposedOptions(
             OptionDictionary options,
             out bool noComplain,
@@ -5557,6 +7960,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object isnull]
+        /// sub-command, building upon the disposal-check options.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the null-check related
+        /// options, if any.
+        /// </param>
+        /// <param name="noComplain">
+        /// Upon return, receives non-zero if errors should be suppressed.
+        /// </param>
+        /// <param name="objectDisposed">
+        /// Upon return, receives non-zero if a disposed object should be
+        /// treated as null.
+        /// </param>
+        /// <param name="valueDisposed">
+        /// Upon return, receives non-zero if a disposed value should be treated
+        /// as null.
+        /// </param>
+        /// <param name="force">
+        /// Upon return, receives non-zero if the disposal check should be
+        /// forced.
+        /// </param>
+        /// <param name="cannotCheck">
+        /// Upon return, receives non-zero if the disposal state cannot be
+        /// checked.
+        /// </param>
+        /// <param name="caughtException">
+        /// Upon return, receives non-zero if an exception was caught while
+        /// checking the disposal state.
+        /// </param>
         public static void ProcessObjectIsNullOptions(
             OptionDictionary options,
             out bool noComplain,
@@ -5598,6 +8032,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object isoftype]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type-check related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="noComplain">
+        /// Upon return, receives non-zero if errors should be suppressed.
+        /// </param>
+        /// <param name="assignable">
+        /// Upon return, receives non-zero if assignment compatibility (rather
+        /// than an exact type match) should be checked.
+        /// </param>
         public static void ProcessObjectIsOfTypeOptions(
             OptionDictionary options,
             ValueFlags? defaultObjectValueFlags,
@@ -5634,6 +8110,82 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object load]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the load related options, if
+        /// any.
+        /// </param>
+        /// <param name="defaultLoadType">
+        /// The default load type to use when none is present in the options, or
+        /// null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="namespace">
+        /// Upon return, receives the resolved target namespace, if any.
+        /// </param>
+        /// <param name="loadType">
+        /// Upon return, receives the resolved load type.
+        /// </param>
+        /// <param name="declareMatchMode">
+        /// Upon return, receives the resolved match mode used for declaring.
+        /// </param>
+        /// <param name="importMatchMode">
+        /// Upon return, receives the resolved match mode used for importing.
+        /// </param>
+        /// <param name="declarePattern">
+        /// Upon return, receives the resolved match pattern used for declaring,
+        /// if any.
+        /// </param>
+        /// <param name="importPattern">
+        /// Upon return, receives the resolved match pattern used for importing,
+        /// if any.
+        /// </param>
+        /// <param name="declare">
+        /// Upon return, receives non-zero if the loaded types should be
+        /// declared.
+        /// </param>
+        /// <param name="import">
+        /// Upon return, receives non-zero if the loaded namespaces should be
+        /// imported.
+        /// </param>
+        /// <param name="declareNonPublic">
+        /// Upon return, receives non-zero if non-public members should be
+        /// declared.
+        /// </param>
+        /// <param name="declareNoCase">
+        /// Upon return, receives non-zero if case-insensitive matching is used
+        /// for declaring.
+        /// </param>
+        /// <param name="importNonPublic">
+        /// Upon return, receives non-zero if non-public members should be
+        /// imported.
+        /// </param>
+        /// <param name="importNoCase">
+        /// Upon return, receives non-zero if case-insensitive matching is used
+        /// for importing.
+        /// </param>
+        /// <param name="fromObject">
+        /// Upon return, receives non-zero if the assembly should be loaded from
+        /// an existing object.
+        /// </param>
+        /// <param name="reflectionOnly">
+        /// Upon return, receives non-zero if the assembly should be loaded for
+        /// reflection only.
+        /// </param>
+        /// <param name="trustedOnly">
+        /// Upon return, receives non-zero if only trusted assemblies should be
+        /// loaded.
+        /// </param>
+        /// <param name="verifiedOnly">
+        /// Upon return, receives non-zero if only verified assemblies should be
+        /// loaded.
+        /// </param>
         public static void ProcessObjectLoadOptions(
             OptionDictionary options,
             LoadType? defaultLoadType,
@@ -5762,6 +8314,89 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object members]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the member-listing related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberTypes">
+        /// The default member types to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMarshalFlags">
+        /// The default marshal flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="objectTypes">
+        /// Upon return, receives the resolved list of object types, if any.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="memberTypes">
+        /// Upon return, receives the resolved member types.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// Upon return, receives the resolved marshal flags.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, receives non-zero if verbose output is enabled.
+        /// </param>
+        /// <param name="strictType">
+        /// Upon return, receives non-zero if strict type matching is enabled.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="attributes">
+        /// Upon return, receives non-zero if member attributes should be
+        /// included.
+        /// </param>
+        /// <param name="matchNameOnly">
+        /// Upon return, receives non-zero if matching should consider the
+        /// member name only.
+        /// </param>
+        /// <param name="nameOnly">
+        /// Upon return, receives non-zero if only member names should be
+        /// returned.
+        /// </param>
+        /// <param name="signatures">
+        /// Upon return, receives non-zero if member signatures should be
+        /// included.
+        /// </param>
+        /// <param name="qualified">
+        /// Upon return, receives non-zero if fully qualified names should be
+        /// returned.
+        /// </param>
         public static void ProcessObjectMembersOptions(
             OptionDictionary options,
             ObjectOptionType objectOptionType,
@@ -5842,6 +8477,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object type]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the type related options, if
+        /// any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessObjectTypeOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5857,6 +8514,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object
+        /// unaliasnamespace] sub-command, falling back to the specified
+        /// defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the unalias related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="values">
+        /// Upon return, receives non-zero if matching should be performed by
+        /// container value.
+        /// </param>
         public static void ProcessObjectUnaliasNamespaceOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5880,6 +8564,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object undeclare]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the undeclare related
+        /// options, if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="values">
+        /// Upon return, receives non-zero if matching should be performed by
+        /// container value.
+        /// </param>
         public static void ProcessObjectUndeclareOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5903,6 +8613,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object unimport]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the unimport related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
+        /// <param name="values">
+        /// Upon return, receives non-zero if matching should be performed by
+        /// container value.
+        /// </param>
         public static void ProcessObjectUnimportOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5926,6 +8662,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the options used by the [object untype]
+        /// sub-command, falling back to the specified defaults where necessary.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the untype related options,
+        /// if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         public static void ProcessObjectUntypeOptions(
             OptionDictionary options,
             MatchMode? defaultMatchMode,
@@ -5941,6 +8699,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the match mode and pattern options identified by
+        /// the specified option names, falling back to the specified default
+        /// where necessary.  This convenience overload omits the
+        /// case-insensitive matching support and forwards to the most general
+        /// overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the pattern-matching related
+        /// options, if any.
+        /// </param>
+        /// <param name="matchModeOptionName">
+        /// The name of the option that specifies the match mode, if any.
+        /// </param>
+        /// <param name="patternOptionName">
+        /// The name of the option that specifies the match pattern, if any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
         private static void ProcessPatternMatchingOptions(
             OptionDictionary options,
             string matchModeOptionName,
@@ -5959,6 +8744,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the match mode, pattern, and case-sensitivity
+        /// options identified by the specified option names, falling back to the
+        /// specified default where necessary.  This is the most general overload
+        /// to which the other forwards.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the pattern-matching related
+        /// options, if any.
+        /// </param>
+        /// <param name="matchModeOptionName">
+        /// The name of the option that specifies the match mode, if any.
+        /// </param>
+        /// <param name="patternOptionName">
+        /// The name of the option that specifies the match pattern, if any.
+        /// </param>
+        /// <param name="noCaseOptionName">
+        /// The name of the option that specifies case-insensitive matching, if
+        /// any.
+        /// </param>
+        /// <param name="defaultMatchMode">
+        /// The default match mode to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="matchMode">
+        /// Upon return, receives the resolved match mode.
+        /// </param>
+        /// <param name="pattern">
+        /// Upon return, receives the resolved match pattern, if any.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, receives non-zero if case-insensitive matching is
+        /// enabled.
+        /// </param>
         private static void ProcessPatternMatchingOptions(
             OptionDictionary options,
             string matchModeOptionName,
@@ -6009,6 +8828,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the reflection options (i.e. the member types
+        /// and binding flags) from the supplied options, falling back to the
+        /// specified defaults where necessary.  This is the core overload to
+        /// which the other forwards.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the reflection related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultMemberTypes">
+        /// The default member types to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="memberTypes">
+        /// Upon return, receives the resolved member types.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
         private static void ProcessReflectionOptions(
             OptionDictionary options,
             ObjectOptionType objectOptionType, /* NOT USED */
@@ -6057,6 +8904,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the reflection options (i.e. the member types,
+        /// binding flags, and value flags) from the supplied options, falling
+        /// back to the specified defaults where necessary.  This overload also
+        /// resolves the object and member value flags before forwarding to the
+        /// core overload.
+        /// </summary>
+        /// <param name="options">
+        /// The option dictionary that may contain the reflection related
+        /// options, if any.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type that identifies the sub-command being
+        /// processed.
+        /// </param>
+        /// <param name="defaultMemberTypes">
+        /// The default member types to use when none is present in the options,
+        /// or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultBindingFlags">
+        /// The default binding flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultObjectValueFlags">
+        /// The default object value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="defaultMemberValueFlags">
+        /// The default member value flags to use when none is present in the
+        /// options, or null to use the built-in default.
+        /// </param>
+        /// <param name="memberTypes">
+        /// Upon return, receives the resolved member types.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// Upon return, receives the resolved binding flags.
+        /// </param>
+        /// <param name="objectValueFlags">
+        /// Upon return, receives the resolved object value flags.
+        /// </param>
+        /// <param name="memberValueFlags">
+        /// Upon return, receives the resolved member value flags.
+        /// </param>
         public static void ProcessReflectionOptions(
             OptionDictionary options,
             ObjectOptionType objectOptionType,
@@ -6106,6 +8996,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Invocation Support Methods
+        /// <summary>
+        /// This method conditionally breaks into the debugger to assist with
+        /// diagnosing method overload resolution.  It does nothing unless debug
+        /// mode is enabled and either more than one matching overload was found
+        /// or an error occurred.
+        /// </summary>
+        /// <param name="code">
+        /// The return code produced by the overload-matching operation.
+        /// </param>
+        /// <param name="methodIndexList">
+        /// The list of indexes identifying the matching method overloads, if
+        /// any.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors produced by the overload-matching operation, if
+        /// any.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to enable the conditional debugger break.
+        /// </param>
         public static void MaybeBreakForMethodOverloadResolution(
             ReturnCode code,
             IntList methodIndexList,
@@ -6146,6 +9056,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the underlying methods, delegate type, object
+        /// name, and member name from the specified list of delegates.  All of
+        /// the delegates must share the same delegate type, object name, and
+        /// member name.
+        /// </summary>
+        /// <param name="delegates">
+        /// The list of delegate triplets to examine.
+        /// </param>
+        /// <param name="delegateType">
+        /// Upon success, receives the common delegate type.
+        /// </param>
+        /// <param name="objectName">
+        /// Upon success, receives the common object name, if any.
+        /// </param>
+        /// <param name="memberName">
+        /// Upon success, receives the common member name, if any.
+        /// </param>
+        /// <param name="methods">
+        /// Upon success, receives the array of methods extracted from the
+        /// delegates.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the methods were successfully extracted; otherwise, false.
+        /// </returns>
         private static bool GetMethodsFromDelegates(
             DelegateList delegates,   /* in */
             ref Type delegateType,    /* out */
@@ -6262,6 +9200,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes one of the methods represented by the specified
+        /// list of delegates, optionally processing options and converting the
+        /// supplied arguments as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which the invocation is performed.
+        /// </param>
+        /// <param name="delegates">
+        /// The list of delegate triplets representing the candidate methods.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to be processed and passed to the invoked
+        /// method.
+        /// </param>
+        /// <param name="allowOptions">
+        /// Non-zero if leading options are permitted within the argument list.
+        /// </param>
+        /// <param name="nameCount">
+        /// The number of arguments that make up the leading method name.
+        /// </param>
+        /// <param name="nameIndex">
+        /// The argument index at which the method name begins.
+        /// </param>
+        /// <param name="delegate">
+        /// Upon success, receives the delegate that was actually invoked.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of the invocation; upon failure,
+        /// receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode InvokeDelegate(
             Interpreter interpreter, /* in */
             DelegateList delegates,  /* in */
@@ -6776,6 +9749,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Disposal Support Methods
+        /// <summary>
+        /// This method returns the fields of the specified type whose names
+        /// match any of the specified patterns, using the specified binding
+        /// flags and match mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used for pattern matching, if any.
+        /// </param>
+        /// <param name="type">
+        /// The type whose fields are to be examined.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The binding flags used to enumerate the fields of the type.
+        /// </param>
+        /// <param name="mode">
+        /// The match mode used to compare field names against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The patterns used to match the field names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <returns>
+        /// The matching fields, or null if the type or patterns are invalid.
+        /// </returns>
         private static IEnumerable<FieldInfo> GetDisposedFieldInfos(
             Interpreter interpreter,      /* in: OPTIONAL */
             Type type,                    /* in */
@@ -6819,6 +9818,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine whether the specified object has
+        /// been disposed by examining its known disposal-indicating fields and
+        /// properties and, optionally, by forcing a benign member access.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used for pattern matching, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object whose disposal state is to be checked.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force a benign member access in order to detect disposal.
+        /// </param>
+        /// <param name="cannotCheck">
+        /// The value to return when the disposal state cannot be determined.
+        /// </param>
+        /// <param name="caughtException">
+        /// The value to return when an exception (other than
+        /// <see cref="ObjectDisposedException" />) is caught while checking the
+        /// disposal state.
+        /// </param>
+        /// <returns>
+        /// True if the object appears to be disposed, false if it does not, or
+        /// the supplied fallback value when the state cannot be determined.
+        /// </returns>
         public static bool? IsDisposed(
             Interpreter interpreter, /* in: OPTIONAL */
             object @object,          /* in */
@@ -6935,6 +9960,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified object reports itself as
+        /// disposed via the <see cref="IMaybeDisposed" /> interface.  Transparent
+        /// proxies and objects that do not implement that interface are assumed
+        /// to be not disposed.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose disposal state is to be checked.
+        /// </param>
+        /// <returns>
+        /// True if the object reports itself as disposed; otherwise, false.
+        /// </returns>
         public static bool IsDisposed(
             object @object /* in */
             )
@@ -6957,6 +9994,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified object and complains (via the
+        /// debugging subsystem) if disposal fails.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="interpreter">
+        /// The interpreter context used when complaining about a disposal
+        /// failure, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode DisposeOrComplain<T>(
             Interpreter interpreter, /* in */
             ref T @object            /* in, out */
@@ -6975,6 +10031,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified object and emits a diagnostic
+        /// trace message if disposal fails.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the operation, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode DisposeOrTrace<T>(
             Interpreter interpreter, /* in: NOT USED */
             ref T @object            /* in, out */
@@ -7000,6 +10074,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes the specified object if it implements
+        /// <see cref="IDisposable" />, always resetting it to its default value
+        /// afterward.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode Dispose<T>(
             ref T @object,   /* in, out */
             ref Result error /* out */
@@ -7041,6 +10134,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to dispose the specified object (skipping
+        /// objects that are already disposed or not disposable) and complains
+        /// (via the debugging subsystem) if disposal fails.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="interpreter">
+        /// The interpreter context used when complaining about a disposal
+        /// failure, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryDisposeOrComplain<T>(
             Interpreter interpreter, /* in */
             ref T @object            /* in, out */
@@ -7059,6 +10172,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to dispose the specified object (skipping
+        /// objects that are already disposed or not disposable) and emits a
+        /// diagnostic trace message if disposal fails.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryDisposeOrTrace<T>(
             ref T @object /* in, out */
             )
@@ -7083,6 +10212,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to dispose the specified object using the
+        /// default disposal behavior.  This convenience overload forwards to the
+        /// most general overload.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryDispose<T>(
             ref T @object,   /* in */
             ref Result error /* out */
@@ -7095,6 +10243,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to dispose the specified object, honoring the
+        /// supplied disposal flag.  This convenience overload forwards to the
+        /// most general overload.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// On input, non-zero to permit disposal; upon return, indicates whether
+        /// the object was actually disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryDispose<T>(
             ref T @object,    /* in */
             ref bool dispose, /* in, out */
@@ -7109,6 +10280,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to dispose the specified object, honoring the
+        /// supplied disposal flag and capturing any exception that occurs.
+        /// Objects that are invalid, already disposed, or not disposable are
+        /// skipped.  This is the most general overload to which the others
+        /// forward.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the object to be disposed.
+        /// </typeparam>
+        /// <param name="object">
+        /// The object to be disposed.  Upon return, it is reset to its default
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// On input, non-zero to permit disposal; upon return, indicates whether
+        /// the object was actually disposed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode TryDispose<T>(
             ref T @object,          /* in */
             ref bool dispose,       /* in, out: No, not really. */

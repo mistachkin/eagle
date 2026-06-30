@@ -18,6 +18,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Plugins
 {
+    /// <summary>
+    /// This class implements a test plugin that bridges the Eagle script
+    /// engine notification system to a Windows Forms test application,
+    /// forwarding script completion, cancellation, and exit events to the
+    /// associated form.
+    /// </summary>
     [ObjectId("29368752-20e2-4236-828a-4b680d55539d")]
     [PluginFlags(
         PluginFlags.Primary | PluginFlags.Host |
@@ -31,11 +37,19 @@ namespace Eagle._Plugins
     internal sealed class TestForm : Notify
     {
         #region Private Constants
+        /// <summary>
+        /// The set of notification types that this plugin is interested in
+        /// handling.
+        /// </summary>
         private static readonly NotifyType NotifyTypes =
             NotifyType.Interpreter | NotifyType.Script;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of notification flags that this plugin is interested in
+        /// handling.
+        /// </summary>
         private static readonly NotifyFlags NotifyFlags =
             NotifyFlags.Completed | NotifyFlags.Canceled | NotifyFlags.Exit;
         #endregion
@@ -43,12 +57,25 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The test form to which script engine notifications are forwarded.
+        /// </summary>
         private _Forms.TestForm form = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this plugin.
+        /// </summary>
+        /// <param name="form">
+        /// The test form to which script engine notifications should be
+        /// forwarded.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data used to initialize the base class.
+        /// </param>
         public TestForm(
             _Forms.TestForm form,
             IPluginData pluginData
@@ -65,6 +92,21 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region IPlugin Members
+        /// <summary>
+        /// This method returns descriptive information about this plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this plugin is executing in.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this will contain the descriptive information about
+        /// this plugin.  Upon failure, this will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode About(
             Interpreter interpreter,
             ref Result result
@@ -76,6 +118,20 @@ namespace Eagle._Plugins
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the list of options supported by this plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this plugin is executing in.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this will contain the list of supported options.
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Options(
             Interpreter interpreter,
             ref Result result
@@ -89,6 +145,34 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region INotify Members
+        /// <summary>
+        /// This method is called by the script engine to deliver a
+        /// notification to this plugin.  When the notification matches the
+        /// types and flags of interest, it forwards the corresponding script
+        /// completion, cancellation, or exit event to the associated test
+        /// form.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this plugin is executing in.
+        /// </param>
+        /// <param name="eventArgs">
+        /// The event arguments describing the notification being delivered.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, plugin-specific data supplied when the plugin was
+        /// created, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments associated with the notification, if any.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain a result value.  Upon failure, this
+        /// will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Notify(
             Interpreter interpreter,
             IScriptEventArgs eventArgs,

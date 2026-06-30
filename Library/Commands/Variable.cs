@@ -18,11 +18,25 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>variable</c> command, which declares
+    /// one or more variables that are linked from the current local call frame
+    /// (typically a procedure body) to the enclosing namespace or global call
+    /// frame, optionally assigning each one an initial value.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("8f887079-44e3-405a-a0d3-0b446ce2fa15")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("variable")]
     internal sealed class _Variable : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>variable</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _Variable(
             ICommandData commandData
             )
@@ -34,11 +48,43 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>variable</c> command.  It processes the
+        /// arguments as a sequence of name/value pairs (the trailing value
+        /// being optional), creating each named variable in the enclosing
+        /// namespace or global frame when necessary, linking it into the
+        /// current local call frame, and assigning any supplied value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements form one or more
+        /// <c>name ?value?</c> pairs naming the variables to declare and
+        /// optionally initialize.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains an empty string.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// a variable cannot be resolved, created, linked, or assigned, with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

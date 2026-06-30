@@ -31,6 +31,11 @@ using ScreenDictionary = System.Collections.Generic.Dictionary<string, bool>;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for managing ANSI terminal
+    /// "alternative screen buffers" using escape sequences, including creating,
+    /// listing, switching between, and closing emulated screen buffers.
+    /// </summary>
     [ObjectId("a8d2023c-5031-43fe-bc5b-be49115f3f55")]
     internal static class AnsiConsole
     {
@@ -42,12 +47,38 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The ANSI escape character (ESC) used to introduce each control
+        /// sequence.
+        /// </summary>
         private static string Escape = "\x1B";
+        /// <summary>
+        /// The ANSI escape sequence used to switch to the alternative screen
+        /// buffer.
+        /// </summary>
         private static string AltScreenEnable = Escape + "[?1049h";
+        /// <summary>
+        /// The ANSI escape sequence used to switch back from the alternative
+        /// screen buffer.
+        /// </summary>
         private static string AltScreenDisable = Escape + "[?1049l";
+        /// <summary>
+        /// The ANSI escape sequence used to save the current cursor position.
+        /// </summary>
         private static string CursorSave = Escape + "7";
+        /// <summary>
+        /// The ANSI escape sequence used to restore the previously saved cursor
+        /// position.
+        /// </summary>
         private static string CursorRestore = Escape + "8";
+        /// <summary>
+        /// The ANSI escape sequence used to clear the entire screen.
+        /// </summary>
         private static string ScreenClear = Escape + "[2J";
+        /// <summary>
+        /// The ANSI escape sequence used to move the cursor to the home
+        /// (top-left) position.
+        /// </summary>
         private static string CursorHome = Escape + "[H";
         #endregion
 
@@ -58,6 +89,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used to synchronize access to the screen buffer
         //       state managed by this class.
         //
+        /// <summary>
+        /// The object used to synchronize access to the screen buffer state
+        /// managed by this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -65,6 +100,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Thread ID tracking for lock diagnostics.
         //
+        /// <summary>
+        /// The managed thread identifier currently recorded as holding the
+        /// lock, used for lock diagnostics; zero when no thread is recorded.
+        /// </summary>
         private static long lockThreadId = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -73,6 +112,10 @@ namespace Eagle._Components.Private
         // NOTE: Stack of saved screen content for the push/pop emulation.
         //       Each entry is the screen name that was pushed.
         //
+        /// <summary>
+        /// The stack of saved screen buffer names used for the push/pop
+        /// emulation; each entry is the name of a pushed screen buffer.
+        /// </summary>
         private static ScreenStack activeScreenNames;
 
         ///////////////////////////////////////////////////////////////////////
@@ -80,12 +123,23 @@ namespace Eagle._Components.Private
         //
         // NOTE: Set of known screen buffer names.
         //
+        /// <summary>
+        /// The set of known screen buffer names.
+        /// </summary>
         private static ScreenDictionary screenBuffers;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Lock Helper Methods
+        /// <summary>
+        /// This method returns the managed thread identifier currently recorded
+        /// as holding the lock, or zero if no thread is recorded.
+        /// </summary>
+        /// <returns>
+        /// The managed thread identifier recorded as holding the lock, or zero
+        /// if none is recorded.
+        /// </returns>
         private static long MaybeWhoHasLock()
         {
             return Interlocked.CompareExchange(ref lockThreadId, 0, 0);
@@ -93,6 +147,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the current thread as holding the lock when the
+        /// lock has been successfully acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the lock was acquired by the current thread.
+        /// </param>
         private static void MaybeSomebodyHasLock(
             bool locked /* in */
             )
@@ -107,6 +168,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the recorded lock-holding thread when the lock is
+        /// being released by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the lock is held by the current thread.
+        /// </param>
         private static void MaybeNobodyHasLock(
             bool locked /* in */
             )
@@ -121,6 +189,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the lock used to synchronize access
+        /// to the screen buffer state.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter is set to non-zero if the lock was
+        /// acquired by the current thread.
+        /// </param>
         private static void TryLock(
             ref bool locked /* out */
             )
@@ -134,6 +210,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the lock used to synchronize access to the
+        /// screen buffer state, if it is currently held by the current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is held by the current thread.  Upon
+        /// return, this parameter is set to false.
+        /// </param>
         private static void ExitLock(
             ref bool locked /* in, out */
             )
@@ -153,6 +237,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method writes a single ANSI escape sequence to the specified
+        /// text writer and flushes it.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to which the escape sequence is written.  If this
+        /// parameter is null, no action is taken.
+        /// </param>
+        /// <param name="sequence">
+        /// The ANSI escape sequence to write.
+        /// </param>
         private static void WriteEscape(
             TextWriter textWriter, /* in */
             string sequence        /* in */
@@ -167,6 +262,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes zero or more ANSI escape sequences to the
+        /// specified text writer, in order, flushing each one.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to which the escape sequences are written.
+        /// </param>
+        /// <param name="sequences">
+        /// The ANSI escape sequences to write.  If this parameter is null, no
+        /// action is taken.
+        /// </param>
         private static void WriteEscapes(
             TextWriter textWriter,    /* in */
             params string[] sequences /* in */
@@ -183,6 +289,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether ANSI alternative screen buffer
+        /// support is available in the current environment.
+        /// </summary>
+        /// <returns>
+        /// True if ANSI alternative screen buffers are supported and standard
+        /// output is not redirected; otherwise, false.
+        /// </returns>
         public static bool IsSupported()
         {
             //
@@ -200,6 +314,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there is at least one active (pushed)
+        /// screen buffer name.
+        /// </summary>
+        /// <returns>
+        /// True if there is at least one active screen buffer name; otherwise,
+        /// false.
+        /// </returns>
         public static bool HaveActiveScreenName()
         {
             bool locked = false;
@@ -232,6 +354,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the name of the currently active (most recently
+        /// pushed) screen buffer.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, receives the name of the active screen buffer.  Upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetActiveScreenName(
             ref Result result /* out */
             )
@@ -279,6 +413,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a screen buffer with the specified
+        /// name is known.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to check for.
+        /// </param>
+        /// <param name="primary">
+        /// Reserved for future use.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// True if a screen buffer with the specified name exists; otherwise,
+        /// false.
+        /// </returns>
         public static bool DoesScreenBufferExist(
             string name,   /* in */
             bool primary   /* in: NOT USED */
@@ -314,6 +462,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the list of known screen buffer names.
+        /// </summary>
+        /// <param name="primary">
+        /// Reserved for future use.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The list of known screen buffer names, or null if the lock could not
+        /// be acquired.
+        /// </returns>
         public static StringList ListScreenBuffers(
             bool primary /* in: NOT USED */
             )
@@ -355,6 +513,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new screen buffer with an automatically
+        /// generated name.
+        /// </summary>
+        /// <param name="name">
+        /// Upon success, receives the generated name of the new screen buffer.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CreateScreenBuffer(
             ref string name, /* out */
             ref Result error /* out */
@@ -398,6 +570,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method switches the active screen buffer, either pushing the
+        /// specified named buffer onto the alternative screen or popping the
+        /// most recently pushed buffer to restore the previous screen.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to make active.  This parameter is
+        /// null when popping the saved buffer.
+        /// </param>
+        /// <param name="useSaved">
+        /// Non-zero to pop and restore the most recently saved screen buffer;
+        /// otherwise, the specified named buffer is pushed and made active.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the name of the affected screen buffer.  Upon
+        /// failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ChangeActiveScreenBuffer(
             string name,      /* in: null for pop */
             bool useSaved,    /* in: true for pop */
@@ -486,6 +679,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes (removes) the screen buffer with the specified
+        /// name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to close.
+        /// </param>
+        /// <param name="active">
+        /// Non-zero to permit closing the buffer even when it is currently
+        /// active; otherwise, attempting to close an active buffer fails.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode CloseScreenBuffer(
             string name,     /* in */
             bool active,     /* in */

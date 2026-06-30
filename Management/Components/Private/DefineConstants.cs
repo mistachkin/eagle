@@ -14,9 +14,20 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the read-only list of optional compile-time define
+    /// constants (preprocessor symbols) that were actually enabled when this
+    /// assembly was compiled.
+    /// </summary>
     [ObjectId("760936e9-3bcf-4d9c-8b89-55bccab3b3fd")]
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of optional feature define constants that were enabled
+        /// when this assembly was compiled.  Each entry is conditionally
+        /// included based on whether its corresponding preprocessor symbol
+        /// was defined for this build; a trailing null terminates the list.
+        /// </summary>
         public static readonly StringList OptionList = new StringList(new string[] {
 #if APPROVED_VERBS
             "APPROVED_VERBS",

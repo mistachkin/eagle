@@ -24,11 +24,24 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>open</c> command, which opens a file
+    /// (or one of the standard input, output, or error channels) and returns
+    /// an identifier for the resulting channel.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("04da529a-10c9-4e92-b45e-cb6ae50e2c3d")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard)]
     [ObjectGroup("fileSystem")]
     internal sealed class Open : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>open</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Open(
             ICommandData commandData
             )
@@ -38,11 +51,47 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>open</c> command.  It opens the named
+        /// file using the requested access mode, permissions, channel type,
+        /// and options (or, on platforms with console support, attaches one of
+        /// the standard input, output, or error streams), registers the
+        /// resulting channel with the interpreter, and returns the channel
+        /// identifier.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the file name to open; the optional
+        /// elements supply the access mode, permissions, channel type, and any
+        /// additional options.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the identifier of the newly opened (or
+        /// modified) channel.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the channel
+        /// identifier placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter or argument list is null, the access
+        /// mode, permissions, options, or channel type are invalid, the
+        /// channel already exists, or the underlying file or stream cannot be
+        /// opened, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

@@ -384,10 +384,10 @@ fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
 global guid hash host if incr info interp invoke join kill lappend lassign lget\
 (library )?lindex linsert list llength lmap load lrange lremove lrepeat\
 lreplace lreverse lsearch lset lsort namespace napply nop nproc (object )?open\
-package parse pid proc puts pwd read regexp regsub rename return scope seek set\
-(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
-test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
-variable version vwait while( xml)?$}]}
+package parse pid proc puts pwd read regexp regsub rename return scan scope\
+seek set (setf )?(socket )?source split (sql )?string subst switch (tcl )?tell\
+test1 test2 throw time truncate try unload unset (unsetf )?update uplevel upvar\
+uri variable version vwait while( xml)?$}]}
 
 ###############################################################################
 
@@ -411,8 +411,8 @@ downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
 foreach format fpclassify gets global guid hash if incr invoke join lappend\
 lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
 lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
-regexp regsub rename return scope seek set split string subst switch tell test1\
-test2 throw time truncate try unset update uplevel upvar variable vwait\
+regexp regsub rename return scan scope seek set split string subst switch tell\
+test1 test2 throw time truncate try unset update uplevel upvar variable vwait\
 while$}]}
 
 ###############################################################################
@@ -438,10 +438,10 @@ fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
 global guid hash host if incr info interp invoke join kill lappend lassign lget\
 (library )?lindex linsert list llength lmap load lrange lremove lrepeat\
 lreplace lreverse lsearch lset lsort namespace napply nop nproc (object )?open\
-package parse pid proc puts pwd read regexp regsub rename return scope seek set\
-(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
-test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
-variable version vwait while( xml)?$}]}
+package parse pid proc puts pwd read regexp regsub rename return scan scope\
+seek set (setf )?(socket )?source split (sql )?string subst switch (tcl )?tell\
+test1 test2 throw time truncate try unload unset (unsetf )?update uplevel upvar\
+uri variable version vwait while( xml)?$}]}
 
 ###############################################################################
 
@@ -465,8 +465,8 @@ downlevel encoding eof error eval exit expr fblocked fconfigure fcopy flush for\
 foreach format fpclassify gets global guid hash if incr invoke join lappend\
 lassign lget lindex linsert list llength lmap lrange lremove lrepeat lreplace\
 lreverse lsearch lset lsort namespace napply nop nproc parse proc puts read\
-regexp regsub rename return scope seek set split string subst switch tell test1\
-test2 throw time truncate try unset update uplevel upvar variable vwait\
+regexp regsub rename return scan scope seek set split string subst switch tell\
+test1 test2 throw time truncate try unset update uplevel upvar variable vwait\
 while$}]}
 
 ###############################################################################
@@ -495,9 +495,9 @@ fconfigure fcopy file flush for foreach format fpclassify (getf )?gets glob\
 global guid hash host if incr info interp invoke join kill lappend lassign lget\
 (library )?lindex linsert list llength lmap load lrange lremove lrepeat\
 lreplace lreverse lsearch lset lsort namespace napply nop nproc open package\
-parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
-)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
-throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+parse pid proc puts pwd read regexp regsub rename return scan scope seek set\
+(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
+test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?\} \{(Eagle_Nop )?after append apply array\
 base64 bgerror break (callback )?catch cd clock close concat continue debug\
 dict do downlevel encoding eof error eval exec exit expr fblocked fconfigure\
@@ -505,9 +505,9 @@ fcopy file flush for foreach format fpclassify (getf )?gets glob global guid\
 hash host if incr info interp invoke join kill lappend lassign lget (library\
 )?lindex linsert list llength lmap load lrange lremove lrepeat lreplace\
 lreverse lsearch lset lsort namespace napply nop nproc object open package\
-parse pid proc puts pwd read regexp regsub rename return scope seek set (setf\
-)?(socket )?source split (sql )?string subst switch (tcl )?tell test1 test2\
-throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
+parse pid proc puts pwd read regexp regsub rename return scan scope seek set\
+(setf )?(socket )?source split (sql )?string subst switch (tcl )?tell test1\
+test2 throw time truncate try unload unset (unsetf )?update uplevel upvar uri\
 variable version vwait while( xml)?\}$}]}
 
 ###############################################################################

@@ -18,6 +18,12 @@ using Eagle._Attributes;
 
 namespace Eagle._Encodings
 {
+    /// <summary>
+    /// This class serves as the abstract base for the custom text encodings
+    /// provided by Eagle, extending the standard
+    /// <see cref="Encoding" /> class with a common, Eagle-specific
+    /// registered (IANA) name.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -25,12 +31,18 @@ namespace Eagle._Encodings
     public abstract class CoreEncoding : Encoding
     {
         #region Private Constants
+        /// <summary>
+        /// The registered (IANA) name reported for this encoding.
+        /// </summary>
         private static readonly string webName = "Core";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Text.Encoding Overrides
+        /// <summary>
+        /// Gets the registered (IANA) name for this encoding.
+        /// </summary>
         public override string WebName
         {
             get { return webName; }

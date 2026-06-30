@@ -23,6 +23,14 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>wide</c> expression function, which
+    /// converts its single argument to a wide (64-bit) integer value.  Date and
+    /// time values are converted to their underlying tick count, floating-point
+    /// and decimal values are truncated toward zero, and boolean, integer, and
+    /// wide integer values are widened as appropriate.  See
+    /// <c>core_language.md</c> for expression and function semantics.
+    /// </summary>
     [ObjectId("150aae30-2234-411b-8cac-a13c942aeee9")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
@@ -31,6 +39,13 @@ namespace Eagle._Functions
     internal sealed class Wide : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>wide</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Wide(
             IFunctionData functionData /* in */
             )
@@ -43,6 +58,40 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>wide</c> function.  It validates the
+        /// arguments using the base implementation, obtains a variant from the
+        /// single argument, and converts it to a wide (64-bit) integer.  Date
+        /// and time values yield their tick count, floating-point and decimal
+        /// values are truncated toward zero before conversion, and boolean,
+        /// integer, big integer, and wide integer values are widened directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value converted to a wide integer.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the resulting wide integer value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing or
+        /// cannot be converted, the value is too large to represent, or a math
+        /// exception occurs, with details placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

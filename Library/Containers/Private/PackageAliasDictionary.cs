@@ -41,6 +41,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps a package name to the
+    /// alias information for that package (its target name, version, and
+    /// optional package flags), keyed by name.  It extends the underlying
+    /// dictionary with a type name suitable for use within Eagle and the
+    /// ability to be converted to the Eagle list format.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -48,6 +55,9 @@ namespace Eagle._Containers.Private
     internal sealed class PackageAliasDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public PackageAliasDictionary()
             : base()
         {
@@ -56,6 +66,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose elements are copied into the new dictionary.
+        /// </param>
         public PackageAliasDictionary(
             PackageAliasDictionary dictionary
             )
@@ -69,6 +86,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for this dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized stream associated with
+        /// this dictionary.
+        /// </param>
         private PackageAliasDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -83,6 +111,21 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys, or null to include all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents the matching
+        /// keys of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -99,6 +142,14 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents the keys of
+        /// this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

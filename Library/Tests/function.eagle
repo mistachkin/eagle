@@ -263,7 +263,7 @@ runTest {test function-2.17 {floor function} -body {
 runTest {test function-2.18 {fmod function} -body {
   list [expr {fmod(1,1)}] [expr {fmod(3,2)}] [expr {fmod(4,2)}] \
       [expr {fmod(5,4)}]
-} -constraints {eagle} -result {0 -1 0 1}}
+} -constraints {eagle} -result {0 1 0 1}}
 
 ###############################################################################
 

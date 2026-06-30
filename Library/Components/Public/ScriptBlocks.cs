@@ -23,39 +23,120 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class processes a block of text containing embedded Eagle script
+    /// blocks, replacing each block with the result of evaluating it (or with
+    /// a substituted or variable value), and emitting the literal text between
+    /// blocks verbatim.  Script blocks are delimited by the opening tag
+    /// <c>&lt;#</c> and the closing tag <c>#&gt;</c>; a block whose first
+    /// character is the comment character has its contents substituted rather
+    /// than evaluated, and a block whose first character is the equal sign is
+    /// replaced with the value of the named variable.  The behavior of the
+    /// processor is controlled by a set of <see cref="ScriptBlockFlags" /> and
+    /// it tracks running counts of the literals, blocks, evaluations,
+    /// substitutions, variable replacements, failures, and errors it
+    /// encounters.  It can be used as a reusable instance or via its static
+    /// helper methods, and it is disposable.
+    /// </summary>
     [ObjectId("6fd6fe04-5798-4164-9360-04d4b45f56f6")]
     public sealed class ScriptBlocks : IDisposable
     {
         #region Private Constants
+        /// <summary>
+        /// The set of characters considered to be whitespace, used when
+        /// trimming the formatted result of a block.
+        /// </summary>
         private static readonly char[] WhiteSpaceChars =
             Characters.WhiteSpaceChars;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The opening tag that marks the start of an embedded script block.
+        /// </summary>
         private static readonly string OpenBlock = "<#";
+
+        /// <summary>
+        /// The closing tag that marks the end of an embedded script block.
+        /// </summary>
         private static readonly string CloseBlock = "#>";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The length, in characters, of the opening block tag.
+        /// </summary>
         private static readonly int OpenLength = OpenBlock.Length;
+
+        /// <summary>
+        /// The length, in characters, of the closing block tag.
+        /// </summary>
         private static readonly int CloseLength = CloseBlock.Length;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// When non-zero, only the Ok and Return return codes are treated as
+        /// successful when evaluating a block.
+        /// </summary>
         private bool okOrReturnOnly;
+
+        /// <summary>
+        /// When non-zero, an exception return code is treated as successful
+        /// when evaluating a block.
+        /// </summary>
         private bool allowExceptions;
+
+        /// <summary>
+        /// When non-zero, leading and trailing whitespace is trimmed from the
+        /// formatted result of a successfully processed block.
+        /// </summary>
         private bool trimSpace;
+
+        /// <summary>
+        /// When non-zero, block evaluation errors are emitted into the output
+        /// text in addition to being recorded.
+        /// </summary>
         private bool emitErrors;
+
+        /// <summary>
+        /// When non-zero, processing stops upon the first block evaluation
+        /// error.
+        /// </summary>
         private bool stopOnError;
+
+        /// <summary>
+        /// When non-zero, block parsing failures (such as unmatched tags) are
+        /// emitted into the output text in addition to being recorded.
+        /// </summary>
         private bool emitFailures;
+
+        /// <summary>
+        /// When non-zero, processing stops upon the first block parsing
+        /// failure.
+        /// </summary>
         private bool stopOnFailure;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a script block processor for the specified interpreter
+        /// and text, configured by the specified flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate, substitute, and resolve the
+        /// embedded script blocks.
+        /// </param>
+        /// <param name="text">
+        /// The text containing the embedded script blocks to be processed.
+        /// </param>
+        /// <param name="scriptBlockFlags">
+        /// The flags controlling how the embedded script blocks are processed.
+        /// </param>
         public ScriptBlocks(
             Interpreter interpreter,          /* in */
             string text,                      /* in */
@@ -88,7 +169,16 @@ namespace Eagle._Components.Public
 
         #region Public Properties
         #region Input Properties (Read-Only)
+        /// <summary>
+        /// The interpreter used to evaluate, substitute, and resolve the
+        /// embedded script blocks.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// Gets the interpreter used to evaluate, substitute, and resolve the
+        /// embedded script blocks.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); return interpreter; }
@@ -96,7 +186,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The text containing the embedded script blocks to be processed.
+        /// </summary>
         private string text;
+
+        /// <summary>
+        /// Gets the text containing the embedded script blocks to be processed.
+        /// </summary>
         public string Text
         {
             get { CheckDisposed(); return text; }
@@ -104,7 +201,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags controlling how the embedded script blocks are processed.
+        /// </summary>
         private ScriptBlockFlags scriptBlockFlags;
+
+        /// <summary>
+        /// Gets the flags controlling how the embedded script blocks are
+        /// processed.
+        /// </summary>
         public ScriptBlockFlags ScriptBlockFlags
         {
             get { CheckDisposed(); return scriptBlockFlags; }
@@ -114,7 +219,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Output Properties (Read-Only)
+        /// <summary>
+        /// The running count of literal text spans emitted between blocks.
+        /// </summary>
         private int literalCount;
+
+        /// <summary>
+        /// Gets the running count of literal text spans emitted between blocks.
+        /// </summary>
         public int LiteralCount
         {
             get { CheckDisposed(); return literalCount; }
@@ -122,7 +234,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of embedded script blocks that were found.
+        /// </summary>
         private int blockCount;
+
+        /// <summary>
+        /// Gets the running count of embedded script blocks that were found.
+        /// </summary>
         public int BlockCount
         {
             get { CheckDisposed(); return blockCount; }
@@ -130,7 +249,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of blocks that were evaluated as scripts.
+        /// </summary>
         private int evaluateCount;
+
+        /// <summary>
+        /// Gets the running count of blocks that were evaluated as scripts.
+        /// </summary>
         public int EvaluateCount
         {
             get { CheckDisposed(); return evaluateCount; }
@@ -138,7 +264,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of blocks that had their contents substituted.
+        /// </summary>
         private int substituteCount;
+
+        /// <summary>
+        /// Gets the running count of blocks that had their contents
+        /// substituted.
+        /// </summary>
         public int SubstituteCount
         {
             get { CheckDisposed(); return substituteCount; }
@@ -146,7 +280,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of blocks that were replaced with a variable
+        /// value.
+        /// </summary>
         private int variableCount;
+
+        /// <summary>
+        /// Gets the running count of blocks that were replaced with a variable
+        /// value.
+        /// </summary>
         public int VariableCount
         {
             get { CheckDisposed(); return variableCount; }
@@ -154,7 +297,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of block parsing failures (such as unmatched
+        /// tags).
+        /// </summary>
         private int failCount;
+
+        /// <summary>
+        /// Gets the running count of block parsing failures (such as unmatched
+        /// tags).
+        /// </summary>
         public int FailCount
         {
             get { CheckDisposed(); return failCount; }
@@ -162,7 +314,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The running count of block evaluation or substitution errors.
+        /// </summary>
         private int errorCount;
+
+        /// <summary>
+        /// Gets the running count of block evaluation or substitution errors.
+        /// </summary>
         public int ErrorCount
         {
             get { CheckDisposed(); return errorCount; }
@@ -173,6 +332,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method processes the configured text, appending the literal
+        /// spans and the results of the embedded script blocks to the output
+        /// and accumulating the per-category counts on this instance.
+        /// </summary>
+        /// <param name="output">
+        /// The string builder receiving the processed text.  Upon success or
+        /// failure, this parameter is populated with the literal text and the
+        /// results of the embedded script blocks; it is created if null when
+        /// any output needs to be appended.
+        /// </param>
+        /// <param name="errors">
+        /// The list receiving any error or failure messages.  Upon failure,
+        /// this parameter is populated with the details; it is created if null
+        /// when any error needs to be recorded.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok if no failures or errors were encountered; otherwise,
+        /// ReturnCode.Error.
+        /// </returns>
         public ReturnCode Process(
             ref StringBuilder output, /* in, out */
             ref ResultList errors     /* in, out */
@@ -520,6 +699,36 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method creates a temporary script block processor for the
+        /// specified interpreter and text, processes the text, and discards
+        /// the resulting per-category counts.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate, substitute, and resolve the
+        /// embedded script blocks.
+        /// </param>
+        /// <param name="text">
+        /// The text containing the embedded script blocks to be processed.
+        /// </param>
+        /// <param name="scriptBlockFlags">
+        /// The flags controlling how the embedded script blocks are processed.
+        /// </param>
+        /// <param name="output">
+        /// The string builder receiving the processed text.  Upon success or
+        /// failure, this parameter is populated with the literal text and the
+        /// results of the embedded script blocks; it is created if null when
+        /// any output needs to be appended.
+        /// </param>
+        /// <param name="errors">
+        /// The list receiving any error or failure messages.  Upon failure,
+        /// this parameter is populated with the details; it is created if null
+        /// when any error needs to be recorded.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok if no failures or errors were encountered; otherwise,
+        /// ReturnCode.Error.
+        /// </returns>
         public static ReturnCode Process(
             Interpreter interpreter,           /* in */
             string text,                       /* in */
@@ -545,6 +754,64 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a temporary script block processor for the
+        /// specified interpreter and text, processes the text, and adds the
+        /// resulting per-category counts to the supplied totals.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to evaluate, substitute, and resolve the
+        /// embedded script blocks.
+        /// </param>
+        /// <param name="text">
+        /// The text containing the embedded script blocks to be processed.
+        /// </param>
+        /// <param name="scriptBlockFlags">
+        /// The flags controlling how the embedded script blocks are processed.
+        /// </param>
+        /// <param name="literalCount">
+        /// On input, a running total; on output, increased by the count of
+        /// literal text spans emitted between blocks.
+        /// </param>
+        /// <param name="blockCount">
+        /// On input, a running total; on output, increased by the count of
+        /// embedded script blocks that were found.
+        /// </param>
+        /// <param name="evaluateCount">
+        /// On input, a running total; on output, increased by the count of
+        /// blocks that were evaluated as scripts.
+        /// </param>
+        /// <param name="substituteCount">
+        /// On input, a running total; on output, increased by the count of
+        /// blocks that had their contents substituted.
+        /// </param>
+        /// <param name="variableCount">
+        /// On input, a running total; on output, increased by the count of
+        /// blocks that were replaced with a variable value.
+        /// </param>
+        /// <param name="failCount">
+        /// On input, a running total; on output, increased by the count of
+        /// block parsing failures (such as unmatched tags).
+        /// </param>
+        /// <param name="errorCount">
+        /// On input, a running total; on output, increased by the count of
+        /// block evaluation or substitution errors.
+        /// </param>
+        /// <param name="output">
+        /// The string builder receiving the processed text.  Upon success or
+        /// failure, this parameter is populated with the literal text and the
+        /// results of the embedded script blocks; it is created if null when
+        /// any output needs to be appended.
+        /// </param>
+        /// <param name="errors">
+        /// The list receiving any error or failure messages.  Upon failure,
+        /// this parameter is populated with the details; it is created if null
+        /// when any error needs to be recorded.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok if no failures or errors were encountered; otherwise,
+        /// ReturnCode.Error.
+        /// </returns>
         public static ReturnCode Process(
             Interpreter interpreter,           /* in */
             string text,                       /* in */
@@ -582,6 +849,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method creates a new, non-cached string builder with the
+        /// specified initial capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The suggested initial capacity, in characters, of the new string
+        /// builder.
+        /// </param>
+        /// <returns>
+        /// The newly created string builder.
+        /// </returns>
         private static StringBuilder NewStringBuilder(
             int capacity /* in */
             )
@@ -591,6 +869,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character indicates
+        /// that a block should have its contents substituted (the comment
+        /// character) rather than evaluated.
+        /// </summary>
+        /// <param name="character">
+        /// The first character of the block contents to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is the substitution (comment) character;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsSubstituteChar(
             char character /* in */
             )
@@ -600,6 +890,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character indicates
+        /// that a block should be replaced with the value of a named variable
+        /// (the equal sign) rather than evaluated.
+        /// </summary>
+        /// <param name="character">
+        /// The first character of the block contents to test.
+        /// </param>
+        /// <returns>
+        /// True if the character is the variable (equal sign) character;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsVariableChar(
             char character /* in */
             )
@@ -609,6 +911,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified return code represents
+        /// a successful block evaluation, subject to the specified success
+        /// criteria.
+        /// </summary>
+        /// <param name="code">
+        /// The return code produced by evaluating, substituting, or resolving
+        /// a block.
+        /// </param>
+        /// <param name="okOrReturnOnly">
+        /// Non-zero to treat only the Ok and Return return codes as
+        /// successful.
+        /// </param>
+        /// <param name="allowExceptions">
+        /// Non-zero to treat an exception return code as successful; only used
+        /// when <paramref name="okOrReturnOnly" /> is zero.
+        /// </param>
+        /// <returns>
+        /// True if the return code represents success per the specified
+        /// criteria; otherwise, false.
+        /// </returns>
         private static bool IsSuccess(
             ReturnCode code,     /* in */
             bool okOrReturnOnly, /* in */
@@ -625,6 +948,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether the configured script block flags
+        /// include the specified flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The flags to test for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified flags be present; zero
+        /// to require that any of them be present.
+        /// </param>
+        /// <returns>
+        /// True if the configured flags include the specified flags per the
+        /// <paramref name="all" /> criterion; otherwise, false.
+        /// </returns>
         private bool HasFlags(
             ScriptBlockFlags hasFlags, /* in */
             bool all                   /* in */
@@ -637,6 +975,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -647,7 +988,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this object has been disposed.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -658,6 +1006,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the managed and unmanaged resources used by
+        /// this object.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -689,6 +1046,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object, releasing any unmanaged resources it holds.
+        /// </summary>
         ~ScriptBlocks()
         {
             Dispose(false);

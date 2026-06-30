@@ -14,9 +14,20 @@ using Eagle._Containers.Public;
 
 namespace Sample
 {
+    /// <summary>
+    /// This class provides the read-only list of optional feature define
+    /// constants (preprocessor symbols) that were enabled when this sample
+    /// assembly was compiled.
+    /// </summary>
     [ObjectId("7a3fdc54-8976-4c3e-a5de-a88b92f83dbe")]
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of optional feature define constants that were enabled
+        /// when this assembly was compiled.  Each entry is conditionally
+        /// included based on whether its corresponding preprocessor symbol
+        /// was defined for this build; a trailing null terminates the list.
+        /// </summary>
         public static readonly StringList OptionList = new StringList(new string[] {
 #if ASSEMBLY_DATETIME
             "ASSEMBLY_DATETIME",

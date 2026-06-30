@@ -21,31 +21,74 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods used by the Eagle update
+    /// component to manipulate files and directories on disk, including
+    /// enumerating, filtering, hashing, backing up, copying, moving, and
+    /// deleting files, as well as managing files that are currently "in-use"
+    /// by the running process.
+    /// </summary>
     [Guid("d27f282b-b6bd-45f0-b89a-cfcbeec2675c")]
     internal static class FileOps
     {
         #region Private Constants
+        /// <summary>
+        /// The trace category used when logging diagnostic messages emitted by
+        /// this class.
+        /// </summary>
         private static readonly string TraceCategory = typeof(FileOps).Name;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The wildcard pattern that matches all file names within a directory.
+        /// </summary>
         private const string AllPattern = "*";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The file name suffix appended to backup copies of files.
+        /// </summary>
         private const string BackupSuffix = ".old";
+        /// <summary>
+        /// The file name suffix appended to a file that is currently in-use by
+        /// the running process and is awaiting deletion.
+        /// </summary>
         private const string InUseSuffix = ".in-use";
+        /// <summary>
+        /// The file name suffix used for log files.
+        /// </summary>
         private const string LogSuffix = ".log";
+        /// <summary>
+        /// The file name suffix used for executable files.
+        /// </summary>
         private const string ExeSuffix = ".exe";
+        /// <summary>
+        /// The file name suffix used for dynamic-link library files.
+        /// </summary>
         private const string DllSuffix = ".dll";
+        /// <summary>
+        /// The file name suffix used for batch files.
+        /// </summary>
         private const string BatSuffix = ".bat";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the environment variable that contains the path to the
+        /// command interpreter (i.e. "cmd.exe") on Windows.
+        /// </summary>
         private const string ComSpecEnvVarName = "ComSpec";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The template used to build the contents of the temporary batch file
+        /// that waits and then deletes the in-use file (and itself).  The first
+        /// format placeholder is the ping count used to introduce a delay and
+        /// the second is the name of the in-use file to delete.
+        /// </summary>
         private static readonly string DeleteInUseTemplate =
             "ping.exe -n {0} 127.0.0.1 >NUL" + Environment.NewLine +
             "IF EXIST \"{1}\" DEL /F \"{1}\"" + Environment.NewLine +
@@ -53,6 +96,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The template used to build the command line arguments passed to the
+        /// command interpreter.  The single format placeholder is the name of
+        /// the batch file to execute.
+        /// </summary>
         private const string ComSpecArgumentTemplate = "/C \"{0}\"";
 
         ///////////////////////////////////////////////////////////////////////
@@ -64,12 +112,20 @@ namespace Eagle._Components.Private
         //       values instead, because various methods in this class
         //       depend on these two character values being different.
         //
+        /// <summary>
+        /// The set of directory separator characters (backslash and slash)
+        /// recognized by this class, regardless of the current platform.
+        /// </summary>
         private static readonly char[] DirectoryChars = {
             Characters.Backslash, Characters.Slash
         };
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// A read-only list wrapper around the directory separator characters,
+        /// used for convenient membership tests.
+        /// </summary>
         private static readonly IList<char> DirectoryCharsList =
             new List<char>(DirectoryChars);
 
@@ -79,6 +135,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the number of seconds to wait before attempting
         //       to delete a locked (i.e. "in-use") file.
         //
+        /// <summary>
+        /// The number of seconds to wait before attempting to delete a locked
+        /// (i.e. "in-use") file.
+        /// </summary>
         private const int LockingRetrySeconds = 3;
 
         ///////////////////////////////////////////////////////////////////////
@@ -86,12 +146,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is the number of milliseconds in a single second.
         //
+        /// <summary>
+        /// The number of milliseconds in a single second.
+        /// </summary>
         private const int MillisecondsPerSecond = 1000;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data (Read-Only)
+        /// <summary>
+        /// The comparer used to compare and order file names in a manner
+        /// appropriate for the current platform.
+        /// </summary>
         private static IAnyComparer<string> fileNameComparer =
             new _Comparers.FileName();
         #endregion
@@ -100,6 +167,13 @@ namespace Eagle._Components.Private
 
         #region File Support Methods
         #region Public Methods
+        /// <summary>
+        /// Gets the amount of time, in milliseconds, to wait before attempting
+        /// to delete a locked (i.e. "in-use") file.
+        /// </summary>
+        /// <returns>
+        /// The locking delay, in milliseconds.
+        /// </returns>
         public static int GetLockingDelay()
         {
             return LockingRetrySeconds * MillisecondsPerSecond;
@@ -107,6 +181,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, unique temporary log file name decorated
+        /// with the specified prefix and the log file suffix.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix to prepend to the generated log file name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The created log file name, or null if it could not be created.
+        /// </returns>
         public static string GetLogName(
             Configuration configuration,
             string prefix
@@ -158,6 +247,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the file version associated with the specified
+        /// file.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to query the version information for.
+        /// </param>
+        /// <param name="default">
+        /// The version to return if the file version cannot be determined.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The version of the specified file, or <paramref name="default" /> if
+        /// it could not be determined.
+        /// </returns>
         public static Version GetVersion(
             Configuration configuration,
             string fileName,
@@ -184,6 +292,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file name ends with the
+        /// specified suffix, using the comparison appropriate for the current
+        /// platform.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to check.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to look for at the end of the file name.
+        /// </param>
+        /// <returns>
+        /// True if the file name ends with the suffix; otherwise, false.
+        /// </returns>
         public static bool MatchSuffix(
             string fileName,
             string suffix
@@ -200,6 +322,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the first file name matching the specified search
+        /// criteria within the specified directory.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory to search for matching files.
+        /// </param>
+        /// <param name="rootDirectory">
+        /// The root directory offset to use when the search must be redirected
+        /// away from the volume root.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name or pattern to search for.
+        /// </param>
+        /// <param name="exists">
+        /// Non-zero to require that the returned file name refers to a file
+        /// that actually exists.
+        /// </param>
+        /// <param name="noRoot">
+        /// Non-zero to forbid the search from using the volume root directory.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to search subdirectories recursively.
+        /// </param>
+        /// <param name="noDirectory">
+        /// Non-zero to return only the bare file names, without their directory
+        /// prefix.
+        /// </param>
+        /// <returns>
+        /// The first matching file name, or null if none was found.
+        /// </returns>
         public static string GetFirstName(
             Configuration configuration,
             string directory,
@@ -235,6 +392,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the bare file name of the currently executing
+        /// assembly.
+        /// </summary>
+        /// <returns>
+        /// The file name of the currently executing assembly, or null if it
+        /// could not be determined.
+        /// </returns>
         public static string GetExecutingFileName()
         {
             Assembly assembly = Assembly.GetExecutingAssembly();
@@ -252,6 +417,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name of the "in-use" file associated with the
+        /// currently executing assembly, based on the specified configuration.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration providing the core directory and used for
+        /// diagnostic tracing.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The name of the "in-use" file, or null if it could not be
+        /// determined.
+        /// </returns>
         public static string GetInUseFileName(
             Configuration configuration
             )
@@ -283,6 +460,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the names of all files within the specified
+        /// directory.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory to enumerate files from.
+        /// </param>
+        /// <param name="rootDirectiory">
+        /// The root directory offset to use when enumeration must be redirected
+        /// away from the volume root.  This parameter may be null.
+        /// </param>
+        /// <param name="noRoot">
+        /// Non-zero to forbid the enumeration from using the volume root
+        /// directory.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to enumerate subdirectories recursively.
+        /// </param>
+        /// <param name="noDirectory">
+        /// Non-zero to return only the bare file names, without their directory
+        /// prefix.
+        /// </param>
+        /// <returns>
+        /// The list of file names, or null if they could not be enumerated.
+        /// </returns>
         public static IList<string> GetAllNames(
             Configuration configuration,
             string directory,
@@ -299,6 +505,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method arranges for the "in-use" file associated with the
+        /// currently executing assembly to be deleted.  On Windows, this is
+        /// accomplished by writing and launching a temporary batch file that
+        /// waits and then deletes the file (and itself) after this process has
+        /// exited.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration providing the in-use file name and used for
+        /// diagnostic tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the in-use file
+        /// could not be deleted.
+        /// </param>
+        /// <returns>
+        /// True if the deletion was successfully arranged (or there was nothing
+        /// to do); otherwise, false.
+        /// </returns>
         public static bool DeleteInUse(
             Configuration configuration,
             ref string error
@@ -427,6 +652,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the hash of the specified file using the
+        /// specified hash algorithm.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to compute the hash for.
+        /// </param>
+        /// <param name="hash">
+        /// Upon success, receives the computed hash of the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be hashed.
+        /// </param>
+        /// <returns>
+        /// True if the file was successfully hashed; otherwise, false.
+        /// </returns>
         public static bool Hash(
             Configuration configuration,
             string hashAlgorithmName,
@@ -499,6 +748,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method trims trailing directory separator characters from the
+        /// specified path, appending a backslash when the result is left as a
+        /// bare drive letter and colon so that it does not refer to the current
+        /// directory of that volume.
+        /// </summary>
+        /// <param name="path">
+        /// The path to normalize.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The normalized path.  This will be null or empty only if
+        /// <paramref name="path" /> was null or empty.
+        /// </returns>
         public static string CannotBeDriveLetterAndColon(
             string path
             ) /* CANNOT RETURN NULL/EMPTY UNLESS PATH IS NULL/EMPTY */
@@ -537,6 +799,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the first (base) directory component from the
+        /// specified relative path offset.
+        /// </summary>
+        /// <param name="pathOffset">
+        /// The relative path offset to extract the base component from.  This
+        /// parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The base directory component of the path offset.
+        /// </returns>
         public static string GetBasePathFromOffset(
             string pathOffset /* NOTE: For "Eagle\bin", returns "Eagle". */
             )
@@ -565,6 +838,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes (i.e. checks and, optionally, copies) all
+        /// files from the source directory to the target directory, backing up
+        /// the existing target files and verifying file hashes during the copy.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="sourceDirectory">
+        /// The directory containing the source files.
+        /// </param>
+        /// <param name="targetDirectory">
+        /// The directory containing the target files.
+        /// </param>
+        /// <param name="rootDirectory">
+        /// The root directory offset to use when enumerating the target files
+        /// must be redirected away from the volume root.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="copy">
+        /// Non-zero to actually copy the files; zero to only check them.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to allow existing target files to be overwritten.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the files could not
+        /// be processed.
+        /// </param>
+        /// <returns>
+        /// True if all files were successfully processed; otherwise, false.
+        /// </returns>
         public static bool ProcessAll(
             Configuration configuration,
             string sourceDirectory,
@@ -857,6 +1163,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method reduces a path of the form "X:\" to just the drive
+        /// letter and colon "X:", leaving all other paths unchanged.
+        /// </summary>
+        /// <param name="path">
+        /// The path to reduce.  This parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The reduced path.  This will be null or empty only if
+        /// <paramref name="path" /> was null or empty.
+        /// </returns>
         private static string MightBeDriveLetterAndColon(
             string path
             ) /* CANNOT RETURN NULL/EMPTY UNLESS PATH IS NULL/EMPTY */
@@ -886,6 +1203,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified path into its directory and file
+        /// name components.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="path">
+        /// The path to split.
+        /// </param>
+        /// <param name="directory">
+        /// Upon success, receives the directory component of the path.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the file name component of the path.
+        /// </param>
+        /// <returns>
+        /// True if the path was successfully split; otherwise, false.
+        /// </returns>
         private static bool SplitName(
             Configuration configuration,
             string path,
@@ -910,6 +1247,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path refers to the root
+        /// directory of its volume.
+        /// </summary>
+        /// <param name="path">
+        /// The path to check.
+        /// </param>
+        /// <returns>
+        /// True if the path refers to a volume root directory; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsRoot(
             string path
             )
@@ -932,6 +1280,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the names of the files matching the specified
+        /// pattern within the specified directory.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory to enumerate files from.
+        /// </param>
+        /// <param name="rootDirectory">
+        /// The root directory offset to use when enumeration must be redirected
+        /// away from the volume root.  This parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The search pattern used to match file names.
+        /// </param>
+        /// <param name="noRoot">
+        /// Non-zero to forbid the enumeration from using the volume root
+        /// directory.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to enumerate subdirectories recursively.
+        /// </param>
+        /// <param name="noDirectory">
+        /// Non-zero to return only the bare file names, without their directory
+        /// prefix.
+        /// </param>
+        /// <returns>
+        /// The list of matching file names, or null if they could not be
+        /// enumerated.
+        /// </returns>
         private static IList<string> GetNames(
             Configuration configuration,
             string directory,
@@ -995,6 +1376,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a copy of the specified list of file names with
+        /// any file names matching the specified suffix removed.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileNames">
+        /// The list of file names to filter.  This parameter may be null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix used to identify the file names to remove.  This
+        /// parameter may be null or empty.
+        /// </param>
+        /// <returns>
+        /// The filtered list of file names, or null if filtering failed.
+        /// </returns>
         private static IList<string> FilterSuffix(
             Configuration configuration,
             IList<string> fileNames,
@@ -1039,6 +1438,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is a managed
+        /// assembly.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to check.
+        /// </param>
+        /// <returns>
+        /// True if the file is a managed assembly; otherwise, false.
+        /// </returns>
         private static bool IsAssembly(
             Configuration configuration,
             string fileName
@@ -1053,6 +1466,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is a managed
+        /// assembly and, if so, obtains its public key token.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to check.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the public key token of the assembly, which
+        /// may be null when the assembly is not strong-name signed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file is not a
+        /// managed assembly.
+        /// </param>
+        /// <returns>
+        /// True if the file is a managed assembly; otherwise, false.
+        /// </returns>
         private static bool IsAssembly(
             Configuration configuration,
             string fileName,
@@ -1102,6 +1537,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file name has an
+        /// executable suffix (i.e. ".exe" or ".dll").
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name to check.
+        /// </param>
+        /// <returns>
+        /// True if the file name has an executable suffix; otherwise, false.
+        /// </returns>
         private static bool IsExecutable(
             string fileName
             )
@@ -1112,6 +1557,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a copy of the specified list of file names with
+        /// the specified suffix appended to each file name.
+        /// </summary>
+        /// <param name="fileNames">
+        /// The list of file names to append the suffix to.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix to append to each file name.  This parameter may be null
+        /// or empty.
+        /// </param>
+        /// <returns>
+        /// The list of file names with the suffix appended, or null if
+        /// <paramref name="fileNames" /> was null.
+        /// </returns>
         private static IList<string> AppendSuffix(
             IList<string> fileNames,
             string suffix
@@ -1134,6 +1595,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method synchronizes the target file name list with the source
+        /// file name list, adding entries for source files that have no target
+        /// counterpart and removing target entries that have no source
+        /// counterpart, and finally sorts both lists.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="sourceDirectory">
+        /// The directory containing the source files.
+        /// </param>
+        /// <param name="targetDirectory">
+        /// The directory containing the target files.
+        /// </param>
+        /// <param name="sourceFileNames">
+        /// The list of source file names.
+        /// </param>
+        /// <param name="targetFileNames">
+        /// The list of target file names, which is modified in place to match
+        /// the source file names.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the lists could not
+        /// be synchronized.
+        /// </param>
+        /// <returns>
+        /// True if the lists were successfully synchronized; otherwise, false.
+        /// </returns>
         private static bool SynchronizeNameLists(
             Configuration configuration,
             string sourceDirectory,
@@ -1350,6 +1841,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the two specified file names are
+        /// equal, using the comparison appropriate for the current platform.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="fileName1">
+        /// The first file name to compare.
+        /// </param>
+        /// <param name="fileName2">
+        /// The second file name to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two file names are considered equal; otherwise, false.
+        /// </returns>
         public static bool MatchFileName(
             Configuration configuration,
             string fileName1,
@@ -1373,6 +1881,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the string comparison type appropriate for
+        /// comparing file names on the current platform.
+        /// </summary>
+        /// <returns>
+        /// <see cref="StringComparison.OrdinalIgnoreCase" /> on Windows;
+        /// otherwise, <see cref="StringComparison.Ordinal" />.
+        /// </returns>
         public static StringComparison GetComparisonType()
         {
             return VersionOps.IsWindowsOperatingSystem() ?
@@ -1381,6 +1897,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file name refers to the
+        /// location of the specified assembly.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose location is compared to the file name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name to compare to the assembly location.
+        /// </param>
+        /// <returns>
+        /// True if the file name refers to the assembly location; otherwise,
+        /// false.
+        /// </returns>
         private static bool MatchAssembly(
             Configuration configuration,
             Assembly assembly,
@@ -1395,6 +1930,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file has the read-only
+        /// attribute set.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to check.
+        /// </param>
+        /// <param name="readOnly">
+        /// Upon success, receives non-zero if the file is read-only.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be checked.
+        /// </param>
+        /// <returns>
+        /// True if the read-only status was successfully determined; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsReadOnly(
             Configuration configuration,
             string fileName,
@@ -1454,6 +2011,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the read-only attribute on the specified
+        /// file.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to modify.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero to set the read-only attribute; zero to clear it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be modified.
+        /// </param>
+        /// <returns>
+        /// True if the read-only attribute was successfully set; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetReadOnly(
             Configuration configuration,
             string fileName,
@@ -1518,6 +2097,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method backs up the specified file by copying or moving it to a
+        /// file with the backup suffix appended.  When the file is the currently
+        /// executing assembly, it is handled specially using an "in-use" file.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to back up.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to move the file to the backup; zero to copy it.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing source file as a failure; zero to treat
+        /// it as success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be backed up.
+        /// </param>
+        /// <returns>
+        /// True if the file was successfully backed up; otherwise, false.
+        /// </returns>
         private static bool Backup(
             Configuration configuration,
             string fileName,
@@ -1638,6 +2243,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies or moves the source file to the target file,
+        /// verifying that the file hashes match after the operation completes.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="sourceFileName">
+        /// The name of the source file.
+        /// </param>
+        /// <param name="targetFileName">
+        /// The name of the target file.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to move the source file; zero to copy it.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to allow an existing target file to be overwritten.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be copied or moved.
+        /// </param>
+        /// <returns>
+        /// True if the file was successfully copied or moved and verified;
+        /// otherwise, false.
+        /// </returns>
         private static bool CopyOrMoveWithHash(
             Configuration configuration,
             string sourceFileName,
@@ -1754,6 +2387,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the source file to the target file, optionally
+        /// backing up an existing target file first and verifying any required
+        /// strong name and Authenticode signatures on the source file.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="sourceFileName">
+        /// The name of the source file.
+        /// </param>
+        /// <param name="targetFileName">
+        /// The name of the target file.
+        /// </param>
+        /// <param name="backup">
+        /// Non-zero to back up an existing target file before copying.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to allow an existing target file to be overwritten.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be copied.
+        /// </param>
+        /// <returns>
+        /// True if the file was successfully copied; otherwise, false.
+        /// </returns>
         public static bool Copy(
             Configuration configuration,
             string sourceFileName,
@@ -1960,6 +2621,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the specified file.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the operation and used for diagnostic
+        /// tracing.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to delete.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing file as a failure; zero to treat it as
+        /// success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the file could not
+        /// be deleted.
+        /// </param>
+        /// <returns>
+        /// True if the file was successfully deleted; otherwise, false.
+        /// </returns>
         private static bool Delete(
             Configuration configuration,
             string fileName,

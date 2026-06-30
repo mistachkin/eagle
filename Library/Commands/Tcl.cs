@@ -29,6 +29,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>tcl</c> command, which finds, loads,
+    /// and interacts with a native Tcl library and the native Tcl interpreters
+    /// created through it.  It is an ensemble whose sub-commands cover native
+    /// Tcl library detection and loading, native Tcl interpreter lifetime,
+    /// script and expression evaluation, variable access, command bridging,
+    /// and related operations.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("74ca173d-5378-4eb2-9d7c-4952ce598b33")]
     [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe |
         CommandFlags.Critical | CommandFlags.NonStandard)]
@@ -36,6 +45,11 @@ namespace Eagle._Commands
     internal sealed class Tcl : Core
     {
         #region Private Data
+        /// <summary>
+        /// The collection of sub-command names supported by the <c>command</c>
+        /// sub-command, used to dispatch each invocation to the appropriate
+        /// handler.
+        /// </summary>
         private readonly EnsembleDictionary commandSubCommands =
         new EnsembleDictionary(new string[] {
             "create", "delete", "exists", "list"
@@ -45,6 +59,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>tcl</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Tcl(
             ICommandData commandData
             )
@@ -57,6 +78,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "active", "available", "build", "cancel", "canceled",
             "command", "complete", "convert", "create", "delete",
@@ -70,6 +96,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -79,6 +109,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>tcl</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>create</c>,
+        /// <c>eval</c>, <c>expr</c>, <c>load</c>, <c>set</c>, or <c>delete</c>)
+        /// in order to find and load the native Tcl library, manage native Tcl
+        /// interpreters, evaluate scripts and expressions, and access native
+        /// Tcl variables, honoring the recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

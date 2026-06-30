@@ -19,14 +19,36 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods used to look up named string
+    /// resources within the resources associated with an interpreter and to
+    /// enumerate the available resource names.
+    /// </summary>
     [ObjectId("8b47e09f-cc1b-4915-a755-ebd9bc79dfcc")]
     internal static class ResourceOps
     {
+        /// <summary>
+        /// The format string used to build a fallback error message when a
+        /// string resource cannot be obtained.
+        /// </summary>
         private static readonly string FailureFormat =
             "cannot get string resource #{0}: {1}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a fallback error message describing why the
+        /// specified string resource could not be obtained.
+        /// </summary>
+        /// <param name="id">
+        /// The identifier of the string resource that could not be obtained.
+        /// </param>
+        /// <param name="message">
+        /// The message describing why the string resource could not be obtained.
+        /// </param>
+        /// <returns>
+        /// A formatted error message describing the failure.
+        /// </returns>
         private static string Failure(
             ResourceId id, /* in */
             string message /* in */
@@ -37,6 +59,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up the string resource for the specified identifier
+        /// within the culture configured for the interpreter, performing any
+        /// requested parameter insertions.  This method never returns null; a
+        /// fallback error message is returned on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose resources are searched.  This parameter may be
+        /// null, in which case a fallback error message is returned.
+        /// </param>
+        /// <param name="id">
+        /// The identifier of the string resource to look up.
+        /// </param>
+        /// <param name="objects">
+        /// The optional values to insert into the resource string.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The resolved string resource, or a fallback error message if it
+        /// cannot be obtained.
+        /// </returns>
         public static string GetString( /* CANNOT RETURN NULL */
             Interpreter interpreter, /* in */
             ResourceId id,           /* in */

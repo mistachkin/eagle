@@ -29,9 +29,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps characters to arbitrary
+    /// objects.  It can be populated from a sequence of characters (where each
+    /// character is mapped to its insertion ordinal), converted to a string,
+    /// and cloned.
+    /// </summary>
     [ObjectId("a292e544-fcf4-4ca7-9e13-a7978c14ebbb")]
     internal sealed class CharDictionary : SomeDictionary, ICloneable
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public CharDictionary()
             : base()
         {
@@ -40,6 +49,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public CharDictionary(
             IDictionary<char, object> dictionary
             )
@@ -50,6 +67,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the characters
+        /// from the specified collection, each mapped to its insertion
+        /// ordinal.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of characters to add to the new dictionary.
+        /// </param>
         public CharDictionary(
             IEnumerable<char> collection
             )
@@ -62,6 +87,13 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// Constructs an empty instance of this class that has the specified
+        /// initial capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The number of elements that the new dictionary can initially store.
+        /// </param>
         private CharDictionary(
             int capacity
             )
@@ -72,6 +104,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the bytes from
+        /// the specified collection, each converted to a character and mapped
+        /// to its insertion ordinal.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of bytes to add to the new dictionary.
+        /// </param>
         private CharDictionary(
             IEnumerable<byte> collection
             )
@@ -82,6 +122,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the bytes from the specified collection to the
+        /// dictionary, each converted to a character and mapped to its
+        /// insertion ordinal.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of bytes to add to the dictionary.
+        /// </param>
         private void Add(
             IEnumerable<byte> collection
             )
@@ -94,6 +142,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the characters from the specified collection to the
+        /// dictionary, each mapped to its insertion ordinal.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of characters to add to the dictionary.
+        /// </param>
         public void Add(
             IEnumerable<char> collection
             )
@@ -104,6 +159,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -118,6 +188,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);
@@ -127,6 +204,12 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// Creates a new dictionary that is a shallow copy of this dictionary.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this dictionary.
+        /// </returns>
         public object Clone()
         {
             return new CharDictionary(this);

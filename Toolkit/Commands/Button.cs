@@ -28,6 +28,10 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements a proof-of-concept command that adds a button to
+    /// a managed toplevel window.
+    /// </summary>
     [ObjectId("dfee4f39-39f8-4711-9027-a5081c060eff")]
     [CommandFlags(CommandFlags.Unsafe)]
     [ObjectGroup("managedEnvironment")]
@@ -37,6 +41,13 @@ namespace Eagle._Commands
     internal sealed class _Button : Default
 #endif
     {
+        /// <summary>
+        /// Constructs an instance of this command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its name
+        /// and flags.  This parameter may be null.
+        /// </param>
         public _Button(
             ICommandData commandData
             )
@@ -49,6 +60,32 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the command.  It looks up the named toplevel
+        /// window and adds a button to it, marshaling onto the toplevel thread
+        /// when required.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this command invocation.  Element zero is
+        /// the command name; element one is the name of the toplevel window.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the name of the button that was added;
+        /// upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,
@@ -165,6 +202,16 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the click event for the button added by this
+        /// command.  It is not implemented.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that raised the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the event.
+        /// </param>
         private void button_Click(
             object sender,
             EventArgs e

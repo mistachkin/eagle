@@ -27,6 +27,13 @@ using UNM = Eagle._Components.Private.LineEditor.UnsafeNativeMethods;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides an interactive console line editor by binding to
+    /// the native GNU "readline" library (on Linux) or the BSD "libedit"
+    /// library (on macOS), giving full line editing and command history
+    /// support.  It is unavailable on Windows, where the console host already
+    /// provides line editing and history via the standard console APIs.
+    /// </summary>
 #if NET_40
     [SecurityCritical()]
 #else
@@ -37,11 +44,29 @@ namespace Eagle._Components.Private
     {
         #region Private Delegates
 #if UNIX
+        /// <summary>
+        /// This delegate represents a native function that reads one line of
+        /// input from the console, displaying the specified prompt.
+        /// </summary>
+        /// <param name="prompt">
+        /// The prompt text to display; this value may be null.
+        /// </param>
+        /// <returns>
+        /// A native pointer to the newly read line, or
+        /// <see cref="IntPtr.Zero" /> on end-of-file.
+        /// </returns>
         [ObjectId("d910dca8-e241-4b72-9926-7f80c889a949")]
         private delegate IntPtr ReadLineCallback(string prompt);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This delegate represents a native function that appends the
+        /// specified line to the console command history.
+        /// </summary>
+        /// <param name="line">
+        /// The line of text to add to the history.
+        /// </param>
         [ObjectId("32f5d228-5409-41a9-86e4-af4ee653d28e")]
         private delegate void AddHistoryCallback(string line);
 #endif
@@ -57,6 +82,10 @@ namespace Eagle._Components.Private
         //       caller.  This symbol is exported by GNU readline and
         //       BSD libedit.
         //
+        /// <summary>
+        /// The name of the native global variable that controls whether the
+        /// prompt has already been displayed by the caller.
+        /// </summary>
         private static readonly string AlreadyPromptedName =
             "rl_already_prompted";
 #endif
@@ -65,12 +94,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The cached availability of the native line editor; null when it has
+        /// not yet been determined.
+        /// </summary>
         private static bool? available = null;
 
         ///////////////////////////////////////////////////////////////////////
 
 #if UNIX
+        /// <summary>
+        /// The delegate bound to the native function used to read one line of
+        /// input.
+        /// </summary>
         private static ReadLineCallback readLineCallback = null;
+
+        /// <summary>
+        /// The delegate bound to the native function used to append a line to
+        /// the command history.
+        /// </summary>
         private static AddHistoryCallback addHistoryCallback = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -86,6 +128,11 @@ namespace Eagle._Components.Private
         //       string for cursor positioning calculations
         //       during history navigation.
         //
+        /// <summary>
+        /// A native pointer to the rl_already_prompted global variable within
+        /// the native readline library; <see cref="IntPtr.Zero" /> when it has
+        /// not been resolved.
+        /// </summary>
         private static IntPtr alreadyPrompted = IntPtr.Zero;
 #endif
         #endregion
@@ -96,11 +143,27 @@ namespace Eagle._Components.Private
 
         #region Unsafe Native Methods Class
 #if UNIX
+        /// <summary>
+        /// This class contains the native methods used via P/Invoke to access
+        /// the GNU "readline", BSD "libedit", and standard C runtime
+        /// libraries.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("918e4e30-5c76-4b53-8f6c-2c3230d3fa5e")]
         internal static class UnsafeNativeMethods
         {
             #region BSD "libedit" Native Methods
+            /// <summary>
+            /// This method reads one line of input using the BSD "libedit"
+            /// library, displaying the specified prompt.
+            /// </summary>
+            /// <param name="prompt">
+            /// The prompt text to display; this value may be null.
+            /// </param>
+            /// <returns>
+            /// A native pointer to the newly read line, or
+            /// <see cref="IntPtr.Zero" /> on end-of-file.
+            /// </returns>
             [DllImport(DllName.Edit, EntryPoint = "readline",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi)]
@@ -110,6 +173,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method appends the specified line to the command history
+            /// using the BSD "libedit" library.
+            /// </summary>
+            /// <param name="line">
+            /// The line of text to add to the history.
+            /// </param>
             [DllImport(DllName.Edit, EntryPoint = "add_history",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi)]
@@ -121,6 +191,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region GNU "readline" Native Methods
+            /// <summary>
+            /// This method reads one line of input using the GNU "readline"
+            /// library, displaying the specified prompt.
+            /// </summary>
+            /// <param name="prompt">
+            /// The prompt text to display; this value may be null.
+            /// </param>
+            /// <returns>
+            /// A native pointer to the newly read line, or
+            /// <see cref="IntPtr.Zero" /> on end-of-file.
+            /// </returns>
             [DllImport(DllName.ReadLine, EntryPoint = "readline",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi)]
@@ -130,6 +211,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method appends the specified line to the command history
+            /// using the GNU "readline" library.
+            /// </summary>
+            /// <param name="line">
+            /// The line of text to add to the history.
+            /// </param>
             [DllImport(DllName.ReadLine, EntryPoint = "add_history",
                 CallingConvention = CallingConvention.Cdecl,
                 CharSet = CharSet.Ansi)]
@@ -141,6 +229,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region Common "libc" Native Methods
+            /// <summary>
+            /// This method releases a block of memory previously allocated by
+            /// the native C runtime library.
+            /// </summary>
+            /// <param name="ptr">
+            /// A native pointer to the block of memory to release.
+            /// </param>
             [DllImport(DllName.LibC, EntryPoint = "free",
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern void libc_free(
@@ -155,6 +250,18 @@ namespace Eagle._Components.Private
 
         #region Private Methods
 #if UNIX
+        /// <summary>
+        /// This method attempts to resolve the address of the
+        /// rl_already_prompted global variable exported by the native line
+        /// editor library and cache it for later use.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name of the native line editor library to load and query.
+        /// </param>
+        /// <returns>
+        /// True if the rl_already_prompted variable was successfully resolved;
+        /// otherwise, false.
+        /// </returns>
         private static bool TrySetupAlreadyPrompted(
             string fileName /* in */
             )
@@ -207,6 +314,14 @@ namespace Eagle._Components.Private
         //       Windows, as "conhost.exe" provides line editing and history
         //       via System.Console, et al.
         //
+        /// <summary>
+        /// This method determines whether a native line editor is available on
+        /// the current platform, performing the necessary library binding the
+        /// first time it is called and caching the result thereafter.
+        /// </summary>
+        /// <returns>
+        /// True if a native line editor is available; otherwise, false.
+        /// </returns>
         public static bool IsAvailable()
         {
             if (available != null)
@@ -299,6 +414,15 @@ namespace Eagle._Components.Private
         //       macOS) this variable may exist but is (apparently) not
         //       honored.
         //
+        /// <summary>
+        /// This method determines whether the rl_already_prompted variable was
+        /// resolved and should be used to suppress redisplay of the prompt by
+        /// the native line editor.
+        /// </summary>
+        /// <returns>
+        /// True if the rl_already_prompted variable is available and honored
+        /// on the current platform; otherwise, false.
+        /// </returns>
         public static bool HasAlreadyPrompted()
         {
 #if UNIX
@@ -318,6 +442,19 @@ namespace Eagle._Components.Private
         //       (Ctrl+D).  Non-empty lines are automatically added to the
         //       readline history.
         //
+        /// <summary>
+        /// This method reads one line of input using the native line editor,
+        /// providing full interactive line editing and command history
+        /// navigation, and automatically adding non-empty lines to the
+        /// history.
+        /// </summary>
+        /// <param name="prompt">
+        /// The prompt text to display; this value may be null.
+        /// </param>
+        /// <returns>
+        /// The line of text that was read, or null on end-of-file or when the
+        /// native line editor is unavailable.
+        /// </returns>
         public static string ReadLine(
             string prompt /* in: OPTIONAL */
             )

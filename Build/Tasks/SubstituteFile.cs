@@ -15,10 +15,24 @@ using Eagle._Components.Public;
 
 namespace Eagle._Tasks
 {
+    /// <summary>
+    /// This class implements an MSBuild task that performs Eagle command
+    /// substitution on the contents of a file, creating and configuring an
+    /// interpreter as needed to do so.
+    /// </summary>
     [ObjectId("2cd9b48d-a031-4928-a463-89cd800aef25")]
     public sealed class SubstituteFile : Script
     {
         #region Microsoft.Build.Utilities.Task Overrides
+        /// <summary>
+        /// This method is called by MSBuild to execute the task.  It creates
+        /// and configures an interpreter, performs command substitution on the
+        /// configured file, and records the outcome.
+        /// </summary>
+        /// <returns>
+        /// True if the task succeeded and no errors were logged; otherwise,
+        /// false.
+        /// </returns>
         public override bool Execute()
         {
             CheckDisposed();
@@ -72,7 +86,15 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this instance has been disposed
+        /// and the interpreter is configured to throw on disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -86,6 +108,14 @@ namespace Eagle._Tasks
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the resources used by this instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the public
+        /// <c>Dispose</c> method (rather than from the finalizer), in which case
+        /// managed resources may also be released.
+        /// </param>
         protected override void Dispose(
             bool disposing
             )

@@ -30,6 +30,15 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>library</c> command, which loads,
+    /// queries, and interacts with native (unmanaged) libraries and the
+    /// functions they export.  It is an ensemble whose sub-commands cover
+    /// native module loading and unloading, delegate declaration and
+    /// resolution, native function invocation, certificate inspection, and
+    /// related operations.  See <c>core_language.md</c> for the command syntax
+    /// and semantics.
+    /// </summary>
     [ObjectId("a4d151e8-05d7-4051-9dc3-80665197ccd5")]
     [CommandFlags(CommandFlags.NativeCode | CommandFlags.Unsafe |
         CommandFlags.Critical | CommandFlags.NonStandard)]
@@ -37,6 +46,11 @@ namespace Eagle._Commands
     internal sealed class Library : Core
     {
         #region Private Data
+        /// <summary>
+        /// The collection of sub-command names supported by the <c>info</c>
+        /// sub-command of this ensemble, used to dispatch each <c>info</c>
+        /// invocation to the appropriate handler.
+        /// </summary>
         private readonly EnsembleDictionary infoSubCommands =
         new EnsembleDictionary(new string[] {
             "delegate", "module"
@@ -46,6 +60,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>library</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Library(
             ICommandData commandData
             )
@@ -58,6 +79,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "call", "certificate", "checkload", "declare", "handle",
@@ -67,6 +93,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -76,6 +106,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>library</c> command.  It dispatches to
+        /// the requested ensemble sub-command (for example <c>load</c>,
+        /// <c>unload</c>, <c>declare</c>, <c>resolve</c>, <c>call</c>,
+        /// <c>info</c>, or <c>certificate</c>) in order to load, query, or
+        /// release native libraries and their delegates, honoring the
+        /// recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any further
+        /// elements are the options and arguments for that sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the sub-command fails, an
+        /// unknown or invalid sub-command is supplied, the wrong number of
+        /// arguments is supplied, the interpreter is null, or the argument list
+        /// is null, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

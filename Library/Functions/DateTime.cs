@@ -23,6 +23,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>datetime</c> expression function,
+    /// which converts its single argument to a date-time value.  Existing
+    /// date-time values are passed through unchanged, while numeric values
+    /// (double, decimal, big integer, wide integer, integer, or boolean) are
+    /// interpreted relative to the interpreter's configured
+    /// <see cref="DateTimeKind" /> using the appropriate conversion.  See
+    /// <c>core_language.md</c> for expression and function semantics.
+    /// </summary>
     [ObjectId("132e9b03-7a92-4fab-bba6-50176432741c")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.NonStandard)]
     [Arguments(Arity.Unary)]
@@ -31,6 +40,13 @@ namespace Eagle._Functions
     internal sealed class _DateTime : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>datetime</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _DateTime(
             IFunctionData functionData /* in */
             )
@@ -43,6 +59,40 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>datetime</c> function.  It validates the
+        /// arguments using the base implementation, obtains the single argument
+        /// as a variant, and converts it to a date-time value.  Date-time
+        /// arguments are used as-is; numeric arguments are converted relative to
+        /// the interpreter's <see cref="DateTimeKind" /> via
+        /// <see cref="ConversionOps" />.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value converted to a date-time.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the resulting date-time value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing, cannot
+        /// be converted to a date-time, or a math exception occurs, with details
+        /// placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

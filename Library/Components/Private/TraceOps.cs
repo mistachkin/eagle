@@ -37,6 +37,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the central implementation of the diagnostic
+    /// tracing subsystem used throughout the core library.  It manages the
+    /// trace enabled state, the set of allowed and disallowed trace categories,
+    /// the trace priority masks, the trace message format (string, index, and
+    /// flags), and the actual formatting and writing of trace messages to the
+    /// configured listeners, log, and/or interpreter host.  It also tracks
+    /// various statistics about trace messages that were written, dropped,
+    /// filtered, or otherwise handled.
+    /// </summary>
     [ObjectId("6dd365ef-005a-4d33-8042-bf5b7d17153e")]
     internal static class TraceOps
     {
@@ -50,6 +60,11 @@ namespace Eagle._Components.Private
         //       will not be used.  To be used, it would need to be set as the
         //       value of the "TraceCategoryRegEx" field (below).
         //
+        /// <summary>
+        /// The default regular expression that may be used to determine if a
+        /// string is considered to be a valid trace category.  By default, this
+        /// value is not used.
+        /// </summary>
         private static readonly Regex DefaultTraceCategoryRegEx = RegExOps.Create(
             "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
@@ -61,6 +76,11 @@ namespace Eagle._Components.Private
         //       value will not be used.  To be used, it would need to be set
         //       as the value of the "MethodNameRegEx" field (below).
         //
+        /// <summary>
+        /// The default regular expression that may be used to determine if a
+        /// string is considered to be a valid method name.  By default, this
+        /// value is not used.
+        /// </summary>
         private static readonly Regex DefaultMethodNameRegEx = RegExOps.Create(
             "^[\\.0-9A-Z_]*$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 #if MONO_BUILD
@@ -75,6 +95,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When set to non-null, this regular expression is used to determine
+        /// if a trace category is considered valid.
+        /// </summary>
         private static Regex TraceCategoryRegEx = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -85,6 +109,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When set to non-null, this regular expression is used to determine
+        /// if a method name is considered valid.
+        /// </summary>
         private static Regex MethodNameRegEx = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -95,6 +123,11 @@ namespace Eagle._Components.Private
         //       There are several ways this could happen, including via use
         //       of static initializers.
         //
+        /// <summary>
+        /// The (initial) portion of the format string used to indicate that the
+        /// tracing subsystem was somehow reentered, for example, via static
+        /// initializers.
+        /// </summary>
         private const string TraceNestedIndicator = "[NESTED] ";
 
         ///////////////////////////////////////////////////////////////////////
@@ -110,6 +143,11 @@ namespace Eagle._Components.Private
         //
         //       1. The trace message itself.
         //
+        /// <summary>
+        /// The (effective) format string used by the TraceListener class in the
+        /// .NET Framework, where placeholder zero is the trace category and
+        /// placeholder one is the trace message itself.
+        /// </summary>
         private const string TraceListenerFormat = "{0}: {1}";
 
         ///////////////////////////////////////////////////////////////////////
@@ -118,6 +156,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the portion of the format string used to insert the
         //       optional stack trace into the final output.
         //
+        /// <summary>
+        /// The portion of the format string used to insert the optional stack
+        /// trace into the final trace output.
+        /// </summary>
         private const string TraceStackFormat = "{9}";
 
         ///////////////////////////////////////////////////////////////////////
@@ -126,6 +168,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the portion of the format string used to insert one
         //       or more new lines into the final output.
         //
+        /// <summary>
+        /// The portion of the format string used to insert one or more new
+        /// lines into the final trace output.
+        /// </summary>
         private const string TraceNewLineFormat = "{11}";
 
         ///////////////////////////////////////////////////////////////////////
@@ -136,38 +182,73 @@ namespace Eagle._Components.Private
         //       same; therefore, we just omit the ones we do not need for a
         //       particular format.
         //
+        /// <summary>
+        /// The trace format string that includes only the message body and the
+        /// trailing new line(s).
+        /// </summary>
         private const string BareTraceFormat = "{10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace format string that includes the subsystem prefix, the
+        /// message body, and the trailing new line(s).
+        /// </summary>
         private const string MinimumTraceFormat = "{0}{10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace format string that includes the subsystem prefix, the
+        /// formatted date and time, the message body, and the trailing new
+        /// line(s).
+        /// </summary>
         private const string MediumLowTraceFormat = "{0}{1} {10}" +
             TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace format string that includes the subsystem prefix, the
+        /// thread identifier, the message body, the optional stack trace, and
+        /// the trailing new line(s).
+        /// </summary>
         private const string MediumTraceFormat = "{0}{7}: {10}" +
             TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace format string that includes the subsystem prefix, the
+        /// trace priority, server name, test name, application domain,
+        /// interpreter, thread, and method name, followed by the message body,
+        /// the optional stack trace, and the trailing new line(s).
+        /// </summary>
         private const string MediumHighTraceFormat =
             "{0}[p:{2}] [s:{3}] [x:{4}] [a:{5}] [i:{6}] [t:{7}] [m:{8}]: " +
             "{10}" + TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The trace format string that includes every available field: the
+        /// subsystem prefix, the formatted date and time, the trace priority,
+        /// server name, test name, application domain, interpreter, thread, and
+        /// method name, followed by the message body, the optional stack trace,
+        /// and the trailing new line(s).
+        /// </summary>
         private const string MaximumTraceFormat =
             "{0}[d:{1}] [p:{2}] [s:{3}] [x:{4}] [a:{5}] [i:{6}] [t:{7}] " +
             "[m:{8}]: {10}" + TraceStackFormat + TraceNewLineFormat;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default trace format string used when no other format has been
+        /// selected.
+        /// </summary>
         private const string DefaultTraceFormat = MediumTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
@@ -189,6 +270,10 @@ namespace Eagle._Components.Private
         //       {10} = Message body.
         //       {11} = Always has the value of Environment.NewLine.
         //
+        /// <summary>
+        /// The total number of replacement parameters used by all trace format
+        /// strings in this class.
+        /// </summary>
         private const int FormatParameterCount = 12;
 
         ///////////////////////////////////////////////////////////////////////
@@ -197,6 +282,10 @@ namespace Eagle._Components.Private
         // HACK: This array must be manually kept synchronized with the
         //       values of the TraceFormatType enumeration.
         //
+        /// <summary>
+        /// The array of available trace format strings, indexed by the values
+        /// of the <see cref="TraceFormatType" /> enumeration.
+        /// </summary>
         private static readonly string[] TraceFormats = {
             DefaultTraceFormat,
             BareTraceFormat,
@@ -213,6 +302,11 @@ namespace Eagle._Components.Private
         // WARNING: This array MUST be the same size as the full and
         //          short name arrays (below).
         //
+        /// <summary>
+        /// The array of trace priority values, ordered from lowest to highest;
+        /// this array must remain the same size as the full and short name
+        /// arrays.
+        /// </summary>
         private static readonly TracePriority[] TracePriorities = {
             TracePriority.Lowest,
             TracePriority.Lower,
@@ -231,6 +325,11 @@ namespace Eagle._Components.Private
         // WARNING: This array MUST be the same size as the flag and
         //          short name arrays (above and below).
         //
+        /// <summary>
+        /// The array of full (long) names corresponding to each trace priority
+        /// value; this array must remain the same size as the flag and short
+        /// name arrays.
+        /// </summary>
         private static readonly string[] TracePriorityFullNames = {
             "Lowest",
             "Lower",
@@ -243,7 +342,14 @@ namespace Eagle._Components.Private
             "Highest"
         };
 
+        /// <summary>
+        /// The full (long) name used to represent the "never" trace priority.
+        /// </summary>
         private static readonly string NeverTracePriorityFullName = "Never";
+
+        /// <summary>
+        /// The full (long) name used to represent the "always" trace priority.
+        /// </summary>
         private static readonly string AlwaysTracePriorityFullName = "Always";
 
         ///////////////////////////////////////////////////////////////////////
@@ -252,6 +358,11 @@ namespace Eagle._Components.Private
         // WARNING: This array MUST be the same size as the flag and
         //          full name arrays (above).
         //
+        /// <summary>
+        /// The array of short names corresponding to each trace priority value;
+        /// this array must remain the same size as the flag and full name
+        /// arrays.
+        /// </summary>
         private static readonly string[] TracePriorityShortNames = {
             "L3",
             "L2",
@@ -264,7 +375,14 @@ namespace Eagle._Components.Private
             "H1"
         };
 
+        /// <summary>
+        /// The short name used to represent the "never" trace priority.
+        /// </summary>
         private static readonly string NeverTracePriorityShortName = "N1";
+
+        /// <summary>
+        /// The short name used to represent the "always" trace priority.
+        /// </summary>
         private static readonly string AlwaysTracePriorityShortName = "A1";
 
         ///////////////////////////////////////////////////////////////////////
@@ -273,7 +391,14 @@ namespace Eagle._Components.Private
         // NOTE: These are the default values for the (overridden?) trace
         //       format string and trace format index.
         //
+        /// <summary>
+        /// The default value for the (overridden) trace format string.
+        /// </summary>
         private const string DefaultTraceFormatString = null;
+
+        /// <summary>
+        /// The default value for the (overridden) trace format index.
+        /// </summary>
         private static readonly int? DefaultTraceFormatIndex = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -282,6 +407,10 @@ namespace Eagle._Components.Private
         // NOTE: What is the fallback trace format when no explicit format
         //       string -OR- format index has been set?
         //
+        /// <summary>
+        /// The default fallback trace format used when no explicit format
+        /// string or format index has been set.
+        /// </summary>
         private const string DefaultFallbackTraceFormat = MediumTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
@@ -291,6 +420,10 @@ namespace Eagle._Components.Private
         //       explicitly set by the user, should we use a fallback trace
         //       format?
         //
+        /// <summary>
+        /// The default value indicating whether a fallback trace format should
+        /// be used when no explicit format string or format index has been set.
+        /// </summary>
         private const bool DefaultUseFallbackTraceFormat = true; // COMPAT: Eagle beta.
 
         ///////////////////////////////////////////////////////////////////////
@@ -298,7 +431,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: These are the "normal" range of trace format indexes.
         //
+        /// <summary>
+        /// The lowest value in the normal range of trace format indexes.
+        /// </summary>
         private static readonly int MinimumTraceIndex = 2;
+
+        /// <summary>
+        /// The highest value in the normal range of trace format indexes.
+        /// </summary>
         private static readonly int MaximumTraceIndex = Index.Invalid;
 
         ///////////////////////////////////////////////////////////////////////
@@ -311,7 +451,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default (reset) value for the isTracePossible static field.
+        /// </summary>
         private static bool DefaultTracePossible = true;
+
+        /// <summary>
+        /// The default (reset) value for the isWritePossible static field.
+        /// </summary>
         private static bool DefaultWritePossible = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -326,6 +473,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is somewhat ugly naming; however, it is accurate.
         //
+        /// <summary>
+        /// The default (initial and reset) value for the
+        /// isTraceEnabledByDefault static field.
+        /// </summary>
         private static bool DefaultTraceEnabledByDefault = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -338,7 +489,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of allowed active levels for the DebugTrace
+        /// method.
+        /// </summary>
         private static int DefaultMaximumTraceLevels = 2;
+
+        /// <summary>
+        /// The maximum number of allowed active levels for the DebugWriteTo
+        /// method.
+        /// </summary>
         private static int DefaultMaximumWriteLevels = 2;
 
         ///////////////////////////////////////////////////////////////////////
@@ -347,6 +507,10 @@ namespace Eagle._Components.Private
         // NOTE: What is the fallback trace format when no explicit format
         //       string -OR- format index has been set?
         //
+        /// <summary>
+        /// The current fallback trace format used when no explicit format
+        /// string or format index has been set.
+        /// </summary>
         private static string FallbackTraceFormat = DefaultFallbackTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
@@ -358,6 +522,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the fallback trace format is used when no explicit
+        /// format string or format index has been set.
+        /// </summary>
         private static bool UseFallbackTraceFormat = DefaultUseFallbackTraceFormat;
 
         ///////////////////////////////////////////////////////////////////////
@@ -367,14 +535,27 @@ namespace Eagle._Components.Private
         //       need to be changed.  Instead, the associated methods in this
         //       class can be called.
         //
+        /// <summary>
+        /// The default set of trace categories.
+        /// </summary>
         private static IntDictionary DefaultTraceCategories = null;
 
+        /// <summary>
+        /// The default trace priority value used when a method overload that
+        /// lacks such a parameter is used.
+        /// </summary>
         private static TracePriority DefaultTracePriority =
             TracePriority.Default;
 
+        /// <summary>
+        /// The default mask of enabled trace priorities.
+        /// </summary>
         private static TracePriority DefaultTracePriorities =
             TracePriority.DefaultMask;
 
+        /// <summary>
+        /// The default mask of global trace priorities.
+        /// </summary>
         private static TracePriority DefaultGlobalPriorities =
             TracePriority.None;
 
@@ -383,20 +564,41 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default trace priority penalty applied to eligible trace
+        /// categories.
+        /// </summary>
         private static int DefaultCategoryPenalty = -1;
+
+        /// <summary>
+        /// The default trace priority bonus applied to eligible trace
+        /// categories.
+        /// </summary>
         private static int DefaultCategoryBonus = 1;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The lower-case name of the "enabled" trace category type.
+        /// </summary>
         private static readonly string EnabledName =
             TraceCategoryType.Enabled.ToString().ToLowerInvariant();
 
+        /// <summary>
+        /// The lower-case name of the "disabled" trace category type.
+        /// </summary>
         private static readonly string DisabledName =
             TraceCategoryType.Disabled.ToString().ToLowerInvariant();
 
+        /// <summary>
+        /// The lower-case name of the "penalty" trace category type.
+        /// </summary>
         private static readonly string PenaltyName =
             TraceCategoryType.Penalty.ToString().ToLowerInvariant();
 
+        /// <summary>
+        /// The lower-case name of the "bonus" trace category type.
+        /// </summary>
         private static readonly string BonusName =
             TraceCategoryType.Bonus.ToString().ToLowerInvariant();
         #endregion
@@ -412,6 +614,10 @@ namespace Eagle._Components.Private
         //         class; therefore, it must be initialized before anything
         //         that touches the GlobalState class.
         //
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
         #endregion
 
@@ -424,6 +630,12 @@ namespace Eagle._Components.Private
         //       If one, this class is fully initialized.  A value of greater
         //       than one indicates that a call to MaybeInitialize is pending.
         //
+        /// <summary>
+        /// Tracks the initialization state of this class.  Zero indicates this
+        /// class is not fully initialized, one indicates it is fully
+        /// initialized, and a value greater than one indicates a call to
+        /// MaybeInitialize is pending.
+        /// </summary>
         private static int isTraceInitialized;
 
         //
@@ -432,6 +644,10 @@ namespace Eagle._Components.Private
         //       any kind will be performed, including the normal formatting
         //       and category checks, etc.
         //
+        /// <summary>
+        /// Helps determine what the IsTracePossible method returns.  When zero,
+        /// no "trace" handling of any kind is performed.
+        /// </summary>
         private static bool isTracePossible = DefaultTracePossible;
 
         //
@@ -440,12 +656,20 @@ namespace Eagle._Components.Private
         //       any kind will be performed, including the normal formatting
         //       and category checks, etc.
         //
+        /// <summary>
+        /// Helps determine what the IsWritePossible method returns.  When zero,
+        /// no "write" handling of any kind is performed.
+        /// </summary>
         private static bool isWritePossible = DefaultWritePossible;
 
         //
         // NOTE: Current number of calls to DebugTrace() that are active on
         //       this thread.  This number should always be zero or one.
         //
+        /// <summary>
+        /// The current number of calls to the DebugTrace method that are active
+        /// on this thread; this number should always be zero or one.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static int traceLevels = 0;
 
@@ -453,6 +677,10 @@ namespace Eagle._Components.Private
         // NOTE: Current number of calls to DebugWriteTo() that are active
         //       on this thread.  This number should always be zero or one.
         //
+        /// <summary>
+        /// The current number of calls to the DebugWriteTo method that are
+        /// active on this thread; this number should always be zero or one.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static int writeLevels = 0;
 
@@ -464,6 +692,11 @@ namespace Eagle._Components.Private
         //       must occur before the calls to CheckForTracePriorities and
         //       CheckForTracePriority (below), in order to be useful.
         //
+        /// <summary>
+        /// Temporarily stores diagnostic messages related to initializing this
+        /// class; it is reset once the messages have been written to the
+        /// console.
+        /// </summary>
         private static StringBuilder initializationMessages = null;
 #endif
 
@@ -476,14 +709,31 @@ namespace Eagle._Components.Private
         //       that are either not "allowed" or explicitly "disallowed"
         //       will be silently dropped.
         //
+        /// <summary>
+        /// The dictionary of trace categories that are currently "allowed".
+        /// When empty (or null), all categories are considered to be "allowed".
+        /// </summary>
         private static IntDictionary enabledTraceCategories;
+
+        /// <summary>
+        /// The dictionary of trace categories that are currently "disallowed".
+        /// </summary>
         private static IntDictionary disabledTraceCategories;
 
         //
         // NOTE: This is the dictionary of trace categories that are eligible
         //       for a trace priority "penalty" or "bonus", respectively.
         //
+        /// <summary>
+        /// The dictionary of trace categories that are eligible for a trace
+        /// priority "penalty".
+        /// </summary>
         private static IntDictionary penaltyTraceCategories;
+
+        /// <summary>
+        /// The dictionary of trace categories that are eligible for a trace
+        /// priority "bonus".
+        /// </summary>
         private static IntDictionary bonusTraceCategories;
 
         //
@@ -491,13 +741,26 @@ namespace Eagle._Components.Private
         //       will return.  They are used to check if the specified trace
         //       priority matches this mask of enabled trace priorities.
         //
+        /// <summary>
+        /// The mask of currently enabled trace priorities, used by the
+        /// IsTraceEnabled method.
+        /// </summary>
         private static TracePriority tracePriorities;
+
+        /// <summary>
+        /// The mask of global trace priorities that always apply, used by the
+        /// IsTraceEnabled method.
+        /// </summary>
         private static TracePriority globalPriorities;
 
         //
         // NOTE: This is the default trace priority value used when a method
         //       overload that lacks such a parameter is used.
         //
+        /// <summary>
+        /// The default trace priority value used when a method overload that
+        /// lacks such a parameter is used.
+        /// </summary>
         private static TracePriority defaultTracePriority;
 
         //
@@ -507,6 +770,12 @@ namespace Eagle._Components.Private
         //       NoTrace and Trace environment variables are not set [to
         //       anything].
         //
+        /// <summary>
+        /// Determines if core library tracing is enabled or disabled by
+        /// default.  This value is only used when initializing this subsystem,
+        /// and then only if neither the NoTrace nor the Trace environment
+        /// variable is set.
+        /// </summary>
         private static bool? isTraceEnabledByDefault = null;
 
         //
@@ -521,12 +790,21 @@ namespace Eagle._Components.Private
         //       initialize this variable [once] with the result of checking
         //       the environment variable.
         //
+        /// <summary>
+        /// Caches whether tracing is enabled, as determined (once) by checking
+        /// the relevant environment variable; this internalized check prevents
+        /// trace noise the user wishes to suppress.
+        /// </summary>
         private static bool? isTraceEnabled = null;
 
         //
         // NOTE: This is the callback to consult when performing filtering
         //       without an interpreter context or its trace filter callback.
         //
+        /// <summary>
+        /// The callback consulted when performing trace filtering without an
+        /// interpreter context or its associated trace filter callback.
+        /// </summary>
         private static TraceFilterCallback traceFilterCallback;
 
         //
@@ -536,6 +814,11 @@ namespace Eagle._Components.Private
         //       that could easily result in a deadlock, depending on which
         //       locks are held by the current thread.
         //
+        /// <summary>
+        /// When non-zero, all trace messages are redirected to the associated
+        /// interpreter host, if applicable.  Caution should be taken because
+        /// this could easily result in a deadlock.
+        /// </summary>
         private static int isTraceToInterpreterHost = 0;
 
         //
@@ -543,6 +826,11 @@ namespace Eagle._Components.Private
         //       the interpreter host, if applicable.  It is used to prevent
         //       any reentrancy into the interpreter host redirection code.
         //
+        /// <summary>
+        /// The number of nesting levels for writing traces to the interpreter
+        /// host, used to prevent reentrancy into the interpreter host
+        /// redirection code.
+        /// </summary>
         private static int traceToInterpreterHostLevels = 0;
 
         //
@@ -551,12 +839,21 @@ namespace Eagle._Components.Private
         //       long as out-of-bounds argument (string replacement) indexes
         //       are not used.
         //
+        /// <summary>
+        /// The current trace format string.  Normally null; it may be set to
+        /// any valid format string provided no out-of-bounds argument
+        /// (replacement) indexes are used.
+        /// </summary>
         private static string traceFormatString;
 
         //
         // NOTE: This is the current trace format index.  Normally, this is
         //       set to null.  It can be set to any valid format index.
         //
+        /// <summary>
+        /// The current trace format index.  Normally null; it may be set to any
+        /// valid format index.
+        /// </summary>
         private static int? traceFormatIndex;
 
         //
@@ -564,6 +861,10 @@ namespace Eagle._Components.Private
         //       will be included in the trace output; otherwise, it will be
         //       replaced with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the formatted date and time (if any) is included in
+        /// the trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceDateTime;
 
         //
@@ -571,6 +872,10 @@ namespace Eagle._Components.Private
         //       included in the trace output; otherwise, it will be replaced
         //       with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the trace priority value is included in the trace
+        /// output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool tracePriority;
 
         //
@@ -578,6 +883,10 @@ namespace Eagle._Components.Private
         //       (if any) will be included in the trace output; otherwise, it
         //       will be replaced with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the machine name of the server (if any) is included
+        /// in the trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceServerName;
 
         //
@@ -585,6 +894,10 @@ namespace Eagle._Components.Private
         //       will be included in the trace output; otherwise, it will
         //       be replaced with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the active test name (if any) is included in the
+        /// trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceTestName;
 
         //
@@ -592,6 +905,10 @@ namespace Eagle._Components.Private
         //       any) will be included in the trace output; otherwise, it will
         //       be replaced with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the active application domain (if any) is included in
+        /// the trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceAppDomain;
 
         //
@@ -599,6 +916,10 @@ namespace Eagle._Components.Private
         //       will be included in the trace output; otherwise, it will be
         //       replaced with the string "<unknown>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the active interpreter (if any) is included in the
+        /// trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceInterpreter;
 
         //
@@ -606,6 +927,10 @@ namespace Eagle._Components.Private
         //       be included in the trace output; otherwise, it will be
         //       replaced with the string "<null>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the active thread (if any) is included in the trace
+        /// output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceThreadId;
 
         //
@@ -613,6 +938,10 @@ namespace Eagle._Components.Private
         //       will be included in the trace output; otherwise, it will be
         //       replaced with the string "<unknown>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the active method name (if any) is included in the
+        /// trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceMethod;
 
         //
@@ -620,6 +949,10 @@ namespace Eagle._Components.Private
         //       will be included in the trace output; otherwise, it will be
         //       replaced with the string "<unknown>" or similar.
         //
+        /// <summary>
+        /// When non-zero, the complete call stack (if any) is included in the
+        /// trace output; otherwise, it is replaced with a placeholder.
+        /// </summary>
         private static bool traceStack;
 
         //
@@ -627,30 +960,50 @@ namespace Eagle._Components.Private
         //       at least one new line before and after to help make them more
         //       readable.
         //
+        /// <summary>
+        /// When non-zero, all trace messages are surrounded with at least one
+        /// new line before and after to make them more readable.
+        /// </summary>
         private static bool traceExtraNewLines;
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
         //       written due to the subsystem not being (fully?) usable.
         //
+        /// <summary>
+        /// The total number of trace messages that have not been written due to
+        /// the subsystem not being (fully) usable.
+        /// </summary>
         private static long traceImpossible = 0;
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
         //       written due to having an excluded priority and/or category.
         //
+        /// <summary>
+        /// The total number of trace messages that have not been written due to
+        /// having an excluded priority and/or category.
+        /// </summary>
         private static long traceDisabled = 0;
 
         //
         // NOTE: This is the total number of trace messages that have NOT been
         //       written due to being too noisy, duplicates, etc.
         //
+        /// <summary>
+        /// The total number of trace messages that have not been written due to
+        /// being too noisy, duplicates, etc.
+        /// </summary>
         private static long traceTripped = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       filtered out (ever).
         //
+        /// <summary>
+        /// The total number of trace messages that have been filtered out
+        /// (ever).
+        /// </summary>
         private static long traceFiltered = 0;
 
         //
@@ -658,42 +1011,69 @@ namespace Eagle._Components.Private
         //       caused an exception to be caught within the trace message
         //       output pipeline.
         //
+        /// <summary>
+        /// The total number of trace messages that have caused an exception to
+        /// be caught within the trace message output pipeline.
+        /// </summary>
         private static long traceException = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       written to the listeners (ever).
         //
+        /// <summary>
+        /// The total number of trace messages that have been written to the
+        /// listeners (ever).
+        /// </summary>
         private static long traceWritten = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       logged (ever).
         //
+        /// <summary>
+        /// The total number of trace messages that have been logged (ever).
+        /// </summary>
         private static long traceLogged = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       dropped for any reason (ever).
         //
+        /// <summary>
+        /// The total number of trace messages that have been dropped for any
+        /// reason (ever).
+        /// </summary>
         private static long traceDropped = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       seen due to lock warnings.
         //
+        /// <summary>
+        /// The total number of trace messages that have been seen due to lock
+        /// warnings.
+        /// </summary>
         private static long traceLockWarnings = 0;
 
         //
         // NOTE: This is the total number of trace messages that have been
         //       seen due to lock errors.
         //
+        /// <summary>
+        /// The total number of trace messages that have been seen due to lock
+        /// errors.
+        /// </summary>
         private static long traceLockErrors = 0;
 
         //
         // NOTE: This is the integer identifier for the thread that holds
         //       the static lock, if any.
         //
+        /// <summary>
+        /// The integer identifier of the thread that holds the static lock, if
+        /// any.
+        /// </summary>
         private static long lockThreadId = 0;
         #endregion
         #endregion
@@ -701,6 +1081,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Diagnostic Methods
+        /// <summary>
+        /// This method returns the integer identifier of the thread that
+        /// currently holds the static lock, if any.
+        /// </summary>
+        /// <returns>
+        /// The thread identifier of the lock holder, or zero if no thread is
+        /// recorded as holding the lock.
+        /// </returns>
         private static long MaybeWhoHasLock()
         {
             return Interlocked.CompareExchange(
@@ -709,6 +1097,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the current thread as the holder of the static
+        /// lock, but only when the lock was actually acquired.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock was acquired by the current thread.
+        /// </param>
         private static void MaybeSomebodyHasLock(
             bool locked /* in */
             )
@@ -723,6 +1118,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the record of the current thread as the holder of
+        /// the static lock, but only when the lock was actually held.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock was held by the current thread.
+        /// </param>
         private static void MaybeNobodyHasLock(
             bool locked /* in */
             )
@@ -739,6 +1141,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Threading Cooperative Locking Methods
+        /// <summary>
+        /// This method attempts to acquire the static lock without blocking.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon success, this is set to non-zero if the static lock was
+        /// acquired by the current thread; otherwise, it is set to zero.
+        /// </param>
         public static void TryLock(
             ref bool locked /* out */
             )
@@ -752,6 +1161,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the static lock if it is currently held by the
+        /// current thread.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the static lock is held by the current thread; upon
+        /// return, this is set to zero once the lock has been released.
+        /// </param>
         public static void ExitLock(
             ref bool locked /* in, out */
             )
@@ -776,6 +1193,18 @@ namespace Eagle._Components.Private
         //       however, just in case an external caller uses it, it also
         //       attempts to obtain the lock itself.
         //
+        /// <summary>
+        /// This method forcibly (re)initializes the entire tracing subsystem,
+        /// resetting the trace format state and then initializing the trace
+        /// format, categories, priorities, and default priority.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force initialization even when the relevant state has
+        /// already been set.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to use the built-in default values during initialization.
+        /// </param>
         private static void ForceInitialize(
             bool force,      /* in */
             bool useDefaults /* in */
@@ -819,6 +1248,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the tracing subsystem on the first call,
+        /// setting the initial trace categories mask, trace priorities mask,
+        /// and default trace priority.  Subsequent calls have no effect until a
+        /// matching call to MaybeTerminate.
+        /// </summary>
         private static void MaybeInitialize()
         {
             if (Interlocked.Increment(ref isTraceInitialized) == 1)
@@ -854,6 +1289,11 @@ namespace Eagle._Components.Private
         //       however, just in case an external caller uses it, it also
         //       attempts to obtain the lock itself.
         //
+        /// <summary>
+        /// This method terminates the tracing subsystem when the final pending
+        /// initialization is undone, clearing the trace category dictionaries
+        /// and resetting the trace priority masks and default priority.
+        /// </summary>
         private static void MaybeTerminate()
         {
             if (Interlocked.Decrement(ref isTraceInitialized) == 0)
@@ -901,6 +1341,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method appends diagnostic information about the current state of
+        /// the tracing subsystem to the specified list.  It is used by the
+        /// <c>_Hosts.Default.BuildEngineInfoList</c> method.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the trace information is appended.  This parameter
+        /// may be null, in which case nothing is done.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling how much detail is included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -1213,6 +1665,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Support Methods
+        /// <summary>
+        /// This method queries the current status of the tracing subsystem,
+        /// appending a set of name and value pairs describing it to the
+        /// specified list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="list">
+        /// The list to which the status information is appended; a new list is
+        /// allocated when this parameter is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this is set to an error message describing why the
+        /// query could not be completed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode QueryStatus(
             Interpreter interpreter, /* in: OPTIONAL */
             ref StringPairList list, /* in, out */
@@ -1320,6 +1792,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the entire tracing subsystem back to its default
+        /// state, including the trace filter callback, possible and enabled
+        /// flags, limits, priorities, categories, format, and indicators.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="overrideEnvironment">
+        /// Non-zero to override any values that would normally be read from
+        /// environment variables.
+        /// </param>
         public static void ResetStatus(
             Interpreter interpreter, /* in: OPTIONAL */
             bool overrideEnvironment /* in */
@@ -1385,6 +1869,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forcibly enables or disables one or more aspects of the
+        /// tracing subsystem, as selected by the specified state type flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="stateType">
+        /// The flags selecting which aspects of the tracing subsystem to modify
+        /// and how (for example, reset, enable, or disable).
+        /// </param>
+        /// <param name="enabled">
+        /// Non-zero to enable the selected aspects; zero to disable them.
+        /// </param>
+        /// <returns>
+        /// The flags indicating which aspects of the tracing subsystem were
+        /// actually modified.
+        /// </returns>
         public static TraceStateType ForceEnabledOrDisabled(
             Interpreter interpreter,  /* in: OPTIONAL */
             TraceStateType stateType, /* in */
@@ -1896,6 +2398,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method inserts a name and value pair describing the specified
+        /// trace state type at the beginning of the specified list, when the
+        /// state type is available.
+        /// </summary>
+        /// <param name="stateType">
+        /// The trace state type to record, if any.  This parameter may be null,
+        /// in which case nothing is done.
+        /// </param>
+        /// <param name="enabled">
+        /// When non-null, indicates whether the state type represents an
+        /// enabled or disabled state, which selects the recorded name.
+        /// </param>
+        /// <param name="list">
+        /// The list into which the name and value pair is inserted; a new list
+        /// is allocated when this parameter is null.
+        /// </param>
         public static void MaybeAddResultStateType(
             TraceStateType? stateType, /* in: OPTIONAL */
             bool? enabled,             /* in: OPTIONAL */
@@ -1929,6 +2448,108 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IClientData Support Methods
+        /// <summary>
+        /// This method unpacks the individual fields of the specified trace
+        /// client data object into the corresponding output parameters.
+        /// </summary>
+        /// <param name="traceClientData">
+        /// The trace client data object to unpack.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon return, the opaque client data carried by the trace client
+        /// data.
+        /// </param>
+        /// <param name="interpreter">
+        /// Upon return, the interpreter context, if any.
+        /// </param>
+        /// <param name="listeners">
+        /// Upon return, the collection of trace listeners, if any.
+        /// </param>
+        /// <param name="logName">
+        /// Upon return, the name of the log, if any.
+        /// </param>
+        /// <param name="logFileName">
+        /// Upon return, the file name of the log, if any.
+        /// </param>
+        /// <param name="logEncoding">
+        /// Upon return, the encoding to use for the log, if any.
+        /// </param>
+        /// <param name="logFlags">
+        /// Upon return, the flags controlling log behavior, if any.
+        /// </param>
+        /// <param name="enabledCategories">
+        /// Upon return, the trace categories to enable, if any.
+        /// </param>
+        /// <param name="disabledCategories">
+        /// Upon return, the trace categories to disable, if any.
+        /// </param>
+        /// <param name="penaltyCategories">
+        /// Upon return, the trace categories eligible for a priority penalty, if
+        /// any.
+        /// </param>
+        /// <param name="bonusCategories">
+        /// Upon return, the trace categories eligible for a priority bonus, if
+        /// any.
+        /// </param>
+        /// <param name="stateType">
+        /// Upon return, the trace state type flags to apply.
+        /// </param>
+        /// <param name="priorities">
+        /// Upon return, the trace priorities to apply, if any.
+        /// </param>
+        /// <param name="formatString">
+        /// Upon return, the trace format string to apply, if any.
+        /// </param>
+        /// <param name="formatIndex">
+        /// Upon return, the trace format index to apply, if any.
+        /// </param>
+        /// <param name="forceEnabled">
+        /// Upon return, the value indicating whether tracing should be forcibly
+        /// enabled or disabled, if any.
+        /// </param>
+        /// <param name="resetSystem">
+        /// Upon return, non-zero if the tracing subsystem should be reset.
+        /// </param>
+        /// <param name="resetListeners">
+        /// Upon return, non-zero if the trace listeners should be reset.
+        /// </param>
+        /// <param name="trace">
+        /// Upon return, non-zero if tracing should be enabled.
+        /// </param>
+        /// <param name="debug">
+        /// Upon return, non-zero if debugging should be enabled.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, non-zero if verbose output is requested.
+        /// </param>
+        /// <param name="useDefault">
+        /// Upon return, non-zero if the default trace listener should be used.
+        /// </param>
+        /// <param name="useConsole">
+        /// Upon return, non-zero if the console trace listener should be used.
+        /// </param>
+        /// <param name="useNative">
+        /// Upon return, non-zero if the native trace listener should be used.
+        /// </param>
+        /// <param name="rawLogFile">
+        /// Upon return, non-zero if the log file should be written without any
+        /// added formatting.
+        /// </param>
+        /// <param name="useStatusForm">
+        /// Upon return, non-zero if the status form should be used.
+        /// </param>
+        /// <param name="useIndicators">
+        /// Upon return, the value indicating whether trace indicators should be
+        /// used, if any.
+        /// </param>
+        /// <param name="rawIndicators">
+        /// Upon return, non-zero if trace indicators should be emitted without
+        /// any added formatting.
+        /// </param>
+        /// <param name="seeListeners">
+        /// Upon return, non-zero if trace indicators should also be visible to
+        /// the trace listeners.
+        /// </param>
         private static void UnpackClientData(
             TraceClientData traceClientData,
             out IClientData clientData,
@@ -1995,6 +2616,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes the specified trace client data, applying its
+        /// requested changes to the tracing subsystem (for example, resetting
+        /// state, configuring listeners, categories, priorities, and format).
+        /// </summary>
+        /// <param name="traceClientData">
+        /// The trace client data describing the requested changes.  This
+        /// parameter may not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this is set to an error message describing the
+        /// problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode ProcessClientData(
             TraceClientData traceClientData,
             ref Result result
@@ -2366,6 +3004,14 @@ namespace Eagle._Components.Private
 
         #region Tracing Support Methods
 #if CONSOLE
+        /// <summary>
+        /// This method appends a diagnostic initialization message to the
+        /// pending buffer of such messages.
+        /// </summary>
+        /// <param name="message">
+        /// The message to append.  This parameter may be null, in which case no
+        /// message is appended.
+        /// </param>
         private static void AppendInitializationMessage(
             string message /* in */
             )
@@ -2388,6 +3034,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the Interpreter.ProcessStartupOptions method.
         //
+        /// <summary>
+        /// This method writes any pending diagnostic initialization messages to
+        /// the console and then clears the pending buffer.  It is used by the
+        /// <c>Interpreter.ProcessStartupOptions</c> method.
+        /// </summary>
+        /// <param name="console">
+        /// Non-zero if output to the console is permitted.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to emit the messages verbosely.
+        /// </param>
         public static void MaybeWriteInitializationMessages(
             bool console, /* in */
             bool verbose  /* in */
@@ -2419,6 +3076,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string consists solely
+        /// of period and identifier characters, making it suitable for display
+        /// without escaping.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to examine.
+        /// </param>
+        /// <returns>
+        /// True if the string is non-empty and contains only period and
+        /// identifier characters; otherwise, false.
+        /// </returns>
         private static bool CanDisplayString(
             string value /* in */
             )
@@ -2444,6 +3113,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified trace category is
+        /// suitable for display, using the configured trace category regular
+        /// expression when one is set.
+        /// </summary>
+        /// <param name="category">
+        /// The trace category to examine.
+        /// </param>
+        /// <returns>
+        /// True if the category is considered valid for display; otherwise,
+        /// false.
+        /// </returns>
         public static bool CanDisplayCategory(
             string category /* in */
             )
@@ -2468,6 +3149,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified method name is suitable
+        /// for display, using the configured method name regular expression
+        /// when one is set.
+        /// </summary>
+        /// <param name="methodName">
+        /// The method name to examine.
+        /// </param>
+        /// <returns>
+        /// True if the method name is considered valid for display; otherwise,
+        /// false.
+        /// </returns>
         public static bool CanDisplayMethodName(
             string methodName /* in */
             )
@@ -2492,6 +3185,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified environment variable for an
+        /// overridden trace format and, when present and valid, returns it as a
+        /// format type and string pair.
+        /// </summary>
+        /// <param name="envVarName">
+        /// The name of the environment variable to check.
+        /// </param>
+        /// <returns>
+        /// A pair containing the trace format type and string when a valid
+        /// override is present; otherwise, null.
+        /// </returns>
         private static FormatPair CheckForTraceFormat(
             string envVarName /* in */
             )
@@ -2530,6 +3235,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified environment variable for a list of
+        /// trace categories and, when present, returns them as a dictionary
+        /// mapping each category to the specified value.
+        /// </summary>
+        /// <param name="envVarName">
+        /// The name of the environment variable to check.
+        /// </param>
+        /// <param name="type">
+        /// The descriptive name of the category type, used for diagnostic
+        /// messages.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each parsed category.
+        /// </param>
+        /// <returns>
+        /// A dictionary of the parsed trace categories when the environment
+        /// variable is present; otherwise, null.
+        /// </returns>
         private static IntDictionary CheckForTraceCategories(
             string envVarName, /* in */
             string type,       /* in */
@@ -2586,6 +3310,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified environment variable for an
+        /// overridden default trace priority and, when present and valid,
+        /// returns it.
+        /// </summary>
+        /// <param name="envVarName">
+        /// The name of the environment variable to check.
+        /// </param>
+        /// <returns>
+        /// The overridden default trace priority when the environment variable
+        /// is present and valid; otherwise, null.
+        /// </returns>
         private static TracePriority? CheckForTracePriority(
             string envVarName /* in */
             )
@@ -2628,6 +3364,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified environment variable for an
+        /// overridden mask of enabled trace priorities and, when present and
+        /// valid, returns it.
+        /// </summary>
+        /// <param name="envVarName">
+        /// The name of the environment variable to check.
+        /// </param>
+        /// <returns>
+        /// The overridden mask of enabled trace priorities when the environment
+        /// variable is present and valid; otherwise, null.
+        /// </returns>
         private static TracePriority? CheckForTracePriorities(
             string envVarName /* in */
             )
@@ -2670,6 +3418,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified environment variable for an
+        /// overridden mask of global trace priorities and, when present and
+        /// valid, returns it.
+        /// </summary>
+        /// <param name="envVarName">
+        /// The name of the environment variable to check.
+        /// </param>
+        /// <returns>
+        /// The overridden mask of global trace priorities when the environment
+        /// variable is present and valid; otherwise, null.
+        /// </returns>
         private static TracePriority? CheckForGlobalPriorities(
             string envVarName /* in */
             )
@@ -2712,6 +3472,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any "trace" handling is currently
+        /// possible.
+        /// </summary>
+        /// <returns>
+        /// True if trace handling is possible; otherwise, false.
+        /// </returns>
         private static bool IsTracePossible()
         {
             /* NO-LOCK */
@@ -2720,6 +3487,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any "write" handling is currently
+        /// possible.
+        /// </summary>
+        /// <returns>
+        /// True if write handling is possible; otherwise, false.
+        /// </returns>
         private static bool IsWritePossible()
         {
             /* NO-LOCK */
@@ -2730,6 +3504,13 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines whether any trace operations are currently
+        /// pending.
+        /// </summary>
+        /// <returns>
+        /// True if one or more trace operations are pending; otherwise, false.
+        /// </returns>
         private static bool IsTracePending()
         {
             return Interlocked.CompareExchange(ref traceLevels, 0, 0) > 0;
@@ -2737,6 +3518,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any write operations are currently
+        /// pending.
+        /// </summary>
+        /// <returns>
+        /// True if one or more write operations are pending; otherwise, false.
+        /// </returns>
         private static bool IsWritePending()
         {
             return Interlocked.CompareExchange(ref writeLevels, 0, 0) > 0;
@@ -2749,6 +3537,22 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the static lock is held.
         //
+        /// <summary>
+        /// This method creates a dictionary that maps each individual trace
+        /// priority present in the specified mask to the specified value.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priorities">
+        /// The mask of trace priorities to include in the resulting dictionary.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each included trace priority.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each included trace priority to the specified
+        /// value, or null when the set of known trace priorities is
+        /// unavailable.
+        /// </returns>
         public static TracePriorityDictionary CreateTracePriorities(
             TracePriority priorities, /* in */
             int value                 /* in */
@@ -2773,6 +3577,22 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the static lock is held.
         //
+        /// <summary>
+        /// This method finds the index, within the known set of trace
+        /// priorities, of the lowest or highest priority present in the
+        /// specified value.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority value to search for.
+        /// </param>
+        /// <param name="highest">
+        /// Non-zero to find the highest matching priority; zero to find the
+        /// lowest matching priority.
+        /// </param>
+        /// <returns>
+        /// The index of the matching trace priority, or an invalid index when
+        /// no match is found.
+        /// </returns>
         private static int FindTracePriority(
             TracePriority priority, /* in */
             bool highest            /* in */
@@ -2809,6 +3629,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the index of the first category, in the specified
+        /// array, that is present (with a non-zero value) in the specified trace
+        /// category dictionary, honoring the null-category allow and deny flags.
+        /// </summary>
+        /// <param name="priorities">
+        /// The trace priority flags that control handling of a null category.
+        /// </param>
+        /// <param name="categories">
+        /// The array of candidate trace categories to examine.
+        /// </param>
+        /// <param name="traceCategories">
+        /// The dictionary of trace categories to search.
+        /// </param>
+        /// <returns>
+        /// The index of the first matching category, or an invalid index when
+        /// no match is found.
+        /// </returns>
         private static int FindAnyTraceCategory(
             TracePriority priorities,     /* in */
             string[] categories,          /* in */
@@ -2859,6 +3697,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any category, in the specified array,
+        /// is present (with a non-zero value) in the specified trace category
+        /// dictionary.
+        /// </summary>
+        /// <param name="priorities">
+        /// The trace priority flags that control handling of a null category.
+        /// </param>
+        /// <param name="categories">
+        /// The array of candidate trace categories to examine.
+        /// </param>
+        /// <param name="traceCategories">
+        /// The dictionary of trace categories to search.
+        /// </param>
+        /// <returns>
+        /// True if any candidate category matches; otherwise, false.
+        /// </returns>
         private static bool MatchAnyTraceCategory(
             TracePriority priorities,     /* in */
             string[] categories,          /* in */
@@ -2874,6 +3729,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the static lock is held.
         //
+        /// <summary>
+        /// This method adjusts the base level of the specified trace priority up
+        /// or down by the specified number of steps, clamping to the valid
+        /// range.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to adjust, in place.
+        /// </param>
+        /// <param name="adjustment">
+        /// The number of priority levels to adjust by; positive values increase
+        /// the priority and negative values decrease it.
+        /// </param>
         private static void AdjustTracePriority(
             ref TracePriority priority, /* in, out */
             int adjustment              /* in */
@@ -2910,6 +3777,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adjusts the base level of the specified trace priority up
+        /// or down by the specified number of steps while holding the static
+        /// lock.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to adjust, in place.
+        /// </param>
+        /// <param name="adjustment">
+        /// The number of priority levels to adjust by; positive values increase
+        /// the priority and negative values decrease it.
+        /// </param>
         public static void ExternalAdjustTracePriority(
             ref TracePriority priority, /* in, out */
             int adjustment              /* in */
@@ -2923,6 +3802,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method masks the specified trace priority down to only its
+        /// priority-level bits.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to mask.
+        /// </param>
+        /// <returns>
+        /// The masked trace priority, containing only its priority-level bits.
+        /// </returns>
         public static TracePriority MaskTracePriority(
             TracePriority priority /* in */
             )
@@ -2932,6 +3821,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces the priority-level bits of the specified trace
+        /// priority with those of the specified base priority, when the base
+        /// priority contains any priority-level bits.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to modify, in place.
+        /// </param>
+        /// <param name="basePriority">
+        /// The base trace priority whose priority-level bits are used.
+        /// </param>
         public static void ChangeBaseTracePriority(
             ref TracePriority priority, /* in, out */
             TracePriority basePriority  /* in */
@@ -2950,6 +3850,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the core type bits of the specified trace
+        /// priority to indicate an error.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to modify, in place.
+        /// </param>
         public static void ChangeToErrorPriority(
             ref TracePriority priority /* in, out */
             )
@@ -2960,6 +3867,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the display name corresponding to the specified
+        /// trace priority, in either its short or full form.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority whose name is requested.
+        /// </param>
+        /// <param name="shortName">
+        /// Non-zero to return the short name; zero to return the full name.
+        /// </param>
+        /// <returns>
+        /// The display name of the trace priority, the empty string when no
+        /// name applies, or null when no matching priority is found.
+        /// </returns>
         public static string GetTracePriorityName(
             TracePriority priority, /* in */
             bool shortName          /* in */
@@ -3023,6 +3944,25 @@ namespace Eagle._Components.Private
         //       are excluded from this checking (e.g. EnableDateTimeFlag,
         //       CategoryPenalty, User0, etc).
         //
+        /// <summary>
+        /// This method checks whether the specified set of trace priority flags
+        /// is present, considering only those bits that participate in priority
+        /// and type checking.
+        /// </summary>
+        /// <param name="flags">
+        /// The trace priority flags to examine.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The trace priority flags to look for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require all of the requested flags; zero to require any
+        /// of them.
+        /// </param>
+        /// <returns>
+        /// True if the requested flags are present according to
+        /// <paramref name="all" />; otherwise, false.
+        /// </returns>
         private static bool HasTracePriorities(
             TracePriority flags,    /* in */
             TracePriority hasFlags, /* in */
@@ -3036,6 +3976,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any trace categories (enabled,
+        /// disabled, penalty, or bonus) are currently configured.
+        /// </summary>
+        /// <returns>
+        /// True if at least one trace category is configured; otherwise, false.
+        /// </returns>
         private static bool HaveTraceCategories()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3060,6 +4007,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the trace category and related checks
+        /// can be skipped, given a method name and the caller's preference.
+        /// </summary>
+        /// <param name="methodName">
+        /// The method name associated with the trace message, if any.
+        /// </param>
+        /// <param name="skipChecks">
+        /// The caller's preference for skipping checks when no method name is
+        /// available.
+        /// </param>
+        /// <returns>
+        /// True if the checks can be skipped; otherwise, false.
+        /// </returns>
         private static bool CanSkipChecks(
             string methodName, /* in */
             bool skipChecks    /* in */
@@ -3081,6 +4042,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the tracing subsystem should suppress
+        /// its initialization messages, based solely on the process
+        /// environment.
+        /// </summary>
+        /// <returns>
+        /// True if initialization messages should be suppressed; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldBeQuiet()
         {
             //
@@ -3098,6 +4068,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the static field that indicates whether
+        /// tracing is enabled, based on the relevant environment variables
+        /// (and their associated defaults).  This method assumes the static
+        /// lock is held.
+        /// </summary>
+        /// <param name="quiet">
+        /// Non-zero to suppress any initialization messages that would
+        /// otherwise be emitted while initializing the trace enabled state.
+        /// </param>
         private static void InitializeTraceEnabled(
             bool quiet /* in */
             )
@@ -3158,6 +4138,23 @@ namespace Eagle._Components.Private
         //       initialize this variable [once] with the result of checking
         //       the environment variable.
         //
+        /// <summary>
+        /// This method determines whether a trace message with the specified
+        /// priority and categories should be allowed through, based on the
+        /// global trace enabled state, the configured trace priority masks,
+        /// and the sets of enabled, disabled, bonus, and penalty trace
+        /// categories.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="categories">
+        /// The trace categories associated with the trace message, if any.
+        /// </param>
+        /// <returns>
+        /// True if a trace message with the specified priority and categories
+        /// should be allowed through; otherwise, false.
+        /// </returns>
         private static bool IsTraceEnabled(
             TracePriority priority,    /* in */
             params string[] categories /* in */
@@ -3362,6 +4359,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether trace messages should be written to
+        /// the active interpreter host (when available) instead of using the
+        /// default trace output handling.
+        /// </summary>
+        /// <returns>
+        /// True if trace messages should be written to the active interpreter
+        /// host; otherwise, false.
+        /// </returns>
         private static bool GetTraceToInterpreterHost()
         {
             return Interlocked.CompareExchange(
@@ -3370,6 +4376,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables writing trace messages to the
+        /// active interpreter host by adjusting the associated reference
+        /// count.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to enable writing trace messages to the active interpreter
+        /// host; zero to disable it.
+        /// </param>
+        /// <returns>
+        /// True if writing trace messages to the active interpreter host is
+        /// (still) enabled after the adjustment; otherwise, false.
+        /// </returns>
         private static bool SetTraceToInterpreterHost(
             bool enabled /* in */
             )
@@ -3388,6 +4407,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the flag that indicates whether trace handling is
+        /// currently possible.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero if trace handling should be considered possible; otherwise,
+        /// zero.
+        /// </param>
         private static void SetTracePossible(
             bool enabled /* in */
             )
@@ -3400,6 +4427,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the flag that indicates whether trace handling
+        /// is currently possible back to its default value.  This method
+        /// assumes the static lock is held.
+        /// </summary>
         private static void ResetTracePossible()
         {
             lock (syncRoot)
@@ -3410,6 +4442,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the flag that indicates whether write handling is
+        /// currently possible.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero if write handling should be considered possible; otherwise,
+        /// zero.
+        /// </param>
         private static void SetWritePossible( /* NOT USED */
             bool enabled /* in */
             )
@@ -3422,6 +4462,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the flag that indicates whether write handling
+        /// is currently possible back to its default value.  This method
+        /// assumes the static lock is held.
+        /// </summary>
         private static void ResetWritePossible() /* NOT USED */
         {
             lock (syncRoot)
@@ -3432,6 +4477,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method explicitly sets the flag that indicates whether tracing
+        /// is enabled.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to enable tracing; zero to disable it.
+        /// </param>
         private static void SetTraceEnabled(
             bool enabled /* in */
             )
@@ -3444,6 +4496,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the flag that indicates whether tracing is
+        /// enabled to null, forcing it to be re-initialized upon next use.
+        /// This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTraceEnabled()
         {
             lock (syncRoot)
@@ -3454,6 +4511,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally increases the number of call frames to
+        /// skip when capturing a stack trace, based on the specified trace
+        /// priority flags, so that internal wrapper methods are excluded from
+        /// the captured stack trace.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of call frames to skip; upon return, this value may have
+        /// been increased based on the specified trace priority flags.
+        /// </param>
         private static void MaybeAdjustSkipFrames(
             TracePriority priority, /* in */
             ref int skipFrames      /* in, out */
@@ -3488,6 +4558,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Filter Management
+        /// <summary>
+        /// This method gets the effective trace filter callback, preferring the
+        /// one associated with the specified interpreter (if any) and falling
+        /// back to the globally configured trace filter callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose associated trace filter callback should be
+        /// used, if available.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The effective trace filter callback, or null if there is none.
+        /// </returns>
         private static TraceFilterCallback GetTraceFilterCallback(
             Interpreter interpreter /* in */
             )
@@ -3505,6 +4587,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the globally configured trace filter callback.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The globally configured trace filter callback, or null if there is
+        /// none.
+        /// </returns>
         private static TraceFilterCallback GetTraceFilterCallback()
         {
             lock (syncRoot)
@@ -3515,6 +4605,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the globally configured trace filter callback.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="callback">
+        /// The trace filter callback to use globally.  This value may be null.
+        /// </param>
         public static void SetTraceFilterCallback(
             TraceFilterCallback callback /* in */
             )
@@ -3527,6 +4624,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the globally configured trace filter callback,
+        /// removing it.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTraceFilterCallback()
         {
             lock (syncRoot)
@@ -3537,6 +4638,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the trace filter callback associated with the
+        /// specified interpreter, removing it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose associated trace filter callback should be
+        /// removed.  This value may be null.
+        /// </param>
         private static void ResetTraceFilterCallback(
             Interpreter interpreter /* in */
             )
@@ -3547,6 +4656,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the effective trace filter callback, if any, to
+        /// determine whether the specified trace message should be filtered
+        /// out (i.e. dropped).  Any exception thrown by the callback is caught
+        /// and ignored, in which case the message is not filtered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message; the callback may modify this value.
+        /// </param>
+        /// <param name="category">
+        /// The trace category; the callback may modify this value.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags; the callback may modify this value.
+        /// </param>
+        /// <returns>
+        /// True if the trace message should be filtered out (i.e. dropped);
+        /// otherwise, false.
+        /// </returns>
         private static bool IsTraceFiltered(
             Interpreter interpreter,   /* in */
             ref string message,        /* in */
@@ -3586,6 +4718,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Priority Management
+        /// <summary>
+        /// This method gets the configured trace priority mask, which controls
+        /// the set of trace priority flags that are currently allowed.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The configured trace priority mask.
+        /// </returns>
         public static TracePriority GetTracePriorities()
         {
             lock (syncRoot)
@@ -3596,6 +4736,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the configured trace priority mask, which controls
+        /// the set of trace priority flags that are currently allowed.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priorities">
+        /// The new trace priority mask.
+        /// </param>
         public static void SetTracePriorities(
             TracePriority priorities /* in */
             )
@@ -3608,6 +4756,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds or removes the specified trace priority flags
+        /// from the configured trace priority mask.  This method assumes the
+        /// static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags to add or remove.
+        /// </param>
+        /// <param name="enabled">
+        /// Non-zero to add the specified flags; zero to remove them.
+        /// </param>
         public static void AdjustTracePriorities(
             TracePriority priority, /* in */
             bool enabled            /* in */
@@ -3624,6 +4783,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the configured trace priority mask back to its
+        /// default value.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTracePriorities()
         {
             lock (syncRoot)
@@ -3634,6 +4797,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the configured trace priority mask from the
+        /// relevant environment variable (and/or its default), if it has not
+        /// already been set.  Exceptions are caught and ignored.  This method
+        /// assumes the static lock is held.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re-)initialization even when the trace priority
+        /// mask already has a non-default value.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to fall back to the default trace priority mask when the
+        /// relevant environment variable is not present.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which portions of
+        /// the trace state, if any, were initialized.
+        /// </returns>
         private static TraceStateType InitializeTracePriorities(
             bool force,      /* in */
             bool useDefaults /* in */
@@ -3685,6 +4866,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the configured global trace priority mask, which is
+        /// combined with the per-message priority to force certain flags (such
+        /// as "Always" and "Never") on or off.  This method assumes the static
+        /// lock is held.
+        /// </summary>
+        /// <returns>
+        /// The configured global trace priority mask.
+        /// </returns>
         public static TracePriority GetGlobalPriorities()
         {
             lock (syncRoot)
@@ -3695,6 +4885,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the configured global trace priority mask.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="priorities">
+        /// The new global trace priority mask.
+        /// </param>
         public static void SetGlobalPriorities(
             TracePriority priorities /* in */
             )
@@ -3707,6 +4904,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds or removes the specified trace priority flags from
+        /// the configured global trace priority mask.  This method assumes the
+        /// static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags to add or remove.
+        /// </param>
+        /// <param name="enabled">
+        /// Non-zero to add the specified flags; zero to remove them.
+        /// </param>
         public static void AdjustGlobalPriorities(
             TracePriority priority, /* in */
             bool enabled            /* in */
@@ -3723,6 +4931,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the configured global trace priority mask back
+        /// to its default value.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetGlobalPriorities()
         {
             lock (syncRoot)
@@ -3733,6 +4945,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the configured global trace priority mask
+        /// from the relevant environment variable (and/or its default), if it
+        /// has not already been set.  Exceptions are caught and ignored.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re-)initialization even when the global trace
+        /// priority mask already has a non-default value.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to fall back to the default global trace priority mask when
+        /// the relevant environment variable is not present.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which portions of
+        /// the trace state, if any, were initialized.
+        /// </returns>
         private static TraceStateType InitializeGlobalPriorities(
             bool force,      /* in */
             bool useDefaults /* in */
@@ -3784,6 +5014,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default trace priority, which is used for trace
+        /// messages that do not specify one explicitly.  This method assumes
+        /// the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The default trace priority.
+        /// </returns>
         public static TracePriority GetTracePriority()
         {
             lock (syncRoot)
@@ -3794,6 +5032,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the default trace priority, which is used for trace
+        /// messages that do not specify one explicitly.  This method assumes
+        /// the static lock is held.
+        /// </summary>
+        /// <param name="priority">
+        /// The new default trace priority.
+        /// </param>
         public static void SetTracePriority(
             TracePriority priority /* in */
             )
@@ -3806,6 +5052,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the default trace priority back to its default
+        /// value.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTracePriority()
         {
             lock (syncRoot)
@@ -3816,6 +5066,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the default trace priority from the relevant
+        /// environment variable (and/or its default), if it has not already
+        /// been set.  Exceptions are caught and ignored.  This method assumes
+        /// the static lock is held.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re-)initialization even when the default trace
+        /// priority already has a non-default value.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to fall back to the default trace priority when the
+        /// relevant environment variable is not present.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which portions of
+        /// the trace state, if any, were initialized.
+        /// </returns>
         private static TraceStateType InitializeTracePriority(
             bool force,      /* in */
             bool useDefaults /* in */
@@ -3867,6 +5135,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates any trace format selection flags present in
+        /// the configured trace priority mask into the corresponding trace
+        /// format string, clearing those flags as they are processed.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The number of trace format selection flags that were processed.
+        /// </returns>
         private static int TracePrioritiesToFormatString()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3929,6 +5206,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates any trace format flag adjustments present in
+        /// the configured trace priority mask into the corresponding trace
+        /// format flag fields, clearing those flags as they are processed.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The number of trace format flag adjustments that were processed.
+        /// </returns>
         private static int TracePrioritiesToFormatFlags()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3945,6 +5231,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates any trace format flag adjustments present in
+        /// the specified trace priority mask into the corresponding trace
+        /// format flag fields, clearing those flags from the mask as they are
+        /// processed.
+        /// </summary>
+        /// <param name="priorities">
+        /// The trace priority mask to examine; any trace format flag
+        /// adjustments that are processed are cleared from this value.
+        /// </param>
+        /// <param name="zero">
+        /// Upon return, may be set to enable inclusion of the date and time in
+        /// the trace output.
+        /// </param>
+        /// <param name="one">
+        /// Upon return, may be set to enable inclusion of the trace priority in
+        /// the trace output.
+        /// </param>
+        /// <param name="two">
+        /// Upon return, may be set to enable inclusion of the server name in
+        /// the trace output.
+        /// </param>
+        /// <param name="three">
+        /// Upon return, may be set to enable inclusion of the test name in the
+        /// trace output.
+        /// </param>
+        /// <param name="four">
+        /// Upon return, may be set to enable inclusion of the application
+        /// domain in the trace output.
+        /// </param>
+        /// <param name="five">
+        /// Upon return, may be set or cleared to enable or disable inclusion of
+        /// the interpreter in the trace output.
+        /// </param>
+        /// <param name="six">
+        /// Upon return, may be set to enable inclusion of the thread
+        /// identifier in the trace output.
+        /// </param>
+        /// <param name="seven">
+        /// Upon return, may be set to enable inclusion of the method name in
+        /// the trace output.
+        /// </param>
+        /// <param name="eight">
+        /// Upon return, may be set to enable inclusion of the stack trace in
+        /// the trace output.
+        /// </param>
+        /// <param name="nine">
+        /// Upon return, may be set to enable inclusion of extra new lines in
+        /// the trace output.
+        /// </param>
+        /// <returns>
+        /// The number of trace format flag adjustments that were processed.
+        /// </returns>
         private static int TracePrioritiesToFormatFlags(
             ref TracePriority priorities, /* in, out */
             ref bool zero,                /* in, out */
@@ -4056,6 +5395,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Category Management
+        /// <summary>
+        /// This method lists the default set of trace categories along with
+        /// their associated values.
+        /// </summary>
+        /// <returns>
+        /// A collection of strings describing the trace categories, or null if
+        /// there are none.
+        /// </returns>
         private static IEnumerable<string> ListTraceCategories()
         {
             return ListTraceCategories(TraceCategoryType.Default);
@@ -4063,6 +5410,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method lists the trace categories of the specified type(s)
+        /// (enabled, disabled, penalty, and/or bonus) along with their
+        /// associated values.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="categoryType">
+        /// The type(s) of trace categories to include in the resulting list.
+        /// </param>
+        /// <returns>
+        /// A collection of strings describing the trace categories, or null if
+        /// there are none.
+        /// </returns>
         private static IEnumerable<string> ListTraceCategories(
             TraceCategoryType categoryType /* in */
             )
@@ -4233,6 +5592,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds (or adjusts the value of) the specified categories
+        /// in the default set of trace categories.
+        /// </summary>
+        /// <param name="categories">
+        /// The trace categories to add or adjust.  This value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each trace category; if a category
+        /// already exists, this value is added to its existing value.
+        /// </param>
         public static void SetTraceCategories(
             IEnumerable<string> categories, /* in */
             int value                       /* in */
@@ -4243,6 +5613,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds (or adjusts the value of) the specified categories
+        /// in the trace category dictionaries of the specified type(s).  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="categoryType">
+        /// The type(s) of trace category dictionaries to add or adjust.
+        /// </param>
+        /// <param name="categories">
+        /// The trace categories to add or adjust.  This value may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each trace category; if a category
+        /// already exists, this value is added to its existing value.
+        /// </param>
         public static void SetTraceCategories(
             TraceCategoryType categoryType, /* in */
             IEnumerable<string> categories, /* in */
@@ -4419,6 +5804,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified categories from the default set of
+        /// trace categories.
+        /// </summary>
+        /// <param name="categories">
+        /// The trace categories to remove.  This value may be null.
+        /// </param>
         private static void UnsetTraceCategories(
             IEnumerable<string> categories /* in */
             )
@@ -4428,6 +5820,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the specified categories from the trace category
+        /// dictionaries of the specified type(s).  This method assumes the
+        /// static lock is held.
+        /// </summary>
+        /// <param name="categoryType">
+        /// The type(s) of trace category dictionaries to remove from.
+        /// </param>
+        /// <param name="categories">
+        /// The trace categories to remove.  This value may be null.
+        /// </param>
         private static void UnsetTraceCategories(
             TraceCategoryType categoryType, /* in */
             IEnumerable<string> categories  /* in */
@@ -4571,6 +5974,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the entries from the default set of trace
+        /// category dictionaries, leaving the dictionaries themselves intact.
+        /// </summary>
         private static void ClearTraceCategories()
         {
             ClearTraceCategories(TraceCategoryType.Default);
@@ -4578,6 +5985,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the entries from the trace category dictionaries
+        /// of the specified type(s), leaving the dictionaries themselves
+        /// intact.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="categoryType">
+        /// The type(s) of trace category dictionaries to clear.
+        /// </param>
         private static void ClearTraceCategories(
             TraceCategoryType categoryType /* in */
             )
@@ -4616,6 +6031,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the default set of trace category dictionaries,
+        /// clearing and removing them entirely.
+        /// </summary>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which trace category
+        /// dictionaries, if any, were reset.
+        /// </returns>
         private static TraceStateType ResetTraceCategories()
         {
             return ResetTraceCategories(TraceCategoryType.Default);
@@ -4623,6 +6046,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the trace category dictionaries of the specified
+        /// type(s), clearing and removing them entirely.  This method assumes
+        /// the static lock is held.
+        /// </summary>
+        /// <param name="categoryType">
+        /// The type(s) of trace category dictionaries to reset.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which trace category
+        /// dictionaries, if any, were reset.
+        /// </returns>
         private static TraceStateType ResetTraceCategories(
             TraceCategoryType categoryType /* in */
             )
@@ -4677,6 +6112,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the trace category dictionaries indicated by
+        /// the specified state type from the relevant environment variables
+        /// (and/or their defaults), if they have not already been set.
+        /// Exceptions are caught and ignored.  This method assumes the static
+        /// lock is held.
+        /// </summary>
+        /// <param name="stateType">
+        /// The trace state flags indicating which trace category dictionaries
+        /// to initialize, and whether to force (re-)initialization.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to fall back to the default trace categories when the
+        /// relevant environment variable is not present.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which trace category
+        /// dictionaries, if any, were initialized.
+        /// </returns>
         private static TraceStateType InitializeTraceCategories(
             TraceStateType stateType, /* in */
             bool useDefaults          /* in */
@@ -4845,6 +6299,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Format String Management
+        /// <summary>
+        /// This method gets the explicitly configured trace format string, if
+        /// any.  This method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The configured trace format string, or null if none is set.
+        /// </returns>
         private static string GetTraceFormatString()
         {
             lock (syncRoot)
@@ -4855,6 +6316,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the explicitly configured trace format string,
+        /// removing it.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTraceFormatString()
         {
             lock (syncRoot)
@@ -4865,6 +6330,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the explicitly configured trace format string.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="format">
+        /// The new trace format string.  This value may be null.
+        /// </param>
         private static void SetTraceFormatString(
             string format /* in */
             )
@@ -4879,6 +6351,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Format Index Management
+        /// <summary>
+        /// This method gets the configured built-in trace format index, if any.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The configured built-in trace format index, or null if none is set.
+        /// </returns>
         private static int? GetTraceFormatIndex()
         {
             lock (syncRoot)
@@ -4889,6 +6368,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the configured built-in trace format index,
+        /// removing it.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTraceFormatIndex()
         {
             lock (syncRoot)
@@ -4899,6 +6382,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the configured built-in trace format index.  This
+        /// method assumes the static lock is held.
+        /// </summary>
+        /// <param name="index">
+        /// The new built-in trace format index.  This value may be null.
+        /// </param>
         private static void SetTraceFormatIndex(
             int? index /* in */
             )
@@ -4913,6 +6403,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Format Management
+        /// <summary>
+        /// This method translates a (possibly negative) built-in trace format
+        /// index into an absolute index, where negative indexes are relative to
+        /// the end of the set of built-in trace formats.
+        /// </summary>
+        /// <param name="index">
+        /// The built-in trace format index to translate.
+        /// </param>
+        /// <param name="length">
+        /// The total number of built-in trace formats.
+        /// </param>
+        /// <returns>
+        /// The translated, absolute built-in trace format index.
+        /// </returns>
         private static int TranslateTraceFormatIndex(
             int index, /* in */
             int length /* in */
@@ -4926,6 +6430,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified built-in trace format
+        /// index is valid, translating it to an absolute index in the process.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="index">
+        /// The built-in trace format index to check; upon success, this value
+        /// is set to the translated, absolute index.
+        /// </param>
+        /// <returns>
+        /// True if the specified built-in trace format index is valid;
+        /// otherwise, false.
+        /// </returns>
         private static bool CheckBuiltInTraceFormatIndex(
             ref int index /* in, out */
             )
@@ -4952,6 +6469,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in trace format string at the specified
+        /// index.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="index">
+        /// The built-in trace format index.
+        /// </param>
+        /// <returns>
+        /// The built-in trace format string at the specified index, or null if
+        /// the index is not valid.
+        /// </returns>
         private static string GetBuiltInTraceFormat(
             int index /* in */
             )
@@ -4972,6 +6500,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in trace format at the specified index
+        /// as the active trace format.  This method assumes the static lock is
+        /// held.
+        /// </summary>
+        /// <param name="index">
+        /// The built-in trace format index to select.
+        /// </param>
+        /// <returns>
+        /// True if the built-in trace format was selected; otherwise, false.
+        /// </returns>
         private static bool SetBuiltInTraceFormat(
             int index /* in */
             )
@@ -4993,6 +6532,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the effective trace format string, preferring the
+        /// explicitly configured trace format string, then the configured
+        /// built-in trace format index, and finally the fallback trace format
+        /// (when its use is enabled).  This method assumes the static lock is
+        /// held.
+        /// </summary>
+        /// <returns>
+        /// The effective trace format string, or null if none is available.
+        /// </returns>
         private static string GetEffectiveTraceFormat()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -5012,6 +6561,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the effective trace format string for a message,
+        /// honoring any per-message trace format selection flags present in the
+        /// specified trace priority mask and clearing them as they are
+        /// processed.
+        /// </summary>
+        /// <param name="priorities">
+        /// The trace priority mask to examine; any trace format selection flags
+        /// that are honored are cleared from this value.
+        /// </param>
+        /// <returns>
+        /// The effective trace format string, or null if none is available.
+        /// </returns>
         private static string GetEffectiveTraceFormat(
             ref TracePriority priorities /* in, out */
             )
@@ -5061,6 +6623,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified value is a valid trace
+        /// format, either a known <see cref="TraceFormatType" /> name or a
+        /// format string that can be used with the appropriate
+        /// <c>String.Format</c> overload without throwing.
+        /// </summary>
+        /// <param name="value">
+        /// The trace format value to verify.
+        /// </param>
+        /// <param name="formatType">
+        /// Upon success, receives the kind of trace format that was recognized.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives one or more errors describing why the trace
+        /// format could not be verified.
+        /// </param>
+        /// <returns>
+        /// True if the specified value is a valid trace format; otherwise,
+        /// false.
+        /// </returns>
         private static bool VerifyTraceFormat(
             string value,                   /* in */
             ref TraceFormatType formatType, /* out */
@@ -5131,6 +6713,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the active trace format (either a format
+        /// string or a built-in format index) from the relevant environment
+        /// variable (and/or its default), if it has not already been set.
+        /// Exceptions are caught and ignored.  This method assumes the static
+        /// lock is held.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force (re-)initialization even when the trace format has
+        /// already been set.
+        /// </param>
+        /// <param name="useDefaults">
+        /// Non-zero to fall back to the default trace format when the relevant
+        /// environment variable is not present.
+        /// </param>
+        /// <returns>
+        /// A <see cref="TraceStateType" /> value indicating which portions of
+        /// the trace format, if any, were initialized.
+        /// </returns>
         private static TraceStateType InitializeTraceFormat(
             bool force,      /* in */
             bool useDefaults /* in */
@@ -5200,6 +6801,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Built-In Formats
+        /// <summary>
+        /// This method gets the built-in "bare" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "bare" trace format string.
+        /// </returns>
         private static string GetBareTraceFormat()
         {
             return GetBuiltInTraceFormat(1);
@@ -5207,6 +6814,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "bare" trace format as the active
+        /// trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "bare" trace format was selected; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetBareTraceFormat()
         {
             return SetBuiltInTraceFormat(1);
@@ -5214,6 +6829,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "bare" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "bare" trace
+        /// format; otherwise, false.
+        /// </returns>
         private static bool IsBareTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5222,6 +6845,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in "minimum" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "minimum" trace format string.
+        /// </returns>
         private static string GetMinimumTraceFormat()
         {
             return GetBuiltInTraceFormat(2);
@@ -5229,6 +6858,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "minimum" trace format as the
+        /// active trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "minimum" trace format was selected; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetMinimumTraceFormat()
         {
             return SetBuiltInTraceFormat(2);
@@ -5236,6 +6873,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "minimum" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "minimum" trace
+        /// format; otherwise, false.
+        /// </returns>
         private static bool IsMinimumTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5244,6 +6889,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in "medium-low" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "medium-low" trace format string.
+        /// </returns>
         private static string GetMediumLowTraceFormat()
         {
             return GetBuiltInTraceFormat(3);
@@ -5251,6 +6902,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "medium-low" trace format as the
+        /// active trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "medium-low" trace format was selected;
+        /// otherwise, false.
+        /// </returns>
         private static bool SetMediumLowTraceFormat()
         {
             return SetBuiltInTraceFormat(3);
@@ -5258,6 +6917,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "medium-low" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "medium-low"
+        /// trace format; otherwise, false.
+        /// </returns>
         private static bool IsMediumLowTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5266,6 +6933,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in "medium" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "medium" trace format string.
+        /// </returns>
         private static string GetMediumTraceFormat()
         {
             return GetBuiltInTraceFormat(4);
@@ -5273,6 +6946,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "medium" trace format as the active
+        /// trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "medium" trace format was selected; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetMediumTraceFormat()
         {
             return SetBuiltInTraceFormat(4);
@@ -5280,6 +6961,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "medium" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "medium" trace
+        /// format; otherwise, false.
+        /// </returns>
         private static bool IsMediumTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5288,6 +6977,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in "medium-high" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "medium-high" trace format string.
+        /// </returns>
         private static string GetMediumHighTraceFormat()
         {
             return GetBuiltInTraceFormat(Index.Invalid - 1);
@@ -5295,6 +6990,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "medium-high" trace format as the
+        /// active trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "medium-high" trace format was selected;
+        /// otherwise, false.
+        /// </returns>
         private static bool SetMediumHighTraceFormat()
         {
             return SetBuiltInTraceFormat(Index.Invalid - 1);
@@ -5302,6 +7005,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "medium-high" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "medium-high"
+        /// trace format; otherwise, false.
+        /// </returns>
         private static bool IsMediumHighTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5310,6 +7021,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the built-in "maximum" trace format string.
+        /// </summary>
+        /// <returns>
+        /// The built-in "maximum" trace format string.
+        /// </returns>
         private static string GetMaximumTraceFormat()
         {
             return GetBuiltInTraceFormat(Index.Invalid);
@@ -5317,6 +7034,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the built-in "maximum" trace format as the
+        /// active trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the built-in "maximum" trace format was selected; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetMaximumTraceFormat()
         {
             return SetBuiltInTraceFormat(Index.Invalid);
@@ -5324,6 +7049,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the effective trace format is the
+        /// built-in "maximum" trace format.
+        /// </summary>
+        /// <returns>
+        /// True if the effective trace format is the built-in "maximum" trace
+        /// format; otherwise, false.
+        /// </returns>
         private static bool IsMaximumTraceFormat()
         {
             return SharedStringOps.SystemEquals(
@@ -5334,6 +7067,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Fallback Format Management
+        /// <summary>
+        /// This method gets the fallback trace format string, which is used
+        /// when no other trace format has been configured.  This method assumes
+        /// the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// The fallback trace format string, or null if none is set.
+        /// </returns>
         private static string GetFallbackTraceFormat()
         {
             lock (syncRoot)
@@ -5344,6 +7085,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the fallback trace format string back to its
+        /// default value.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetFallbackTraceFormat()
         {
             lock (syncRoot)
@@ -5359,6 +7104,15 @@ namespace Eagle._Components.Private
         //          of false because that could totally disable all trace
         //          output.
         //
+        /// <summary>
+        /// This method enables or disables the fallback trace format string, by
+        /// setting it to the default trace format or to null, respectively.
+        /// This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to set the fallback trace format to the default trace
+        /// format; zero to clear it (which could disable all trace output).
+        /// </param>
         private static void SetFallbackTraceFormat(
             bool enabled /* in */
             )
@@ -5371,6 +7125,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the fallback trace format should be
+        /// used when no other trace format has been configured.  This method
+        /// assumes the static lock is held.
+        /// </summary>
+        /// <returns>
+        /// True if the fallback trace format should be used; otherwise, false.
+        /// </returns>
         private static bool GetUseFallbackTraceFormat()
         {
             lock (syncRoot)
@@ -5381,6 +7143,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the flag that controls whether the fallback trace
+        /// format should be used back to its default value.  This method
+        /// assumes the static lock is held.
+        /// </summary>
         private static void ResetUseFallbackTraceFormat()
         {
             lock (syncRoot)
@@ -5391,6 +7158,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the flag that controls whether the fallback trace
+        /// format should be used.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to use the fallback trace format when no other trace format
+        /// has been configured; otherwise, zero.
+        /// </param>
         private static void SetUseFallbackTraceFormat(
             bool enabled /* in */
             )
@@ -5405,6 +7180,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Message Helper Methods
+        /// <summary>
+        /// This method appends the trailing new line placeholder to the
+        /// specified trace format string.
+        /// </summary>
+        /// <param name="traceFormat">
+        /// The trace format string to modify; upon return, it includes the
+        /// trailing new line placeholder.
+        /// </param>
         private static void MaybeAddNewLines(
             ref string traceFormat /* in, out */
             )
@@ -5415,6 +7198,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the current values of the individual trace format
+        /// flag fields.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="zero">
+        /// Receives the flag indicating whether the date and time are included
+        /// in the trace output.
+        /// </param>
+        /// <param name="one">
+        /// Receives the flag indicating whether the trace priority is included
+        /// in the trace output.
+        /// </param>
+        /// <param name="two">
+        /// Receives the flag indicating whether the server name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="three">
+        /// Receives the flag indicating whether the test name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="four">
+        /// Receives the flag indicating whether the application domain is
+        /// included in the trace output.
+        /// </param>
+        /// <param name="five">
+        /// Receives the flag indicating whether the interpreter is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="six">
+        /// Receives the flag indicating whether the thread identifier is
+        /// included in the trace output.
+        /// </param>
+        /// <param name="seven">
+        /// Receives the flag indicating whether the method name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="eight">
+        /// Receives the flag indicating whether the stack trace is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="nine">
+        /// Receives the flag indicating whether extra new lines are included in
+        /// the trace output.
+        /// </param>
         private static void GetTraceFormatFlags(
             out bool zero,  /* out */
             out bool one,   /* out */
@@ -5445,6 +7272,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the individual trace format flag fields to the
+        /// specified values.  This method assumes the static lock is held.
+        /// </summary>
+        /// <param name="zero">
+        /// The flag indicating whether the date and time are included in the
+        /// trace output.
+        /// </param>
+        /// <param name="one">
+        /// The flag indicating whether the trace priority is included in the
+        /// trace output.
+        /// </param>
+        /// <param name="two">
+        /// The flag indicating whether the server name is included in the trace
+        /// output.
+        /// </param>
+        /// <param name="three">
+        /// The flag indicating whether the test name is included in the trace
+        /// output.
+        /// </param>
+        /// <param name="four">
+        /// The flag indicating whether the application domain is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="five">
+        /// The flag indicating whether the interpreter is included in the trace
+        /// output.
+        /// </param>
+        /// <param name="six">
+        /// The flag indicating whether the thread identifier is included in the
+        /// trace output.
+        /// </param>
+        /// <param name="seven">
+        /// The flag indicating whether the method name is included in the trace
+        /// output.
+        /// </param>
+        /// <param name="eight">
+        /// The flag indicating whether the stack trace is included in the trace
+        /// output.
+        /// </param>
+        /// <param name="nine">
+        /// The flag indicating whether extra new lines are included in the
+        /// trace output.
+        /// </param>
         private static void SetTraceFormatFlags(
             bool zero,  /* in */
             bool one,   /* in */
@@ -5475,6 +7346,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the individual trace format flag fields back to
+        /// their default values.  This method assumes the static lock is held.
+        /// </summary>
         private static void ResetTraceFormatFlags()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -5497,6 +7372,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the individual trace format flag
+        /// fields together, optionally including the more verbose ones (the
+        /// stack trace and extra new lines).  This method assumes the static
+        /// lock is held.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero to enable the affected trace format flags; zero to disable
+        /// them.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to also affect the more verbose trace format flags (the
+        /// stack trace and extra new lines).
+        /// </param>
         private static void EnableTraceFormatFlags(
             bool enabled, /* in */
             bool verbose  /* in */
@@ -5523,6 +7412,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the effective trace format flags for a message,
+        /// starting from the current trace format flag fields and then applying
+        /// any per-message trace format flag adjustments present in the
+        /// specified trace priority mask (which are cleared as they are
+        /// processed).
+        /// </summary>
+        /// <param name="priorities">
+        /// The trace priority mask to examine; any trace format flag
+        /// adjustments that are applied are cleared from this value.
+        /// </param>
+        /// <param name="zero">
+        /// Receives the flag indicating whether the date and time are included
+        /// in the trace output.
+        /// </param>
+        /// <param name="one">
+        /// Receives the flag indicating whether the trace priority is included
+        /// in the trace output.
+        /// </param>
+        /// <param name="two">
+        /// Receives the flag indicating whether the server name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="three">
+        /// Receives the flag indicating whether the test name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="four">
+        /// Receives the flag indicating whether the application domain is
+        /// included in the trace output.
+        /// </param>
+        /// <param name="five">
+        /// Receives the flag indicating whether the interpreter is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="six">
+        /// Receives the flag indicating whether the thread identifier is
+        /// included in the trace output.
+        /// </param>
+        /// <param name="seven">
+        /// Receives the flag indicating whether the method name is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="eight">
+        /// Receives the flag indicating whether the stack trace is included in
+        /// the trace output.
+        /// </param>
+        /// <param name="nine">
+        /// Receives the flag indicating whether extra new lines are included in
+        /// the trace output.
+        /// </param>
         private static void GetTraceFormatFlags(
             ref TracePriority priorities, /* in, out */
             out bool zero,                /* out */
@@ -5553,6 +7493,14 @@ namespace Eagle._Components.Private
 
         #region Trace Message Methods
         #region Private
+        /// <summary>
+        /// This method records statistics indicating that a trace message was
+        /// emitted in the context of a lock warning or error, based on the
+        /// specified trace priority flags.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void TraceWasForLock(
             TracePriority priority /* in */
@@ -5576,6 +7524,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Debug Write Core
+        /// <summary>
+        /// This method is the core implementation used to write a raw value
+        /// (i.e. one that is not subject to the normal trace category and
+        /// priority checks) to the trace output, honoring the configured trace
+        /// format and listeners.  It is guarded against unbounded reentrancy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the value, if any.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write to the trace output.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when it would
+        /// otherwise be suppressed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         // [Conditional("DEBUG_TRACE")] // HACK: Always included.
         private static void DebugWriteToCore(
@@ -5671,6 +7636,36 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Debug Trace Core
+        /// <summary>
+        /// This method is the core implementation used to write an
+        /// already-formatted trace message to the active interpreter host (when
+        /// enabled and available), the configured trace listeners, and/or the
+        /// log, after applying the trace category and priority checks (unless
+        /// they are skipped).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The already-formatted trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message, if any.
+        /// </param>
+        /// <param name="methodName">
+        /// The name of the method that originated the trace message, if any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipChecks">
+        /// Non-zero to skip the trace category and priority checks, forcing the
+        /// message to be written.
+        /// </param>
+        /// <returns>
+        /// True if the trace message was written; otherwise, false.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         // [Conditional("DEBUG_TRACE")] // HACK: Must return boolean.
         private static bool DebugTraceRaw(
@@ -5786,6 +7781,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the core implementation used to format and write a
+        /// trace message, applying the trace possible, trace enabled, and trace
+        /// filter checks (unless they are skipped) and gathering the various
+        /// pieces of contextual information (such as the date and time, thread
+        /// identifier, method name, and stack trace) selected by the active
+        /// trace format flags.  It is guarded against unbounded reentrancy.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread that originated the trace message, if
+        /// known.  This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to format and write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message, if any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of call frames to skip when capturing a stack trace, if
+        /// any.
+        /// </param>
+        /// <param name="skipChecks">
+        /// Non-zero to skip the trace possible and trace enabled checks.
+        /// </param>
+        /// <param name="skipFilter">
+        /// Non-zero to skip the trace filter check.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         // [Conditional("DEBUG_TRACE")] // HACK: Always included.
         private static void DebugTraceCore(
@@ -5957,6 +7987,25 @@ namespace Eagle._Components.Private
 
         #region Public
         #region Statistics Tracking Methods
+        /// <summary>
+        /// This method records statistics indicating that a trace message was
+        /// dropped (i.e. not written) for some reason.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the dropped trace message, if any.
+        /// This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The dropped trace message, if any.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the dropped trace message, if
+        /// any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the dropped trace message,
+        /// if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void TraceWasDropped(
             Interpreter interpreter, /* in */
@@ -5970,6 +8019,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records statistics indicating that a trace message was
+        /// written to the log.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the logged trace message, if any.
+        /// This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The logged trace message, if any.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the logged trace message, if any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the logged trace message,
+        /// if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void TraceWasLogged(
             Interpreter interpreter, /* in */
@@ -5985,6 +8052,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Conditional Debug Trace
+        /// <summary>
+        /// This method conditionally (when the DEBUG_WRITE compile-time symbol
+        /// is defined) writes a raw value to the trace output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the value, if any.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write to the trace output.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when it would
+        /// otherwise be suppressed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_WRITE")]
         public static void DebugWriteTo(
@@ -6000,6 +8082,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Unconditional Debug Trace
+        /// <summary>
+        /// This method unconditionally writes a raw value to the trace output.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the value, if any.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to write to the trace output.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the value to be written even when it would
+        /// otherwise be suppressed.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugWriteToAlways(
             Interpreter interpreter, /* in */
@@ -6014,6 +8110,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Conditional Debug Trace
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message indicating that a lock could not
+        /// be acquired, and records the associated lock warning or error
+        /// statistics.
+        /// </summary>
+        /// <param name="method">
+        /// The name of the method that was unable to acquire the lock.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="static">
+        /// Non-zero if the lock that could not be acquired is a static lock.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread that currently holds the lock, if
+        /// known.  This value may be null.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void LockTrace(
@@ -6034,6 +8152,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message indicating that a lock could not
+        /// be acquired, including an additional descriptive suffix, and records
+        /// the associated lock warning or error statistics.
+        /// </summary>
+        /// <param name="method">
+        /// The name of the method that was unable to acquire the lock.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="suffix">
+        /// An additional descriptive suffix to include in the trace message.
+        /// </param>
+        /// <param name="static">
+        /// Non-zero if the lock that could not be acquired is a static lock.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="threadId">
+        /// The identifier of the thread that currently holds the lock, if
+        /// known.  This value may be null.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void LockTrace(
@@ -6055,6 +8198,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message describing the specified
+        /// exception.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6069,6 +8226,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message describing the specified
+        /// exception, attributed to the specified thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread to attribute the trace message to, if
+        /// known.  This value may be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6084,6 +8259,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message describing the specified
+        /// exception, prefixed with a label and a list of arguments.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="prefix">
+        /// A descriptive prefix to include before the argument list in the
+        /// trace message.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to include in the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6101,6 +8297,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message describing the specified
+        /// exception, associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of additional call frames to skip when capturing a stack
+        /// trace, if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6117,6 +8335,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes the specified trace message.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6131,6 +8362,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes the specified trace message, attributed to the
+        /// specified thread.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread to attribute the trace message to, if
+        /// known.  This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6146,6 +8395,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes the specified trace message, associated with the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of additional call frames to skip when capturing a stack
+        /// trace, if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6165,6 +8436,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Unconditional Debug Trace
+        /// <summary>
+        /// This method unconditionally writes a trace message describing the
+        /// specified exception, applying the trace possible and trace enabled
+        /// checks.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             Exception exception,   /* in */
@@ -6225,6 +8510,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes a trace message describing the
+        /// specified exception, attributed to the specified thread, applying
+        /// the trace possible and trace enabled checks.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread to attribute the trace message to, if
+        /// known.  This value may be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void DebugTraceAlways(
             long? threadId,        /* in */
@@ -6285,6 +8588,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes a trace message describing the
+        /// specified exception, prefixed with a label and an optional list of
+        /// script arguments, applying the trace possible and trace enabled
+        /// checks.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="prefix">
+        /// A descriptive prefix to include before the exception in the trace
+        /// message.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of script arguments to include in the trace message, if
+        /// any.  This value may be null.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static void DebugTraceAlways(
             Exception exception,    /* in */
@@ -6352,6 +8678,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes a trace message describing the
+        /// specified exception, associated with the specified interpreter,
+        /// applying the trace possible and trace enabled checks.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="exception">
+        /// The exception to describe in the trace message.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of additional call frames to skip when capturing a stack
+        /// trace, if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             Interpreter interpreter, /* in */
@@ -6412,6 +8760,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes the specified trace message,
+        /// applying the trace possible and trace enabled checks.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             string message,        /* in */
@@ -6472,6 +8833,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes the specified trace message,
+        /// attributed to the specified thread, applying the trace possible and
+        /// trace enabled checks.
+        /// </summary>
+        /// <param name="threadId">
+        /// The identifier of the thread to attribute the trace message to, if
+        /// known.  This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             long? threadId,        /* in */
@@ -6532,6 +8911,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes the specified trace message,
+        /// associated with the specified interpreter, applying the trace
+        /// possible and trace enabled checks.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace message, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of additional call frames to skip when capturing a stack
+        /// trace, if any.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             Interpreter interpreter, /* in */
@@ -6594,6 +8995,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Parameter Methods
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) appends a formatted representation of the specified
+        /// name/value parameter pairs to the specified string builder, honoring
+        /// the formatting options indicated by the specified trace priority
+        /// flags.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority flags that control how the parameters are
+        /// formatted.
+        /// </param>
+        /// <param name="builder">
+        /// The string builder to which the formatted parameters are appended.
+        /// </param>
+        /// <param name="parameters">
+        /// The array of alternating parameter names and values to format.  Its
+        /// length must be even.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate long parameter values with an ellipsis; this
+        /// may be overridden by the specified trace priority flags.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         private static void AppendTraceParameters(
@@ -6736,6 +9159,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally (when the DEBUG_TRACE compile-time symbol
+        /// is defined) writes a trace message describing the specified method,
+        /// message, and name/value parameter pairs.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method that originated the trace message, if any.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write, if any.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message, if any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate long parameter values with an ellipsis.
+        /// </param>
+        /// <param name="parameters">
+        /// The array of alternating parameter names and values to include in
+        /// the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         [Conditional("DEBUG_TRACE")]
         public static void DebugTrace(
@@ -6754,6 +9201,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unconditionally writes a trace message describing the
+        /// specified method, message, and name/value parameter pairs.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method that originated the trace message, if any.
+        /// </param>
+        /// <param name="message">
+        /// The trace message to write, if any.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the trace message, if any.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority flags associated with the trace message.
+        /// </param>
+        /// <param name="skipFrames">
+        /// The number of additional call frames to skip when capturing a stack
+        /// trace, if any.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate long parameter values with an ellipsis.
+        /// </param>
+        /// <param name="parameters">
+        /// The array of alternating parameter names and values to include in
+        /// the trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void DebugTraceAlways(
             string methodName,         /* in */
@@ -6807,6 +9281,18 @@ namespace Eagle._Components.Private
 
         #region Policy Tracing Methods
 #if POLICY_TRACE
+        /// <summary>
+        /// This method determines whether policy trace messages should be
+        /// written, based on the global policy trace flag and the per-interpreter
+        /// policy trace flag.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose policy trace flag should be considered, if any.
+        /// This value may be null.
+        /// </param>
+        /// <returns>
+        /// True if policy trace messages should be written; otherwise, false.
+        /// </returns>
         private static bool ShouldWritePolicyTrace(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -6825,6 +9311,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a policy trace message describing the specified
+        /// method and name/value parameter pairs, but only when policy tracing
+        /// is enabled.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method that originated the policy trace message, if
+        /// any.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the policy trace message, if any.
+        /// This value may be null.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate long parameter values with an ellipsis.
+        /// </param>
+        /// <param name="parameters">
+        /// The array of alternating parameter names and values to include in
+        /// the policy trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void MaybeWritePolicyTrace(
             string methodName,         /* in */
@@ -6846,6 +9352,33 @@ namespace Eagle._Components.Private
         // WARNING: For (direct) use by Interpreter.CheckPolicies method
         //          only.
         //
+        /// <summary>
+        /// This method writes a policy trace message describing the specified
+        /// method and name/value parameter pairs, but only when policy tracing
+        /// is enabled, reporting whether the message was actually written.  It
+        /// is intended for direct use by the Interpreter.CheckPolicies method
+        /// only.
+        /// </summary>
+        /// <param name="methodName">
+        /// The name of the method that originated the policy trace message, if
+        /// any.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the policy trace message, if any.
+        /// This value may be null.
+        /// </param>
+        /// <param name="ellipsis">
+        /// Non-zero to truncate long parameter values with an ellipsis.
+        /// </param>
+        /// <param name="didWrite">
+        /// Upon return, receives a value indicating whether the policy trace
+        /// message was written; note that this value being non-zero does not
+        /// guarantee the tracing subsystem actually emitted the message.
+        /// </param>
+        /// <param name="parameters">
+        /// The array of alternating parameter names and values to include in
+        /// the policy trace message.
+        /// </param>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void MaybeWritePolicyTrace(
             string methodName,         /* in */

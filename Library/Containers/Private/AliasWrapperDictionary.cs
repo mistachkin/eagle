@@ -27,10 +27,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to alias
+    /// wrapper objects.  It extends the wrapper dictionary base class with
+    /// helpers for producing a filtered list of its keys.
+    /// </summary>
     [ObjectId("4e42c6a9-dd44-4f10-b668-5cdbe71a1266")]
     internal sealed class AliasWrapperDictionary :
             WrapperDictionary<string, AliasWrapper>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public AliasWrapperDictionary()
             : base()
         {
@@ -39,6 +47,49 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of the dictionary keys, optionally
+        /// filtered by the alias flags of their associated values and by a
+        /// name pattern.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The alias flags that an entry must have in order to be included.
+        /// If this is <see cref="AliasFlags.None" />, no filtering based on
+        /// required flags is performed.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The alias flags that an entry must not have in order to be
+        /// included.  If this is <see cref="AliasFlags.None" />, no filtering
+        /// based on excluded flags is performed.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero if an entry must have all of the flags specified by
+        /// <paramref name="hasFlags" />; otherwise, having any of them is
+        /// sufficient.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero if an entry must have all of the flags specified by
+        /// <paramref name="notHasFlags" /> in order to be excluded; otherwise,
+        /// having any of them is sufficient.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included.  This
+        /// parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of matching keys.  If this is null,
+        /// a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode ToList(
             AliasFlags hasFlags,
             AliasFlags notHasFlags,
@@ -95,6 +146,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

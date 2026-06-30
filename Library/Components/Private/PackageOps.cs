@@ -59,6 +59,13 @@ using PluginDictionary = System.Collections.Generic.Dictionary<string, byte[]>;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to discover,
+    /// create, evaluate, and manage package index files (e.g.
+    /// "pkgIndex.eagle") and the associated "package ifneeded" scripts for
+    /// an interpreter, including support for host-provided, file system, and
+    /// plugin assembly package indexes.
+    /// </summary>
     [ObjectId("e6e6c799-cbfd-4aa3-9017-c9944322a81c")]
     internal static class PackageOps
     {
@@ -67,6 +74,10 @@ namespace Eagle._Components.Private
         // NOTE: These are the ScriptFlags that are *always* used when trying
         //       to fetch the "pkgIndex.eagle" file via the interpreter host.
         //
+        /// <summary>
+        /// The script flags that are always used when attempting to fetch the
+        /// "pkgIndex.eagle" file via the interpreter host.
+        /// </summary>
         private static readonly ScriptFlags IndexScriptFlags =
             ScriptFlags.PackageLibraryOptionalFile;
 
@@ -75,6 +86,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the command used to lazily create the "package
+        /// ifneeded" command (and any associated procedures) when it is
+        /// needed.
+        /// </summary>
         private static string loaderCommand =
             "::maybeCreatePackageIfNeededCommand";
 
@@ -83,7 +99,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The name of the core command used to evaluate a script file (i.e.
+        /// the "source" command).
+        /// </summary>
         private static string sourceCommand = "::source";
+
+        /// <summary>
+        /// The name of the wrapper command that forwards to the core "source"
+        /// command while tracking additional information about the operation.
+        /// </summary>
         private static string sourceWithInfoCommand = "::sourceWithInfo";
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,6 +116,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the host-provided script that contains the list of
+        /// host package index file names.
+        /// </summary>
         private static string HostListFileName = "hostPackageIndexes";
 
         ///////////////////////////////////////////////////////////////////////
@@ -99,6 +128,11 @@ namespace Eagle._Components.Private
         // NOTE: This is used to check if a string value appears to be a
         //       public key token.
         //
+        /// <summary>
+        /// The regular expression used to check whether a string value appears
+        /// to be a public key token (an optional "0x" prefix followed by 16
+        /// hexadecimal digits).
+        /// </summary>
         private static readonly Regex PublicKeyTokenRegEx = RegExOps.Create(
             "^(?:0x)?([0-9a-f]{16})$");
 
@@ -109,6 +143,10 @@ namespace Eagle._Components.Private
         // NOTE: This pattern ends up being "*/pkgIndex.eagle".  This is
         //       specifically designed for use with bundled scripts.
         //
+        /// <summary>
+        /// The pattern, which ends up being "*/pkgIndex.eagle", used to match
+        /// package index files within bundled scripts.
+        /// </summary>
         private static readonly string BundleFileNamePattern = "*/{0}";
 #endif
 
@@ -119,6 +157,11 @@ namespace Eagle._Components.Private
         //       specifically designed to exclude "pkgIndex.eagle" because
         //       that is handled separately.
         //
+        /// <summary>
+        /// The pattern, which ends up being "pkgIndex_*.eagle", used to match
+        /// tagged package index files while excluding the plain
+        /// "pkgIndex.eagle" file (which is handled separately).
+        /// </summary>
         private static readonly string IndexFileNamePattern = "{0}_*{1}";
 
         //
@@ -126,6 +169,11 @@ namespace Eagle._Components.Private
         //       requirement that all tagged package index file names must
         //       contain the 16 digit hexadecimal number.
         //
+        /// <summary>
+        /// The regular expression that further restricts the tagged package
+        /// index file name pattern, enforcing the requirement that all tagged
+        /// package index file names contain the 16 digit hexadecimal number.
+        /// </summary>
         private static readonly Regex IndexFileNameRegEx = RegExOps.Create(
             "^" + ScriptTypes.PackageIndex + "_([0-9a-f]{16})\\" +
             FileExtension.Script + "$", RegexOptions.IgnoreCase |
@@ -135,6 +183,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Version Checking Methods
+        /// <summary>
+        /// This method compares two version numbers, treating a null version
+        /// as less than any non-null version.
+        /// </summary>
+        /// <param name="version1">
+        /// The first version to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="version2">
+        /// The second version to compare.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Zero if the two versions are equal, a negative number if
+        /// <paramref name="version1" /> is less than
+        /// <paramref name="version2" />, or a positive number if
+        /// <paramref name="version1" /> is greater than
+        /// <paramref name="version2" />.
+        /// </returns>
         public static int VersionCompare(
             Version version1,
             Version version2
@@ -152,6 +217,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether one version satisfies another,
+        /// either requiring an exact match or allowing the first version to be
+        /// greater than or equal to the second.
+        /// </summary>
+        /// <param name="version1">
+        /// The version being tested.  This parameter may be null.
+        /// </param>
+        /// <param name="version2">
+        /// The version that must be satisfied.  This parameter may be null.
+        /// </param>
+        /// <param name="exact">
+        /// Non-zero to require that the two versions be exactly equal;
+        /// otherwise, the first version must be greater than or equal to the
+        /// second.
+        /// </param>
+        /// <returns>
+        /// True if the version requirement is satisfied; otherwise, false.
+        /// </returns>
         public static bool VersionSatisfies(
             Version version1,
             Version version2,
@@ -166,6 +250,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method swaps the two specified versions, if necessary, so that
+        /// the first version is less than or equal to the second version.
+        /// </summary>
+        /// <param name="version1">
+        /// The first version.  Upon return, this contains the lesser of the
+        /// two versions.  This parameter may be null.
+        /// </param>
+        /// <param name="version2">
+        /// The second version.  Upon return, this contains the greater of the
+        /// two versions.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the two versions were swapped; otherwise, false.
+        /// </returns>
         public static bool MaybeSwapVersion(
             ref Version version1,
             ref Version version2
@@ -188,6 +287,47 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Class Factory Methods
+        /// <summary>
+        /// This method creates a new core package object using the specified
+        /// package metadata.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the package.
+        /// </param>
+        /// <param name="group">
+        /// The group the package belongs to, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="description">
+        /// The human-readable description of the package, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data to associate with the package, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="indexFileName">
+        /// The name of the package index file associated with the package, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="provideFileName">
+        /// The name of the file that provided the package, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags for the package.
+        /// </param>
+        /// <param name="loaded">
+        /// The version of the package that is currently loaded, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ifNeeded">
+        /// The collection that maps each available version to its associated
+        /// "package ifneeded" script.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created package object.
+        /// </returns>
         public static IPackage NewCore(
             string name,
             string group,
@@ -209,6 +349,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Package Support Methods
+        /// <summary>
+        /// This method returns the absolute name of the core "load" command.
+        /// </summary>
+        /// <returns>
+        /// The absolute name of the core "load" command.
+        /// </returns>
         private static string GetLoadCommandName()
         {
             return NamespaceOps.MakeAbsoluteName(
@@ -217,6 +363,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the absolute name of the core "package"
+        /// command.
+        /// </summary>
+        /// <returns>
+        /// The absolute name of the core "package" command.
+        /// </returns>
         private static string GetCommandName()
         {
             return NamespaceOps.MakeAbsoluteName(
@@ -225,6 +378,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string form of the specified version,
+        /// falling back to the two-part assembly version and then to a default
+        /// version value when no version is supplied.
+        /// </summary>
+        /// <param name="version">
+        /// The version to convert to a string, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The string form of the resolved version.
+        /// </returns>
         private static string GetVersionString(
             Version version /* in: OPTIONAL */
             )
@@ -242,6 +407,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified directory should be
+        /// treated as a package directory, i.e. one that contains a package
+        /// index file or a candidate script or assembly file, subject to the
+        /// supplied flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when checking whether candidate
+        /// assembly files are trusted.  This parameter may be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory to examine.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the directory is examined.
+        /// </param>
+        /// <returns>
+        /// True if the directory qualifies as a package directory; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsDirectory(
             Interpreter interpreter,   /* in: OPTIONAL */
             string directory,          /* in */
@@ -362,6 +547,37 @@ namespace Eagle._Components.Private
         // HACK: This method cannot (currently) fail.  The error parameter
         //       is here just in case this needs to change in the future.
         //
+        /// <summary>
+        /// This method builds the text of a "load" command used to load the
+        /// plugin with the specified type from the specified file.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the command to emit instead of the default "load"
+        /// command name, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token that the assembly must have, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the plugin to load.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to load.
+        /// </param>
+        /// <param name="anyThread">
+        /// Non-zero to permit the plugin to be loaded on any thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this would contain an appropriate error message.
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The text of the constructed "load" command.
+        /// </returns>
         private static string GetLoadCommand(
             Interpreter interpreter, /* in: NOT USED */
             string commandName,      /* in: OPTIONAL */
@@ -408,6 +624,38 @@ namespace Eagle._Components.Private
         // HACK: This method cannot (currently) fail.  The error parameter
         //       is here just in case this needs to change in the future.
         //
+        /// <summary>
+        /// This method builds the text of a "package ifneeded" command used to
+        /// register the script that should be evaluated to provide the
+        /// specified package version.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the command to emit instead of the default "package"
+        /// command name, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="packageName">
+        /// The name of the package.  This parameter may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version of the package, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text to evaluate when the package is needed, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="locked">
+        /// Non-zero to mark the package as locked.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this would contain an appropriate error message.
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The text of the constructed "package ifneeded" command.
+        /// </returns>
         private static string GetIfNeededCommand(
             Interpreter interpreter, /* in: NOT USED */
             string commandName,      /* in: OPTIONAL */
@@ -442,6 +690,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified directories, in order, for the
+        /// first one that contains a file with the specified file name only.
+        /// </summary>
+        /// <param name="directories">
+        /// The directories to search.  This parameter may be null.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name (without any directory information) to search for.
+        /// </param>
+        /// <returns>
+        /// The full path of the first matching file, or null if no matching
+        /// file is found.
+        /// </returns>
         private static string FindFileNameOnly(
             PathList directories, /* in */
             string fileNameOnly   /* in */
@@ -475,6 +737,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the text of a "package ifneeded" command whose
+        /// body is a "load" command for the specified plugin type and file.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the plugin to load.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to load; this also serves as the
+        /// package name.
+        /// </param>
+        /// <param name="version">
+        /// The version of the package.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token that the assembly must have, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="anyThread">
+        /// Non-zero to permit the plugin to be loaded on any thread.
+        /// </param>
+        /// <param name="locked">
+        /// Non-zero to mark the package as locked.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The text of the constructed "package ifneeded" command, or null on
+        /// failure.
+        /// </returns>
         private static string GetIfNeededScript(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -501,6 +797,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified directory to the supplied collection
+        /// if it qualifies as a package directory and has not already been
+        /// added.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when validating the directory.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory to add.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the directory is validated.
+        /// </param>
+        /// <param name="directories">
+        /// The collection of directories to add to.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <returns>
+        /// True if the directory was added; otherwise, false.
+        /// </returns>
         private static bool MaybeAddDirectory(
             Interpreter interpreter,         /* in */
             string directory,                /* in */
@@ -526,6 +844,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns all directories under the specified path,
+        /// optionally recursing into sub-directories.
+        /// </summary>
+        /// <param name="path">
+        /// The root path to enumerate.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the enumeration (e.g. whether to recurse and
+        /// whether to trace errors).
+        /// </param>
+        /// <returns>
+        /// The list of directories, in order, or null if the path is invalid
+        /// or the enumeration fails.
+        /// </returns>
         private static PathList GetAllDirectories(
             string path,               /* in */
             PackageIfNeededFlags flags /* in */
@@ -563,6 +896,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds all qualifying directories under the specified
+        /// path to the supplied collection.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when validating each directory.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="path">
+        /// The root path to enumerate.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the enumeration and validation.
+        /// </param>
+        /// <param name="paths">
+        /// The collection of directories to add to.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <returns>
+        /// The number of directories that were added.
+        /// </returns>
         private static long MaybeAddAllDirectories(
             Interpreter interpreter,    /* in */
             string path,                /* in */
@@ -594,6 +948,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the ordered list of directories to search for
+        /// package files, combining the supplied path, the binary path, the
+        /// parent path, and the base path according to the specified flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when validating directories.
+        /// </param>
+        /// <param name="path">
+        /// The primary path to consider, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling which directory sources are considered.
+        /// </param>
+        /// <returns>
+        /// The ordered list of directories to search, or null if none were
+        /// found.
+        /// </returns>
         private static PathList GetDirectories(
             Interpreter interpreter,   /* in */
             string path,               /* in */
@@ -693,6 +1065,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to extract a public key token from the
+        /// specified string value, when that value matches the public key
+        /// token format.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to examine.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when converting the hexadecimal string to bytes.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling whether errors are traced.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, this contains the extracted public key token bytes;
+        /// otherwise, it is left unchanged.
+        /// </param>
+        /// <returns>
+        /// True if a public key token was extracted; otherwise, false.
+        /// </returns>
         private static bool ExtractPublicKeyToken(
             string value,               /* in */
             CultureInfo cultureInfo,    /* in */
@@ -740,6 +1133,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and evaluates the "package ifneeded" scripts
+        /// for each assembly-to-plugin-names mapping, using the directories
+        /// derived from the specified path and flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="mappings">
+        /// The dictionary that maps each assembly file name only to its list
+        /// of plugin type names.
+        /// </param>
+        /// <param name="path">
+        /// The primary path used to derive the directories to search, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="version">
+        /// The version to use for the packages, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token that the assemblies must have, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when extracting public key tokens, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the script creation and evaluation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the list of scripts that were created;
+        /// upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public static ReturnCode CreateAndEvaluateIfNeededScripts(
             Interpreter interpreter,          /* in */
             AssemblyFilePluginNames mappings, /* in */
@@ -780,6 +1212,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and (unless suppressed) evaluates the "package
+        /// ifneeded" scripts for a single assembly file and its associated
+        /// plugin type names.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="fileNameOnly">
+        /// The file name only of the assembly to locate within the supplied
+        /// directories.
+        /// </param>
+        /// <param name="typeNames">
+        /// The list of plugin type names, optionally interleaved with public
+        /// key tokens, for which to create scripts.
+        /// </param>
+        /// <param name="directories">
+        /// The directories to search for the assembly file.
+        /// </param>
+        /// <param name="version">
+        /// The version to use for the packages, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The initial public key token that the assembly must have, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when extracting public key tokens, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling the script creation and evaluation.
+        /// </param>
+        /// <param name="list">
+        /// The list of created scripts to append to.  Upon return, this may
+        /// contain a newly created list if one was not already supplied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode CreateAndEvaluateIfNeededScript(
             Interpreter interpreter,    /* in */
             string fileNameOnly,        /* in */
@@ -904,6 +1381,28 @@ namespace Eagle._Components.Private
         // HACK: This method cannot (currently) fail.  The error parameter
         //       is here just in case this needs to change in the future.
         //
+        /// <summary>
+        /// This method builds the text of a "package scan" command used to
+        /// rescan the specified paths for new package indexes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, used to determine whether plugin probing
+        /// is enabled.  This parameter may be null.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the command to emit instead of the default "package"
+        /// command name, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to scan, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this would contain an appropriate error message.
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The text of the constructed "package scan" command.
+        /// </returns>
         public static string GetScanCommand(
             Interpreter interpreter, /* in: OPTIONAL */
             string commandName,      /* in: OPTIONAL */
@@ -965,6 +1464,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the specified script file relative
+        /// to the package index directory that contains it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="name">
+        /// The script file name to make relative.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package index
+        /// directories.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to trace details when the relative file name cannot be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The relative file name, or null if it could not be determined.
+        /// </returns>
         public static string GetRelativeFileName(
             Interpreter interpreter,               /* in */
             string name,                           /* in, script name */
@@ -1000,6 +1520,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the name of the specified script file relative
+        /// to the package index directory that contains it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="name">
+        /// The script file name to make relative.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package index
+        /// directories.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, this contains the computed relative file name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode GetRelativeFileName(
             Interpreter interpreter,               /* in */
             string name,                           /* in, script name */
@@ -1121,6 +1665,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adjusts the specified file name by prefixing it with
+        /// the file name extracted from the supplied client data, when that
+        /// client data carries the expected plugin or resource manager
+        /// information.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data that may carry a prefix file name.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name to adjust.  Upon success, this contains the file name
+        /// combined with the prefix file name.
+        /// </param>
+        /// <param name="prefixFileName">
+        /// Upon success, this contains the prefix file name that was applied;
+        /// otherwise, it is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the file name was adjusted; otherwise, false.
+        /// </returns>
         private static bool AdjustFileName(
             IClientData clientData,   /* in */
             ref string fileName,      /* in, out */
@@ -1185,6 +1750,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified package index
+        /// collection contains either the relative file name or the full file
+        /// name.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to search.
+        /// </param>
+        /// <param name="relativeFileName">
+        /// The relative file name to look for.
+        /// </param>
+        /// <param name="fileName">
+        /// The full file name to look for.
+        /// </param>
+        /// <returns>
+        /// True if either file name is present; otherwise, false.
+        /// </returns>
         private static bool ContainsFileName(
             PackageIndexDictionary packageIndexes,
             string relativeFileName,
@@ -1202,6 +1784,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified package index
+        /// collection contains the specified file name.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to search.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name to look for.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the file name is present; otherwise, false.
+        /// </returns>
         private static bool ContainsFileName(
             PackageIndexDictionary packageIndexes,
             string fileName
@@ -1215,6 +1811,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether package indexing has been explicitly
+        /// disabled for the specified path, by checking for the presence of a
+        /// companion ".noPkgIndex" file or directory.
+        /// </summary>
+        /// <param name="path">
+        /// The file or directory path to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if package indexing is disabled for the path; otherwise,
+        /// false.
+        /// </returns>
         private static bool IsDisabled(
             string path
             ) /* RECURSIVE */
@@ -1272,6 +1880,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified file name to the package index
+        /// collection, or updates its prefix file name and flags if it is
+        /// already present.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name to add or update.  This parameter may be null.
+        /// </param>
+        /// <param name="prefixFileName">
+        /// The prefix file name to associate with the file name, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="addFlags">
+        /// The package index flags to add for the file name.
+        /// </param>
         private static void AddFileNameWithFlags(
             PackageIndexDictionary packageIndexes,
             string fileName,
@@ -1302,6 +1929,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the specified package index callback for a
+        /// single package index file, managing the interpreter state and
+        /// recording the resulting file name and flags as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke.  This parameter may be null, in which case
+        /// nothing is done.
+        /// </param>
+        /// <param name="path">
+        /// The directory path associated with the package index, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the package index.
+        /// </param>
+        /// <param name="tag">
+        /// The tag associated with the package index, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="packageType">
+        /// The type of the package index being processed.
+        /// </param>
+        /// <param name="initialFlags">
+        /// The initial package index flags supplied to the callback.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update when the callback
+        /// indicates the index was evaluated.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data used when operating in "what if"
+        /// mode.
+        /// </param>
+        /// <param name="addFlags">
+        /// The package index flags to add for the file name when it is
+        /// recorded.
+        /// </param>
+        /// <param name="purge">
+        /// Upon return, this is set to non-zero if the package index should be
+        /// forcibly purged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode InvokeCallback(
             Interpreter interpreter,                 /* in */
             PackageIndexCallback callback,           /* in */
@@ -1423,6 +2102,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the host-provided package indexes (including any
+        /// bundled package indexes), invoking the supplied callback for each
+        /// and purging any that are no longer present.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.  This parameter is not used.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke for each package index found.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data used when operating in "what if"
+        /// mode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode FindHost(
             Interpreter interpreter,                     /* in */
             StringList paths,                            /* in */ /* NOT USED */
@@ -1610,6 +2325,42 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        /// <summary>
+        /// This method finds the package indexes embedded within plugin
+        /// assemblies in the specified paths, invoking the supplied callback
+        /// for each and purging any that are no longer present.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke for each package index found.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data used when operating in "what if"
+        /// mode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode FindPlugin(
             Interpreter interpreter,                     /* in */
             StringList paths,                            /* in */
@@ -2041,6 +2792,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the package index files on the file system in the
+        /// specified paths (both primary and tagged), invoking the supplied
+        /// callback for each and purging any that are no longer present.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke for each package index found.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data used when operating in "what if"
+        /// mode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode FindFile(
             Interpreter interpreter,                     /* in */
             StringList paths,                            /* in */
@@ -2463,6 +3250,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the file system should be searched
+        /// for package indexes before the interpreter host, based on the
+        /// supplied flags and the default index script flags.
+        /// </summary>
+        /// <param name="packageIndexFlags">
+        /// The flags that may explicitly prefer the file system or the host.
+        /// </param>
+        /// <returns>
+        /// True if the file system should be preferred; otherwise, false.
+        /// </returns>
         private static bool ShouldPreferFileSystem(
             PackageIndexFlags packageIndexFlags
             )
@@ -2490,6 +3288,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the package index file name associated with the
+        /// specified package type, optionally fully qualified with the
+        /// interpreter library path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve the library path when a
+        /// fully qualified file name is requested.
+        /// </param>
+        /// <param name="packageType">
+        /// The package type whose package index file name is required.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to return a fully qualified file name; otherwise, a
+        /// relative file name is returned.
+        /// </param>
+        /// <returns>
+        /// The package index file name, or null if the package type is not
+        /// recognized.
+        /// </returns>
         private static string GetIndexFileName(
             Interpreter interpreter,
             PackageType packageType,
@@ -2599,6 +3417,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the full list of host package index file name
+        /// triplets, including the built-in package types, any bundled package
+        /// indexes, and any host-provided package indexes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when gathering bundled scripts.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used when gathering bundled scripts.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling which package index sources are included and
+        /// whether errors are traced.
+        /// </param>
+        /// <returns>
+        /// The list of package index file name triplets, each pairing a
+        /// package type with its relative and full file names.
+        /// </returns>
         private static PackageFileNameList GetIndexFileNames(
             Interpreter interpreter,            /* in */
             CultureInfo cultureInfo,            /* in */
@@ -2744,6 +3584,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the search pattern used to locate package index
+        /// files, either the tagged package index pattern or the plain package
+        /// index file name for the specified package type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve the package index file name
+        /// when the tagged pattern is not used.
+        /// </param>
+        /// <param name="packageType">
+        /// The package type whose package index pattern is required.
+        /// </param>
+        /// <param name="tagged">
+        /// Non-zero to return the pattern that matches tagged package index
+        /// files.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to return a fully qualified file name pattern; otherwise, a
+        /// relative file name pattern is returned.
+        /// </param>
+        /// <returns>
+        /// The package index search pattern.
+        /// </returns>
         public static string GetIndexFilePattern(
             Interpreter interpreter,
             PackageType packageType,
@@ -2777,6 +3640,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        /// <summary>
+        /// This method returns the list of file name patterns used to find
+        /// candidate plugin assembly files, falling back to a default pattern
+        /// when none are configured.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to use verbose configuration lookup behavior.
+        /// </param>
+        /// <returns>
+        /// The list of plugin file name patterns.
+        /// </returns>
         private static StringList GetPluginPatterns(
             Interpreter interpreter,
             bool verbose
@@ -2799,6 +3676,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the bare and fully qualified patterns used to
+        /// find package index files (e.g. "pkgIndex.eagle" and
+        /// "*/pkgIndex.eagle") within plugin assembly resources.
+        /// </summary>
+        /// <returns>
+        /// The list of package index resource name patterns.
+        /// </returns>
         private static StringList GetIndexPatterns()
         {
             //
@@ -2820,6 +3705,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the relative, absolute, and prefixed forms of
+        /// the specified package index file name, using the prefix file name
+        /// from the supplied package index pair, if any.
+        /// </summary>
+        /// <param name="indexFileName">
+        /// The package index file name to expand.
+        /// </param>
+        /// <param name="anyPair">
+        /// The package index pair that may supply a prefix file name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="relativeFileName">
+        /// Upon return, this contains the relative form of the file name, or
+        /// null if it could not be computed.
+        /// </param>
+        /// <param name="absoluteFileName">
+        /// Upon return, this contains the absolute form of the file name, or
+        /// null if it could not be computed.
+        /// </param>
+        /// <param name="prefixedFileName">
+        /// Upon return, this contains the prefixed form of the file name, or
+        /// null if no prefix file name was supplied.
+        /// </param>
         private static void GetAllFileNames(
             string indexFileName,
             PackageIndexAnyPair anyPair,
@@ -2878,6 +3787,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes logically duplicate package indexes from the
+        /// specified collection, treating the relative, absolute, and prefixed
+        /// forms of a file name as the same package index and merging their
+        /// flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to deduplicate.  Upon success,
+        /// this is replaced with a new collection containing no logical
+        /// duplicates.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode RemoveLogicalDuplicates(
             Interpreter interpreter,                   /* in */
             ref PackageIndexDictionary packageIndexes, /* in, out */
@@ -2972,6 +3902,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a human-readable list describing the contents of
+        /// the specified package index collection, one element per package
+        /// index.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to describe.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The list describing the package indexes, or null if the collection
+        /// is null or its keys could not be ordered.
+        /// </returns>
         private static StringList ToList(
             PackageIndexDictionary packageIndexes /* in */
             )
@@ -3023,6 +3966,17 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method formats the specified package index dictionary as a
+        /// string, with one entry per line.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The package index dictionary to format.
+        /// </param>
+        /// <returns>
+        /// The formatted string, or null if the dictionary could not be
+        /// formatted.
+        /// </returns>
         private static string ToString( /* NOT USED */
             PackageIndexDictionary packageIndexes /* in */
             )
@@ -3039,6 +3993,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method emits a diagnostic trace describing the inputs and
+        /// results of a package index discovery operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths that were searched.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags that controlled the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting that was used.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes that was produced.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data that was used.
+        /// </param>
+        /// <param name="returnCode">
+        /// The return code of the discovery operation.
+        /// </param>
+        /// <param name="error">
+        /// The error message produced by the discovery operation, if any.
+        /// </param>
         public static void FindAllDump(
             Interpreter interpreter,                 /* in */
             StringList paths,                        /* in */
@@ -3063,6 +4045,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers all package indexes in the specified paths,
+        /// using a new internal package index collection.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode FindAll(
             Interpreter interpreter,               /* in */
             StringList paths,                      /* in */
@@ -3081,6 +4087,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers all package indexes in the specified paths,
+        /// updating the supplied package index collection, using a new
+        /// internal package context.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode FindAll(
             Interpreter interpreter,                   /* in */
             StringList paths,                          /* in */
@@ -3099,6 +4134,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers all package indexes in the specified paths,
+        /// searching the host, plugin assemblies, and file system in the order
+        /// dictated by the supplied flags, and then removing any logical
+        /// duplicates.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="paths">
+        /// The paths to search.
+        /// </param>
+        /// <param name="packageIndexFlags">
+        /// The flags controlling the search.
+        /// </param>
+        /// <param name="pathComparisonType">
+        /// The type of comparison and sorting used to order the package
+        /// indexes.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.  Upon return, this may
+        /// contain a newly created collection if one was not already supplied.
+        /// </param>
+        /// <param name="packageContext">
+        /// The package context client data used when operating in "what if"
+        /// mode.  Upon return, this may contain a newly created context.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode FindAll(
             Interpreter interpreter,                     /* in */
             StringList paths,                            /* in */
@@ -3252,6 +4321,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified package index flags
+        /// have the required flags and do not have the forbidden flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The package index flags to test.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags that must be present, or none to skip this check.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that must be absent, or none to skip this check.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the required flags be present;
+        /// otherwise, any one of them is sufficient.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the forbidden flags be present
+        /// before the check fails; otherwise, any one of them causes the check
+        /// to fail.
+        /// </param>
+        /// <returns>
+        /// True if the flags satisfy the required and forbidden conditions;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchFlags(
             PackageIndexFlags flags,
             PackageIndexFlags hasFlags,
@@ -3275,6 +4370,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the specified mark flags on each package
+        /// index, named by the supplied file name triplets, whose flags match
+        /// the required and forbidden conditions.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.
+        /// </param>
+        /// <param name="fileNames">
+        /// The list of package index file name triplets identifying which
+        /// package indexes to consider.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags that a package index must have to be marked, or none to
+        /// skip this check.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that a package index must not have to be marked, or none
+        /// to skip this check.
+        /// </param>
+        /// <param name="markFlags">
+        /// The flags to set or clear on each matching package index.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the required flags be present.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the forbidden flags be present
+        /// before excluding a package index.
+        /// </param>
+        /// <param name="mark">
+        /// Non-zero to set the mark flags; otherwise, the mark flags are
+        /// cleared.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode MarkIndexes(
             PackageIndexDictionary packageIndexes,
             PackageFileNameList fileNames,
@@ -3358,6 +4494,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets or clears the specified mark flags on each package
+        /// index in the collection whose flags match the required and
+        /// forbidden conditions.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags that a package index must have to be marked, or none to
+        /// skip this check.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that a package index must not have to be marked, or none
+        /// to skip this check.
+        /// </param>
+        /// <param name="markFlags">
+        /// The flags to set or clear on each matching package index.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the required flags be present.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the forbidden flags be present
+        /// before excluding a package index.
+        /// </param>
+        /// <param name="mark">
+        /// Non-zero to set the mark flags; otherwise, the mark flags are
+        /// cleared.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode MarkIndexes(
             PackageIndexDictionary packageIndexes,
             PackageIndexFlags hasFlags,
@@ -3418,6 +4591,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the collection each package index, named
+        /// by the supplied file name triplets, whose flags match the required
+        /// and forbidden conditions.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.
+        /// </param>
+        /// <param name="fileNames">
+        /// The list of package index file name triplets identifying which
+        /// package indexes to consider.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags that a package index must have to be removed, or none to
+        /// skip this check.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that a package index must not have to be removed, or none
+        /// to skip this check.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the required flags be present.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the forbidden flags be present
+        /// before excluding a package index.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode PurgeIndexes(
             PackageIndexDictionary packageIndexes,
             PackageFileNameList fileNames,
@@ -3492,6 +4699,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the collection each package index whose
+        /// flags match the required and forbidden conditions.
+        /// </summary>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to update.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The flags that a package index must have to be removed, or none to
+        /// skip this check.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that a package index must not have to be removed, or none
+        /// to skip this check.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the required flags be present.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the forbidden flags be present
+        /// before excluding a package index.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode PurgeIndexes(
             PackageIndexDictionary packageIndexes,
             PackageIndexFlags hasFlags,
@@ -3547,6 +4783,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the package indexes in the collection whose file
+        /// name or containing directory refers to the same file as the
+        /// specified path.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when comparing files.
+        /// </param>
+        /// <param name="packageIndexes">
+        /// The collection of package indexes to search.
+        /// </param>
+        /// <param name="path">
+        /// The path to match against each package index file name and
+        /// directory.
+        /// </param>
+        /// <param name="count">
+        /// On input, the running count of matches; on output, this is
+        /// increased by the number of matching package indexes found.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode SearchIndexes(
             Interpreter interpreter,               /* in */
             PackageIndexDictionary packageIndexes, /* in */
@@ -3600,6 +4862,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores or unsets the directory and tag variables that
+        /// were set up for a package index callback, complaining about any
+        /// errors that occur.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="dirVarName">
+        /// The name of the directory variable.
+        /// </param>
+        /// <param name="tagVarName">
+        /// The name of the tag variable.
+        /// </param>
+        /// <param name="savedDirVarValue">
+        /// The saved value of the directory variable.  Upon successful restore,
+        /// this is set to null.
+        /// </param>
+        /// <param name="savedTagVarValue">
+        /// The saved value of the tag variable.  Upon successful restore, this
+        /// is set to null.
+        /// </param>
+        /// <param name="setDirectory">
+        /// Non-zero if the directory variable was set and needs to be restored
+        /// or unset.  Upon successful handling, this is set to zero.
+        /// </param>
+        /// <param name="setTag">
+        /// Non-zero if the tag variable was set and needs to be restored or
+        /// unset.  Upon successful handling, this is set to zero.
+        /// </param>
         private static void UnsetIndexCallbackVariables(
             Interpreter interpreter,     /* in */
             string dirVarName,           /* in */
@@ -3721,6 +5013,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up the directory and tag variables used by a
+        /// package index callback, saving the previous values of any variables
+        /// that already existed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="dirVarName">
+        /// The name of the directory variable.
+        /// </param>
+        /// <param name="tagVarName">
+        /// The name of the tag variable.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name whose directory is used to set the directory
+        /// variable, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="tag">
+        /// The tag value used to set the tag variable, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="savedDirVarValue">
+        /// Upon return, this contains the saved value of the directory
+        /// variable, if it existed.
+        /// </param>
+        /// <param name="savedTagVarValue">
+        /// Upon return, this contains the saved value of the tag variable, if
+        /// it existed.
+        /// </param>
+        /// <param name="setDirectory">
+        /// Upon return, this is set to non-zero if the directory variable was
+        /// set and should later be restored or unset.
+        /// </param>
+        /// <param name="setTag">
+        /// Upon return, this is set to non-zero if the tag variable was set
+        /// and should later be restored or unset.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode SetIndexCallbackVariables(
             Interpreter interpreter,     /* in */
             string dirVarName,           /* in */
@@ -3850,6 +5187,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds, if permitted by the supplied rule set, the loader
+        /// command used to lazily create the "package ifneeded" command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin that will own the added command.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to decide whether the command should be added, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode MaybeAddLoaderCommand(
             Interpreter interpreter,
             IPlugin plugin,
@@ -3893,6 +5251,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        /// <summary>
+        /// This method is the command callback that bootstraps and forwards to
+        /// the loader command, ensuring the package loader has been
+        /// initialized before delegating to the real loader command
+        /// implementation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data supplied when the command was invoked.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list supplied to the command.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of the forwarded command, or
+        /// an appropriate error message on failure.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode LoaderCommandCallback(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */
@@ -4000,6 +5382,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds, if not already present and if permitted by the
+        /// supplied rule set, the wrapper command that forwards to the core
+        /// "source" command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin that will own the added command.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to decide whether the command should be added, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         public static ReturnCode MaybeAddSourceWithInfoCommand(
             Interpreter interpreter,
             IPlugin plugin,
@@ -4042,6 +5446,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* Eagle._Components.Public.Delegates.ExecuteCallback */
+        /// <summary>
+        /// This method is the command callback that forwards the
+        /// "sourceWithInfo" command to the core "source" command, preserving
+        /// any supplied options and the file name argument.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data supplied when the command was invoked.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list supplied to the command.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, this contains the result of the forwarded command, or
+        /// an appropriate error message on failure.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode SourceWithInfoCallback(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */
@@ -4126,6 +5553,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the default package index callback, which evaluates
+        /// the package index for a host-provided, plugin assembly, or file
+        /// system source, setting up the directory and tag variables as
+        /// necessary and recording that the index was evaluated.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="path">
+        /// The directory path associated with the package index, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the package index to evaluate.
+        /// </param>
+        /// <param name="tag">
+        /// The tag associated with the package index, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="packageType">
+        /// The type of the package index being processed.
+        /// </param>
+        /// <param name="flags">
+        /// The package index flags controlling how the index is evaluated.
+        /// Upon return, this may have the evaluated flag added.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with the package index, if any.  Upon
+        /// return, this may contain updated client data.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         private static ReturnCode IndexCallback( /* PackageIndexCallback */
             Interpreter interpreter,     /* in */
             string path,                 /* in */

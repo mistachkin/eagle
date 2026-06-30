@@ -17,6 +17,11 @@ using Eagle._Components.Public;
 
 namespace Eagle._Cmdlets
 {
+    /// <summary>
+    /// This class implements a Windows PowerShell cmdlet that performs Eagle
+    /// command substitution on a string of text and writes the resulting value
+    /// (or error) to the pipeline.
+    /// </summary>
     [Cmdlet(
         _Constants.Verb.Substitute,
         _Constants.Noun.Text,
@@ -26,6 +31,12 @@ namespace Eagle._Cmdlets
     public sealed class SubstituteString : Script
     {
         #region System.Management.Automation.Cmdlet Overrides
+        /// <summary>
+        /// This method is called by the PowerShell runtime to process a single
+        /// pipeline record.  It performs command substitution on the configured
+        /// text and writes the result, an error, or a pipeline-stopping notice
+        /// as appropriate.
+        /// </summary>
         protected override void ProcessRecord()
         {
             //

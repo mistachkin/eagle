@@ -18,6 +18,14 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides the default implementation of the
+    /// <see cref="IClientData" /> interface, used to associate an arbitrary
+    /// opaque data object with an entity managed by the Eagle library.  It
+    /// also supports an optional read-only mode along with a number of static
+    /// helper methods for packing, unpacking, wrapping, and querying the
+    /// contained data.
+    /// </summary>
     [ObjectId("149c6f50-7596-4f71-861c-aa1ac700aed7")]
     public class ClientData :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -26,12 +34,19 @@ namespace Eagle._Components.Public
         IClientData, IBaseClientData
     {
         #region Public Constants
+        /// <summary>
+        /// A shared, read-only instance that represents the absence of any
+        /// client data.
+        /// </summary>
         public static readonly IClientData Empty = new ClientData(null, true);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class with no contained data.
+        /// </summary>
         public ClientData()
             : this(null)
         {
@@ -40,6 +55,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified contained
+        /// data.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data object to be contained by this instance.
+        /// </param>
         public ClientData(
             object data /* in */
             )
@@ -50,6 +72,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified contained
+        /// data and read-only state.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque data object to be contained by this instance.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the contained data should be read-only, preventing any
+        /// subsequent modification.
+        /// </param>
         public ClientData(
             object data,  /* in */
             bool readOnly /* in */
@@ -63,6 +96,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Methods
+        /// <summary>
+        /// This method throws an exception if this instance is read-only.  It
+        /// is used to guard operations that would otherwise modify the
+        /// contained data.
+        /// </summary>
         protected virtual void CheckReadOnly()
         {
             if (readOnly)
@@ -71,6 +109,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this instance is the reserved
+        /// "empty" instance.
+        /// </summary>
+        /// <returns>
+        /// True if this instance is the reserved "empty" instance; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsEmpty()
         {
             return Object.ReferenceEquals(this, Empty);
@@ -80,6 +126,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IClientData Members
+        /// <summary>
+        /// Gets or sets the opaque data object contained by this instance.  An
+        /// attempt to set this property when this instance is read-only will
+        /// cause an exception to be thrown.
+        /// </summary>
         public virtual object Data
         {
             get { return DataNoThrow; }
@@ -90,7 +141,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IBaseClientData Members
+        /// <summary>
+        /// The opaque data object contained by this instance.
+        /// </summary>
         private object data;
+
+        /// <summary>
+        /// Gets or sets the opaque data object contained by this instance.
+        /// Unlike <see cref="Data" />, attempting to set this property when
+        /// this instance is read-only is silently ignored instead of throwing
+        /// an exception.
+        /// </summary>
         public virtual object DataNoThrow
         {
             get { return data; }
@@ -99,7 +160,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the contained data is read-only and may not be
+        /// modified.
+        /// </summary>
         private bool readOnly;
+
+        /// <summary>
+        /// Gets a value indicating whether the contained data is read-only.
+        /// </summary>
         public virtual bool ReadOnly
         {
             get { return readOnly; }
@@ -107,7 +176,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The optional client data instance used for logging purposes.
+        /// </summary>
         private IClientData log;
+
+        /// <summary>
+        /// Gets or sets the optional client data instance used for logging
+        /// purposes.
+        /// </summary>
         public virtual IClientData Log
         {
             get { return log; }
@@ -118,6 +195,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new <see cref="IClientData" /> instance that
+        /// contains the specified arguments as its data.
+        /// </summary>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting instance should be read-only.
+        /// </param>
+        /// <param name="args">
+        /// The arguments to be contained by the new instance.
+        /// </param>
+        /// <returns>
+        /// The newly created <see cref="IClientData" /> instance.
+        /// </returns>
         public static IClientData Pack(
             bool readOnly,       /* in */
             params object[] args /* in */
@@ -128,6 +218,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new <see cref="IClientData" /> instance that
+        /// contains the specified strongly typed arguments as its data.
+        /// </summary>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting instance should be read-only.
+        /// </param>
+        /// <param name="args">
+        /// The strongly typed arguments to be contained by the new instance.
+        /// </param>
+        /// <returns>
+        /// The newly created <see cref="IClientData" /> instance.
+        /// </returns>
         public static IClientData Pack<T>(
             bool readOnly,  /* in */
             params T[] args /* in */
@@ -140,6 +243,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method determines whether the specified client data instance
+        /// is read-only.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to check.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified client data instance is read-only; otherwise,
+        /// false.
+        /// </returns>
         public static bool IsReadOnly(
             IClientData clientData /* in */
             )
@@ -163,6 +277,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the client data associated with the
+        /// specified object.
+        /// </summary>
+        /// <param name="object">
+        /// The object from which to obtain the associated client data.
+        /// </param>
+        /// <param name="validate">
+        /// Non-zero if the obtained client data must be non-null in order for
+        /// this method to succeed.
+        /// </param>
+        /// <param name="clientData">
+        /// Upon success, receives the client data associated with the
+        /// specified object.  Upon failure, this value is null.
+        /// </param>
+        /// <returns>
+        /// True if the client data was successfully obtained; otherwise,
+        /// false.
+        /// </returns>
         public static bool TryGet(
             object @object,
             bool validate,
@@ -188,6 +321,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to extract all the elements contained by the
+        /// specified client data instance into a strongly typed array.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance whose contained data should be unpacked.
+        /// </param>
+        /// <param name="strictType">
+        /// Non-zero if every element must match the requested type in order
+        /// for this method to succeed.
+        /// </param>
+        /// <param name="args">
+        /// Upon success, receives the array of extracted elements.  Upon
+        /// failure, this value is null.
+        /// </param>
+        /// <returns>
+        /// True if the elements were successfully extracted; otherwise, false.
+        /// </returns>
         public static bool TryUnpack<T>(
             IClientData clientData, /* in */
             bool strictType,        /* in */
@@ -278,6 +429,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to replace the element at the specified index
+        /// within the data contained by the specified client data instance.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance whose contained data should be modified.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the element to replace.
+        /// </param>
+        /// <param name="value">
+        /// The new value to store at the specified index.
+        /// </param>
+        /// <param name="ignoreReadOnly">
+        /// Non-zero to permit modification even when the contained data is
+        /// marked read-only.
+        /// </param>
+        /// <param name="strictType">
+        /// Non-zero if the existing element at the specified index must match
+        /// the requested type in order for this method to succeed.
+        /// </param>
+        /// <returns>
+        /// True if the element was successfully replaced; otherwise, false.
+        /// </returns>
         public static bool TryReplace<T>(
             IClientData clientData, /* in, out */
             int index,              /* in */
@@ -380,6 +555,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to extract the element at the specified index
+        /// from the data contained by the specified client data instance.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance whose contained data should be queried.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the element to extract.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the extracted element.  Upon failure, this
+        /// value is the default value for its type.
+        /// </param>
+        /// <returns>
+        /// True if the element was successfully extracted; otherwise, false.
+        /// </returns>
         public static bool TryExtract<T>(
             IClientData clientData, /* in */
             int index,              /* in */
@@ -522,6 +714,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a non-null client data instance, creating a new
+        /// empty one if the specified instance is null or empty.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to return if it is neither null nor empty.
+        /// </param>
+        /// <returns>
+        /// The specified client data instance, or a newly created instance if
+        /// the specified one was null or empty.
+        /// </returns>
         public static IClientData MaybeCreate(
             IClientData clientData /* in */
             )
@@ -532,6 +735,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified data within a new client data
+        /// instance.  If the specified client data instance already contains
+        /// data, both it and the new data are wrapped together; otherwise, a
+        /// new instance containing only the new data is returned.
+        /// </summary>
+        /// <param name="clientData">
+        /// The existing client data instance, if any, to be wrapped along with
+        /// the new data.
+        /// </param>
+        /// <param name="data">
+        /// The new data to be wrapped.
+        /// </param>
+        /// <returns>
+        /// The newly created client data instance.
+        /// </returns>
         public static IClientData WrapOrReplace(
             IClientData clientData, /* in */
             object data             /* in */
@@ -556,6 +775,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unwraps a client data instance previously created by
+        /// <see cref="WrapOrReplace" />, returning the inner client data
+        /// instance and its associated data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to unwrap.
+        /// </param>
+        /// <param name="data">
+        /// Upon return, receives the data associated with the unwrapped
+        /// instance, or the contained data if the instance was not wrapping
+        /// anything.
+        /// </param>
+        /// <returns>
+        /// The inner (wrapped) client data instance, or the original instance
+        /// if it was not wrapping anything.
+        /// </returns>
         public static IClientData UnwrapOrReturn(
             IClientData clientData, /* in */
             ref object data         /* out */
@@ -604,6 +840,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method determines whether the specified client data instance
+        /// contains any actual data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified client data instance contains actual data;
+        /// otherwise, false.
+        /// </returns>
         private static bool HasData(
             IClientData clientData /* in */
             )
@@ -615,6 +862,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified client data instance
+        /// contains any actual data and, if so, returns that data.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to check.
+        /// </param>
+        /// <param name="data">
+        /// Upon success, receives the data contained by the specified client
+        /// data instance.  Upon failure, this value is unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the specified client data instance contains actual data;
+        /// otherwise, false.
+        /// </returns>
         private static bool HasData(
             IClientData clientData, /* in */
             ref object data         /* out */
@@ -647,6 +909,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified client data instance
+        /// is null or represents the reserved "empty" instance.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified client data instance is null or empty;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsNullOrEmpty(
             IClientData clientData
             )
@@ -676,6 +949,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the type of the data contained by
+        /// the specified client data instance.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data instance whose contained data type name is
+        /// requested.
+        /// </param>
+        /// <param name="nullTypeName">
+        /// The type name to return when the client data instance is null or
+        /// contains null data.
+        /// </param>
+        /// <param name="proxyTypeName">
+        /// The type name to return when the contained data is a transparent
+        /// proxy.
+        /// </param>
+        /// <param name="wrap">
+        /// Non-zero if the returned type name should be wrapped for display.
+        /// </param>
+        /// <returns>
+        /// The name of the type of the contained data.
+        /// </returns>
         internal static string GetDataTypeName(
             IClientData clientData, /* in */
             string nullTypeName,    /* in */
@@ -694,7 +989,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// The cached string representation of this instance, or null if it
+        /// has not yet been computed.
+        /// </summary>
         private string cachedToString;
+
+        /// <summary>
+        /// This method returns a string representation of this instance,
+        /// including its read-only state, its type, and its hash code.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this instance.
+        /// </returns>
         public override string ToString()
         {
             if (cachedToString == null)

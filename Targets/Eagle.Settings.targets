@@ -1638,7 +1638,7 @@
               Please see Microsoft Connect FeedbackID 470485 for more
               information.
     -->
-    <EagleDocumentationFile Condition="'$(EagleDocumentationFile)' == ''">false</EagleDocumentationFile>
+    <EagleDocumentationFile Condition="'$(EagleDocumentationFile)' == ''">true</EagleDocumentationFile>
   </PropertyGroup>
 
   <!--
@@ -1930,12 +1930,37 @@
 
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <WarningLevel>4</WarningLevel>
-    <NoWarn>612,618,1591</NoWarn>
+    <NoWarn>612,618,1572</NoWarn>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <WarningLevel>4</WarningLevel>
-    <NoWarn>612,618,1591</NoWarn>
+    <NoWarn>612,618,1572</NoWarn>
+  </PropertyGroup>
+
+  <!--
+  ******************************************************************************
+  -->
+
+  <!--
+      NOTE: Suppress CS1574 on pre-Roslyn compilers (from Visual Studio 2005
+            to Visual Studio 2013).
+
+            These compilers emitted CS1574 ("XML comment has cref attribute
+            that could not be resolved") for enum types and members defined
+            in the same assembly, the same namespace, and sometimes the same
+            file as the doc comment containing the reference.  The resolution
+            logic was coupled to parse order rather than a fully bound symbol
+            table, meaning the compiler would complain that it could not find
+            a symbol it had already compiled.  Roslyn handles cref resolution
+            correctly by waiting until all symbols are bound before validating
+            documentation references, and produces no such warnings for the
+            same code.  The pre-Roslyn behavior was due to compiler bugs, not
+            problems with the documentation.
+  -->
+  <PropertyGroup Condition="'$(RoslynTargetsPath)' == ''">
+    <!-- Pre-Roslyn C# compiler (i.e. before Visual Studio 2015) -->
+    <NoWarn>$(NoWarn);1574</NoWarn>
   </PropertyGroup>
 
   <!--

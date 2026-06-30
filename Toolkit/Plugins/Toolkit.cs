@@ -25,6 +25,10 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Plugins
 {
+    /// <summary>
+    /// This class implements a proof-of-concept Eagle plugin that demonstrates
+    /// hosting toolkit commands and a user interface within an interpreter.
+    /// </summary>
     [ObjectId("eb156d13-ddad-4a0a-88f3-d979553d22c1")]
     [PluginFlags(
         PluginFlags.Primary | PluginFlags.System |
@@ -34,6 +38,12 @@ namespace Eagle._Plugins
     internal sealed class Toolkit : Default
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data used to initialize the new instance.
+        /// </param>
         public Toolkit(
             IPluginData pluginData
             )
@@ -47,6 +57,21 @@ namespace Eagle._Plugins
         ///////////////////////////////////////////////////////////////////////
 
         #region IPlugin Members
+        /// <summary>
+        /// This method returns descriptive information about this plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for this operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will contain the formatted information
+        /// about this plugin.  Upon failure, it will contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public override ReturnCode About(
             Interpreter interpreter,
             ref Result result
@@ -58,6 +83,22 @@ namespace Eagle._Plugins
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the set of conditional compilation symbols that
+        /// were defined when this plugin was built.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for this operation.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this parameter will contain the list of conditional
+        /// compilation symbols.  Upon failure, it will contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public override ReturnCode Options(
             Interpreter interpreter,
             ref Result result

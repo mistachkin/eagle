@@ -19,12 +19,27 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class provides the base implementation for the Eagle string
+    /// comparison expression operators (e.g. <c>eq</c>, <c>ne</c>, <c>lt</c>,
+    /// <c>gt</c>, <c>le</c>, <c>ge</c>).  Derived operators evaluate their two
+    /// operands as strings and compare them, with the specific comparison
+    /// selected by the operator <see cref="Lexeme" />.  See
+    /// <c>core_language.md</c> for expression and operator semantics.
+    /// </summary>
     [ObjectId("bc45ebda-e05b-4750-afdc-7dc42409e87b")]
     [Operands(Arity.Binary)]
     [ObjectGroup("core")]
     internal class _String : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of a string comparison operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _String(
             IOperatorData operatorData /* in */
             )
@@ -43,6 +58,37 @@ namespace Eagle._Operators
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates a string comparison operator.  It obtains the
+        /// two operands from the argument list, converts them to strings, and
+        /// compares them according to the operator <see cref="Lexeme" /> and
+        /// the configured comparison type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this operator is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, operator-specific data supplied when this operator was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation, which supplies the two
+        /// operands to be compared.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the result of the string comparison.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the interpreter or argument
+        /// list is invalid, an operand cannot be obtained, or an exception
+        /// occurs, with details placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

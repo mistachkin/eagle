@@ -35,6 +35,14 @@ using NamespacePair = System.Collections.Generic.KeyValuePair<string, string>;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the helper methods used throughout the library to
+    /// work with XML, including detecting XML content, loading and saving XML
+    /// documents, determining document encodings, building namespace managers,
+    /// validating documents against an XSD schema, querying nodes via XPath,
+    /// and (when serialization support is enabled) serializing and
+    /// deserializing objects to and from XML.
+    /// </summary>
     [ObjectId("dc088aa2-7481-4313-94dc-4809fb31eb1d")]
     internal static class XmlOps
     {
@@ -45,6 +53,10 @@ namespace Eagle._Components.Private
         //       "perfect" detection mechanism; however, it will work well
         //       enough for our purposes.
         //
+        /// <summary>
+        /// The prefix used to heuristically detect whether a string looks like
+        /// the start of an XML document.
+        /// </summary>
         private static readonly string DocumentStart = "<?xml ";
 
         ///////////////////////////////////////////////////////////////////////
@@ -55,6 +67,9 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The XPath query that selects all nodes within an XML document.
+        /// </summary>
         private static string AllXPath = "/descendant-or-self::node()";
 
         ///////////////////////////////////////////////////////////////////////
@@ -67,6 +82,11 @@ namespace Eagle._Components.Private
         //       that the token is wrapped in an XML comment so that it a
         //       NO-OP when left alone.
         //
+        /// <summary>
+        /// The token, wrapped in an XML comment, that marks where the relaxed
+        /// schema element should be inserted when relaxed XML schema validation
+        /// is enabled.
+        /// </summary>
         private static readonly string RelaxedToken = "<!-- {RelaxedXml} -->";
 
         ///////////////////////////////////////////////////////////////////////
@@ -77,6 +97,10 @@ namespace Eagle._Components.Private
         //       validation mode is enabled.  Any additional XSD attributes
         //       that may (eventually?) be necessary should be added here.
         //
+        /// <summary>
+        /// The XSD schema element inserted in place of the relaxed token when
+        /// relaxed XML schema validation is enabled.
+        /// </summary>
         private static readonly string RelaxedElement =
             "<xsd:anyAttribute processContents=\"lax\" />";
         #endregion
@@ -85,6 +109,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Generic Xml Handling Methods
+        /// <summary>
+        /// This method determines whether the specified path could refer to an
+        /// XML document, based solely on its file extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine; this parameter is optional.
+        /// </param>
+        /// <returns>
+        /// True if the path has the XML markup file extension; otherwise,
+        /// false.
+        /// </returns>
         public static bool CouldBeDocument(
             string path /* in: OPTIONAL */
             )
@@ -108,6 +143,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text looks like the
+        /// start of an XML document.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine; this parameter is optional.
+        /// </param>
+        /// <returns>
+        /// True if the text begins with the XML document start prefix;
+        /// otherwise, false.
+        /// </returns>
         public static bool LooksLikeDocument(
             string text /* in: OPTIONAL */
             )
@@ -126,6 +172,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the contents of the specified file
+        /// look like the start of an XML document, taking any encoding preamble
+        /// into account.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to examine; this parameter is optional.
+        /// </param>
+        /// <returns>
+        /// True if the file exists and its contents begin with the XML document
+        /// start prefix; otherwise, false.
+        /// </returns>
         public static bool FileLooksLikeDocument(
             string fileName /* in: OPTIONAL */
             )
@@ -196,6 +254,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an XML operation that produced the
+        /// specified error should be retried, based on the error type, the
+        /// kind of exception (if any) carried by the error, and the set of
+        /// error types configured to trigger a retry.
+        /// </summary>
+        /// <param name="error">
+        /// The error produced by the failed XML operation; this parameter is
+        /// optional.
+        /// </param>
+        /// <param name="errorType">
+        /// The error type associated with the failed XML operation.
+        /// </param>
+        /// <param name="retryTypes">
+        /// The set of error types for which a retry should be attempted.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when no more specific determination can be made.
+        /// </param>
+        /// <returns>
+        /// True if the operation should be retried; otherwise, false.
+        /// </returns>
         public static bool ShouldRetryError(
             Result error,             /* in: OPTIONAL */
             XmlErrorTypes errorType,  /* in */
@@ -277,6 +357,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the text encoding declared by the XML
+        /// document contained in the specified file, optionally validating the
+        /// document against a schema first.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file containing the XML document.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource when validation
+        /// is requested; this parameter is optional.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to use when validation is requested;
+        /// this parameter is optional.
+        /// </param>
+        /// <param name="validate">
+        /// Non-zero to validate the document against the schema before
+        /// determining its encoding.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing encoding declaration as an error rather
+        /// than falling back to the default XML encoding.
+        /// </param>
+        /// <param name="encoding">
+        /// Upon success, this contains the determined encoding.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetEncoding(
             string fileName,      /* in */
             Assembly assembly,    /* in: OPTIONAL */
@@ -295,6 +406,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the text encoding declared by the XML
+        /// document contained in the specified file, optionally validating the
+        /// document against a schema first, and returns any error message.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file containing the XML document.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource when validation
+        /// is requested; this parameter is optional.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to use when validation is requested;
+        /// this parameter is optional.
+        /// </param>
+        /// <param name="validate">
+        /// Non-zero to validate the document against the schema before
+        /// determining its encoding.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing encoding declaration as an error rather
+        /// than falling back to the default XML encoding.
+        /// </param>
+        /// <param name="encoding">
+        /// Upon success, this contains the determined encoding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetEncoding(
             string fileName,       /* in */
             Assembly assembly,     /* in: OPTIONAL */
@@ -330,6 +475,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the text encoding declared by the specified
+        /// XML document.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document whose declared encoding is to be determined.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing encoding declaration as an error rather
+        /// than falling back to the default XML encoding.
+        /// </param>
+        /// <param name="encoding">
+        /// Upon success, this contains the determined encoding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetEncoding(
             XmlDocument document,  /* in */
             bool strict,           /* in */
@@ -400,6 +566,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified string.
+        /// </summary>
+        /// <param name="xml">
+        /// The string containing the XML to load.
+        /// </param>
+        /// <param name="document">
+        /// Upon success, this contains the loaded XML document.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadString(
             string xml,              /* in */
             ref XmlDocument document /* out */
@@ -412,6 +591,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified string,
+        /// returning any error message.
+        /// </summary>
+        /// <param name="xml">
+        /// The string containing the XML to load.
+        /// </param>
+        /// <param name="document">
+        /// Upon success, this contains the loaded XML document.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadString(
             string xml,               /* in */
             ref XmlDocument document, /* out */
@@ -441,6 +637,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file can be loaded as
+        /// an XML document, returning its XML text on success.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to load.
+        /// </param>
+        /// <param name="xml">
+        /// Upon success, this contains the outer XML of the loaded document.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CanLoadFile(
             string fileName, /* in */
             ref string xml,  /* out */
@@ -454,6 +667,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to load.
+        /// </param>
+        /// <param name="document">
+        /// Upon success, this contains the loaded XML document.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadFile(
             string fileName,          /* in */
             ref XmlDocument document, /* out */
@@ -467,6 +696,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified file (which may
+        /// be a local file or a remote URI), also returning its XML text.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file, or remote URI, to load.
+        /// </param>
+        /// <param name="document">
+        /// Upon success, this contains the loaded XML document.
+        /// </param>
+        /// <param name="xml">
+        /// Upon success, this contains the outer XML of the loaded document.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFile(
             string fileName,          /* in */
             ref XmlDocument document, /* out */
@@ -509,6 +758,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the specified XML document to the specified file,
+        /// failing if a local file with that name already exists.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to which the document is saved.
+        /// </param>
+        /// <param name="document">
+        /// The XML document to save.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SaveFile(
             string fileName,      /* in */
             XmlDocument document, /* in */
@@ -548,6 +814,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a dictionary of namespace name and URI string
+        /// pairs into parallel arrays of namespace names and parsed namespace
+        /// URIs.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary mapping namespace names to namespace URI strings.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific information to use when parsing the namespace
+        /// URI strings; this parameter is optional.
+        /// </param>
+        /// <param name="namespaceNames">
+        /// Upon success, this contains the array of namespace names.
+        /// </param>
+        /// <param name="namespaceUris">
+        /// Upon success, this contains the array of parsed namespace URIs.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNamespaceArrays(
             StringDictionary dictionary, /* in */
             CultureInfo cultureInfo,     /* in: OPTIONAL */
@@ -595,6 +886,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an XML namespace manager that contains the
+        /// single specified namespace name and URI.
+        /// </summary>
+        /// <param name="namespaceName">
+        /// The namespace name (prefix) to register.
+        /// </param>
+        /// <param name="namespaceUri">
+        /// The namespace URI to associate with the namespace name.
+        /// </param>
+        /// <param name="nameTable">
+        /// The name table with which to create the namespace manager.
+        /// </param>
+        /// <param name="namespaceManager">
+        /// Upon success, this contains the created namespace manager.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNamespaceManager(
             string namespaceName,                     /* in */
             Uri namespaceUri,                         /* in */
@@ -613,6 +927,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an XML namespace manager that contains the
+        /// specified parallel arrays of namespace names and URIs.
+        /// </summary>
+        /// <param name="namespaceNames">
+        /// The array of namespace names (prefixes) to register.
+        /// </param>
+        /// <param name="namespaceUris">
+        /// The array of namespace URIs to associate with the namespace names,
+        /// in the same order.
+        /// </param>
+        /// <param name="nameTable">
+        /// The name table with which to create the namespace manager.
+        /// </param>
+        /// <param name="namespaceManager">
+        /// Upon success, this contains the created namespace manager.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNamespaceManager(
             string[] namespaceNames,                  /* in */
             Uri[] namespaceUris,                      /* in */
@@ -693,6 +1031,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a readable stream over the specified XSD schema
+        /// XML, optionally applying the relaxed schema transformation first.
+        /// </summary>
+        /// <param name="schemaXml">
+        /// The XSD schema XML over which to create the stream.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the schema
+        /// XML before creating the stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the created stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSchemaStream(
             string schemaXml,  /* in */
             bool relaxed,      /* in */
@@ -735,6 +1094,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates the specified XML document against the schema
+        /// described by the specified XSD schema XML.
+        /// </summary>
+        /// <param name="schemaXml">
+        /// The XSD schema XML against which to validate the document.
+        /// </param>
+        /// <param name="document">
+        /// The XML document to validate.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the schema
+        /// before validating.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Validate(
             string schemaXml,     /* in */
             XmlDocument document, /* in */
@@ -790,6 +1170,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates the specified XML document against the schema
+        /// loaded from the specified assembly resource.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to load.
+        /// </param>
+        /// <param name="document">
+        /// The XML document to validate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Validate(
             Assembly assembly,    /* in */
             string resourceName,  /* in */
@@ -804,6 +1204,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates the specified XML document against the schema
+        /// loaded from the specified assembly resource, optionally applying the
+        /// relaxed schema transformation.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to load.
+        /// </param>
+        /// <param name="document">
+        /// The XML document to validate.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the schema
+        /// before validating.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Validate(
             Assembly assembly,    /* in */
             string resourceName,  /* in */
@@ -855,6 +1280,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates the specified XML document against the
+        /// specified XML schema.
+        /// </summary>
+        /// <param name="schema">
+        /// The XML schema against which to validate the document.
+        /// </param>
+        /// <param name="document">
+        /// The XML document to validate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode Validate(
             XmlSchema schema,     /* in */
             XmlDocument document, /* in */
@@ -890,6 +1332,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified string and
+        /// validates it against the default script schema.
+        /// </summary>
+        /// <param name="xml">
+        /// The string containing the XML script to validate.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the schema
+        /// before validating.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ValidateScriptString(
             string xml,      /* in */
             bool relaxed,    /* in */
@@ -917,6 +1377,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads an XML document from the specified file and
+        /// validates it against the default script schema.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file containing the XML script to validate.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the schema
+        /// before validating.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ValidateScriptFile(
             string path,     /* in */
             bool relaxed,    /* in */
@@ -944,6 +1422,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects a list of nodes from the specified XML document
+        /// using the specified XPath queries, registering a single namespace
+        /// when one is supplied.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document from which to select nodes.
+        /// </param>
+        /// <param name="namespaceName">
+        /// The namespace name (prefix) to register before evaluating the
+        /// queries; this parameter is optional.
+        /// </param>
+        /// <param name="namespaceUri">
+        /// The namespace URI to associate with the namespace name; this
+        /// parameter is optional.
+        /// </param>
+        /// <param name="xpaths">
+        /// The XPath queries to evaluate, in order, until one matches; this
+        /// parameter is optional.
+        /// </param>
+        /// <param name="nodeList">
+        /// Upon success, this contains the selected list of nodes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNodeList(
             XmlDocument document,     /* in */
             string namespaceName,     /* in: OPTIONAL */
@@ -977,6 +1485,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects a list of nodes from the specified XML document
+        /// using the specified XPath queries, registering the supplied
+        /// namespaces.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document from which to select nodes.
+        /// </param>
+        /// <param name="namespaceNames">
+        /// The namespace names (prefixes) to register before evaluating the
+        /// queries; this parameter is optional.
+        /// </param>
+        /// <param name="namespaceUris">
+        /// The namespace URIs to associate with the namespace names, in the
+        /// same order; this parameter is optional.
+        /// </param>
+        /// <param name="xpaths">
+        /// The XPath queries to evaluate, in order, until one matches; this
+        /// parameter is optional.
+        /// </param>
+        /// <param name="nodeList">
+        /// Upon success, this contains the selected list of nodes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNodeList(
             XmlDocument document,     /* in */
             string[] namespaceNames,  /* in: OPTIONAL */
@@ -1010,6 +1548,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects a list of nodes from the specified XML document
+        /// using the specified XPath queries and namespace manager, falling
+        /// back to selecting all nodes when no queries are supplied.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document from which to select nodes.
+        /// </param>
+        /// <param name="namespaceManager">
+        /// The namespace manager to use when evaluating the queries; this
+        /// parameter is optional.
+        /// </param>
+        /// <param name="xpaths">
+        /// The XPath queries to evaluate, in order, until one matches, or null
+        /// to select all nodes; this parameter is optional.
+        /// </param>
+        /// <param name="nodeList">
+        /// Upon success, this contains the selected list of nodes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNodeList(
             XmlDocument document,                 /* in */
             XmlNamespaceManager namespaceManager, /* in: OPTIONAL */
@@ -1080,6 +1644,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Semi-Generic Xml Handling Methods
+        /// <summary>
+        /// This method applies the relaxed schema transformation to the
+        /// specified XSD schema XML by replacing the relaxed token with the
+        /// relaxed element.
+        /// </summary>
+        /// <param name="schemaXml">
+        /// Upon entry, the XSD schema XML to transform; upon return, the
+        /// transformed schema XML.
+        /// </param>
         private static void EnableRelaxedSchema(
             ref string schemaXml /* in, out */
             )
@@ -1097,6 +1670,27 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by the test "xml-1.3", please do not remove.
         //
+        /// <summary>
+        /// This method creates a readable stream over the XSD schema loaded
+        /// from the specified assembly resource.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource; this parameter
+        /// is optional.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to load; this parameter is optional.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the created stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSchemaStream(
             Assembly assembly,   /* in: OPTIONAL */
             string resourceName, /* in: OPTIONAL */
@@ -1111,6 +1705,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a readable stream over the XSD schema loaded
+        /// from the specified assembly resource, optionally applying the
+        /// relaxed schema transformation first.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly from which to load the schema resource; this parameter
+        /// is optional.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the schema resource to load; this parameter is optional.
+        /// </param>
+        /// <param name="relaxed">
+        /// Non-zero to apply the relaxed schema transformation to the loaded
+        /// schema before creating the stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the created stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSchemaStream(
             Assembly assembly,   /* in: OPTIONAL */
             string resourceName, /* in: OPTIONAL */
@@ -1159,6 +1779,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Specific Xml Handling Methods
+        /// <summary>
+        /// This method creates an XML namespace manager populated with the
+        /// well-known Eagle script namespace.
+        /// </summary>
+        /// <param name="nameTable">
+        /// The name table with which to create the namespace manager.
+        /// </param>
+        /// <param name="namespaceManager">
+        /// Upon success, this contains the created namespace manager.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetAssemblyNamespaceManager(
             XmlNameTable nameTable,                   /* in */
             ref XmlNamespaceManager namespaceManager, /* out */
@@ -1173,6 +1810,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the list of script block nodes from the
+        /// specified XML document using the well-known Eagle script namespace
+        /// and XPath queries.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document from which to select the script block nodes.
+        /// </param>
+        /// <param name="nodeList">
+        /// Upon success, this contains the selected list of script block
+        /// nodes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetScriptBlockNodeList(
             XmlDocument document,     /* in */
             ref XmlNodeList nodeList, /* out */
@@ -1190,6 +1846,30 @@ namespace Eagle._Components.Private
 
         #region Serialization Methods
 #if SERIALIZATION
+        /// <summary>
+        /// This method serializes the specified object to XML, returning the
+        /// result as a byte array.
+        /// </summary>
+        /// <param name="object">
+        /// The object to serialize.
+        /// </param>
+        /// <param name="type">
+        /// The type to use when serializing the object.
+        /// </param>
+        /// <param name="serializerNamespaces">
+        /// The XML namespaces to use during serialization.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, this contains the serialized object as a byte array;
+        /// it must be null on entry.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Serialize(
             object @object,                               /* in */
             Type type,                                    /* in */
@@ -1244,6 +1924,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method serializes the specified object to XML, writing the
+        /// result to the specified XML writer.
+        /// </summary>
+        /// <param name="object">
+        /// The object to serialize.
+        /// </param>
+        /// <param name="type">
+        /// The type to use when serializing the object.
+        /// </param>
+        /// <param name="writer">
+        /// The XML writer to which the serialized object is written.
+        /// </param>
+        /// <param name="serializerNamespaces">
+        /// The XML namespaces to use during serialization.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Serialize(
             object @object,                               /* in */
             Type type,                                    /* in */
@@ -1293,6 +1996,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deserializes an object of the specified type from the
+        /// specified byte array of XML.
+        /// </summary>
+        /// <param name="type">
+        /// The type to use when deserializing the object.
+        /// </param>
+        /// <param name="bytes">
+        /// The byte array of XML from which to deserialize the object.
+        /// </param>
+        /// <param name="object">
+        /// Upon success, this contains the deserialized object; it must be null
+        /// on entry.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Deserialize(
             Type type,          /* in */
             byte[] bytes,       /* in */
@@ -1342,6 +2066,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deserializes an object of the specified type from the
+        /// specified XML reader.
+        /// </summary>
+        /// <param name="type">
+        /// The type to use when deserializing the object.
+        /// </param>
+        /// <param name="reader">
+        /// The XML reader from which to deserialize the object.
+        /// </param>
+        /// <param name="object">
+        /// Upon success, this contains the deserialized object; it must be null
+        /// on entry.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Deserialize(
             Type type,          /* in */
             XmlReader reader,   /* in */

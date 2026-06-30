@@ -16,6 +16,15 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>==</c> (equal to) expression
+    /// operator, which compares its two operands and yields a boolean result
+    /// indicating whether they are equal.  The evaluation itself is provided by
+    /// the <see cref="MaybeString" /> base class, selected by the
+    /// <see cref="Lexeme.Equal" /> lexeme, and may perform either numeric or
+    /// string comparison depending on the operand types.  See
+    /// <c>core_language.md</c> for expression and operator semantics.
+    /// </summary>
     [ObjectId("7ed209e6-b614-4922-8e3f-de5f5855dbcc")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Relational |
@@ -28,6 +37,13 @@ namespace Eagle._Operators
     internal sealed class Equal : MaybeString
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>==</c> equal to operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Equal(
             IOperatorData operatorData /* in */
             )

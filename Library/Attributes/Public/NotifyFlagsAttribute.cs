@@ -14,10 +14,21 @@ using Eagle._Components.Public;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This attribute is used to associate a set of notification flags with
+    /// the class it is applied to.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Class, Inherited = false)]
     [ObjectId("3697138f-bf83-4bfd-97dd-f8597013c98d")]
     public sealed class NotifyFlagsAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class using the specified
+        /// notification flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The notification flags to associate with the marked class.
+        /// </param>
         public NotifyFlagsAttribute(NotifyFlags flags)
         {
             this.flags = flags;
@@ -25,6 +36,15 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the string
+        /// representation of the notification flags.
+        /// </summary>
+        /// <param name="value">
+        /// The notification flags, as a string, to associate with the marked
+        /// class.  This value must be parsable as a value of the
+        /// <see cref="NotifyFlags" /> enumeration.
+        /// </param>
         public NotifyFlagsAttribute(string value)
         {
             flags = (NotifyFlags)Enum.Parse(
@@ -33,7 +53,13 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The notification flags associated with the marked class.
+        /// </summary>
         private NotifyFlags flags;
+        /// <summary>
+        /// Gets the notification flags associated with the marked class.
+        /// </summary>
         public NotifyFlags Flags
         {
             get { return flags; }

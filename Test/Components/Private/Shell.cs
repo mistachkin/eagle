@@ -23,38 +23,89 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Shell
 {
+    /// <summary>
+    /// This class implements the entry point and supporting startup logic for
+    /// the Eagle test shell application.  It creates an interpreter, configures
+    /// its host, processes startup options, and runs the interactive loop and
+    /// the main user interface form.
+    /// </summary>
     [ObjectId("05193919-e54c-448b-823d-e00c4573cd97")]
     internal static class Test
     {
         #region Private Constants
+        /// <summary>
+        /// The assembly that contains this shell, used as the source for
+        /// embedded resources.
+        /// </summary>
         private static readonly Assembly packageAssembly =
             Assembly.GetExecutingAssembly();
 
+        /// <summary>
+        /// The base name used when looking up embedded resources within the
+        /// package assembly.
+        /// </summary>
         private static readonly string resourceBaseName =
             packageAssembly.GetName().Name;
 
         //
         // NOTE: By default, we want a console?
         //
+        /// <summary>
+        /// The default setting that indicates whether the host console window
+        /// should be shown.
+        /// </summary>
         private static readonly bool DefaultConsole = true;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The primary user interface form for the test shell application.
+        /// </summary>
         internal static _Forms.TestForm mainForm = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The thread that runs the interactive loop for the interpreter, or
+        /// null if no interactive loop thread has been started.
+        /// </summary>
         private static Thread interactiveLoopThread = null;
+
+        /// <summary>
+        /// The initial command line arguments for the shell, saved for later
+        /// use when starting the interactive loop.
+        /// </summary>
         private static IEnumerable<string> mainArguments = null;
+
+        /// <summary>
+        /// The interpreter created and used by the shell.
+        /// </summary>
         private static Interpreter interpreter = null;
+
+        /// <summary>
+        /// The exit code that will be returned to the operating system when
+        /// the shell terminates.
+        /// </summary>
         private static ExitCode exitCode = Utility.SuccessExitCode();
+
+        /// <summary>
+        /// The token that identifies the test form plugin added to the
+        /// interpreter, or zero if no such plugin was added.
+        /// </summary>
         private static long pluginToken = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the process identifier for the current process.
+        /// </summary>
+        /// <returns>
+        /// The process identifier for the current process, or zero if it
+        /// cannot be determined.
+        /// </returns>
         private static long GetProcessId()
         {
             Process process = Process.GetCurrentProcess();
@@ -67,6 +118,21 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the main entry point for the test shell application.
+        /// It optionally pauses for a debugger, determines the interpreter and
+        /// host creation flags, creates the interpreter, processes the startup
+        /// options, configures the host, initializes the interpreter, starts
+        /// the interactive loop and the main user interface form, and reports
+        /// any errors that occur.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments passed to the application.
+        /// </param>
+        /// <returns>
+        /// The exit code for the process.  A value of zero typically indicates
+        /// success.
+        /// </returns>
         [STAThread()] /* WinForms */
         private static int Main(string[] args)
         {
@@ -497,6 +563,14 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the interactive loop thread is
+        /// currently running.
+        /// </summary>
+        /// <returns>
+        /// True if the interactive loop thread exists and is alive; otherwise,
+        /// false.
+        /// </returns>
         public static bool HaveInteractiveLoop()
         {
             try
@@ -517,6 +591,19 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and starts the interactive loop thread for the
+        /// interpreter, opening the host window first if it is not already
+        /// open.  It does nothing if the interactive loop thread has already
+        /// been started.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode StartupInteractiveLoopThread(
             ref Result error
             )
@@ -567,6 +654,16 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the thread start routine for the interactive loop
+        /// thread.  It runs the interpreter interactive loop, reports any
+        /// error that occurs, and records the resulting exit code for the
+        /// shell.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread parameter, which is expected to be the enumerable of
+        /// command line arguments for the interactive loop.
+        /// </param>
         private static void InteractiveLoopThreadStart(object obj)
         {
 #if MONO_BUILD

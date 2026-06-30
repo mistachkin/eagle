@@ -26,6 +26,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>dict</c> command, which creates, queries,
+    /// and manipulates dictionary values and dictionary-valued variables.  It
+    /// is an ensemble whose sub-commands cover creation, lookup, mutation,
+    /// iteration, filtering, and related operations on dictionaries.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("dc87a0be-2552-4244-8fcb-70f581ae0b70")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard
@@ -34,6 +41,13 @@ namespace Eagle._Commands
     internal sealed class Dict : _Commands.Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>dict</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Dict(
             ICommandData commandData
             )
@@ -46,6 +60,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "append", "create", "exists", "filter", "foreach", "get",
@@ -55,6 +74,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -64,6 +87,41 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>dict</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>create</c>,
+        /// <c>get</c>, <c>set</c>, <c>append</c>, <c>incr</c>, <c>filter</c>,
+        /// <c>foreach</c>, <c>map</c>, <c>merge</c>, <c>update</c>, or
+        /// <c>with</c>) in order to create, query, or modify dictionary values
+        /// and dictionary-valued variables, honoring the recognized options for
+        /// each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,
@@ -499,7 +557,7 @@ namespace Eagle._Commands
                             location = arguments[4];
 
                             list = new StringList(dictionary.Keys);
-                            list.Sort(); /* O(N) */
+                            list.Sort(); /* O(N log N) */
 
                             foreach (string element in list)
                             {

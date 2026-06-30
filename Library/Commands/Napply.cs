@@ -20,6 +20,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>napply</c> command, which applies a
+    /// lambda expression directly to a set of named arguments, in the manner
+    /// of <c>apply</c> but using name/value argument pairs rather than
+    /// positional arguments.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("86d11eee-7c32-4b07-95fb-11536876ed67")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.NonStandard)]
@@ -27,9 +34,26 @@ namespace Eagle._Commands
     internal sealed class Napply : Core
     {
         #region Private Static Methods
+        /// <summary>
+        /// This method constructs a per-interpreter unique command name in the
+        /// specified namespace, which may be the global namespace.  The name is
+        /// used to identify the transient lambda procedure while it is being
+        /// applied.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace in which the unique name should be created, or null to
+        /// use the global namespace.
+        /// </param>
+        /// <returns>
+        /// The generated, absolute, fully qualified command name.
+        /// </returns>
         private string NextName(
-            Interpreter interpreter,
-            INamespace @namespace
+            Interpreter interpreter, /* in */
+            INamespace @namespace    /* in */
             )
         {
             //
@@ -45,6 +69,13 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>napply</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Napply(
             ICommandData commandData
             )
@@ -56,11 +87,45 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>napply</c> command.  It interprets the
+        /// first argument as a lambda expression (a two element list of the
+        /// form <c>{args body}</c> or a three element list of the form
+        /// <c>{args body namespace}</c>), binds the remaining arguments to the
+        /// lambda's formal arguments by name, and then evaluates the lambda
+        /// body in a transient procedure call frame.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the lambda expression; the remaining
+        /// elements are name/value pairs supplying the lambda's named
+        /// arguments.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by evaluating the
+        /// lambda body.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" /> when the wrong number of
+        /// arguments is supplied, the lambda expression is malformed, a named
+        /// argument cannot be bound, the interpreter is null, or the argument
+        /// list is null) with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

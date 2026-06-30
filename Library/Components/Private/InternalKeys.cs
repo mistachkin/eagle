@@ -14,6 +14,11 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the public keys, in inline hexadecimal form, that
+    /// the Eagle core library uses with its <c>InternalsVisibleTo</c>
+    /// attributes (where the public key token alone cannot be used).
+    /// </summary>
     [ObjectId("e8ea69c1-5c7f-432c-b00f-1a1076d57cbb")]
     internal sealed class InternalKeys
     {
@@ -26,6 +31,10 @@ namespace Eagle._Components.Private
         //
         //       This key MAY also be used to sign release builds.
         //
+        /// <summary>
+        /// The inline hexadecimal public key ("EagleFastPublic.snk", 4096 bits)
+        /// that may be used to sign debug builds of the Eagle core library.
+        /// </summary>
         public const string Fast =
             "0024000004800000140200000602000000240000525341310010000001000100" +
             "1f39c3a9757db25d7202147995d354f422ed1cd4999366a5192ee7088513a634" +
@@ -54,6 +63,11 @@ namespace Eagle._Components.Private
         //
         //       This key MUST NOT be used to sign debug builds.
         //
+        /// <summary>
+        /// The inline hexadecimal public key ("EagleStrongPublic.snk", 16384
+        /// bits) that may be used to sign public release builds of the Eagle
+        /// core library.
+        /// </summary>
         public const string Strong =
             "0024000004800000140800000602000000240000525341310040000001000100" +
             "a355d4347022d498c75042ae648cd20f6e932880203d41fe47046d97494516b6" +
@@ -130,6 +144,11 @@ namespace Eagle._Components.Private
         //
         //       This key MUST NOT be used to sign actual release builds.
         //
+        /// <summary>
+        /// The inline hexadecimal public key ("EagleBetaPublic.snk", 8200 bits)
+        /// that may be used to sign public pre-release builds of the Eagle core
+        /// library.
+        /// </summary>
         public const string Beta =
             "0024000004800000150400000602000000240000525341310820000001000100" +
             "4bf91bb3d80e40787ff2f12c8085af4c472c0004a55bfbb1826384d734353120" +

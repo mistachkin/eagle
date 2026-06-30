@@ -24,6 +24,13 @@ using Eagle._Interfaces.Private.Tcl;
 
 namespace Eagle._Components.Private.Tcl
 {
+    /// <summary>
+    /// This class wraps the native Tcl C API for use by Eagle's optional Tcl
+    /// integration.  It holds the loaded Tcl library module, the function
+    /// pointer delegates for each supported native Tcl routine, and the
+    /// associated bookkeeping needed to load, call into, and cleanly unload
+    /// Tcl from a managed interpreter.
+    /// </summary>
     [ObjectId("8ba3b5de-c1f8-4d89-b75d-2887966a0670")]
 #if TCL_WRAPPER
     public
@@ -38,6 +45,10 @@ namespace Eagle._Components.Private.Tcl
         //
         // TODO: Update if the number of members (or the size) changes.
         //
+        /// <summary>
+        /// The required size, in bytes, of the native NativeStubs structure
+        /// provided by the native Garuda code.
+        /// </summary>
         private static readonly int SizeOfNativeStubs = 49 * IntPtr.Size;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -48,58 +59,221 @@ namespace Eagle._Components.Private.Tcl
         //          native "ClrTclStubs" structure defined in the Garuda
         //          source code file "GarudaInt.h" exactly.
         //
+        /// <summary>
+        /// This structure mirrors the native "ClrTclStubs" structure defined
+        /// in the Garuda source code; its size and field layout MUST match that
+        /// native structure exactly.  Each field holds the native function
+        /// pointer for one supported Tcl API routine.
+        /// </summary>
         [StructLayout(LayoutKind.Sequential)]
         [ObjectId("7895bd71-e1dc-4fe6-ba57-78bc7a7c1e42")]
         internal struct NativeStubs
         {
+            /// <summary>
+            /// The size of this structure, in bytes.
+            /// </summary>
             public UIntPtr sizeOf; /* The size of this structure, in bytes. */
+            /// <summary>
+            /// The native function pointer for the Tcl_GetVersion routine.
+            /// </summary>
             public IntPtr getVersion;
+            /// <summary>
+            /// The native function pointer for the Tcl_FindExecutable routine.
+            /// </summary>
             public IntPtr findExecutable;
+            /// <summary>
+            /// The native function pointer for the Tcl_CreateInterp routine.
+            /// </summary>
             public IntPtr createInterp;
+            /// <summary>
+            /// The native function pointer for the Tcl_Preserve routine.
+            /// </summary>
             public IntPtr preserve;
+            /// <summary>
+            /// The native function pointer for the Tcl_Release routine.
+            /// </summary>
             public IntPtr release;
+            /// <summary>
+            /// The native function pointer for the Tcl_ObjGetVar2 routine.
+            /// </summary>
             public IntPtr objGetVar2;
+            /// <summary>
+            /// The native function pointer for the Tcl_ObjSetVar2 routine.
+            /// </summary>
             public IntPtr objSetVar2;
+            /// <summary>
+            /// The native function pointer for the Tcl_UnsetVar2 routine.
+            /// </summary>
             public IntPtr unsetVar2;
+            /// <summary>
+            /// The native function pointer for the Tcl_Init routine.
+            /// </summary>
             public IntPtr init;
+            /// <summary>
+            /// The native function pointer for the Tcl_InitMemory routine.
+            /// </summary>
             public IntPtr initMemory;
+            /// <summary>
+            /// The native function pointer for the Tcl_MakeSafe routine.
+            /// </summary>
             public IntPtr makeSafe;
+            /// <summary>
+            /// The native function pointer for the Tcl_GetObjType routine.
+            /// </summary>
             public IntPtr getObjType;
+            /// <summary>
+            /// The native function pointer for the Tcl_AppendAllObjTypes
+            /// routine.
+            /// </summary>
             public IntPtr appendAllObjTypes;
+            /// <summary>
+            /// The native function pointer for the Tcl_ConvertToType routine.
+            /// </summary>
             public IntPtr convertToType;
+            /// <summary>
+            /// The native function pointer for the Tcl_CreateObjCommand
+            /// routine.
+            /// </summary>
             public IntPtr createObjCommand;
+            /// <summary>
+            /// The native function pointer for the Tcl_DeleteCommandFromToken
+            /// routine.
+            /// </summary>
             public IntPtr deleteCommandFromToken;
+            /// <summary>
+            /// The native function pointer for the Tcl_DeleteInterp routine.
+            /// </summary>
             public IntPtr deleteInterp;
+            /// <summary>
+            /// The native function pointer for the Tcl_InterpDeleted routine.
+            /// </summary>
             public IntPtr interpDeleted;
+            /// <summary>
+            /// The native function pointer for the Tcl_InterpActive routine.
+            /// </summary>
             public IntPtr interpActive;
+            /// <summary>
+            /// The native function pointer for the Tcl_GetErrorLine routine.
+            /// </summary>
             public IntPtr getErrorLine;
+            /// <summary>
+            /// The native function pointer for the Tcl_SetErrorLine routine.
+            /// </summary>
             public IntPtr setErrorLine;
+            /// <summary>
+            /// The native function pointer for the Tcl_NewObj routine.
+            /// </summary>
             public IntPtr newObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_NewUnicodeObj routine.
+            /// </summary>
             public IntPtr newUnicodeObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_NewStringObj routine.
+            /// </summary>
             public IntPtr newStringObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_NewByteArrayObj routine.
+            /// </summary>
             public IntPtr newByteArrayObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_DbIncrRefCount routine.
+            /// </summary>
             public IntPtr dbIncrRefCount;
+            /// <summary>
+            /// The native function pointer for the Tcl_DbDecrRefCount routine.
+            /// </summary>
             public IntPtr dbDecrRefCount;
+            /// <summary>
+            /// The native function pointer for the Tcl_CommandComplete routine.
+            /// </summary>
             public IntPtr commandComplete;
+            /// <summary>
+            /// The native function pointer for the Tcl_AllowExceptions routine.
+            /// </summary>
             public IntPtr allowExceptions;
+            /// <summary>
+            /// The native function pointer for the Tcl_EvalObjEx routine.
+            /// </summary>
             public IntPtr evalObjEx;
+            /// <summary>
+            /// The native function pointer for the Tcl_EvalFile routine.
+            /// </summary>
             public IntPtr evalFile;
+            /// <summary>
+            /// The native function pointer for the Tcl_RecordAndEvalObj
+            /// routine.
+            /// </summary>
             public IntPtr recordAndEvalObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_ExprObj routine.
+            /// </summary>
             public IntPtr exprObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_SubstObj routine.
+            /// </summary>
             public IntPtr substObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_CancelEval routine.
+            /// </summary>
             public IntPtr cancelEval;
+            /// <summary>
+            /// The native function pointer for the Tcl_Canceled routine.
+            /// </summary>
             public IntPtr canceled;
+            /// <summary>
+            /// The native function pointer for the TclResetCancellation
+            /// routine.
+            /// </summary>
             public IntPtr resetCancellation;
+            /// <summary>
+            /// The native function pointer for the TclSetInterpCancelFlags
+            /// routine.
+            /// </summary>
             public IntPtr setInterpCancelFlags;
+            /// <summary>
+            /// The native function pointer for the Tcl_DoOneEvent routine.
+            /// </summary>
             public IntPtr doOneEvent;
+            /// <summary>
+            /// The native function pointer for the Tcl_ResetResult routine.
+            /// </summary>
             public IntPtr resetResult;
+            /// <summary>
+            /// The native function pointer for the Tcl_GetObjResult routine.
+            /// </summary>
             public IntPtr getObjResult;
+            /// <summary>
+            /// The native function pointer for the Tcl_SetObjResult routine.
+            /// </summary>
             public IntPtr setObjResult;
+            /// <summary>
+            /// The native function pointer for the Tcl_GetUnicodeFromObj
+            /// routine.
+            /// </summary>
             public IntPtr getUnicodeFromObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_GetStringFromObj
+            /// routine.
+            /// </summary>
             public IntPtr getStringFromObj;
+            /// <summary>
+            /// The native function pointer for the Tcl_CreateExitHandler
+            /// routine.
+            /// </summary>
             public IntPtr createExitHandler;
+            /// <summary>
+            /// The native function pointer for the Tcl_DeleteExitHandler
+            /// routine.
+            /// </summary>
             public IntPtr deleteExitHandler;
+            /// <summary>
+            /// The native function pointer for the Tcl_FinalizeThread routine.
+            /// </summary>
             public IntPtr finalizeThread;
+            /// <summary>
+            /// The native function pointer for the Tcl_Finalize routine.
+            /// </summary>
             public IntPtr finalize;
         }
         #endregion
@@ -110,7 +284,15 @@ namespace Eagle._Components.Private.Tcl
         //
         // WARNING: Do not change these as they must be UTF-8 encodings.
         //
+        /// <summary>
+        /// The encoding used when converting strings received from the native
+        /// Tcl library into managed strings.  This must be a UTF-8 encoding.
+        /// </summary>
         public static readonly Encoding FromEncoding = TclEncoding.Tcl;
+        /// <summary>
+        /// The encoding used when converting managed strings into the form
+        /// passed to the native Tcl library.  This must be a UTF-8 encoding.
+        /// </summary>
         public static readonly Encoding ToEncoding = TclEncoding.Tcl;
         #endregion
 
@@ -123,6 +305,12 @@ namespace Eagle._Components.Private.Tcl
         //       basis using the various method overloads that include the
         //       "exceptions" bool argument.
         //
+        /// <summary>
+        /// The default value, used to initialize each instance, controlling
+        /// whether Tcl_AllowExceptions should be called prior to evaluating
+        /// scripts.  This may be overridden on a per-call basis using the
+        /// method overloads that include the exceptions argument.
+        /// </summary>
         public static bool DefaultExceptions = false;
         #endregion
 
@@ -135,6 +323,10 @@ namespace Eagle._Components.Private.Tcl
         //       resides in the public Tcl_Interp struct; therefore, it should be
         //       100% reliable.
         //
+        /// <summary>
+        /// The number of pointer-size fields that precede the errorLine field
+        /// in the Tcl Interp structure for Tcl 8.4, 8.5, and 8.6.
+        /// </summary>
         private const int PTRS_BEFORE_ERRORLINE = 2;
 
         //
@@ -144,35 +336,75 @@ namespace Eagle._Components.Private.Tcl
         //       assumptions about the internal (private) layout of the Interp
         //       structure.
         //
+        /// <summary>
+        /// The number of pointer-size fields that precede the numLevels field
+        /// in the Tcl Interp structure for Tcl 8.4, 8.5, and 8.6.
+        /// </summary>
         private const int PTRS_BEFORE_NUMLEVELS = 15;
+        /// <summary>
+        /// The number of integer-size fields that precede the numLevels field
+        /// in the Tcl Interp structure for Tcl 8.4, 8.5, and 8.6.
+        /// </summary>
         private const int INTS_BEFORE_NUMLEVELS = 7;
 
         //
         // NOTE: The offset into the Tcl_Interp structure for the errorLine member,
         //       in bytes.
         //
+        /// <summary>
+        /// The offset, in bytes, of the errorLine member within the Tcl_Interp
+        /// structure.
+        /// </summary>
         private static int INTERP_ERRORLINE_OFFSET;
 
         //
         // NOTE: The offset into the Tcl_Interp structure for the numLevels member,
         //       in bytes.
         //
+        /// <summary>
+        /// The offset, in bytes, of the numLevels member within the Tcl_Interp
+        /// structure.
+        /// </summary>
         internal static int INTERP_NUMLEVELS_OFFSET;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The GC handle used to pin this object in memory while it is hooked
+        /// to Tcl via a native exit handler.
+        /// </summary>
         private GCHandle handle; /* TclApi */
+        /// <summary>
+        /// The managed delegate registered as the Tcl exit handler for this
+        /// object, or null if no exit handler is currently installed.
+        /// </summary>
         private Tcl_ExitProc exitProc;
+        /// <summary>
+        /// The mapping from native Tcl delegate type to the native function
+        /// pointer (address) for the associated Tcl API routine.
+        /// </summary>
         private TypeIntPtrDictionary addresses;
+        /// <summary>
+        /// The mapping from native Tcl delegate type to the managed delegate
+        /// instance used to call into the associated Tcl API routine.
+        /// </summary>
         private TypeDelegateDictionary delegates;
+        /// <summary>
+        /// The mapping that indicates which native Tcl delegates are purely
+        /// optional (i.e. the remaining ones are absolutely required).
+        /// </summary>
         private TypeBoolDictionary optional;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Constructor
+        /// <summary>
+        /// Initializes the static state for this class, computing the offsets
+        /// into the Tcl_Interp structure that are used by this class.
+        /// </summary>
         static TclApi()
         {
             Initialize();
@@ -182,6 +414,32 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a new instance of this class that wraps a loaded native
+        /// Tcl library for use by the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that now owns this object.
+        /// </param>
+        /// <param name="build">
+        /// The Tcl build instance corresponding to the loaded version of Tcl.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name associated with the loaded native Tcl module.
+        /// </param>
+        /// <param name="module">
+        /// The native module handle for the loaded Tcl library.  This handle is
+        /// not owned by this object because it may be shared by multiple
+        /// interpreters.
+        /// </param>
+        /// <param name="stubs">
+        /// The pointer to the native stubs structure, or zero when stubs are
+        /// not in use.  This pointer is not owned by this object because it may
+        /// be shared by multiple interpreters.
+        /// </param>
+        /// <param name="loadFlags">
+        /// The flags that were used to load the native Tcl library.
+        /// </param>
         private TclApi(
             Interpreter interpreter,
             TclBuild build,
@@ -266,6 +524,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object, releasing any unmanaged resources that it
+        /// still holds.
+        /// </summary>
         ~TclApi() /* throw */
         {
             Dispose(false);
@@ -275,8 +537,20 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// When non-zero, this object is currently in the process of being
+        /// disposed; this is used to prevent re-entrancy.
+        /// </summary>
         private bool disposing;
+        /// <summary>
+        /// When non-zero, this object has been disposed and should no longer be
+        /// used.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// Throws an exception if this object has been disposed and the
+        /// interpreter is configured to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -287,6 +561,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Disposes of this object, unhooking the Tcl exit handler if necessary
+        /// and releasing the resources that it holds.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the public
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(bool disposing) /* throw */
         {
             lock (syncRoot)
@@ -422,6 +705,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// Disposes of this object, releasing all resources that it holds and
+        /// suppressing finalization.
+        /// </summary>
         public void Dispose() /* throw */
         {
             Dispose(true);
@@ -432,6 +719,14 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// Creates a deep copy of this object, adding a new reference to the
+        /// underlying native Tcl module.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this object, or null if the copy could not
+        /// be created.
+        /// </returns>
         public object Clone() /* DEEP COPY */
         {
             CheckDisposed();
@@ -458,6 +753,36 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// Creates a new instance of this class that wraps a loaded native Tcl
+        /// library, resolving its file name and native delegates.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that will own the new object.
+        /// </param>
+        /// <param name="build">
+        /// The Tcl build instance corresponding to the loaded version of Tcl.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name associated with the loaded native Tcl module.
+        /// </param>
+        /// <param name="module">
+        /// The native module handle for the loaded Tcl library.
+        /// </param>
+        /// <param name="stubs">
+        /// The pointer to the native stubs structure, or zero when stubs are
+        /// not in use.
+        /// </param>
+        /// <param name="loadFlags">
+        /// The flags that were used to load the native Tcl library.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created object, or null if it could not be created.
+        /// </returns>
         public static ITclApi Create(
             Interpreter interpreter,
             TclBuild build,
@@ -485,6 +810,27 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region File Name Management Members
+        /// <summary>
+        /// Resolves and stores the file name associated with the loaded native
+        /// Tcl module, querying the module handle when no file name has yet been
+        /// provided.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name associated with the loaded native Tcl module, if
+        /// already known.
+        /// </param>
+        /// <param name="module">
+        /// The native module handle to query for its file name when one is not
+        /// already known.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file name is known (or was successfully resolved);
+        /// otherwise, false.
+        /// </returns>
         private bool SetFileName(
             string fileName,
             IntPtr module,
@@ -527,6 +873,21 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Function Pointer Management Members
+        /// <summary>
+        /// Marshals the native stubs structure from the specified unmanaged
+        /// pointer into a managed NativeStubs value.
+        /// </summary>
+        /// <param name="stubs">
+        /// The pointer to the native stubs structure.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The marshaled NativeStubs value boxed as an object, or null on
+        /// failure.
+        /// </returns>
         private static object NativeStubsFromIntPtr(
             IntPtr stubs,
             ref Result error
@@ -546,6 +907,19 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Populates the dictionary of native function pointer addresses with
+        /// an entry for each supported Tcl API delegate type, initially set to
+        /// zero.
+        /// </summary>
+        /// <param name="clear">
+        /// Non-zero to clear any existing entries before populating the
+        /// dictionary.
+        /// </param>
+        /// <param name="stubs">
+        /// Non-zero if the native stubs mechanism is in use.  This parameter is
+        /// not used.
+        /// </param>
         private void InitializeAddresses(
             bool clear,
             bool stubs /* NOT USED */
@@ -686,6 +1060,21 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Copies the native function pointer addresses from the specified
+        /// native stubs structure into the dictionary of addresses.
+        /// </summary>
+        /// <param name="nativeStubs">
+        /// The native stubs structure containing the function pointer addresses
+        /// to copy.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the addresses were successfully copied; otherwise, false.
+        /// </returns>
         private bool SetAddresses(
             NativeStubs nativeStubs,
             ref Result error
@@ -759,6 +1148,19 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Delegate Management Members
+        /// <summary>
+        /// Populates the dictionary of native Tcl delegates with an entry for
+        /// each supported Tcl API delegate type, initially set to null, and
+        /// records which of those delegates are purely optional.
+        /// </summary>
+        /// <param name="clear">
+        /// Non-zero to clear any existing entries before populating the
+        /// dictionaries.
+        /// </param>
+        /// <param name="stubs">
+        /// Non-zero if the native stubs mechanism is in use, which affects which
+        /// delegates are considered optional.
+        /// </param>
         private void InitializeDelegates(
             bool clear,
             bool stubs
@@ -942,6 +1344,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resolves and stores the managed delegates for the supported Tcl API
+        /// routines, using either the native stubs structure or the loaded
+        /// module handle.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the delegates were successfully resolved; otherwise, false.
+        /// </returns>
         private bool SetDelegates(
             ref Result error
             )
@@ -998,6 +1412,19 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Exit Handler Management Members
+        /// <summary>
+        /// Clears the record of the Tcl exit handler without attempting to
+        /// delete it from Tcl.  This is used in cases where the exit handler has
+        /// already been removed as part of Tcl_Finalize or Tcl_Exit processing.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public ReturnCode ClearExitHandler(
             ref Result error
             )
@@ -1021,6 +1448,18 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Installs the Tcl exit handler for this object, pinning this object in
+        /// memory and informing Tcl of the native callback delegate.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public ReturnCode SetExitHandler(
             ref Result error
             )
@@ -1064,6 +1503,19 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Removes the Tcl exit handler for this object, unhooking the native
+        /// callback delegate from Tcl, freeing the GC handle that pins this
+        /// object in memory, and clearing the callback delegate reference.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public ReturnCode UnsetExitHandler(
             ref Result error
             )
@@ -1119,6 +1571,21 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Native Package Integration Members
+        /// <summary>
+        /// Attempts to find the native thread identifier associated with the
+        /// specified native Tcl interpreter via the native package subsystem.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter to look up.
+        /// </param>
+        /// <param name="threadId">
+        /// Upon success, this parameter will be modified to contain the native
+        /// thread identifier associated with the interpreter.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter was found and its thread identifier was
+        /// determined; otherwise, false.
+        /// </returns>
         private static bool CheckNativePackageInterp(
             IntPtr interp,
             ref long threadId
@@ -1136,6 +1603,11 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Module Helper Members
+        /// <summary>
+        /// Computes and stores the byte offsets into the Tcl_Interp structure
+        /// for the numLevels and errorLine members, accounting for native
+        /// structure packing.
+        /// </summary>
         public static void Initialize()
         {
             //
@@ -1167,6 +1639,17 @@ namespace Eagle._Components.Private.Tcl
         // BUGBUG: Any caller of this method overload should report negative
         //         return values to the user.
         //
+        /// <summary>
+        /// Checks whether the specified Tcl API object has a valid native
+        /// module handle.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object to check.
+        /// </param>
+        /// <returns>
+        /// True if the Tcl API object has a valid native module handle;
+        /// otherwise, false.
+        /// </returns>
         public static bool CheckModule(
             ITclApi tclApi
             )
@@ -1178,6 +1661,21 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Checks whether the specified Tcl API object has a valid native
+        /// module handle.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the Tcl API object has a valid native module handle;
+        /// otherwise, false.
+        /// </returns>
         public static bool CheckModule(
             ITclApi tclApi,
             ref Result error
@@ -1220,6 +1718,22 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Stubs Helper Methods
+        /// <summary>
+        /// Validates that the specified native stubs structure is at least the
+        /// expected size, both as marshaled and as reported by its own size
+        /// field.
+        /// </summary>
+        /// <param name="nativeStubs">
+        /// The native stubs structure to validate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the structure is at least the expected size; otherwise,
+        /// false.
+        /// </returns>
         private static bool CheckSizeOfNativeStubs(
             NativeStubs nativeStubs,
             ref Result error
@@ -1283,6 +1797,20 @@ namespace Eagle._Components.Private.Tcl
         // HACK: Only used when interfacing with Tcl 8.5 or earlier.
         //       No longer necessary in Tcl 8.6 due to TIP #335.
         //
+        /// <summary>
+        /// Reads the numLevels member from the native Tcl interpreter
+        /// structure.  This is only used when interfacing with Tcl 8.5 or
+        /// earlier.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object associated with the native interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to read from.
+        /// </param>
+        /// <returns>
+        /// The value of the numLevels member, or zero on failure.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1314,6 +1842,20 @@ namespace Eagle._Components.Private.Tcl
         // HACK: Only used when interfacing with Tcl 8.5 or earlier.
         //       No longer necessary in Tcl 8.6 due to TIP #336.
         //
+        /// <summary>
+        /// Reads the errorLine member from the native Tcl interpreter
+        /// structure.  This is only used when interfacing with Tcl 8.5 or
+        /// earlier.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object associated with the native interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to read from.
+        /// </param>
+        /// <returns>
+        /// The value of the errorLine member, or zero on failure.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1345,6 +1887,28 @@ namespace Eagle._Components.Private.Tcl
         // HACK: Only used when interfacing with Tcl 8.5 or earlier.
         //       No longer necessary in Tcl 8.6 due to TIP #336.
         //
+        /// <summary>
+        /// Writes a new value into the errorLine member of the native Tcl
+        /// interpreter structure.  This is only used when interfacing with Tcl
+        /// 8.5 or earlier.
+        /// </summary>
+        /// <param name="tclApi">
+        /// The Tcl API object associated with the native interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to write to.
+        /// </param>
+        /// <param name="line">
+        /// The new error line value to write.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1386,6 +1950,17 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static ITclApi Helper Members
+        /// <summary>
+        /// Gets the Tcl API object associated with the specified interpreter, if
+        /// any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose Tcl API object is to be returned.
+        /// </param>
+        /// <returns>
+        /// The Tcl API object associated with the interpreter, or null if there
+        /// is none (or the interpreter has been disposed).
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1420,6 +1995,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the Tcl API object associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose Tcl API object is to be set.
+        /// </param>
+        /// <param name="tclApi">
+        /// The Tcl API object to associate with the interpreter.
+        /// </param>
 #if TCL_WRAPPER
         internal
 #else
@@ -1456,6 +2040,25 @@ namespace Eagle._Components.Private.Tcl
 
         #region Static Native Package Helper Members
 #if NATIVE_PACKAGE
+        /// <summary>
+        /// Determines whether the specified interpreter is tracking a native
+        /// Tcl interpreter that matches the given criteria.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match against the names of the tracked native
+        /// Tcl interpreters.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to match against the tracked
+        /// interpreters.
+        /// </param>
+        /// <returns>
+        /// True if a matching native Tcl interpreter is being tracked;
+        /// otherwise, false.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1475,6 +2078,19 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adds a native Tcl interpreter to the set of interpreters tracked by
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that should track the native Tcl interpreter.
+        /// </param>
+        /// <param name="interpName">
+        /// The name to associate with the native Tcl interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to add.
+        /// </param>
 #if TCL_WRAPPER
         internal
 #else
@@ -1492,6 +2108,19 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Removes a native Tcl interpreter from the set of interpreters tracked
+        /// by the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that is tracking the native Tcl interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to remove.
+        /// </param>
+        /// <returns>
+        /// The number of tracked native Tcl interpreters that were removed.
+        /// </returns>
 #if TCL_WRAPPER
         internal
 #else
@@ -1513,7 +2142,13 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// The interpreter that owns this object.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets the interpreter that owns this object.
+        /// </summary>
         public Interpreter Interpreter
         {
             get
@@ -1531,7 +2166,13 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeBase Members
+        /// <summary>
+        /// The object used to synchronize access to this instance.
+        /// </summary>
         private object syncRoot;
+        /// <summary>
+        /// Gets the object used to synchronize access to this instance.
+        /// </summary>
         public object SyncRoot
         {
             get
@@ -1546,6 +2187,14 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Members
+        /// <summary>
+        /// Attempts to acquire the synchronization lock for this instance
+        /// without waiting.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be modified to contain non-zero if
+        /// the lock was acquired; otherwise, zero.
+        /// </param>
         public void TryLock(
             ref bool locked
             )
@@ -1560,6 +2209,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock for this instance,
+        /// waiting up to the configured wait-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be modified to contain non-zero if
+        /// the lock was acquired; otherwise, zero.
+        /// </param>
         public void TryLockWithWait(
             ref bool locked
             )
@@ -1576,6 +2233,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock for this instance
+        /// without waiting and without checking whether this object has been
+        /// disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be modified to contain non-zero if
+        /// the lock was acquired; otherwise, zero.
+        /// </param>
         public void TryLockNoThrow(
             ref bool locked
             )
@@ -1590,6 +2256,17 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock for this instance,
+        /// waiting up to the specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time to wait for the lock, in milliseconds.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be modified to contain non-zero if
+        /// the lock was acquired; otherwise, zero.
+        /// </param>
         public void TryLock(
             int timeout,
             ref bool locked
@@ -1605,6 +2282,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Releases the synchronization lock for this instance, if it is held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is currently held by the caller.  Upon
+        /// return, this parameter will be modified to contain zero if the lock
+        /// was released.
+        /// </param>
         public void ExitLock(
             ref bool locked
             )
@@ -1626,7 +2311,14 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ITclApi Members
+        /// <summary>
+        /// The Tcl build instance corresponding to the loaded version of Tcl.
+        /// </summary>
         private TclBuild build;
+        /// <summary>
+        /// Gets the Tcl build instance corresponding to the loaded version of
+        /// Tcl.
+        /// </summary>
         public TclBuild Build
         {
             get
@@ -1642,7 +2334,13 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The file name associated with the loaded native Tcl module.
+        /// </summary>
         private string fileName;
+        /// <summary>
+        /// Gets the file name associated with the loaded native Tcl module.
+        /// </summary>
         public string FileName
         {
             get
@@ -1658,7 +2356,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The native module handle for the loaded Tcl library.  This handle is
+        /// not owned by this object.
+        /// </summary>
         private IntPtr module;
+        /// <summary>
+        /// Gets the native module handle for the loaded Tcl library.
+        /// </summary>
         public IntPtr Module
         {
             get
@@ -1674,7 +2379,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The pointer to the native stubs structure, or zero when stubs are
+        /// not in use.  This pointer is not owned by this object.
+        /// </summary>
         private IntPtr stubs;
+        /// <summary>
+        /// Gets the pointer to the native stubs structure, or zero when stubs
+        /// are not in use.
+        /// </summary>
         public IntPtr Stubs
         {
             get
@@ -1690,7 +2403,13 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags that were used to load the native Tcl library.
+        /// </summary>
         private LoadFlags loadFlags;
+        /// <summary>
+        /// Gets the flags that were used to load the native Tcl library.
+        /// </summary>
         public LoadFlags LoadFlags
         {
             get
@@ -1706,7 +2425,14 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags that will be used when unloading the native Tcl library.
+        /// </summary>
         private UnloadFlags unloadFlags;
+        /// <summary>
+        /// Gets the flags that will be used when unloading the native Tcl
+        /// library.
+        /// </summary>
         public UnloadFlags UnloadFlags
         {
             get
@@ -1722,7 +2448,15 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, Tcl_AllowExceptions is called prior to evaluating
+        /// scripts.
+        /// </summary>
         private bool exceptions;
+        /// <summary>
+        /// Gets or sets a value indicating whether Tcl_AllowExceptions is
+        /// called prior to evaluating scripts.
+        /// </summary>
         public bool Exceptions
         {
             get
@@ -1747,6 +2481,17 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a list of name/value pairs describing the current state of
+        /// this object, suitable for diagnostic display.
+        /// </summary>
+        /// <param name="all">
+        /// Non-zero to include all available details, such as the Tcl build
+        /// information.
+        /// </param>
+        /// <returns>
+        /// The list of name/value pairs describing this object.
+        /// </returns>
         public StringPairList ToList(
             bool all
             )
@@ -1791,6 +2536,22 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a deep copy of this object, adding a new reference to the
+        /// underlying native Tcl module.
+        /// </summary>
+        /// <param name="tclApi">
+        /// Upon success, this parameter will be modified to contain the newly
+        /// created copy of this object.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public ReturnCode Copy(
             ref ITclApi tclApi,
             ref Result error
@@ -1867,6 +2628,17 @@ namespace Eagle._Components.Private.Tcl
         // BUGBUG: Any caller of this method overload should report negative
         //         return values to the user.
         //
+        /// <summary>
+        /// Checks whether the specified native Tcl interpreter is valid for use
+        /// from the current thread.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter to check.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter is valid for use from the current thread;
+        /// otherwise, false.
+        /// </returns>
         public bool CheckInterp(
             IntPtr interp
             )
@@ -1880,6 +2652,21 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Checks whether the specified native Tcl interpreter is valid for use
+        /// from the current thread.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter is valid for use from the current thread;
+        /// otherwise, false.
+        /// </returns>
         public bool CheckInterp(
             IntPtr interp,
             ref Result error
@@ -1936,6 +2723,17 @@ namespace Eagle._Components.Private.Tcl
         // BUGBUG: Any caller of this method overload should report negative
         //         return values to the user.
         //
+        /// <summary>
+        /// Checks whether the specified native Tcl object is valid for use from
+        /// the current thread.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native Tcl object to check.
+        /// </param>
+        /// <returns>
+        /// True if the object is valid for use from the current thread;
+        /// otherwise, false.
+        /// </returns>
         public bool CheckObjPtr(
             IntPtr objPtr
             )
@@ -1950,6 +2748,18 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !TCL_THREADS
+        /// <summary>
+        /// Gets the native thread identifier associated with the specified
+        /// native Tcl object, via its owning interpreter.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native Tcl object whose associated thread identifier is to be
+        /// returned.
+        /// </param>
+        /// <returns>
+        /// The native thread identifier associated with the object, or zero if
+        /// it could not be determined.
+        /// </returns>
         private long GetThreadIdForObjPtr(
             IntPtr objPtr
             )
@@ -1968,6 +2778,21 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Checks whether the specified native Tcl object is valid for use from
+        /// the current thread.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native Tcl object to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the object is valid for use from the current thread;
+        /// otherwise, false.
+        /// </returns>
         public bool CheckObjPtr(
             IntPtr objPtr,
             ref Result error
@@ -2019,6 +2844,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetVersion routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_GetVersion GetVersion
         {
             get
@@ -2035,6 +2864,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_FindExecutable routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_FindExecutable FindExecutable
         {
             get
@@ -2052,6 +2885,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TCL_KITS
+        /// <summary>
+        /// Gets the managed delegate for the native TclKit_SetKitPath routine,
+        /// or null if it is not available.
+        /// </summary>
         public TclKit_SetKitPath Kit_SetKitPath
         {
             get
@@ -2069,6 +2906,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_CreateInterp routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_CreateInterp CreateInterp
         {
             get
@@ -2086,6 +2927,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TCL_KITS
+        /// <summary>
+        /// Gets the managed delegate for the native TclKit_AppInit routine, or
+        /// null if it is not available.
+        /// </summary>
         public TclKit_AppInit Kit_AppInit
         {
             get
@@ -2103,6 +2948,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_Preserve routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_Preserve Preserve
         {
             get
@@ -2119,6 +2968,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_Release routine, or null
+        /// if it is not available.
+        /// </summary>
         public Tcl_Release Release
         {
             get
@@ -2135,6 +2988,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_ObjGetVar2 routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_ObjGetVar2 ObjGetVar2
         {
             get
@@ -2151,6 +3008,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_ObjSetVar2 routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_ObjSetVar2 ObjSetVar2
         {
             get
@@ -2167,6 +3028,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_UnsetVar2 routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_UnsetVar2 UnsetVar2
         {
             get
@@ -2183,6 +3048,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_Init routine, or null if
+        /// it is not available.
+        /// </summary>
         public Tcl_Init Init
         {
             get
@@ -2199,6 +3068,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_InitMemory routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_InitMemory InitMemory
         {
             get
@@ -2215,6 +3088,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_MakeSafe routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_MakeSafe MakeSafe
         {
             get
@@ -2251,6 +3128,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetObjType routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_GetObjType GetObjType
         {
             get
@@ -2267,6 +3148,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_AppendAllObjTypes
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_AppendAllObjTypes AppendAllObjTypes
         {
             get
@@ -2283,6 +3168,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_ConvertToType routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_ConvertToType ConvertToType
         {
             get
@@ -2299,6 +3188,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_CreateObjCommand
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_CreateObjCommand CreateObjCommand
         {
             get
@@ -2315,6 +3208,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DeleteCommandFromToken
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_DeleteCommandFromToken DeleteCommandFromToken
         {
             get
@@ -2331,6 +3228,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DeleteInterp routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_DeleteInterp DeleteInterp
         {
             get
@@ -2347,6 +3248,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_InterpDeleted routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_InterpDeleted InterpDeleted
         {
             get
@@ -2363,6 +3268,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_InterpActive routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_InterpActive InterpActive
         {
             get
@@ -2379,6 +3288,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetErrorLine routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_GetErrorLine GetErrorLine
         {
             get
@@ -2395,6 +3308,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_SetErrorLine routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_SetErrorLine SetErrorLine
         {
             get
@@ -2411,6 +3328,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_NewObj routine, or null
+        /// if it is not available.
+        /// </summary>
         public Tcl_NewObj NewObj
         {
             get
@@ -2427,6 +3348,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_NewUnicodeObj routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_NewUnicodeObj NewUnicodeObj
         {
             get
@@ -2443,6 +3368,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_NewStringObj routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_NewStringObj NewStringObj
         {
             get
@@ -2459,6 +3388,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_NewByteArrayObj routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_NewByteArrayObj NewByteArrayObj
         {
             get
@@ -2495,6 +3428,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DbIncrRefCount routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_DbIncrRefCount DbIncrRefCount
         {
             get
@@ -2511,6 +3448,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DbDecrRefCount routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_DbDecrRefCount DbDecrRefCount
         {
             get
@@ -2563,6 +3504,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_CommandComplete routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_CommandComplete CommandComplete
         {
             get
@@ -2579,6 +3524,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_AllowExceptions routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_AllowExceptions AllowExceptions
         {
             get
@@ -2595,6 +3544,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_EvalObjEx routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_EvalObjEx EvalObjEx
         {
             get
@@ -2611,6 +3564,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_EvalFile routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_EvalFile EvalFile
         {
             get
@@ -2627,6 +3584,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_RecordAndEvalObj
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_RecordAndEvalObj RecordAndEvalObj
         {
             get
@@ -2643,6 +3604,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_ExprObj routine, or null
+        /// if it is not available.
+        /// </summary>
         public Tcl_ExprObj ExprObj
         {
             get
@@ -2659,6 +3624,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_SubstObj routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_SubstObj SubstObj
         {
             get
@@ -2675,6 +3644,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_CancelEval routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_CancelEval CancelEval
         {
             get
@@ -2691,6 +3664,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_Canceled routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_Canceled Canceled
         {
             get
@@ -2707,6 +3684,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native TclResetCancellation
+        /// routine, or null if it is not available.
+        /// </summary>
         public TclResetCancellation ResetCancellation
         {
             get
@@ -2723,6 +3704,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native TclSetInterpCancelFlags
+        /// routine, or null if it is not available.
+        /// </summary>
         public TclSetInterpCancelFlags SetInterpCancelFlags
         {
             get
@@ -2739,6 +3724,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DoOneEvent routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_DoOneEvent DoOneEvent
         {
             get
@@ -2755,6 +3744,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_ResetResult routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_ResetResult ResetResult
         {
             get
@@ -2771,6 +3764,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetObjResult routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_GetObjResult GetObjResult
         {
             get
@@ -2787,6 +3784,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_SetObjResult routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_SetObjResult SetObjResult
         {
             get
@@ -2803,6 +3804,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetUnicodeFromObj
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_GetUnicodeFromObj GetUnicodeFromObj
         {
             get
@@ -2819,6 +3824,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_GetStringFromObj
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_GetStringFromObj GetStringFromObj
         {
             get
@@ -2855,6 +3864,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_CreateExitHandler
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_CreateExitHandler CreateExitHandler
         {
             get
@@ -2871,6 +3884,10 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_DeleteExitHandler
+        /// routine, or null if it is not available.
+        /// </summary>
         public Tcl_DeleteExitHandler DeleteExitHandler
         {
             get
@@ -2888,6 +3905,10 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if TCL_THREADS
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_FinalizeThread routine,
+        /// or null if it is not available.
+        /// </summary>
         public Tcl_FinalizeThread FinalizeThread
         {
             get
@@ -2908,6 +3929,10 @@ namespace Eagle._Components.Private.Tcl
         //
         // NOTE: Without the leading underscore this name will clash with the destructor.
         //
+        /// <summary>
+        /// Gets the managed delegate for the native Tcl_Finalize routine, or
+        /// null if it is not available.
+        /// </summary>
         public Tcl_Finalize _Finalize
         {
             get
@@ -2938,6 +3963,16 @@ namespace Eagle._Components.Private.Tcl
         // callback was created.  Typically, clientData points to a data structure
         // containing application-specific information about what to do in proc.
         //
+        /// <summary>
+        /// The callback invoked directly by the native Tcl runtime when Tcl is
+        /// being finalized.  It unloads the associated Tcl wrapper and releases
+        /// the GC handle that pins the corresponding object in memory.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data supplied to Tcl_CreateExitHandler when the callback
+        /// was installed; this is the GC handle that refers to the associated
+        /// Tcl API object.
+        /// </param>
         private static void ExitProc(
             IntPtr clientData
             )
@@ -3090,6 +4125,13 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Returns a string representation of this object, based on its current
+        /// state.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this object.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();

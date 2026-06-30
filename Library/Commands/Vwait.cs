@@ -24,11 +24,27 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>vwait</c> command, which enters the
+    /// event loop and waits until a named variable is modified (or an optional
+    /// timeout, limit, event handle, or other condition causes the wait to
+    /// end).  It supports numerous options controlling the wait behavior, such
+    /// as <c>-timeout</c>, <c>-limit</c>, <c>-thread</c>, <c>-handle</c>, and
+    /// <c>-locked</c>.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("9a58d5a9-85b8-43e1-9136-5667eb2e87bf")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("event")]
     internal sealed class Vwait : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>vwait</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Vwait(
             ICommandData commandData
             )
@@ -40,11 +56,44 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>vwait</c> command.  It processes the
+        /// supported options, then enters the event loop and waits until the
+        /// named variable is modified or another configured condition (timeout,
+        /// limit, event handle, or cleared wait state) ends the wait.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements supply any options followed by
+        /// the name of the variable to wait upon.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the wait outcome (a boolean indicating
+        /// whether the variable changed when a timeout was specified, or an
+        /// empty result otherwise unless <c>-leaveresult</c> was given).  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="result" /> (for example, when the interpreter is
+        /// null, the argument list is null or has the wrong number of elements,
+        /// an option value is invalid, or the wait cannot be performed).
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

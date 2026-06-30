@@ -583,6 +583,7 @@ regexp	regexp ?switches? exp string ?matchVar? ?subMatchVar subMatchVar ...?
 regsub	regsub ?switches? exp string subSpec ?varName?
 rename	rename ?options? oldName newName
 return	return ?-code code? ?-errorinfo info? ?-errorcode code? ?string?
+scan	scan string format ?varName varName ...?
 scope attach	scope attach name namespace
 scope close	scope close ?options? ?name?
 scope create	scope create ?options? ?name?

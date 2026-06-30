@@ -16,10 +16,18 @@ using PolicyWrapper = Eagle._Wrappers.Policy;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to instances
+    /// of the policy wrapper type.  It extends the generic wrapper dictionary
+    /// for use with policy wrappers.
+    /// </summary>
     [ObjectId("a8c9a48b-28ec-4f8e-b9ba-9c508bee48ae")]
     internal sealed class PolicyWrapperDictionary :
             WrapperDictionary<string, PolicyWrapper>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public PolicyWrapperDictionary()
             : base()
         {
@@ -28,6 +36,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public PolicyWrapperDictionary(
             IDictionary<string, PolicyWrapper> dictionary
             )

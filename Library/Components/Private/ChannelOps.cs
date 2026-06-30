@@ -26,11 +26,22 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the static helper methods and shared constants used
+    /// to create, configure, and read from the standard input, output, and
+    /// error channels backing an interpreter host, including buffer sizing,
+    /// line-ending detection, and stream selection.
+    /// </summary>
     [ObjectId("3430c2bd-19ec-408b-bb26-a9fa3905807c")]
     internal static class ChannelOps
     {
         #region Private Constants
 #if NET_40 && CONSOLE
+        /// <summary>
+        /// The runtime type of the internal console stream used by the .NET
+        /// Framework, looked up by name; this may be null when the type cannot
+        /// be located.
+        /// </summary>
         private static readonly Type ConsoleStreamType = Type.GetType(
             "System.IO.__ConsoleStream");
 #endif
@@ -42,7 +53,14 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default size, in bytes, used when allocating a channel buffer.
+        /// </summary>
         public static int DefaultBufferSize = 4096; // 4KB
+
+        /// <summary>
+        /// The maximum allowed size, in bytes, for a channel buffer.
+        /// </summary>
         public static int MaximumBufferSize = 4194304; // 4MB
 
         ///////////////////////////////////////////////////////////////////////
@@ -52,15 +70,30 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the underlying stream is required to be available
+        /// when fetching a standard channel stream; otherwise, a missing
+        /// stream may be tolerated.
+        /// </summary>
         public static bool StrictGetStream = false;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte value of the carriage-return line-ending character.
+        /// </summary>
         public const byte CarriageReturn = (byte)Characters.CarriageReturn;
+
+        /// <summary>
+        /// The byte value of the line-feed line-ending character.
+        /// </summary>
         public const byte LineFeed = (byte)Characters.LineFeed;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte value of the newline character emitted by <c>[puts]</c>.
+        /// </summary>
         public const byte NewLine = (byte)Characters.NewLine; /* [puts] */
         #endregion
 
@@ -68,6 +101,17 @@ namespace Eagle._Components.Private
 
         #region Public Methods
 #if NET_40 && CONSOLE
+        /// <summary>
+        /// This method returns the inner stream wrapped by a channel stream,
+        /// when applicable.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to unwrap; this is expected to be a channel stream.
+        /// </param>
+        /// <returns>
+        /// The inner stream wrapped by the channel stream, or null if the
+        /// supplied stream is not a channel stream.
+        /// </returns>
         public static Stream GetInnerStream(
             Stream stream
             )
@@ -82,6 +126,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the workaround for the internal
+        /// console stream should be applied when reading from the supplied
+        /// stream.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to examine; this is expected to be a channel stream
+        /// wrapping the standard input console stream.
+        /// </param>
+        /// <returns>
+        /// True if the inner stream is the internal console stream and the
+        /// workaround should be applied; otherwise, false.
+        /// </returns>
         public static bool NeedConsoleStreamHack(
             Stream stream
             )
@@ -108,6 +165,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes line-ending statistics for the supplied buffer
+        /// and emits them via the diagnostic trace facility.
+        /// </summary>
+        /// <param name="type">
+        /// A descriptive label identifying the kind of stream being traced.
+        /// </param>
+        /// <param name="stream">
+        /// The stream associated with the buffer, used only for identification
+        /// in the trace output.
+        /// </param>
+        /// <param name="buffer">
+        /// The buffer of bytes to scan for line-ending characters; if this is
+        /// null, the method does nothing.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes of interest within the buffer.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority to use when emitting the diagnostic message.
+        /// </param>
         public static void TraceLineEndings(
             string type,           /* in */
             Stream stream,         /* in */
@@ -191,6 +269,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method estimates the number of bytes that would be produced
+        /// when writing the specified region of the buffer, accounting for the
+        /// possible doubling of line-ending characters.
+        /// </summary>
+        /// <param name="buffer">
+        /// The buffer of bytes to be examined.
+        /// </param>
+        /// <param name="offset">
+        /// The zero-based index within the buffer at which to begin examining
+        /// bytes.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes within the buffer to examine.
+        /// </param>
+        /// <returns>
+        /// The estimated number of bytes that would be produced on output.
+        /// </returns>
         public static int EstimateOutputCount(
             byte[] buffer, /* in */
             int offset,    /* in */
@@ -218,6 +314,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a single byte from the supplied stream, applying
+        /// the internal console stream workaround when necessary.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to read from; if this is null, end-of-file is returned.
+        /// </param>
+        /// <returns>
+        /// The byte read, as a non-negative integer, or the end-of-file
+        /// sentinel when no more data is available.
+        /// </returns>
         public static int ReadByte(
             Stream stream
             )
@@ -251,6 +358,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the first valid end-of-line index from the
+        /// supplied list of candidate indexes.
+        /// </summary>
+        /// <param name="lineEndings">
+        /// The list of candidate end-of-line indexes to scan; if this is null
+        /// or contains no valid index, the invalid-index sentinel is returned.
+        /// </param>
+        /// <returns>
+        /// The first valid end-of-line index found, or the invalid-index
+        /// sentinel when none is present.
+        /// </returns>
         public static int FindEndOfLine(
             IntList lineEndings /* in */
             )
@@ -276,6 +395,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches a buffer for an end-of-line sequence, either
+        /// matching any single end-of-line element or the entire end-of-line
+        /// sequence in order.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The element type of the buffer and end-of-line sequence.
+        /// </typeparam>
+        /// <param name="buffer">
+        /// The buffer to search; if this is null, the invalid-index sentinel
+        /// is returned.
+        /// </param>
+        /// <param name="endOfLine">
+        /// The end-of-line sequence (or set of characters) to search for; if
+        /// this is null, the invalid-index sentinel is returned.
+        /// </param>
+        /// <param name="bufferStartIndex">
+        /// The zero-based index within the buffer at which to begin searching;
+        /// the invalid-index sentinel selects the start of the buffer.
+        /// </param>
+        /// <param name="bufferLength">
+        /// The number of elements within the buffer to consider; the
+        /// invalid-index sentinel selects the entire buffer.
+        /// </param>
+        /// <param name="useAnyEndOfLineChar">
+        /// When true, the position of the first occurrence of any end-of-line
+        /// element is returned; otherwise, the position of the first complete
+        /// end-of-line sequence is returned.
+        /// </param>
+        /// <returns>
+        /// The zero-based index of the matched end-of-line, or the
+        /// invalid-index sentinel when no match is found.
+        /// </returns>
         public static int FindEndOfLine<T>(
             T[] buffer,              /* in */
             IList<T> endOfLine,      /* in */
@@ -382,6 +534,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a trailing end-of-line from the buffer by
+        /// adjusting the supplied buffer length, either trimming any trailing
+        /// end-of-line elements or the entire trailing end-of-line sequence.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The element type of the buffer and end-of-line sequence.
+        /// </typeparam>
+        /// <param name="buffer">
+        /// The buffer to trim; if this is null, no action is taken.
+        /// </param>
+        /// <param name="endOfLine">
+        /// The end-of-line sequence (or set of characters) to remove; if this
+        /// is null, no action is taken.
+        /// </param>
+        /// <param name="useAnyEndOfLineChar">
+        /// When true, all trailing end-of-line elements are trimmed; otherwise,
+        /// a single trailing end-of-line sequence is removed.
+        /// </param>
+        /// <param name="bufferLength">
+        /// The number of valid elements in the buffer; upon return, this is
+        /// reduced to exclude the removed trailing end-of-line.
+        /// </param>
         public static void RemoveEndOfLine<T>(
             T[] buffer,               /* in */
             IList<T> endOfLine,       /* in */
@@ -449,6 +624,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the standard input, output, or error stream from
+        /// the supplied stream host based on the requested channel type.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host from which the standard channel stream is obtained.
+        /// </param>
+        /// <param name="channelType">
+        /// The channel type indicating which standard stream to select; only
+        /// the standard-channel bits are honored.
+        /// </param>
+        /// <param name="useCurrent">
+        /// When true, the host's current stream for the channel is used;
+        /// otherwise, the host's default stream is used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about why the stream could not be
+        /// obtained.
+        /// </param>
+        /// <returns>
+        /// The selected stream, or null if no matching stream is available.
+        /// </returns>
         public static Stream GetStream(
             IStreamHost streamHost,
             ChannelType channelType,
@@ -510,6 +707,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default stream flags appropriate for the
+        /// current operating system platform.
+        /// </summary>
+        /// <returns>
+        /// The stream flags to use; on non-Windows platforms, any end-of-line
+        /// character is permitted to terminate an input line.
+        /// </returns>
         public static StreamFlags GetStreamFlags()
         {
             //
@@ -526,6 +731,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an input channel backed by the standard input
+        /// stream of the supplied stream host.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host providing the input stream and input encoding; if
+        /// this is null, the method fails.
+        /// </param>
+        /// <param name="channelType">
+        /// Additional channel type flags to combine with the input channel
+        /// type.
+        /// </param>
+        /// <param name="streamFlags">
+        /// The stream flags to associate with the new channel.
+        /// </param>
+        /// <param name="useCurrent">
+        /// When true, the host's current input stream is used; otherwise, the
+        /// host's default input stream is used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about why the channel could not be
+        /// created.
+        /// </param>
+        /// <returns>
+        /// The newly created input channel, or null on failure.
+        /// </returns>
         public static IChannel CreateInput(
             IStreamHost streamHost,
             ChannelType channelType,
@@ -561,6 +792,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an output channel backed by the standard output
+        /// stream of the supplied stream host.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host providing the output stream and output encoding; if
+        /// this is null, the method fails.
+        /// </param>
+        /// <param name="channelType">
+        /// Additional channel type flags to combine with the output channel
+        /// type.
+        /// </param>
+        /// <param name="streamFlags">
+        /// The stream flags to associate with the new channel.
+        /// </param>
+        /// <param name="useCurrent">
+        /// When true, the host's current output stream is used; otherwise, the
+        /// host's default output stream is used.
+        /// </param>
+        /// <param name="autoFlush">
+        /// When true, the channel flushes its output automatically after each
+        /// write.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about why the channel could not be
+        /// created.
+        /// </param>
+        /// <returns>
+        /// The newly created output channel, or null on failure.
+        /// </returns>
         public static IChannel CreateOutput(
             IStreamHost streamHost,
             ChannelType channelType,
@@ -597,6 +858,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an error channel backed by the standard error
+        /// stream of the supplied stream host.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host providing the error stream and error encoding; if
+        /// this is null, the method fails.
+        /// </param>
+        /// <param name="channelType">
+        /// Additional channel type flags to combine with the error channel
+        /// type.
+        /// </param>
+        /// <param name="streamFlags">
+        /// The stream flags to associate with the new channel.
+        /// </param>
+        /// <param name="useCurrent">
+        /// When true, the host's current error stream is used; otherwise, the
+        /// host's default error stream is used.
+        /// </param>
+        /// <param name="autoFlush">
+        /// When true, the channel flushes its output automatically after each
+        /// write.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about why the channel could not be
+        /// created.
+        /// </param>
+        /// <returns>
+        /// The newly created error channel, or null on failure.
+        /// </returns>
         public static IChannel CreateError(
             IStreamHost streamHost,
             ChannelType channelType,

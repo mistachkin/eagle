@@ -20,14 +20,27 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides support for creating instances of cryptographic
+    /// algorithm types via a registry of factory callbacks, as well as for
+    /// looking up such types by name.
+    /// </summary>
     [ObjectId("92cb69c3-bb11-4f8f-b00e-e3fbf565daa9")]
     internal static class FactoryOps
     {
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the factory callback
+        /// registry.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The registry mapping algorithm types to their factory callbacks.
+        /// This may be null until it has been initialized.
+        /// </summary>
         private static TypeFactoryCallbackDictionary factories;
         #endregion
 
@@ -37,6 +50,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// Adds introspection information about the factory callback registry
+        /// to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the introspection information is added.  If this
+        /// parameter is null, no action is taken.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail included in the
+        /// introspection information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -70,6 +95,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// Initializes the factory callback registry, populating it with the
+        /// supported cryptographic algorithm types and their associated factory
+        /// callbacks.  This method has no effect if the registry has already
+        /// been initialized.
+        /// </summary>
         private static void Initialize()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -145,6 +176,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Looks up a type by its name, optionally retrying after removing any
+        /// dashes present in the name.  The lookup is case-insensitive.
+        /// </summary>
+        /// <param name="typeName">
+        /// The name of the type to look up.
+        /// </param>
+        /// <param name="allowFallback">
+        /// Non-zero to retry the lookup with any dashes removed from the type
+        /// name when the initial lookup fails.
+        /// </param>
+        /// <returns>
+        /// The resolved type, or null if no matching type could be found.
+        /// </returns>
         public static Type LookupType(
             string typeName,   /* in */
             bool allowFallback /* in */
@@ -187,6 +232,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates an instance of the specified type using its registered
+        /// factory callback, or via its default public constructor when no
+        /// callback is registered.
+        /// </summary>
+        /// <param name="type">
+        /// The type to create an instance of.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The newly created instance, or null if it could not be created.
+        /// </returns>
         public static object Create(
             Type type,
             ref Result error
@@ -246,6 +305,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Clears and releases the factory callback registry.
+        /// </summary>
+        /// <returns>
+        /// The number of factory callbacks that were removed from the
+        /// registry.
+        /// </returns>
         public static int Cleanup()
         {
             lock (syncRoot) /* TRANSACTIONAL */

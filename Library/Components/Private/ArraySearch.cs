@@ -18,21 +18,56 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class represents an in-progress search over the element names of an
+    /// Eagle array variable, as used by the <c>array startsearch</c>,
+    /// <c>array nextelement</c>, and <c>array anymore</c> sub-commands.  It
+    /// wraps an underlying enumerator over the array's element keys and tracks
+    /// whether enumeration has started and whether the end has been reached.
+    /// It transparently handles the special global <c>env</c> array, the test
+    /// information array, system arrays, and thread, database, network, and
+    /// registry backed variables, in addition to ordinary array variables.  It
+    /// implements <see cref="IEnumerable" /> (to support C# foreach) and
+    /// <see cref="IGetInterpreter" />.
+    /// </summary>
     [ObjectId("6c48d23d-35fd-48ee-91a3-c34c6411a2c3")]
     internal sealed class ArraySearch : IEnumerable /* NOTE: Support C# foreach. */, IGetInterpreter
     {
         #region Private Data
+        /// <summary>
+        /// The underlying ("real") enumerator over the element names of the
+        /// array variable being searched.
+        /// </summary>
         private IEnumerator enumerator; /* NOTE: The "real" enumerator for this array variable. */
 
+        /// <summary>
+        /// Non-zero if <c>MoveNext</c> has been called at least once on the
+        /// underlying enumerator.
+        /// </summary>
         private bool didMoveNext;       /* NOTE: Non-zero if we have called MoveNext at least once on
                                          *       the "real" enumerator. */
 
+        /// <summary>
+        /// Non-zero if the underlying enumerator has reached the end of its
+        /// elements.
+        /// </summary>
         private bool noMoreElements;    /* NOTE: Non-zero if the "real" enumerator has hit the end. */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a new array search over the element names of the specified
+        /// array variable, capturing the parent interpreter and variable and
+        /// setting up the initial enumeration state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that owns the array variable being searched.
+        /// </param>
+        /// <param name="variable">
+        /// The array variable whose element names are to be enumerated.
+        /// </param>
         public ArraySearch(
             Interpreter interpreter,
             IVariable variable
@@ -55,7 +90,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// The interpreter that owns the array variable being searched.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets the interpreter that owns the array variable being searched.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { return interpreter; }
@@ -65,7 +106,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// The array variable whose element names are being enumerated.
+        /// </summary>
         private IVariable variable;
+        /// <summary>
+        /// Gets the array variable whose element names are being enumerated.
+        /// </summary>
         public IVariable Variable
         {
             get { return variable; }
@@ -75,6 +122,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnumerable Members
+        /// <summary>
+        /// This method returns a fresh enumerator over the element names of the
+        /// array variable being searched.  It handles the special global
+        /// <c>env</c> array, the test information array, system arrays, and
+        /// thread, database, network, and registry backed variables, falling
+        /// back to the variable's ordinary array element keys.  When no suitable
+        /// enumerator can be obtained, an enumerator that yields no elements is
+        /// returned rather than null.
+        /// </summary>
+        /// <returns>
+        /// An enumerator over the array's element names; never null.
+        /// </returns>
         public IEnumerator GetEnumerator()
         {
             //
@@ -226,6 +285,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Array Enumerator Members
+        /// <summary>
+        /// Gets a value indicating whether at least one more element exists
+        /// beyond the current position of the underlying enumerator, without
+        /// changing the state of that enumerator.  This is determined by
+        /// creating a fresh enumerator and advancing it until it reaches the
+        /// current element, which can be expensive in the worst case.  This
+        /// property returns true if another element exists; otherwise, false.
+        /// </summary>
         public bool AnyMore
         {
             get
@@ -296,6 +363,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method advances the underlying enumerator to the next array
+        /// element and returns that element's name.  Once the end of the
+        /// elements has been reached, subsequent calls return null.
+        /// </summary>
+        /// <returns>
+        /// The name of the next array element, or null if there are no more
+        /// elements.
+        /// </returns>
         public string GetNextElement()
         {
             string result = null;

@@ -26,12 +26,22 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>gets</c> command, which reads the
+    /// next line from a channel, optionally storing it into a variable and
+    /// returning the number of characters read.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("bfc8553d-5fb7-4f5c-9eba-4957473258ef")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("channel")]
     internal sealed class Gets : Core
     {
         #region Private Constants
+        /// <summary>
+        /// The error message used when this command is invoked with the wrong
+        /// number of arguments.
+        /// </summary>
         private static readonly string WrongNumArgs =
             "wrong # args: should be \"gets ?options? channelId ?varName?\"";
         #endregion
@@ -39,6 +49,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>gets</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Gets(
             ICommandData commandData
             )
@@ -51,11 +68,49 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>gets</c> command.  It parses any
+        /// options, locates the input channel named by the
+        /// <c>channelId</c> argument, reads the next line from it honoring
+        /// the requested encoding and end-of-line handling, and either stores
+        /// the line into the optional variable or returns it directly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; it is followed by optional command options, the
+        /// required channel identifier, and an optional variable name to
+        /// receive the line that was read.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, when no variable name is supplied this contains the
+        /// line that was read; when a variable name is supplied this contains
+        /// the number of characters read, or
+        /// <see cref="ChannelStream.EndOfFile" /> when end-of-stream is
+        /// reached with no characters.  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the interpreter is null, the
+        /// argument list is null or has the wrong number of arguments, an
+        /// option is invalid, the channel cannot be found, its encoding
+        /// cannot be determined, or an error occurs while reading or storing
+        /// the line, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

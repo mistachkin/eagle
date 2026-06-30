@@ -47,6 +47,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the <c>string</c> command, which provides a
+    /// collection of sub-commands for inspecting and manipulating strings,
+    /// such as comparison, searching, formatting, indexing, character class
+    /// testing, case conversion, trimming, and related operations.  It is an
+    /// ensemble whose sub-commands cover these string operations.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("eb32c33f-5454-4b8f-894a-af725b0df057")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
@@ -55,9 +63,18 @@ namespace Eagle._Commands
     internal sealed class _String : Core
     {
         #region Private Constants
+        /// <summary>
+        /// The error message used to report an incorrect number of arguments
+        /// for the <c>string is</c> sub-command.
+        /// </summary>
         private static readonly string IsWrongNumArgs =
             "wrong # args: should be \"string is ?not? class ?-strict? ?-failindex varName? string\"";
 
+        /// <summary>
+        /// The format string used to construct an error message reporting an
+        /// incorrect number of arguments for the <c>string is</c> sub-command,
+        /// parameterized by the command name, sub-command name, and class name.
+        /// </summary>
         private static readonly string IsWrongNumArgsFormat =
             "wrong # args: should be \"{0} {1} ?not? {2} ?-strict? ?-failindex varName? string\"";
         #endregion
@@ -65,12 +82,36 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The mapping of character class names to their per-character test
+        /// callbacks, used by the <c>string is</c> sub-command to validate each
+        /// character of a string against a character class.
+        /// </summary>
         private Dictionary<string, CharIsCallback> charIsCallbacks = null;
+        /// <summary>
+        /// The collection of character class names recognized by the
+        /// <c>string is</c> sub-command.
+        /// </summary>
         private EnsembleDictionary isSubCommands = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs one-time initialization of the character class
+        /// callbacks and the associated character class names used by the
+        /// <c>string is</c> sub-command.  This data is not a per-interpreter
+        /// datum and never changes once it has been initialized.
+        /// </summary>
+        /// <param name="callbacks">
+        /// Upon success, this is populated with the mapping of character class
+        /// names to their per-character test callbacks, unless it was already
+        /// populated.
+        /// </param>
+        /// <param name="subCommands">
+        /// Upon success, this is populated with the collection of character
+        /// class names, unless it was already populated.
+        /// </param>
         private static void Initialize(
             ref Dictionary<string, CharIsCallback> callbacks, /* in, out */
             ref EnsembleDictionary subCommands                /* in, out */
@@ -166,6 +207,13 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>string</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _String(
             ICommandData commandData
             )
@@ -177,6 +225,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "bytelength", "cat", "character", "classes", "compare", "ends",
             "equal", "first", "format", "index", "is", "last",
@@ -188,6 +241,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -197,6 +254,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>string</c> command.  It dispatches to
+        /// the requested ensemble sub-command (for example <c>compare</c>,
+        /// <c>first</c>, <c>format</c>, <c>index</c>, <c>is</c>,
+        /// <c>length</c>, <c>map</c>, <c>match</c>, <c>range</c>,
+        /// <c>replace</c>, or <c>trim</c>) in order to inspect or manipulate
+        /// strings, honoring the recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,
@@ -2258,9 +2349,18 @@ namespace Eagle._Commands
 
                                                     if (code == ReturnCode.Ok)
                                                     {
+                                                        //
+                                                        // BUGFIX: Per Tcl, the string is returned unchanged
+                                                        //         when the (clamped) range selects nothing --
+                                                        //         i.e. last < first, last < 0, or first is at
+                                                        //         or past the end of the string (first >=
+                                                        //         length).  Using ">" here would let a "first"
+                                                        //         exactly equal to the length fall through and
+                                                        //         wrongly append the replacement.
+                                                        //
                                                         if ((lastIndex < firstIndex) ||
                                                             (lastIndex < 0) ||
-                                                            (firstIndex > arguments[2].Length))
+                                                            (firstIndex >= arguments[2].Length))
                                                         {
                                                             result = arguments[2];
                                                         }
@@ -2392,7 +2492,7 @@ namespace Eagle._Commands
                                             if (arguments.Count >= 3)
                                             {
                                                 OptionDictionary options = CommandOptions.GetCommandOptions(
-                                                    CommandOptionType.String_ToUpper);
+                                                    this.Name, subCommand);
 
                                                 int argumentIndex = Index.Invalid;
 
@@ -2403,13 +2503,19 @@ namespace Eagle._Commands
                                                     if ((argumentIndex != Index.Invalid) &&
                                                         ((argumentIndex + 3) >= arguments.Count))
                                                     {
-#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         IVariant value = null;
+
+#if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                         CultureInfo cultureInfo = null;
 
                                                         if (options.IsPresent("-culture", ref value))
                                                             cultureInfo = (CultureInfo)value.Value;
 #endif
+
+                                                        bool? invariant = null;
+
+                                                        if (options.IsPresent("-invariant", ref value))
+                                                            invariant = (bool)value.Value;
 
                                                         string text = arguments[argumentIndex];
 
@@ -2420,10 +2526,10 @@ namespace Eagle._Commands
                                                             {
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
                                                                 result = StringOps.ToTitle(
-                                                                    text, cultureInfo);
+                                                                    text, cultureInfo, invariant);
 #else
                                                                 result = StringOps.ToTitle(
-                                                                    text, null);
+                                                                    text, null, invariant);
 #endif
                                                             }
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
@@ -2437,6 +2543,9 @@ namespace Eagle._Commands
 #endif
                                                             else
                                                             {
+                                                                StringOps.MaybeMutateCaseMethodName(
+                                                                    ref subCommand, invariant);
+
                                                                 result = (string)typeof(string).InvokeMember(
                                                                     subCommand, ObjectOps.GetBindingFlags(
                                                                     MetaBindingFlags.LooseMethod, true),
@@ -2490,12 +2599,12 @@ namespace Eagle._Commands
                                                                         builder.Append(StringOps.ToTitle(
                                                                             text.Substring(
                                                                                 firstIndex, (lastIndex - firstIndex) + 1),
-                                                                            cultureInfo));
+                                                                            cultureInfo, invariant));
 #else
                                                                         builder.Append(StringOps.ToTitle(
                                                                             text.Substring(
                                                                                 firstIndex, (lastIndex - firstIndex) + 1),
-                                                                            null));
+                                                                            null, invariant));
 #endif
                                                                     }
 #if (NET_20_SP2 || NET_40 || NET_STANDARD_20) && !MONO_LEGACY
@@ -2511,6 +2620,9 @@ namespace Eagle._Commands
 #endif
                                                                     else
                                                                     {
+                                                                        StringOps.MaybeMutateCaseMethodName(
+                                                                            ref subCommand, invariant);
+
                                                                         builder.Append((string)typeof(string).InvokeMember(
                                                                             subCommand, ObjectOps.GetBindingFlags(
                                                                             MetaBindingFlags.LooseMethod, true),

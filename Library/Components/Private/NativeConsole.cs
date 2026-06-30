@@ -38,6 +38,14 @@ using ScreenStack = System.Collections.Generic.Stack<string>;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the native Windows console integration used by the
+    /// rest of the library, wrapping the relevant Win32 console APIs (via
+    /// P/Invoke) for opening, closing, attaching, querying, and configuring the
+    /// console as well as its standard input, output, and error handles,
+    /// screen buffers, modes, history, and font.  It is only usable on Windows
+    /// and can be forcibly disabled via configuration.
+    /// </summary>
 #if NET_40
     [SecurityCritical()]
 #else
@@ -47,10 +55,18 @@ namespace Eagle._Components.Private
     internal static class NativeConsole
     {
         #region Private Constants
+        /// <summary>
+        /// The default value indicating whether native (Win32) handles should
+        /// be used, as opposed to managed handles, when interacting with the
+        /// console.
+        /// </summary>
         private static bool DefaultNativeHandle = true; /* IsMono(); */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The native end-of-line character sequence written to the console.
+        /// </summary>
         private static readonly char[] NativeNewLine = { '\r', '\n' };
         #endregion
 
@@ -61,6 +77,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used to synchronize access to the native console
         //       input and output handles managed by this class (below).
         //
+        /// <summary>
+        /// This is used to synchronize access to the native console input and
+        /// output handles managed by this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -69,6 +89,10 @@ namespace Eagle._Components.Private
         // NOTE: *SPECIAL* This is used (with interlocked operations) to
         //       synchronize access to the "isDisabled" field (below).
         //
+        /// <summary>
+        /// This is used (with interlocked operations) to synchronize access to
+        /// the <see cref="isDisabled" /> field.
+        /// </summary>
         private static int isDisabledLockCount;
 
         ///////////////////////////////////////////////////////////////////////
@@ -81,6 +105,15 @@ namespace Eagle._Components.Private
         //       -OR- via setting the associated environment variable
         //       before library startup.
         //
+        /// <summary>
+        /// When non-null, indicates whether the native console subsystem has
+        /// been forcibly disabled.  When null, this has not yet been
+        /// determined.  By default, the native console subsystem is enabled on
+        /// all platforms where the necessary native and managed platform
+        /// integration has been implemented; however, it can be forcibly
+        /// disabled by setting this field to true or via the associated
+        /// environment variable prior to library startup.
+        /// </summary>
         private static bool? isDisabled;
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,6 +124,11 @@ namespace Eagle._Components.Private
         //       this is considered to be the "primary" console input
         //       buffer.
         //
+        /// <summary>
+        /// This is either zero or the native console input handle returned via
+        /// CreateFile for "CONIN$".  When non-zero, this is considered to be
+        /// the "primary" console input buffer.
+        /// </summary>
         private static IntPtr inputHandle = IntPtr.Zero;
 
         //
@@ -99,6 +137,11 @@ namespace Eagle._Components.Private
         //       this is considered to be the "primary" console screen
         //       buffer.
         //
+        /// <summary>
+        /// This is either zero or the native console output handle returned via
+        /// CreateFile for "CONOUT$".  When non-zero, this is considered to be
+        /// the "primary" console screen buffer.
+        /// </summary>
         private static IntPtr outputHandle = IntPtr.Zero;
 
         ///////////////////////////////////////////////////////////////////////
@@ -110,6 +153,12 @@ namespace Eagle._Components.Private
         //       the "primary" console screen buffer will be the one that is
         //       reverted back to.
         //
+        /// <summary>
+        /// This is either null or the name of the most recently saved console
+        /// screen buffer.  Changing the current console screen buffer will
+        /// always reset this value.  If this value is null, the "primary"
+        /// console screen buffer will be the one that is reverted back to.
+        /// </summary>
         private static string savedActiveScreenName = null;
 
         //
@@ -121,6 +170,14 @@ namespace Eagle._Components.Private
         //       active console screen buffer is changed UNLESS it is being
         //       reverted to a previously active console screen buffer.
         //
+        /// <summary>
+        /// This is the stack of names for the active console screen buffer.
+        /// Initially, this stack will be null.  It will be created on-demand.
+        /// If this stack is null or empty then the "primary" console screen
+        /// buffer is considered active.  A screen name will be pushed onto this
+        /// stack whenever the active console screen buffer is changed unless it
+        /// is being reverted to a previously active console screen buffer.
+        /// </summary>
         private static ScreenStack activeScreenNames;
 
         ///////////////////////////////////////////////////////////////////////
@@ -129,6 +186,10 @@ namespace Eagle._Components.Private
         // NOTE: This will contain all created console screen buffers, if any,
         //       except the primary console screen buffer.
         //
+        /// <summary>
+        /// This will contain all created console screen buffers, if any, except
+        /// the primary console screen buffer.
+        /// </summary>
         private static IntPtrDictionary screenBuffers;
 
         ///////////////////////////////////////////////////////////////////////
@@ -138,6 +199,11 @@ namespace Eagle._Components.Private
         //       console window to be locked open -OR- prevent it from being
         //       forcibly locked open.
         //
+        /// <summary>
+        /// When non-null, this either forces the native console window to be
+        /// locked open (when true) or prevents it from being forcibly locked
+        /// open (when false).
+        /// </summary>
         private static bool? forcePreventClose = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -147,6 +213,11 @@ namespace Eagle._Components.Private
         //       saved prior to changing it.  Also, it should be restored if
         //       this class is being unloaded, for whatever reason.
         //
+        /// <summary>
+        /// This is the saved console font.  The console font should be saved
+        /// prior to changing it.  Also, it should be restored if this class is
+        /// being unloaded, for whatever reason.
+        /// </summary>
         private static UNM.CONSOLE_FONT_INFOEX? savedConsoleFontEx = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -155,6 +226,10 @@ namespace Eagle._Components.Private
         // NOTE: This is the per-thread character buffer for writing to the
         //       native console.  Its use is merely an optimization.
         //
+        /// <summary>
+        /// This is the per-thread character buffer for writing to the native
+        /// console.  Its use is merely an optimization.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static char[] consoleWriteBuffer = null;
         #endregion
@@ -164,6 +239,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the P/Invoke method signatures, constants, and
+        /// structures for the native Win32 console (and related window) APIs
+        /// used by the containing <see cref="NativeConsole" /> class.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("6c20c88a-dd55-4e35-a5a5-ec288041c8f4")]
         internal static class UnsafeNativeMethods
@@ -171,6 +251,9 @@ namespace Eagle._Components.Private
             //
             // NOTE: Console input modes.
             //
+            /// <summary>
+            /// Console input mode flag that enables mouse input events.
+            /// </summary>
             internal const uint ENABLE_MOUSE_INPUT = 0x10;
 
             //
@@ -181,42 +264,140 @@ namespace Eagle._Components.Private
             //
             // NOTE: Win32 error numbers.
             //
+            /// <summary>
+            /// The Win32 error number indicating that no error occurred.
+            /// </summary>
             internal const int NO_ERROR = 0;
+
+            /// <summary>
+            /// The Win32 error number indicating that an invalid handle was
+            /// specified.
+            /// </summary>
             internal const int ERROR_INVALID_HANDLE = 6;
 
             //
             // NOTE: Values returned by GetFileType.
             //
+            /// <summary>
+            /// File type returned by GetFileType for an unknown (or
+            /// indeterminate) file type.
+            /// </summary>
             internal const uint FILE_TYPE_UNKNOWN = 0x0;
+
+            /// <summary>
+            /// File type returned by GetFileType for a disk file.
+            /// </summary>
             internal const uint FILE_TYPE_DISK = 0x1;
+
+            /// <summary>
+            /// File type returned by GetFileType for a character device (e.g. a
+            /// console or printer).
+            /// </summary>
             internal const uint FILE_TYPE_CHAR = 0x2;
+
+            /// <summary>
+            /// File type returned by GetFileType for a named or anonymous pipe.
+            /// </summary>
             internal const uint FILE_TYPE_PIPE = 0x3;
+
+            /// <summary>
+            /// File type bit returned by GetFileType indicating the file is
+            /// remote (currently unused by Windows).
+            /// </summary>
             internal const uint FILE_TYPE_REMOTE = 0x8000;
 
             //
             // NOTE: Console handles.
             //
+            /// <summary>
+            /// The standard device identifier for the standard input handle, as
+            /// passed to GetStdHandle and SetStdHandle.
+            /// </summary>
             internal const int STD_INPUT_HANDLE = -10;
+
+            /// <summary>
+            /// The standard device identifier for the standard output handle, as
+            /// passed to GetStdHandle and SetStdHandle.
+            /// </summary>
             internal const int STD_OUTPUT_HANDLE = -11;
+
+            /// <summary>
+            /// The standard device identifier for the standard error handle, as
+            /// passed to GetStdHandle and SetStdHandle.
+            /// </summary>
             internal const int STD_ERROR_HANDLE = -12;
 
             //
             // NOTE: Font family constants.
             //
+            /// <summary>
+            /// Font family constant indicating no preference as to the font
+            /// family.
+            /// </summary>
             internal const uint FF_DONTCARE = 0x00;
+
+            /// <summary>
+            /// Font family constant for fonts with variable stroke width and
+            /// serifs (e.g. Times New Roman).
+            /// </summary>
             internal const uint FF_ROMAN = 0x10;
+
+            /// <summary>
+            /// Font family constant for fonts with variable stroke width and
+            /// without serifs (e.g. Arial).
+            /// </summary>
             internal const uint FF_SWISS = 0x20;
+
+            /// <summary>
+            /// Font family constant for fonts with constant stroke width, with
+            /// or without serifs (e.g. fixed-pitch fonts).
+            /// </summary>
             internal const uint FF_MODERN = 0x30;
+
+            /// <summary>
+            /// Font family constant for fonts designed to look like handwriting
+            /// (e.g. Script).
+            /// </summary>
             internal const uint FF_SCRIPT = 0x40;
+
+            /// <summary>
+            /// Font family constant for novelty (decorative) fonts (e.g. Old
+            /// English).
+            /// </summary>
             internal const uint FF_DECORATIVE = 0x50;
 
             //
             // NOTE: Text metric pitch and family constants.
             //
+            /// <summary>
+            /// Text metric pitch and family constant indicating none of the
+            /// other pitch and family bits are set.
+            /// </summary>
             internal const uint TMPF_NONE = 0x00;
+
+            /// <summary>
+            /// Text metric pitch and family constant indicating the font is a
+            /// variable-pitch (proportional) font; note that, contrary to the
+            /// name, the bit is set for variable-pitch fonts.
+            /// </summary>
             internal const uint TMPF_FIXED_PITCH = 0x01; /* variable pitch */
+
+            /// <summary>
+            /// Text metric pitch and family constant indicating the font is a
+            /// vector font.
+            /// </summary>
             internal const uint TMPF_VECTOR = 0x02;
+
+            /// <summary>
+            /// Text metric pitch and family constant indicating the font is a
+            /// TrueType font.
+            /// </summary>
             internal const uint TMPF_TRUETYPE = 0x04;
+
+            /// <summary>
+            /// Text metric pitch and family constant indicating the font is a
+            /// device font.
+            /// </summary>
             internal const uint TMPF_DEVICE = 0x08;
 
             //
@@ -224,6 +405,10 @@ namespace Eagle._Components.Private
             //       TrueType and PostScript fonts set the TMPF_VECTOR
             //       bit as well.
             //
+            /// <summary>
+            /// Combined text metric pitch and family constant for TrueType
+            /// fonts, which set both the TrueType and vector bits.
+            /// </summary>
             internal const uint TMPF_TRUETYPE_VECTOR =
                 TMPF_VECTOR | TMPF_TRUETYPE;
 
@@ -232,7 +417,16 @@ namespace Eagle._Components.Private
             //
             // NOTE: Special console file names.
             //
+            /// <summary>
+            /// The special file name used with CreateFile to open the console
+            /// input buffer.
+            /// </summary>
             internal const string ConsoleInputFileName = "CONIN$";
+
+            /// <summary>
+            /// The special file name used with CreateFile to open the console
+            /// screen (output) buffer.
+            /// </summary>
             internal const string ConsoleOutputFileName = "CONOUT$";
 
             ///////////////////////////////////////////////////////////////////
@@ -240,58 +434,149 @@ namespace Eagle._Components.Private
             //
             // NOTE: Special process id.
             //
+            /// <summary>
+            /// The special process identifier passed to AttachConsole to attach
+            /// to the console of the parent process.
+            /// </summary>
             internal const int ATTACH_PARENT_PROCESS = -1;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Console history flag value indicating that none of the history
+            /// flags are set.
+            /// </summary>
             internal const uint HISTORY_NONE = 0;
+
+            /// <summary>
+            /// Console history flag indicating that duplicate entries should not
+            /// be stored in the command history.
+            /// </summary>
             internal const uint HISTORY_NO_DUP_FLAG = 1;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure contains extended information about a console
+            /// font, as used by the GetCurrentConsoleFontEx and
+            /// SetCurrentConsoleFontEx native methods.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
             [ObjectId("615b15c1-b994-40cf-8948-a85dcafd9ee1")]
             internal struct CONSOLE_FONT_INFOEX
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public uint cbSize;
+
+                /// <summary>
+                /// The index of the font in the system console font table.
+                /// </summary>
                 public uint nFont;
+
+                /// <summary>
+                /// The size, in logical units, of each character in the font.
+                /// </summary>
                 public COORD dwFontSize;
+
+                /// <summary>
+                /// The font pitch and family.
+                /// </summary>
                 public uint FontFamily;
+
+                /// <summary>
+                /// The font weight (e.g. 400 for normal, 700 for bold).
+                /// </summary>
                 public uint FontWeight;
+
+                /// <summary>
+                /// The name of the typeface (face name) of the font.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
                 public string FaceName;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure defines the coordinates of a character cell in a
+            /// console screen buffer, where the origin is at the top-left
+            /// corner.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("cfd3c6be-0c16-4599-8ae8-e2e513daa5f4")]
             internal struct COORD
             {
+                /// <summary>
+                /// The horizontal (column) coordinate.
+                /// </summary>
                 public /* SHORT */ short X;
+
+                /// <summary>
+                /// The vertical (row) coordinate.
+                /// </summary>
                 public /* SHORT */ short Y;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure contains the security descriptor for an object
+            /// and specifies whether the handle retrieved by specifying it is
+            /// inheritable.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("b3bbba22-17eb-49c6-b030-7419de0b4490")]
             internal struct SECURITY_ATTRIBUTES
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public /* DWORD */ uint nLength;
+
+                /// <summary>
+                /// A pointer to the security descriptor for the object, or zero
+                /// to use the default security descriptor.
+                /// </summary>
                 public /* LPVOID */ IntPtr lpSecurityDescriptor;
+
+                /// <summary>
+                /// Non-zero if the returned handle is inherited when a new
+                /// process is created; otherwise, zero.
+                /// </summary>
                 public /* BOOL */ bool bInheritHandle;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure contains information about the console command
+            /// history, as used by the GetConsoleHistoryInfo and
+            /// SetConsoleHistoryInfo native methods.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("134a8f50-32fe-4789-bc18-8c37c27ab391")]
             internal struct CONSOLE_HISTORY_INFO
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public /* UINT */ uint cbSize;
+
+                /// <summary>
+                /// The number of commands kept in each command history buffer.
+                /// </summary>
                 public /* UINT */ uint HistoryBufferSize;
+
+                /// <summary>
+                /// The number of command history buffers kept simultaneously.
+                /// </summary>
                 public /* UINT */ uint NumberOfHistoryBuffers;
+
+                /// <summary>
+                /// The flags controlling console command history behavior.
+                /// </summary>
                 public /* DWORD */ uint dwFlags;
             }
 
@@ -299,24 +584,63 @@ namespace Eagle._Components.Private
 
             #region Dead Code
 #if DEAD_CODE
+            /// <summary>
+            /// This structure defines the coordinates of the upper-left and
+            /// lower-right corners of a rectangle in a console screen buffer.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("16757437-8f5f-4550-b986-6406b5954705")]
             internal struct SMALL_RECT
             {
+                /// <summary>
+                /// The x-coordinate of the upper-left corner of the rectangle.
+                /// </summary>
                 public /* SHORT */ short Left;
+                /// <summary>
+                /// The y-coordinate of the upper-left corner of the rectangle.
+                /// </summary>
                 public /* SHORT */ short Top;
+                /// <summary>
+                /// The x-coordinate of the lower-right corner of the rectangle.
+                /// </summary>
                 public /* SHORT */ short Right;
+                /// <summary>
+                /// The y-coordinate of the lower-right corner of the rectangle.
+                /// </summary>
                 public /* SHORT */ short Bottom;
             }
 
+            /// <summary>
+            /// This structure contains information about a console screen buffer,
+            /// as used by the GetConsoleScreenBufferInfo native method.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("9b96c63e-606d-4b1e-8be7-0945aa7da03a")]
             internal struct CONSOLE_SCREEN_BUFFER_INFO
             {
+                /// <summary>
+                /// The size, in character cells, of the console screen buffer.
+                /// </summary>
                 public COORD dwSize;
+                /// <summary>
+                /// The current position of the cursor within the console screen
+                /// buffer.
+                /// </summary>
                 public COORD dwCursorPosition;
+                /// <summary>
+                /// The character attributes (text and background colors) used by the
+                /// console screen buffer.
+                /// </summary>
                 public /* WORD */ short wAttributes;
+                /// <summary>
+                /// The rectangle that describes the portion of the screen buffer
+                /// currently displayed in the console window.
+                /// </summary>
                 public SMALL_RECT srWindow;
+                /// <summary>
+                /// The maximum size, in character cells, of the console window given
+                /// the current screen buffer size and font.
+                /// </summary>
                 public COORD dwMaximumWindowSize;
             }
 #endif
@@ -324,6 +648,15 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves the file type of the specified file, pipe, or device.
+            /// </summary>
+            /// <param name="handle">
+            /// The handle for which the file type is to be retrieved.
+            /// </param>
+            /// <returns>
+            /// One of the FILE_TYPE_* values indicating the type of the file.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -331,18 +664,52 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the output code page used by the console associated with
+            /// the calling process.
+            /// </summary>
+            /// <param name="codePageID">
+            /// The identifier of the code page to set.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool SetConsoleOutputCP(uint codePageID);
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the input code page used by the console associated with the
+            /// calling process.
+            /// </summary>
+            /// <param name="codePageID">
+            /// The identifier of the code page to set.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool SetConsoleCP(uint codePageID);
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the font used by the specified console screen buffer to the
+            /// font identified by the specified index in the system console
+            /// font table.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <param name="fontIndex">
+            /// The index of the font in the system console font table.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool SetConsoleFont(
@@ -351,6 +718,23 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves extended information about the current console font.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <param name="maximumWindow">
+            /// Non-zero to retrieve the font information for the maximum window
+            /// size; otherwise, zero to retrieve it for the current window
+            /// size.
+            /// </param>
+            /// <param name="consoleFontEx">
+            /// Upon success, receives the extended console font information.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool GetCurrentConsoleFontEx(
@@ -361,6 +745,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets extended information about the current console font.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <param name="maximumWindow">
+            /// Non-zero to set the font information for the maximum window size;
+            /// otherwise, zero to set it for the current window size.
+            /// </param>
+            /// <param name="consoleFontEx">
+            /// The extended console font information to set.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
             internal static extern bool SetCurrentConsoleFontEx(
@@ -371,6 +771,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Writes a character string to a console screen buffer beginning
+            /// at the current cursor location (Unicode variant).
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <param name="buffer">
+            /// The buffer containing the characters to be written.
+            /// </param>
+            /// <param name="numberOfCharsToWrite">
+            /// The number of characters to be written.
+            /// </param>
+            /// <param name="numberOfCharsWritten">
+            /// Upon success, receives the number of characters actually written.
+            /// </param>
+            /// <param name="reserved">
+            /// Reserved; must be zero.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CharSet = CharSet.Unicode, SetLastError = true)]
             [return: MarshalAs(UnmanagedType.Bool)]
@@ -384,6 +806,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves the current input mode of a console input buffer or
+            /// the current output mode of a console screen buffer.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console input buffer or console screen buffer.
+            /// </param>
+            /// <param name="mode">
+            /// Upon success, receives the current mode of the specified buffer.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -394,6 +829,22 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves a list of the process identifiers of the processes
+            /// currently attached to the console.
+            /// </summary>
+            /// <param name="ids">
+            /// A buffer that receives the list of process identifiers.
+            /// </param>
+            /// <param name="count">
+            /// The maximum number of process identifiers that can be stored in
+            /// the buffer.
+            /// </param>
+            /// <returns>
+            /// The number of processes attached to the console; if this is
+            /// greater than <paramref name="count" />, the buffer was too small
+            /// and no identifiers were stored.  Zero indicates failure.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -405,6 +856,13 @@ namespace Eagle._Components.Private
 
             #region Dead Code
 #if DEAD_CODE
+             /// <summary>
+             /// Retrieves a handle to the event that is signaled when console input
+             /// is available.
+             /// </summary>
+             /// <returns>
+             /// A handle to the console input wait event.
+             /// </returns>
              /* UNDOCUMENTED */
              [DllImport(DllName.Kernel32,
                  CallingConvention = CallingConvention.Winapi,
@@ -415,6 +873,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the input mode of a console input buffer or the output mode
+            /// of a console screen buffer.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console input buffer or console screen buffer.
+            /// </param>
+            /// <param name="mode">
+            /// The input or output mode to set.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -426,6 +897,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sends a specified signal to a console process group that shares
+            /// the console associated with the calling process.
+            /// </summary>
+            /// <param name="controlEvent">
+            /// The control event (signal) to be generated.
+            /// </param>
+            /// <param name="processGroupId">
+            /// The identifier of the process group to receive the signal, or
+            /// zero to signal all processes sharing the console.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -437,6 +922,17 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves a handle to the specified standard device (standard
+            /// input, standard output, or standard error).
+            /// </summary>
+            /// <param name="nStdHandle">
+            /// The standard device identifier (one of the STD_*_HANDLE values).
+            /// </param>
+            /// <returns>
+            /// A handle to the specified standard device, or an invalid handle
+            /// value on failure.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -444,6 +940,17 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves the size of the largest possible console window, based
+            /// on the current font and the size of the display.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <returns>
+            /// A <see cref="COORD" /> containing the largest window size, in
+            /// character cells; both coordinates are zero on failure.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -453,6 +960,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Creates a new console screen buffer.
+            /// </summary>
+            /// <param name="desiredAccess">
+            /// The desired access to the console screen buffer.
+            /// </param>
+            /// <param name="shareMode">
+            /// The sharing mode of the console screen buffer.
+            /// </param>
+            /// <param name="securityAttributes">
+            /// A pointer to a security attributes structure, or zero for the
+            /// default security descriptor.
+            /// </param>
+            /// <param name="flags">
+            /// The type of console screen buffer to create.
+            /// </param>
+            /// <param name="screenBufferData">
+            /// Reserved; must be zero.
+            /// </param>
+            /// <returns>
+            /// A handle to the new console screen buffer, or an invalid handle
+            /// value on failure.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -466,6 +996,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the specified screen buffer to be the currently displayed
+            /// console screen buffer.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer to display.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -478,6 +1018,19 @@ namespace Eagle._Components.Private
 
             #region Dead Code
 #if DEAD_CODE
+            /// <summary>
+            /// Retrieves information about the specified console screen buffer.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console screen buffer.
+            /// </param>
+            /// <param name="consoleScreenBufferInfo">
+            /// Upon success, receives the information about the console screen
+            /// buffer.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -491,6 +1044,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the handle for the specified standard device (standard
+            /// input, standard output, or standard error).
+            /// </summary>
+            /// <param name="nStdHandle">
+            /// The standard device identifier (one of the STD_*_HANDLE values).
+            /// </param>
+            /// <param name="handle">
+            /// The handle for the standard device.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -502,12 +1068,30 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves the window handle used by the console associated with
+            /// the calling process.
+            /// </summary>
+            /// <returns>
+            /// The window handle of the console window, or zero if there is no
+            /// associated console.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi)]
             internal static extern IntPtr GetConsoleWindow();
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Flushes the console input buffer, discarding all pending input
+            /// records.
+            /// </summary>
+            /// <param name="handle">
+            /// A handle to the console input buffer.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -518,6 +1102,17 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Attaches the calling process to the console of the specified
+            /// process.
+            /// </summary>
+            /// <param name="processId">
+            /// The identifier of the process whose console is to be used, or
+            /// <see cref="ATTACH_PARENT_PROCESS" /> for the parent process.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -526,6 +1121,12 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Allocates a new console for the calling process.
+            /// </summary>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -534,6 +1135,12 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Detaches the calling process from its console.
+            /// </summary>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -542,6 +1149,16 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves the history settings for the calling process's
+            /// console.
+            /// </summary>
+            /// <param name="consoleHistoryInfo">
+            /// Upon success, receives the console command history settings.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -552,6 +1169,15 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the history settings for the calling process's console.
+            /// </summary>
+            /// <param name="consoleHistoryInfo">
+            /// The console command history settings to apply.
+            /// </param>
+            /// <returns>
+            /// True if the function succeeds; otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -562,18 +1188,45 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves a handle to the foreground window (the window with
+            /// which the user is currently working).
+            /// </summary>
+            /// <returns>
+            /// A handle to the foreground window, or zero if there is no
+            /// foreground window.
+            /// </returns>
             [DllImport(DllName.User32,
                 CallingConvention = CallingConvention.Winapi)]
             internal static extern IntPtr GetForegroundWindow();
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Retrieves a handle to the window that has the keyboard focus, if
+            /// the window is attached to the calling thread's message queue.
+            /// </summary>
+            /// <returns>
+            /// A handle to the window with the keyboard focus, or zero if no
+            /// such window is attached to the calling thread's message queue.
+            /// </returns>
             [DllImport(DllName.User32,
                 CallingConvention = CallingConvention.Winapi)]
             internal static extern IntPtr GetFocus();
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Sets the keyboard focus to the specified window.
+            /// </summary>
+            /// <param name="hWnd">
+            /// A handle to the window that is to receive the keyboard focus, or
+            /// zero to remove keyboard focus.
+            /// </param>
+            /// <returns>
+            /// A handle to the window that previously had the keyboard focus, or
+            /// zero on failure.
+            /// </returns>
             [DllImport(DllName.User32,
                 CallingConvention = CallingConvention.Winapi)]
             internal static extern IntPtr SetFocus(
@@ -588,6 +1241,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildHostInfoList method.
         //
+        /// <summary>
+        /// This method adds rows describing the current native console state
+        /// (e.g. process list, handles, screen buffers, and saved font) to the
+        /// specified list, for introspection purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the native console information is added.  If this
+        /// parameter is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail to include.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -694,6 +1359,14 @@ namespace Eagle._Components.Private
         //          where the static class mutex cannot be used due to
         //          possible deadlocks with the interpreter lock.
         //
+        /// <summary>
+        /// This method determines whether the native console subsystem is
+        /// supported in the current environment, i.e. it has not been forcibly
+        /// disabled and the operating system is Windows.
+        /// </summary>
+        /// <returns>
+        /// True if the native console subsystem is supported; otherwise, false.
+        /// </returns>
         public static bool IsSupported()
         {
             int lockCount = Interlocked.Increment(ref isDisabledLockCount);
@@ -725,6 +1398,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Support Methods
+        /// <summary>
+        /// This method determines whether the native console subsystem has been
+        /// forcibly disabled via the associated environment variable.
+        /// </summary>
+        /// <returns>
+        /// True if the native console subsystem has been forcibly disabled;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsDisabled()
         {
             return GlobalConfiguration.DoesValueExist(
@@ -735,6 +1416,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Support Methods for [host screen] Sub-Command
+        /// <summary>
+        /// This method determines whether there is at least one active console
+        /// screen buffer name on the stack.
+        /// </summary>
+        /// <returns>
+        /// True if there is at least one active screen name; otherwise, false.
+        /// </returns>
         public static bool HaveActiveScreenName()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -746,6 +1434,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the name of the currently active console
+        /// screen buffer (the one at the top of the stack).
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, receives the active screen buffer name; upon failure,
+        /// receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetActiveScreenName(
             ref Result result /* out */
             )
@@ -771,6 +1471,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a console screen buffer with the
+        /// specified name exists.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to check for.  If this parameter is
+        /// null, this method returns false.
+        /// </param>
+        /// <param name="primary">
+        /// Non-zero to also consider the primary console screen buffer when
+        /// checking for a match.
+        /// </param>
+        /// <returns>
+        /// True if a matching screen buffer exists; otherwise, false.
+        /// </returns>
         public static bool DoesScreenBufferExist(
             string name, /* in */
             bool primary /* in */
@@ -798,6 +1513,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves a list of the names of all created console
+        /// screen buffers.
+        /// </summary>
+        /// <param name="primary">
+        /// Non-zero to also include the primary console screen buffer in the
+        /// returned list.
+        /// </param>
+        /// <returns>
+        /// A list of console screen buffer names, or null if none are
+        /// available.
+        /// </returns>
         public static StringList ListScreenBuffers(
             bool primary /* in */
             )
@@ -828,6 +1555,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new console screen buffer and makes it the
+        /// active console screen buffer, unless one has already been created and
+        /// activated (e.g. by another interpreter).
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode MaybeChangeToNewActiveScreenBuffer(
             ref Result error
             )
@@ -869,6 +1608,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new console screen buffer and adds it to the
+        /// collection of tracked screen buffers.
+        /// </summary>
+        /// <param name="name">
+        /// Upon success, receives the name assigned to the new screen buffer.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CreateScreenBuffer(
             ref string name, /* out */
             ref Result error /* out */
@@ -944,6 +1697,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method changes the active console screen buffer to the named
+        /// buffer or reverts to a previously active buffer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to activate.  When
+        /// <paramref name="useSaved" /> is non-zero, this should be null to
+        /// revert to the previously active screen buffer.
+        /// </param>
+        /// <param name="useSaved">
+        /// Non-zero to revert to the previously active (saved) screen buffer
+        /// instead of activating a named one.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the name of the screen buffer that was
+        /// previously active; upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ChangeActiveScreenBuffer(
             string name,      /* in */
             bool useSaved,    /* in */
@@ -1057,6 +1831,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes and removes the named console screen buffer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the screen buffer to close.  If this parameter is null,
+        /// this method fails.
+        /// </param>
+        /// <param name="active">
+        /// Non-zero to permit closing the screen buffer even if it is the
+        /// active one; otherwise, closing the active screen buffer fails.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CloseScreenBuffer(
             string name,     /* in */
             bool active,     /* in */
@@ -1125,6 +1917,11 @@ namespace Eagle._Components.Private
         //          CleanupActiveScreenNames methods.  All other
         //          callers must use CleanupActiveScreenNames.
         //
+        /// <summary>
+        /// This method resets the saved active screen name and clears the stack
+        /// of active console screen buffer names.  It is only for use by the
+        /// <c>Close</c> and <c>CleanupActiveScreenNames</c> methods.
+        /// </summary>
         private static void ResetActiveScreenNames()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1145,6 +1942,11 @@ namespace Eagle._Components.Private
         // WARNING: This method is only for use by the Close method.
         //          All other callers must use CleanupScreenBuffers.
         //
+        /// <summary>
+        /// This method clears and discards the collection of tracked console
+        /// screen buffers.  It is only for use by the <c>Close</c> method; all
+        /// other callers must use <c>CleanupScreenBuffers</c>.
+        /// </summary>
         private static void ResetScreenBuffers()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1159,6 +1961,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether there is at least one created console
+        /// screen buffer being tracked.
+        /// </summary>
+        /// <returns>
+        /// True if there is at least one tracked screen buffer; otherwise,
+        /// false.
+        /// </returns>
         private static bool HaveScreenBuffer()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1170,6 +1980,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes the specified console screen buffer handle the
+        /// active one and resets the affected standard handles and interpreter
+        /// channels.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle of the console screen buffer to activate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the screen buffer was successfully activated; otherwise,
+        /// false.
+        /// </returns>
         private static bool SetActiveScreenBuffer(
             IntPtr handle,   /* in */
             ref Result error /* out */
@@ -1214,6 +2039,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Standard Handle Support Methods
+        /// <summary>
+        /// This method retrieves the native console handle for the specified
+        /// channel type, using the default native handle preference.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose handle is to be
+        /// retrieved.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console handle for the specified channel, or zero on failure.
+        /// </returns>
         public static IntPtr GetHandle(
             ChannelType channelType, /* in */
             ref Result error         /* out */
@@ -1226,6 +2065,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Standard Handle Support Methods
+        /// <summary>
+        /// This method retrieves the console handle for the specified channel
+        /// type, optionally using the native (Win32) handle.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose handle is to be
+        /// retrieved.
+        /// </param>
+        /// <param name="native">
+        /// Non-zero to retrieve the native (Win32) handle; otherwise, the
+        /// managed handle is retrieved.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console handle for the specified channel, or zero on failure.
+        /// </returns>
         private static IntPtr GetHandle(
             ChannelType channelType, /* in */
             bool native,             /* in */
@@ -1248,6 +2105,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the console input handle, optionally using the
+        /// native (Win32) handle.
+        /// </summary>
+        /// <param name="native">
+        /// Non-zero to retrieve the native (Win32) handle; otherwise, the
+        /// managed handle is retrieved.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console input handle, or zero on failure.
+        /// </returns>
         private static IntPtr GetInputHandle(
             bool native,     /* in */
             ref Result error /* out */
@@ -1290,6 +2161,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the console output handle, optionally using
+        /// the native (Win32) handle.
+        /// </summary>
+        /// <param name="native">
+        /// Non-zero to retrieve the native (Win32) handle; otherwise, the
+        /// managed handle is retrieved.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console output handle, or zero on failure.
+        /// </returns>
         private static IntPtr GetOutputHandle(
             bool native,     /* in */
             ref Result error /* out */
@@ -1332,6 +2217,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the console error handle.  This is always done
+        /// natively, since the System.Console class does not keep track of the
+        /// standard error channel.
+        /// </summary>
+        /// <param name="native">
+        /// Non-zero to retrieve the native (Win32) handle; the non-native case
+        /// is not implemented for the error channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console error handle, or zero on failure.
+        /// </returns>
         private static IntPtr GetErrorHandle(
             bool native,     /* in */
             ref Result error /* out */
@@ -1375,6 +2275,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the native console handle for the specified channel
+        /// type.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose handle is to be
+        /// set.
+        /// </param>
+        /// <param name="handle">
+        /// The handle to set for the specified channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the handle was successfully set; otherwise, false.
+        /// </returns>
         private static bool SetHandle(
             ChannelType channelType, /* in */
             IntPtr handle,           /* in */
@@ -1397,6 +2314,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the native console input handle and resets the
+        /// associated managed streams.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle to set as the standard input handle.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the handle was successfully set; otherwise, false.
+        /// </returns>
         private static bool SetInputHandle(
             IntPtr handle,   /* in */
             ref Result error /* out */
@@ -1435,6 +2365,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the native console output handle and resets the
+        /// associated managed streams.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle to set as the standard output handle.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the handle was successfully set; otherwise, false.
+        /// </returns>
         private static bool SetOutputHandle(
             IntPtr handle,   /* in */
             ref Result error /* out */
@@ -1473,6 +2416,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the native console error handle and resets the
+        /// associated managed streams.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle to set as the standard error handle.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the handle was successfully set; otherwise, false.
+        /// </returns>
         private static bool SetErrorHandle(
             IntPtr handle,   /* in */
             ref Result error /* out */
@@ -1513,6 +2469,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Input/Output Support Methods
+        /// <summary>
+        /// This method determines whether the specified console handle has been
+        /// redirected (i.e. it does not refer to an actual console).
+        /// </summary>
+        /// <param name="handle">
+        /// The handle to test for redirection.
+        /// </param>
+        /// <param name="redirected">
+        /// Upon success, set to non-zero if the handle appears to be redirected;
+        /// otherwise, set to zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode IsHandleRedirected(
             IntPtr handle,       /* in */
             ref bool redirected, /* out */
@@ -1607,6 +2581,20 @@ namespace Eagle._Components.Private
         #region Public Input Support Methods
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method sets or resets the console input wait handle event,
+        /// which is signaled when console input is available.
+        /// </summary>
+        /// <param name="set">
+        /// Non-zero to signal (set) the console input wait handle; zero to
+        /// reset it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeds; otherwise, false.
+        /// </returns>
         public static bool SetInputWaitHandle(
             bool @set,       /* in */
             ref Result error /* out */
@@ -1644,6 +2632,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sends the specified console control event to all
+        /// processes sharing the console.
+        /// </summary>
+        /// <param name="event">
+        /// The control event (signal) to generate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SendControlEvent(
             ControlEvent @event, /* in */
             ref Result error     /* out */
@@ -1666,6 +2668,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method flushes the console input buffer, discarding any pending
+        /// input.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FlushInputBuffer(
             ref Result error /* out */
             )
@@ -1700,6 +2713,20 @@ namespace Eagle._Components.Private
 
         #region Private Keyboard Support Methods
         /* Eagle._Components.Public.Delegates.CheckCancelCallback */
+        /// <summary>
+        /// This method determines whether the console window currently has the
+        /// keyboard focus.  It conforms to the
+        /// <see cref="CheckCancelCallback" /> delegate signature.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data for the callback.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the console window has the keyboard focus; otherwise, false.
+        /// </returns>
         private static bool HasWindowFocus(
             IClientData clientData, /* in: NOT USED */
             ref Result error        /* out */
@@ -1712,6 +2739,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the console window currently has the
+        /// keyboard focus, also returning the console window handle.
+        /// </summary>
+        /// <param name="hWnd">
+        /// Upon return, receives the handle of the console window.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the console window has the keyboard focus; otherwise, false.
+        /// </returns>
         private static bool HasWindowFocus(
             ref IntPtr hWnd, /* out */
             ref Result error /* out */
@@ -1736,6 +2776,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified window currently has
+        /// the keyboard focus or is the foreground window.
+        /// </summary>
+        /// <param name="hWnd">
+        /// The handle of the window to test.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the specified window has the keyboard focus; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasWindowFocus(
             IntPtr hWnd,     /* in */
             ref Result error /* out */
@@ -1774,6 +2828,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the console window has the keyboard focus,
+        /// optionally attempting to set the focus to it.
+        /// </summary>
+        /// <param name="setFocus">
+        /// Non-zero to attempt to set the keyboard focus to the console window
+        /// if it does not already have it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the console window has (or was given)
+        /// the keyboard focus; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CheckWindowFocus(
             bool setFocus,   /* in */
             ref Result error /* out */
@@ -1801,6 +2870,35 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Keyboard Support Methods
+        /// <summary>
+        /// This method simulates typing the specified string into the console
+        /// window, using a default cancellation callback that checks for window
+        /// focus.
+        /// </summary>
+        /// <param name="stringCallback">
+        /// An optional callback invoked to inspect or transform the string
+        /// being simulated.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// Optional client data passed to the callbacks.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="value">
+        /// The string of characters to simulate typing.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The delay, in milliseconds, between simulated keystrokes.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the keyboard input is simulated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SimulateKeyboardString(
             CheckStringCallback stringCallback, /* in: OPTIONAL */
             IClientData clientData,             /* in: OPTIONAL */
@@ -1817,6 +2915,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method simulates typing the specified string into the console
+        /// window, first ensuring the console window has the keyboard focus.
+        /// </summary>
+        /// <param name="cancelCallback">
+        /// An optional callback invoked to determine whether the simulation
+        /// should be canceled.  This parameter may be null, in which case a
+        /// default callback that checks for window focus is used.
+        /// </param>
+        /// <param name="stringCallback">
+        /// An optional callback invoked to inspect or transform the string
+        /// being simulated.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// Optional client data passed to the callbacks.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="value">
+        /// The string of characters to simulate typing.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The delay, in milliseconds, between simulated keystrokes.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the keyboard input is simulated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SimulateKeyboardString(
             CheckCancelCallback cancelCallback, /* in: OPTIONAL */
             CheckStringCallback stringCallback, /* in: OPTIONAL */
@@ -1847,6 +2978,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the specified window has the keyboard
+        /// focus, optionally attempting to set the focus to it.
+        /// </summary>
+        /// <param name="hWnd">
+        /// The handle of the window to check.  If this parameter is zero, this
+        /// method fails.
+        /// </param>
+        /// <param name="setFocus">
+        /// Non-zero to attempt to set the keyboard focus to the window if it
+        /// does not already have it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the window has (or was given) the
+        /// keyboard focus; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CheckWindowFocus(
             IntPtr hWnd,     /* in */
             bool setFocus,   /* in */
@@ -1898,6 +3048,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Output Support Methods
+        /// <summary>
+        /// This method retrieves the size, in character cells, of the largest
+        /// possible console window based on the current font and display size.
+        /// </summary>
+        /// <param name="width">
+        /// Upon success, receives the largest window width, in character cells.
+        /// </param>
+        /// <param name="height">
+        /// Upon success, receives the largest window height, in character
+        /// cells.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetLargestWindowSize(
             ref int width,   /* out */
             ref int height,  /* out */
@@ -1947,6 +3115,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Open/Close State Support Methods
+        /// <summary>
+        /// This method determines whether the console is open, also returning
+        /// the console window handle.
+        /// </summary>
+        /// <param name="handle">
+        /// Upon return, receives the handle of the console window (or zero if
+        /// the console is not open).
+        /// </param>
+        /// <returns>
+        /// True if the console is open; otherwise, false.
+        /// </returns>
         private static bool IsOpen(
             ref IntPtr handle /* out */
             )
@@ -1957,6 +3136,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method allocates and initializes a native
+        /// <see cref="UnsafeNativeMethods.SECURITY_ATTRIBUTES" /> structure that
+        /// allows the resulting handle to be inherited.
+        /// </summary>
+        /// <param name="pSecurityAttributes">
+        /// Upon return, receives a pointer to the newly allocated security
+        /// attributes structure.  The caller is responsible for freeing this
+        /// memory.
+        /// </param>
         private static void CreateSecurityAttributes(
             out IntPtr pSecurityAttributes /* out */
             )
@@ -1979,6 +3168,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens a new native handle to the console input buffer
+        /// ("CONIN$") via CreateFile.
+        /// </summary>
+        /// <param name="pSecurityAttributes">
+        /// A pointer to the security attributes structure to use, or zero for
+        /// the default security descriptor.
+        /// </param>
+        /// <returns>
+        /// A native handle to the console input buffer, or an invalid handle
+        /// value on failure.
+        /// </returns>
         private static IntPtr OpenInputHandle(
             IntPtr pSecurityAttributes /* in */
             )
@@ -1992,6 +3193,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens a new native handle to the console screen (output)
+        /// buffer ("CONOUT$") via CreateFile.
+        /// </summary>
+        /// <param name="pSecurityAttributes">
+        /// A pointer to the security attributes structure to use, or zero for
+        /// the default security descriptor.
+        /// </param>
+        /// <returns>
+        /// A native handle to the console screen buffer, or an invalid handle
+        /// value on failure.
+        /// </returns>
         private static IntPtr OpenOutputHandle(
             IntPtr pSecurityAttributes /* in */
             )
@@ -2005,6 +3218,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the primary console input or output handle,
+        /// opening the handles first if necessary.
+        /// </summary>
+        /// <param name="output">
+        /// Non-zero to return the output handle; otherwise, the input handle is
+        /// returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The requested console handle, or zero on failure.
+        /// </returns>
         private static IntPtr GetOrOpenHandle(
             bool output,     /* in */
             ref Result error /* out */
@@ -2021,6 +3248,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens new native handles to the console input and/or
+        /// screen (output) buffers, cleaning up partially opened handles on
+        /// failure.
+        /// </summary>
+        /// <param name="openInput">
+        /// Non-zero to open a new console input handle.
+        /// </param>
+        /// <param name="openOutput">
+        /// Non-zero to open a new console output handle.
+        /// </param>
+        /// <param name="inputHandle">
+        /// Upon success, receives the newly opened console input handle (when
+        /// requested).
+        /// </param>
+        /// <param name="outputHandle">
+        /// Upon success, receives the newly opened console output handle (when
+        /// requested).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode OpenHandles(
             bool openInput,          /* in */
             bool openOutput,         /* in */
@@ -2141,6 +3394,18 @@ namespace Eagle._Components.Private
         //         it must be set to a valid structure with bInheritHandle
         //         set to non-zero.
         //
+        /// <summary>
+        /// This method cleans up any existing console handles, opens fresh
+        /// native input and output handles, resets the standard handles, and
+        /// resets all interpreter standard channels.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode FixupHandles(
             ref Result error /* out */
             )
@@ -2182,6 +3447,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the standard input, output, and error handles from
+        /// the specified handles, accumulating any errors that occur.
+        /// </summary>
+        /// <param name="inputHandle">
+        /// The handle to set as the standard input handle (when
+        /// <paramref name="resetInput" /> is non-zero).
+        /// </param>
+        /// <param name="outputHandle">
+        /// The handle to set as the standard output and standard error handles
+        /// (when <paramref name="resetOutput" /> is non-zero).
+        /// </param>
+        /// <param name="resetInput">
+        /// Non-zero to reset the standard input handle.
+        /// </param>
+        /// <param name="resetOutput">
+        /// Non-zero to reset the standard output and standard error handles.
+        /// </param>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing at the first error encountered.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message (or list of error messages).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ResetHandles(
             IntPtr inputHandle,  /* in */
             IntPtr outputHandle, /* in */
@@ -2273,6 +3566,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the specified console input and output handles,
+        /// accumulating any errors that occur.
+        /// </summary>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing at the first error encountered.
+        /// </param>
+        /// <param name="inputHandle">
+        /// The console input handle to close.  Upon return, this is set to zero
+        /// if it was closed.
+        /// </param>
+        /// <param name="outputHandle">
+        /// The console output handle to close.  Upon return, this is set to
+        /// zero if it was closed.
+        /// </param>
+        /// <param name="errors">
+        /// A list to which any error messages encountered are added; it is
+        /// created on-demand.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CloseHandles(
             bool stopOnError,        /* in */
             ref IntPtr inputHandle,  /* in, out */
@@ -2336,6 +3652,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Open/Close State Support Methods
+        /// <summary>
+        /// This method determines whether a console is currently open (i.e.
+        /// associated with the calling process).
+        /// </summary>
+        /// <returns>
+        /// True if a console is open; otherwise, false.
+        /// </returns>
         public static bool IsOpen()
         {
             return GetWindow() != IntPtr.Zero;
@@ -2343,6 +3666,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the window handle of the console associated
+        /// with the calling process, ignoring any error.
+        /// </summary>
+        /// <returns>
+        /// The window handle of the console window, or zero if there is no
+        /// associated console.
+        /// </returns>
         public static IntPtr GetWindow()
         {
             Result error = null; /* NOT USED */
@@ -2352,6 +3683,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the window handle of the console associated
+        /// with the calling process, when running on Windows.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The window handle of the console window, or zero if there is no
+        /// associated console (or the platform is not Windows).
+        /// </returns>
         public static IntPtr GetWindow(
             ref Result error /* out */
             )
@@ -2373,6 +3715,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens the primary native console input and output
+        /// handles if neither has already been opened.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode MaybeOpenHandles(
             ref Result error /* out */
             )
@@ -2409,6 +3762,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the native console window should be
+        /// prevented from being closed, honoring any manual override.
+        /// </summary>
+        /// <param name="attached">
+        /// Indicates whether the console was attached (as opposed to freshly
+        /// opened by this class).  When null, the console state is unknown.
+        /// </param>
+        /// <returns>
+        /// True if the console window should be prevented from being closed;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldPreventClose(
             bool? attached
             )
@@ -2439,6 +3804,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locks the native console window open, preventing it from
+        /// being closed by the user.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success (including when the console
+        /// is not open); otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode PreventClose(
             ref Result error /* out */
             )
@@ -2480,6 +3856,21 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method attaches the calling process to the console of its
+        /// parent process and fixes up the associated handles.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to attach to the parent console even if a console already
+        /// appears to be open.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Attach(
             bool force,      /* in */
             ref Result error /* out */
@@ -2521,6 +3912,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method allocates a new console for the calling process and
+        /// fixes up the associated handles.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to allocate a new console even if one already appears to be
+        /// open.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Open(
             bool force,      /* in */
             ref Result error /* out */
@@ -2560,6 +3966,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attaches to the parent process's console (when
+        /// requested) or, failing that, allocates a new console, then fixes up
+        /// the associated handles.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to attach or allocate even if a console already appears to
+        /// be open.
+        /// </param>
+        /// <param name="attach">
+        /// Non-zero to first attempt to attach to the parent process's console
+        /// before allocating a new one.
+        /// </param>
+        /// <param name="attached">
+        /// Upon success, set to non-zero if the console was attached, or zero if
+        /// a new console was allocated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode AttachOrOpen(
             bool force,         /* in */
             bool attach,        /* in */
@@ -2613,6 +4043,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method frees the console associated with the calling process,
+        /// resetting the tracked handles, screen buffers, and active screen
+        /// names.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Close(
             ref Result error /* out */
             )
@@ -2659,6 +4101,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Console Mode Support Methods
+        /// <summary>
+        /// This method retrieves the current console mode for the specified
+        /// channel type.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose mode is to be
+        /// retrieved.
+        /// </param>
+        /// <param name="mode">
+        /// Upon success, receives the current console mode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetMode(
             ChannelType channelType, /* in */
             ref uint mode,           /* out */
@@ -2688,6 +4148,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the console mode for the specified channel type.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose mode is to be set.
+        /// </param>
+        /// <param name="mode">
+        /// The console mode to set.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetMode(
             ChannelType channelType, /* in */
             uint mode,               /* in */
@@ -2717,6 +4193,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the specified mode bits in the
+        /// current console mode for the specified channel type.
+        /// </summary>
+        /// <param name="channelType">
+        /// The channel type (input, output, or error) whose mode is to be
+        /// changed.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to add the specified mode bits; otherwise, the specified
+        /// mode bits are removed.
+        /// </param>
+        /// <param name="mode">
+        /// The mode bits to add or remove.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ChangeMode(
             ChannelType channelType, /* in */
             bool enable,             /* in */
@@ -2761,6 +4259,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Console History Support Methods
+        /// <summary>
+        /// This method clears the console command history by temporarily setting
+        /// the history buffer size to zero and then restoring it.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ClearHistory(
             ref Result error /* out */
             )
@@ -2824,6 +4333,20 @@ namespace Eagle._Components.Private
         // TODO: Figure out if this method should change the struct field
         //       NumberOfHistoryBuffers as well.  What exactly does it do?
         //
+        /// <summary>
+        /// This method ensures the console command history buffer size is at
+        /// least the specified minimum.
+        /// </summary>
+        /// <param name="minimumBufferSize">
+        /// The minimum required history buffer size.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetupHistory(
             uint minimumBufferSize, /* in */
             ref Result error        /* out */
@@ -2868,6 +4391,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Console Font Support Methods
+        /// <summary>
+        /// This method converts the specified extended console font information
+        /// into a name/value string list for display purposes.
+        /// </summary>
+        /// <param name="consoleFontEx">
+        /// The extended console font information to convert.
+        /// </param>
+        /// <returns>
+        /// A string list containing the font properties as name/value pairs.
+        /// </returns>
         private static StringList FontToList(
             UNM.CONSOLE_FONT_INFOEX consoleFontEx /* in */
             )
@@ -2887,6 +4420,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the native end-of-line character sequence, or no
+        /// sequence, based on whether a new line is requested.
+        /// </summary>
+        /// <param name="newLine">
+        /// Non-zero to return the native end-of-line character sequence;
+        /// otherwise, an empty sequence is returned.
+        /// </param>
+        /// <param name="value">
+        /// Upon return, receives the end-of-line character sequence, or null if
+        /// none was requested.
+        /// </param>
+        /// <param name="length">
+        /// Upon return, receives the length of the end-of-line character
+        /// sequence, or zero if none was requested.
+        /// </param>
         private static void GetNewLine(
             bool newLine,     /* in */
             out char[] value, /* out */
@@ -2907,6 +4456,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the per-thread console write buffer, growing it
+        /// if necessary to hold at least the specified number of characters.
+        /// </summary>
+        /// <param name="length">
+        /// The minimum required length, in characters, of the buffer.
+        /// </param>
+        /// <returns>
+        /// The per-thread console write buffer.
+        /// </returns>
         private static char[] GetWriteBuffer(
             int length /* in */
             )
@@ -2922,6 +4481,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a console write buffer sized to hold the
+        /// specified content plus an optional trailing new line, pre-populated
+        /// with the new line (if any) and cleared otherwise.
+        /// </summary>
+        /// <param name="length">
+        /// The length, in characters, of the content (excluding any new line).
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to reserve and append the native end-of-line character
+        /// sequence at the end of the buffer.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to always allocate a fresh buffer instead of reusing the
+        /// per-thread cached buffer.
+        /// </param>
+        /// <returns>
+        /// A console write buffer; this method never returns null.
+        /// </returns>
         private static char[] GetWriteBuffer( /* CANNOT RETURN NULL */
             int length,   /* in */
             bool newLine, /* in */
@@ -2955,6 +4533,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a console write buffer from the specified value,
+        /// which must be a character array, a single character, or a string,
+        /// optionally appending a trailing new line.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the value to write; must be <c>char[]</c>, <c>char</c>,
+        /// or <c>string</c>.
+        /// </typeparam>
+        /// <param name="value">
+        /// The value to convert into a write buffer.  If this parameter is
+        /// null, this method fails.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append the native end-of-line character sequence (only
+        /// applies to single-character and string values).
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to always allocate a fresh buffer instead of reusing the
+        /// per-thread cached buffer.
+        /// </param>
+        /// <param name="length">
+        /// Upon return, receives the number of content characters in the
+        /// returned buffer (excluding any appended new line).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The console write buffer, or null on failure.
+        /// </returns>
         private static char[] GetWriteBuffer<T>(
             T value,         /* in */
             bool newLine,    /* in */
@@ -3042,6 +4651,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the given console handle,
+        /// optionally appending a trailing new line.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the value to write; must be <c>char[]</c>, <c>char</c>,
+        /// or <c>string</c>.
+        /// </typeparam>
+        /// <param name="handle">
+        /// The console handle to write to.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append the native end-of-line character sequence.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode WriteString<T>(
             IntPtr handle,   /* in */
             T value,         /* in */
@@ -3083,6 +4716,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Console Font Support Methods
+        /// <summary>
+        /// This method retrieves the current console font as a name/value
+        /// string list.
+        /// </summary>
+        /// <param name="list">
+        /// Upon success, receives the current console font properties as a
+        /// string list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFont(
             ref StringList list, /* in, out */
             ref Result error     /* out */
@@ -3120,6 +4768,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the console font by font index or by face name and
+        /// (optionally) size, saving the original font first unless requested
+        /// otherwise.
+        /// </summary>
+        /// <param name="faceName">
+        /// The font face name to set, or a string that parses as an unsigned
+        /// integer to select a font by index.  This parameter may be null.
+        /// </param>
+        /// <param name="fontSize">
+        /// The optional font size (height), in logical units.  This parameter
+        /// may be null to leave the size unchanged.
+        /// </param>
+        /// <param name="noSave">
+        /// Non-zero to skip saving the original console font before changing it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetFont(
             string faceName, /* in: OPTIONAL */
             short? fontSize, /* in: OPTIONAL */
@@ -3251,6 +4922,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the previously saved console font, if any.
+        /// </summary>
+        /// <param name="noComplain">
+        /// Non-zero to treat the absence of a saved console font as success
+        /// rather than as an error.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CleanupFont(
             bool noComplain, /* in */
             ref Result error /* out */
@@ -3301,6 +4986,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the primary console output
+        /// (screen) buffer, opening the handle first if necessary, optionally
+        /// appending a trailing new line.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the value to write; must be <c>char[]</c>, <c>char</c>,
+        /// or <c>string</c>.
+        /// </typeparam>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append the native end-of-line character sequence.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteString<T>(
             T value,
             bool newLine,
@@ -3320,6 +5027,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the native end-of-line character sequence to the
+        /// primary console output (screen) buffer.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteLine(
             ref Result error /* out */
             )
@@ -3331,6 +5049,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Console Other Support Methods
+        /// <summary>
+        /// This method retrieves the list of process identifiers for the
+        /// processes currently attached to the console.
+        /// </summary>
+        /// <param name="list">
+        /// Upon success, receives the list of attached process identifiers.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetProcessList(
             ref IntList list,
             ref Result error
@@ -3385,6 +5117,19 @@ namespace Eagle._Components.Private
         //       host.  It should be noted this method has been refactored
         //       several times, primarily to improve its error handling.
         //
+        /// <summary>
+        /// This method closes the console output and error handles (used for
+        /// the screen buffer), notifying other native and managed code that
+        /// they are no longer valid.  It is used to implement the
+        /// <c>[host exit]</c> sub-command.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message (or list of error messages).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CloseStandardInput(
             ref Result error /* out */
             )
@@ -3600,6 +5345,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Cleanup Support Methods
+        /// <summary>
+        /// This method closes all tracked console screen buffer handles,
+        /// accumulating any errors that occur.
+        /// </summary>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing at the first error encountered.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message (or list of error messages).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CleanupScreenBuffers(
             bool stopOnError, /* in */
             ref Result error  /* out */
@@ -3658,6 +5417,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the saved active screen name and clears the stack
+        /// of active console screen buffer names.
+        /// </summary>
+        /// <param name="error">
+        /// Reserved for an error message.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// Always <see cref="ReturnCode.Ok" />.
+        /// </returns>
         private static ReturnCode CleanupActiveScreenNames(
             ref Result error /* out: NOT USED */
             )
@@ -3668,6 +5437,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the primary console input and output handles and
+        /// resets the standard handles, accumulating any errors that occur.
+        /// </summary>
+        /// <param name="stopOnError">
+        /// Non-zero to stop processing at the first error encountered.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message (or list of error messages).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CleanupHandles(
             bool stopOnError, /* in */
             ref Result error  /* out */
@@ -3714,6 +5497,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally reports a console cleanup failure, both by
+        /// emitting a trace message and (when appropriate for the current
+        /// application domain) by complaining.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the failure.
+        /// </param>
+        /// <param name="result">
+        /// The result (error message) associated with the failure.
+        /// </param>
         private static void MaybeComplain(
             ReturnCode code, /* in */
             Result result    /* in */
@@ -3737,6 +5531,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method registers the exit (or domain unload) event handler that
+        /// cleans up native console resources, unless it has been disabled via
+        /// configuration.
+        /// </summary>
         private static void AddExitedEventHandler()
         {
             if (!GlobalConfiguration.DoesValueExist(
@@ -3763,6 +5562,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unregisters the exit (or domain unload) event handler
+        /// that cleans up native console resources.
+        /// </summary>
         private static void RemoveExitedEventHandler()
         {
             AppDomain appDomain = AppDomainOps.GetCurrent();
@@ -3778,6 +5581,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the exit (or domain unload) event handler that cleans
+        /// up all native console resources, including screen buffers, active
+        /// screen names, handles, and the saved font.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments.
+        /// </param>
         private static void NativeConsole_Exited(
             object sender, /* in */
             EventArgs e    /* in */

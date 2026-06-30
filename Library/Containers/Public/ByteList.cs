@@ -22,6 +22,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a list of bytes.  It extends the standard generic
+    /// list with the ability to be created from a string in the Eagle list
+    /// format, to be converted back to that format, and to be cloned.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -29,6 +34,9 @@ namespace Eagle._Containers.Public
     public sealed class ByteList : List<byte>, ICloneable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ByteList()
             : base()
         {
@@ -37,6 +45,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty instance of this class that has the specified
+        /// initial capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The number of elements that the new list can initially store.
+        /// </param>
         public ByteList(
             int capacity
             )
@@ -47,6 +62,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified collection of characters, each converted to
+        /// its byte representation.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of characters whose elements are copied into the new
+        /// list.
+        /// </param>
         public ByteList(
             IEnumerable<char> collection
             )
@@ -58,6 +82,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are copied into the new list.
+        /// </param>
         public ByteList(
             IEnumerable<byte> collection
             )
@@ -68,6 +99,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified collection, optionally reversing their
+        /// order.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are copied into the new list.
+        /// </param>
+        /// <param name="reverse">
+        /// Non-zero if the order of the copied elements should be reversed.
+        /// </param>
         public ByteList(
             IEnumerable<byte> collection,
             bool reverse
@@ -80,6 +122,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the bytes copied
+        /// from the specified array, starting at the specified index.
+        /// </summary>
+        /// <param name="array">
+        /// The array of bytes whose elements are copied into the new list.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the array, of the first byte to copy.
+        /// </param>
         public ByteList(
             byte[] array,
             int startIndex
@@ -93,6 +145,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Factory Methods
+        /// <summary>
+        /// Creates a new list from a string in the Eagle list format, where
+        /// each element is parsed as a byte.
+        /// </summary>
+        /// <param name="value">
+        /// The string, in the Eagle list format, to parse.
+        /// </param>
+        /// <returns>
+        /// The new list, or null if the string could not be parsed.
+        /// </returns>
         public static ByteList FromString(
             string value
             )
@@ -104,6 +166,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new list from a string in the Eagle list format, where
+        /// each element is parsed as a byte.
+        /// </summary>
+        /// <param name="value">
+        /// The string, in the Eagle list format, to parse.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The new list, or null if the string could not be parsed.
+        /// </returns>
         public static ByteList FromString(
             string value,
             ref Result error
@@ -140,6 +215,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Appends the bytes copied from the specified array, starting at the
+        /// specified index, to the end of this list.
+        /// </summary>
+        /// <param name="array">
+        /// The array of bytes whose elements are appended to this list.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the array, of the first byte to copy.
+        /// </param>
         public void Add(
             byte[] array,
             int startIndex
@@ -156,6 +241,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Appends the elements of the specified collection to the end of this
+        /// list, unless the collection is null, in which case this method does
+        /// nothing.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are appended to this list.  This
+        /// parameter may be null.
+        /// </param>
         public void MaybeAddRange(
             IEnumerable<byte> collection
             )
@@ -168,6 +262,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Parses a string in the Eagle list format, where each element is
+        /// parsed as a byte, and appends the resulting bytes to the end of this
+        /// list.
+        /// </summary>
+        /// <param name="value">
+        /// The string, in the Eagle list format, to parse.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the string was parsed and its bytes appended successfully;
+        /// otherwise, false.
+        /// </returns>
         public bool AddFromString(
             string value,
             ref Result error
@@ -184,6 +293,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes a new list where each byte of this list is combined, using
+        /// the bitwise exclusive-or operation, with a byte from the specified
+        /// list.  The bytes of the specified list are reused cyclically when it
+        /// is shorter than this list.
+        /// </summary>
+        /// <param name="list">
+        /// The list of bytes to combine with the bytes of this list.
+        /// </param>
+        /// <returns>
+        /// The new list containing the combined bytes, or null if the specified
+        /// list is null, if either list is empty, or if the specified list is
+        /// longer than this list.
+        /// </returns>
         public ByteList Xor(
             IList<byte> list
             )
@@ -220,6 +343,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format, optionally
+        /// including only those elements matching the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each element must match in order to be included in
+        /// the resulting string.  This parameter may be null, in which case all
+        /// elements are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -234,6 +372,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);
@@ -243,6 +387,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// Creates a new list that is a shallow copy of this list.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this list.
+        /// </returns>
         public object Clone()
         {
             return new ByteList(this);

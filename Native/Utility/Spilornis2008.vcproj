@@ -421,10 +421,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\src\win\SpilornisWin32.h"
-				>
-			</File>
-			<File
 				RelativePath=".\src\generic\Spilornis.c"
 				>
 			</File>
@@ -456,6 +452,10 @@
 			</File>
 			<File
 				RelativePath=".\src\generic\SpilornisInt.h"
+				>
+			</File>
+			<File
+				RelativePath=".\src\win\SpilornisWin32.h"
 				>
 			</File>
 		</Filter>

@@ -24,10 +24,21 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Extensions
 {
+    /// <summary>
+    /// This class implements a WiX (Windows Installer XML) preprocessor
+    /// extension that exposes the Eagle scripting engine to the WiX
+    /// preprocessor, allowing variable values to be queried, functions to be
+    /// evaluated, and pragmas to be processed via an embedded Eagle
+    /// interpreter.
+    /// </summary>
     [ObjectId("dc8dd503-3594-4058-bf24-f9e5e4a084a5")]
     internal sealed class Preprocessor : PreprocessorExtension, IDisposable
     {
         #region Private Constants
+        /// <summary>
+        /// The variable and function name prefixes recognized by this
+        /// extension, derived from the Eagle script file extension.
+        /// </summary>
         private static readonly string[] prefixes = {
             //
             // NOTE: Get the file name extension for scripts and remove
@@ -41,6 +52,10 @@ namespace Eagle._Extensions
         //
         // NOTE: By default, no console.
         //
+        /// <summary>
+        /// The default assumption about whether a console-like host is
+        /// available for diagnostic output.
+        /// </summary>
         private static readonly bool DefaultConsole = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -56,6 +71,10 @@ namespace Eagle._Extensions
         //       4. We want to have only directories that actually
         //          exist in the auto-path.
         //
+        /// <summary>
+        /// The default interpreter creation flags used when creating the
+        /// embedded Eagle interpreter for this extension.
+        /// </summary>
         private static readonly CreateFlags DefaultCreateFlags = (
             CreateFlags.EmbeddedUse
 #if !WIX_35 && !WIX_36 && !WIX_37 && !WIX_38 && !WIX_39 && !WIX_310 && !WIX_311
@@ -72,6 +91,10 @@ namespace Eagle._Extensions
         //       2. We do not want to change the console icon.
         //       3. We do not want to intercept the Ctrl-C keypress.
         //
+        /// <summary>
+        /// The default host creation flags used when creating the embedded
+        /// Eagle interpreter for this extension.
+        /// </summary>
         private static readonly HostCreateFlags DefaultHostCreateFlags =
             HostCreateFlags.EmbeddedUse;
 
@@ -80,6 +103,10 @@ namespace Eagle._Extensions
         //
         // NOTE: By default, consider all standard option sources.
         //
+        /// <summary>
+        /// The default set of option sources considered when processing the
+        /// startup options for the embedded Eagle interpreter.
+        /// </summary>
         private static readonly OptionOriginFlags DefaultOptionOriginFlags =
             OptionOriginFlags.Standard;
         #endregion
@@ -87,17 +114,51 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The trace listener installed by this extension to capture trace and
+        /// debug output, if any.
+        /// </summary>
         private TraceListener listener;
+
+        /// <summary>
+        /// The effective interpreter creation flags used to create the
+        /// embedded Eagle interpreter.
+        /// </summary>
         private CreateFlags createFlags;
+
+        /// <summary>
+        /// The effective host creation flags used to create the embedded Eagle
+        /// interpreter.
+        /// </summary>
         private HostCreateFlags hostCreateFlags;
+
+        /// <summary>
+        /// The embedded Eagle interpreter used to evaluate variables,
+        /// functions, and pragmas for the WiX preprocessor.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// When true, a console-like host is assumed to be available for
+        /// diagnostic output.
+        /// </summary>
         private bool console;
+
+        /// <summary>
+        /// When true, "exceptional" (non-Ok) success return codes are treated
+        /// as successful.
+        /// </summary>
         private bool exceptions;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the WiX preprocessor extension, computing
+        /// the effective interpreter and host creation flags from the
+        /// environment and the configured defaults.
+        /// </summary>
         public Preprocessor()
         {
             //
@@ -128,6 +189,19 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method attempts to determine whether a console-like host is
+        /// available for diagnostic output, using the relevant environment
+        /// variables to refine the supplied default assumption.
+        /// </summary>
+        /// <param name="default">
+        /// The default assumption about console availability to use when the
+        /// environment does not indicate otherwise.
+        /// </param>
+        /// <returns>
+        /// True if a console-like host should be assumed available; otherwise,
+        /// false.
+        /// </returns>
         private static bool NeedConsole(
             bool @default
             )
@@ -171,6 +245,26 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Listener Helper Methods
+        /// <summary>
+        /// This method adds or removes the trace listener used to capture
+        /// trace and debug output, discarding any error message that may be
+        /// produced.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to add the trace listener; zero to remove and dispose it.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if a console-like host is available, which influences the
+        /// type of trace listener that is created.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a redundant setup or removal request as an error
+        /// instead of a no-op.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode SetupTraceListeners(
             bool setup,
             bool console,
@@ -184,6 +278,28 @@ namespace Eagle._Extensions
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds or removes the trace listener used to capture
+        /// trace and debug output.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to add the trace listener; zero to remove and dispose it.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if a console-like host is available, which influences the
+        /// type of trace listener that is created.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a redundant setup or removal request as an error
+        /// instead of a no-op.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode SetupTraceListeners(
             bool setup,
             bool console,
@@ -266,6 +382,10 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region PreprocessorExtension Members
+        /// <summary>
+        /// Gets the variable and function name prefixes recognized by this
+        /// preprocessor extension.
+        /// </summary>
         public override string[] Prefixes
         {
             get
@@ -278,6 +398,12 @@ namespace Eagle._Extensions
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes preprocessing by creating the embedded
+        /// Eagle interpreter and processing its startup options.  It throws a
+        /// <see cref="ScriptException" /> if the interpreter cannot be created
+        /// or its startup options cannot be processed.
+        /// </summary>
         public override void InitializePreprocess()
         {
             CheckDisposed();
@@ -307,6 +433,10 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
 #if WIX_35 || WIX_36 || WIX_37 || WIX_38 || WIX_39 || WIX_310 || WIX_311
+        /// <summary>
+        /// This method finalizes preprocessing by disposing this extension and
+        /// its embedded Eagle interpreter.
+        /// </summary>
         public override void FinalizePreprocess()
         {
             CheckDisposed(); /* throw */
@@ -316,6 +446,22 @@ namespace Eagle._Extensions
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the value of the named preprocessor variable by
+        /// evaluating it against the embedded Eagle interpreter.  It throws a
+        /// <see cref="ScriptException" /> if the variable value cannot be
+        /// obtained.
+        /// </summary>
+        /// <param name="prefix">
+        /// The variable name prefix.  This parameter is ignored and is always
+        /// assumed to be "eagle".
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable whose value is to be returned.
+        /// </param>
+        /// <returns>
+        /// The string value of the named variable.
+        /// </returns>
         public override string GetVariableValue(
             string prefix, /* NOTE: IGNORED, always "eagle". */
             string name
@@ -356,6 +502,25 @@ namespace Eagle._Extensions
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the named preprocessor function by invoking it
+        /// against the embedded Eagle interpreter.  It throws a
+        /// <see cref="ScriptException" /> if the function cannot be invoked
+        /// successfully.
+        /// </summary>
+        /// <param name="prefix">
+        /// The function name prefix.  This parameter is ignored and is always
+        /// assumed to be "eagle".
+        /// </param>
+        /// <param name="function">
+        /// The name of the function (command or procedure) to invoke.
+        /// </param>
+        /// <param name="args">
+        /// The arguments to pass to the function.
+        /// </param>
+        /// <returns>
+        /// The string result produced by invoking the function.
+        /// </returns>
         public override string EvaluateFunction(
             string prefix, /* NOTE: IGNORED, always "eagle". */
             string function,
@@ -383,6 +548,35 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
 #if WIX_35 || WIX_36 || WIX_37 || WIX_38 || WIX_39 || WIX_310 || WIX_311
+        /// <summary>
+        /// This method processes a preprocessor pragma by interpreting it as an
+        /// <see cref="EngineMode" /> and evaluating or substituting the
+        /// supplied argument text against the embedded Eagle interpreter,
+        /// writing any result to the supplied writer.  It throws a
+        /// <see cref="ScriptException" /> if the argument text cannot be
+        /// processed successfully.
+        /// </summary>
+        /// <param name="sourceLineNumbers">
+        /// The source line number information associated with the pragma.
+        /// </param>
+        /// <param name="prefix">
+        /// The pragma name prefix.  This parameter is ignored and is always
+        /// assumed to be "eagle".
+        /// </param>
+        /// <param name="pragma">
+        /// The pragma name, interpreted as an <see cref="EngineMode" /> value
+        /// that selects how the argument text is processed.
+        /// </param>
+        /// <param name="args">
+        /// The argument text to be evaluated or substituted.
+        /// </param>
+        /// <param name="writer">
+        /// The XML writer that any result is written to.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the pragma was recognized and processed; otherwise, false.
+        /// </returns>
         public override bool ProcessPragma(
             SourceLineNumberCollection sourceLineNumbers,
             string prefix, /* NOTE: IGNORED, always "eagle". */
@@ -509,7 +703,16 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an <see cref="ObjectDisposedException" /> if this
+        /// object instance has been disposed and the interpreter is configured
+        /// to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -520,6 +723,16 @@ namespace Eagle._Extensions
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this object instance,
+        /// including the embedded Eagle interpreter and any installed trace
+        /// listeners.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(bool disposing)
         {
             if (!disposed)
@@ -551,6 +764,9 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object instance.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -561,6 +777,11 @@ namespace Eagle._Extensions
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object instance, releasing any resources that were
+        /// not already released by an explicit call to the
+        /// <see cref="Dispose()" /> method.
+        /// </summary>
         ~Preprocessor()
         {
             Dispose(false);

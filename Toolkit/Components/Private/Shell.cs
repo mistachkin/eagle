@@ -29,15 +29,43 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Shell
 {
+    /// <summary>
+    /// This class implements a graphical (Windows Forms) Eagle shell that
+    /// creates an interpreter, adds the toolkit plugin, runs the interactive
+    /// loop on a background thread, and displays a top-level window.  It is a
+    /// proof-of-concept and is not production ready.
+    /// </summary>
     [ObjectId("aa0f9c46-2fca-4be4-a9af-1ec1bcc34d90")]
     internal static class Graphical
     {
+        /// <summary>
+        /// The interpreter created and used by this shell.
+        /// </summary>
         private static Interpreter interpreter;
+        /// <summary>
+        /// The exit code to be returned to the operating system when this shell
+        /// terminates.
+        /// </summary>
         private static ExitCode exitCode;
+        /// <summary>
+        /// The token identifying the toolkit plugin added to the interpreter.
+        /// </summary>
         private static long toolkitPluginToken;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the application entry point for the graphical shell.
+        /// It creates and initializes the interpreter, registers the toolkit
+        /// plugin, starts the interactive loop on a background thread, and runs
+        /// the Windows Forms message loop for the top-level window.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments.
+        /// </param>
+        /// <returns>
+        /// The process exit code.
+        /// </returns>
         [STAThread()] /* WinForms */
         private static int Main(string[] args)
         {
@@ -140,6 +168,15 @@ namespace Eagle._Shell
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the thread start routine for the background thread
+        /// that runs the interpreter interactive loop.  It records the
+        /// resulting exit code when the loop completes.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread parameter, which is the enumerable of command line
+        /// arguments to pass to the interactive loop.
+        /// </param>
         private static void InteractiveLoopThreadStart(object obj)
         {
 #if MONO_BUILD

@@ -17,6 +17,10 @@ using Eagle._Components.Public;
 
 namespace Eagle._Cmdlets
 {
+    /// <summary>
+    /// This class implements a PowerShell cmdlet that creates an interpreter
+    /// and evaluates an Eagle script file within it.
+    /// </summary>
     [Cmdlet(
         _Constants.Verb.Evaluate,
         _Constants.Noun.ScriptFile,
@@ -26,6 +30,11 @@ namespace Eagle._Cmdlets
     public sealed class EvaluateFile : Script
     {
         #region System.Management.Automation.Cmdlet Overrides
+        /// <summary>
+        /// This method processes a single pipeline record.  It evaluates the
+        /// configured Eagle script file within the interpreter and writes the
+        /// result, or any error, to the pipeline.
+        /// </summary>
         protected override void ProcessRecord()
         {
             //

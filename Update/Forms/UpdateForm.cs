@@ -27,53 +27,147 @@ using _Shared = Eagle._Components.Shared;
 
 namespace Eagle._Forms
 {
+    /// <summary>
+    /// This class implements the main Windows Forms user interface for the
+    /// Eagle updater tool.  It downloads release metadata over HTTP(S), locates
+    /// the release matching the current configuration, verifies signatures and
+    /// hashes, downloads and extracts the release archive, replaces the
+    /// installed files, and (optionally) re-launches the updater.  It manages a
+    /// background status queue, progress reporting, and several keyboard
+    /// shortcuts, and supports a "silent" (and optionally invisible) mode of
+    /// operation.  The matching designer-generated partial class supplies the
+    /// form controls referenced here.
+    /// </summary>
     [Guid("1c3cf092-e060-4423-8f8d-d3fccb110635")]
     internal partial class UpdateForm : Form
     {
         #region Private Constants
+        /// <summary>
+        /// The default text displayed in the title bar of the updater form.
+        /// </summary>
         private const string DefaultFormText = "Eagle Updater";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The file name of the Eagle shell executable, launched as an external
+        /// process in response to the appropriate keyboard shortcut.
+        /// </summary>
         private const string EagleShellCommand = "EagleShell.exe";
+
+        /// <summary>
+        /// The file name of the Notepad executable, used to view the configured
+        /// log file in response to the appropriate keyboard shortcut.
+        /// </summary>
         private const string NotepadCommand = "Notepad.exe";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The category name used when emitting trace and diagnostic messages
+        /// from this class; it is the simple name of the type.
+        /// </summary>
         private static readonly string TraceCategory = typeof(UpdateForm).Name;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to build the form title bar text
+        /// from the base text, version, status text, and administrator marker.
+        /// </summary>
         private const string FormTextFormat = "{0}{1}{2}{3}";
+
+        /// <summary>
+        /// The composite format string used to build a trace message from its
+        /// sequence number, time stamp, and message text.
+        /// </summary>
         private const string TraceFormat = "#{0} @ {1}: {2}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The composite format string used to display download progress as the
+        /// number of bytes received, the total number of bytes, and the current
+        /// transfer rate.
+        /// </summary>
         private const string PercentMessage =
             "{0:N0} of {1:N0} bytes, {2:N2} bytes per second";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interval, in milliseconds, between ticks of the status queue
+        /// timer used to flush queued status messages to the user interface.
+        /// </summary>
         private const int StatusTimerInterval = 200;  /* milliseconds */
+
+        /// <summary>
+        /// The interval, in milliseconds, to wait before automatically starting
+        /// an update when running in silent mode.
+        /// </summary>
         private const int SilentTimerInterval = 5000; /* milliseconds */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The configuration controlling the behavior of this updater instance,
+        /// including the target release, directories, and feature flags.
+        /// </summary>
         private Configuration configuration;
+
+        /// <summary>
+        /// The assembly being updated (and whose version is reported), as
+        /// obtained from the configuration.  This field may be null.
+        /// </summary>
         private Assembly assembly;
+
+        /// <summary>
+        /// The queue of pending status messages awaiting display in the user
+        /// interface; it is drained by the status queue timer.
+        /// </summary>
         private Queue<string> statusQueue;
+
+        /// <summary>
+        /// The timer that periodically flushes queued status messages from
+        /// <see cref="statusQueue" /> to the status label.
+        /// </summary>
         private System.Windows.Forms.Timer statusTimer;
+
+        /// <summary>
+        /// The one-shot timer used in silent mode to automatically begin the
+        /// update after a delay.
+        /// </summary>
         private System.Windows.Forms.Timer silentTimer;
+
+        /// <summary>
+        /// The time at which the current download started, used to compute the
+        /// elapsed time and transfer rate.
+        /// </summary>
         private DateTime started;
+
+        /// <summary>
+        /// The HTTP user agent string sent with download requests.
+        /// </summary>
         private string userAgent;
+
+        /// <summary>
+        /// The web client used to perform the asynchronous downloads of the
+        /// release data and release files.  This field may be null until the
+        /// first download is started.
+        /// </summary>
         private UpdateWebClient client;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an updater form, initializing its controls, wiring up the
+        /// form, button, and timer event handlers, registering the remote
+        /// certificate validation callback, and starting the status queue timer.
+        /// </summary>
         private UpdateForm()
         {
             #region Control Setup
@@ -131,6 +225,16 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an updater form for the specified configuration.  This
+        /// constructor delegates to the parameterless constructor, then hooks
+        /// the configuration's trace callback, captures its assembly, and
+        /// computes the user agent string.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the behavior of this updater instance.
+        /// This parameter may be null.
+        /// </param>
         private UpdateForm(
             Configuration configuration
             )
@@ -150,6 +254,22 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// Creates a new updater form for the specified configuration, provided
+        /// that configuration is present and valid.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration controlling the behavior of the updater instance.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives a message describing why the
+        /// updater form could not be created.
+        /// </param>
+        /// <returns>
+        /// The newly created updater form, or null if the configuration is
+        /// missing or invalid.
+        /// </returns>
         public static UpdateForm Create(
             Configuration configuration,
             ref string error
@@ -168,6 +288,14 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// Builds the HTTP user agent string for download requests, using the
+        /// version of the assembly being updated when available and falling
+        /// back to the default user agent version otherwise.
+        /// </summary>
+        /// <returns>
+        /// The formatted user agent string.
+        /// </returns>
         private string GetUserAgent()
         {
             Version version = Defaults.UserAgentVersion;
@@ -191,6 +319,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the configured log file can be launched in an
+        /// external viewer.
+        /// </summary>
+        /// <returns>
+        /// True if a configuration with a non-empty log file name is present;
+        /// otherwise, false.
+        /// </returns>
         private bool CanLaunchLogFile()
         {
             return (configuration != null) &&
@@ -199,6 +335,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the Eagle shell can be launched as an external
+        /// process from the configured core directory.
+        /// </summary>
+        /// <returns>
+        /// True if a configuration with a non-empty core directory is present;
+        /// otherwise, false.
+        /// </returns>
         private bool CanLaunchEagleShell()
         {
             return (configuration != null) &&
@@ -207,6 +351,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether an Eagle interactive loop can be started on a
+        /// thread hosted within this process.
+        /// </summary>
+        /// <returns>
+        /// True if a configuration is present and its shell feature is enabled;
+        /// otherwise, false.
+        /// </returns>
         private bool CanStartEagleThread()
         {
             return (configuration != null) && configuration.Shell;
@@ -214,6 +366,10 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Closes the updater form on its owning user interface thread,
+        /// marshaling the call as necessary.
+        /// </summary>
         private void SafeClose()
         {
             FormOps.BeginInvoke(btnUpdate, new DelegateWithNoArgs(delegate()
@@ -224,6 +380,16 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Enables or disables the update button on the user interface thread
+        /// and, optionally, queues a corresponding status message.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable the update button; zero to disable it.
+        /// </param>
+        /// <param name="status">
+        /// Non-zero to also queue a status message reflecting the new state.
+        /// </param>
         private void EnableUpdateButton(
             bool enable,
             bool status
@@ -240,6 +406,13 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Enables or disables the cancel button on the user interface thread
+        /// and emits a trace message reflecting the new state.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable the cancel button; zero to disable it.
+        /// </param>
         private void EnableCancelButton(
             bool enable
             )
@@ -256,6 +429,15 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Progress Bar Methods
+        /// <summary>
+        /// Sets the progress bar position and text to reflect the specified
+        /// completion fraction, marshaling the update to the user interface
+        /// thread.
+        /// </summary>
+        /// <param name="value">
+        /// The completion fraction, between zero and one inclusive, used to set
+        /// the progress bar value and its percentage text.
+        /// </param>
         private void SetProgressPercent(
             double value
             )
@@ -269,6 +451,11 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Works around a Windows progress bar animation issue on Windows Vista
+        /// and later by momentarily adjusting the progress bar maximum so that
+        /// its value jumps immediately to completion rather than animating.
+        /// </summary>
         private void ProgressBarHack()
         {
             //
@@ -293,6 +480,22 @@ namespace Eagle._Forms
 
         #region Status Helper Methods
         #region Form Text Methods
+        /// <summary>
+        /// Builds and sets the title bar text of the updater form from the
+        /// supplied version, status text, and administrator marker, marshaling
+        /// the update to the user interface thread.
+        /// </summary>
+        /// <param name="version">
+        /// The version to include in the title bar text, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="text">
+        /// The additional status text to include in the title bar, if any.  This
+        /// parameter may be null or empty.
+        /// </param>
+        /// <param name="isAdministrator">
+        /// Non-zero to append an administrator marker to the title bar text.
+        /// </param>
         private void SetFormText(
             Version version,
             string text,
@@ -317,6 +520,13 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Support Methods
+        /// <summary>
+        /// Emits a trace message describing the specified exception, using the
+        /// trace category for this class.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to trace.  This parameter may be null.
+        /// </param>
         private static void Trace(
             Exception exception
             )
@@ -326,6 +536,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Emits a trace message, prefixed with a sequence number and time
+        /// stamp, using the trace category for this class.  Empty messages are
+        /// ignored.
+        /// </summary>
+        /// <param name="message">
+        /// The message text to trace.  This parameter may be null or empty.
+        /// </param>
         private static void Trace(
             string message
             )
@@ -344,6 +562,14 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Status URI Methods
+        /// <summary>
+        /// Builds the default text for the URI status label, describing the
+        /// configured target core file along with its release and build types.
+        /// </summary>
+        /// <returns>
+        /// The default URI status text, or null if the configuration is missing
+        /// or invalid.
+        /// </returns>
         private string GetDefaultStatusUri()
         {
             if ((configuration == null) || !configuration.IsValid)
@@ -356,6 +582,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Traces and displays the specified message in the URI status label,
+        /// marshaling the update to the user interface thread.
+        /// </summary>
+        /// <param name="message">
+        /// The message to trace and display in the URI status label.  This
+        /// parameter may be null.
+        /// </param>
         private void UpdateStatusUri(
             string message
             )
@@ -372,6 +606,10 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Status Percent Methods
+        /// <summary>
+        /// Resets the elapsed time baseline to the current time, used to measure
+        /// the duration and transfer rate of a download.
+        /// </summary>
         private void ResetElapsedTime()
         {
             started = TraceOps.GetNow();
@@ -379,6 +617,13 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes the time elapsed since the last call to
+        /// <see cref="ResetElapsedTime" />.
+        /// </summary>
+        /// <returns>
+        /// The interval between the current time and the elapsed time baseline.
+        /// </returns>
         private TimeSpan GetElapsedTime()
         {
             DateTime now = TraceOps.GetNow();
@@ -388,6 +633,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Displays the specified message in the percent status label,
+        /// marshaling the update to the user interface thread.
+        /// </summary>
+        /// <param name="message">
+        /// The message to display in the percent status label.  This parameter
+        /// may be null.
+        /// </param>
         private void UpdateStatusPercent(
             string message
             )
@@ -402,6 +655,18 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region General Status Methods
+        /// <summary>
+        /// Resets the selected status displays to their default (empty) state.
+        /// </summary>
+        /// <param name="message">
+        /// Non-zero to clear the general status message.
+        /// </param>
+        /// <param name="percent">
+        /// Non-zero to reset the progress bar and clear the percent status.
+        /// </param>
+        /// <param name="uri">
+        /// Non-zero to reset the URI status label to its default text.
+        /// </param>
         private void ResetStatus(
             bool message,
             bool percent,
@@ -423,6 +688,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Displays the specified message in the general status label,
+        /// marshaling the update to the user interface thread.
+        /// </summary>
+        /// <param name="message">
+        /// The message to display in the general status label.  This parameter
+        /// may be null.
+        /// </param>
         private void UpdateStatus(
             string message
             )
@@ -435,6 +708,13 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Traces the specified message and also displays it in the general
+        /// status label.
+        /// </summary>
+        /// <param name="message">
+        /// The message to trace and display.  This parameter may be null.
+        /// </param>
         private void TraceAndUpdateStatus(
             string message
             )
@@ -447,6 +727,17 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Status Queue Methods
+        /// <summary>
+        /// Serves as the trace callback for the configuration, forwarding the
+        /// message to the status queue as a trace-only message.
+        /// </summary>
+        /// <param name="message">
+        /// The message to trace.  This parameter may be null.
+        /// </param>
+        /// <param name="category">
+        /// The trace category associated with the message.  This parameter is
+        /// not used.
+        /// </param>
         private void QueueTrace(
             string message,
             string category /* NOT USED */
@@ -457,6 +748,13 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Traces the specified message and enqueues it for display in the
+        /// general status label.
+        /// </summary>
+        /// <param name="message">
+        /// The message to trace and enqueue.  This parameter may be null.
+        /// </param>
         private void QueueStatus(
             string message
             )
@@ -466,6 +764,17 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Traces the specified message and, unless requested to trace only,
+        /// enqueues it for display in the general status label.
+        /// </summary>
+        /// <param name="message">
+        /// The message to trace and (optionally) enqueue.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="traceOnly">
+        /// Non-zero to trace the message only, without enqueuing it for display.
+        /// </param>
         private void QueueStatus(
             string message,
             bool traceOnly
@@ -493,6 +802,15 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Form Event Methods
+        /// <summary>
+        /// Handles the form closing event by stopping the status queue timer.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the form closing event.
+        /// </param>
         private void UpdateForm_FormClosing(
             object sender,
             FormClosingEventArgs e
@@ -504,6 +822,16 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the form disposed event by disposing of the status queue
+        /// timer and the web client, if any.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the disposed event.
+        /// </param>
         private void UpdateForm_Disposed(
             object sender,
             EventArgs e
@@ -524,6 +852,21 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the form key up event, implementing the updater keyboard
+        /// shortcuts: F1 displays the help message; Ctrl-A shows the license
+        /// text; Ctrl-E launches the external Eagle shell; Ctrl-L launches the
+        /// log file in Notepad; Ctrl-R resets to the default core directory;
+        /// Ctrl-T selects a core directory; and Ctrl-F2 starts an internal Eagle
+        /// interactive loop thread.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the key up event.  This parameter may be
+        /// null.
+        /// </param>
         private void UpdateForm_KeyUp(
             object sender,
             KeyEventArgs e
@@ -803,6 +1146,18 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the form shown event by setting the title bar text, tracing
+        /// diagnostic information about the environment and updater, resetting
+        /// the status displays, and (when configured for silent mode) hiding the
+        /// form as needed and starting the silent update timer.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the shown event.
+        /// </param>
         private void UpdateForm_Shown(
             object sender,
             EventArgs e
@@ -879,6 +1234,17 @@ namespace Eagle._Forms
 
         #region Timer Event Methods
         #region Status Queue Timer Event Methods
+        /// <summary>
+        /// Handles the status queue timer tick by dequeuing a single pending
+        /// status message, if any, and displaying it in the general status
+        /// label.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the timer tick event.
+        /// </param>
         private void statusTimer_Tick(
             object sender,
             EventArgs e
@@ -900,6 +1266,16 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Silent Update Timer Event Methods
+        /// <summary>
+        /// Handles the one-shot silent update timer tick by stopping the timer
+        /// and starting the update as though the update button had been clicked.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the timer tick event.
+        /// </param>
         private void silentTimer_Tick(
             object sender,
             EventArgs e
@@ -916,6 +1292,17 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region Button Event Methods
+        /// <summary>
+        /// Handles the cancel button click by canceling the pending silent
+        /// update timer and any in-progress download; if there is nothing to
+        /// cancel, it closes the updater form instead.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the click event.
+        /// </param>
         private void btnCancel_Click(
             object sender,
             EventArgs e
@@ -971,6 +1358,17 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the update button click by creating the web client (if
+        /// necessary), building the release data URI from the configuration, and
+        /// starting the asynchronous download of the release metadata.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the click event.
+        /// </param>
         private void btnUpdate_Click(
             object sender,
             EventArgs e
@@ -1040,6 +1438,18 @@ namespace Eagle._Forms
         ///////////////////////////////////////////////////////////////////////
 
         #region WebClient Event Methods
+        /// <summary>
+        /// Handles the web client download progress changed event by updating
+        /// the progress bar and the percent status with the bytes received, the
+        /// total bytes, and the current transfer rate.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data describing the download progress.  This parameter may be
+        /// null.
+        /// </param>
         private void client_DownloadProgressChanged(
             object sender,
             DownloadProgressChangedEventArgs e
@@ -1080,6 +1490,20 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the web client download data completed event by parsing the
+        /// downloaded release metadata on a background thread, locating the
+        /// release matching the configuration, confirming the update with the
+        /// user when required, and starting the asynchronous download of the
+        /// matching release file.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data describing the completed data download, including the
+        /// downloaded bytes or any error.  This parameter may be null.
+        /// </param>
         private void client_DownloadDataCompleted(
             object sender,
             DownloadDataCompletedEventArgs e
@@ -1409,6 +1833,22 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Handles the web client download file completed event by, on a
+        /// background thread, verifying the signature and hashes of the
+        /// downloaded release file, extracting it, replacing the installed files
+        /// in the target directory, cleaning up the temporary directories, and
+        /// (optionally) re-launching the updater or closing in silent mode.  If
+        /// the release is for the updater itself, the downloaded file replaces
+        /// the updater assembly and the updater is re-executed.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The data describing the completed file download, including the user
+        /// state and any error.  This parameter may be null.
+        /// </param>
         private void client_DownloadFileCompleted(
             object sender,
             AsyncCompletedEventArgs e

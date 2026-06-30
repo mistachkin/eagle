@@ -31,9 +31,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to active
+    /// database transactions.  It extends the underlying generic dictionary with
+    /// conversion of its keys to the Eagle string list format, including
+    /// optional pattern matching.
+    /// </summary>
     [ObjectId("2bdc5ff5-93ce-4fbf-b178-7937512ff4f4")]
     internal sealed class DbTransactionDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public DbTransactionDictionary()
             : base()
         {
@@ -42,6 +51,22 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all keys
+        /// are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string ToString(string pattern, bool noCase)
         {
             StringList list = new StringList(this.Keys);
@@ -53,6 +78,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

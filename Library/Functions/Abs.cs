@@ -23,6 +23,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>abs</c> expression function, which
+    /// returns the absolute value of its single numeric argument, preserving
+    /// the numeric type of that argument.  See <c>core_language.md</c> for
+    /// expression and function semantics.
+    /// </summary>
     [ObjectId("6331715b-4d54-43cd-b155-7862da954759")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
@@ -31,6 +37,13 @@ namespace Eagle._Functions
     internal sealed class Abs : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>abs</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Abs(
             IFunctionData functionData /* in */
             )
@@ -43,6 +56,40 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>abs</c> function.  It validates the
+        /// arguments using the base implementation, converts the single
+        /// argument to a numeric variant, and produces its absolute value
+        /// using arithmetic appropriate to that variant's underlying numeric
+        /// type (double, decimal, big integer, wide integer, integer, or
+        /// boolean).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value whose absolute value is
+        /// computed.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the computed absolute value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing, not
+        /// numeric, of an unsupported type, or a math exception occurs, with
+        /// details placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

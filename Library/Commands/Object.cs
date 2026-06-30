@@ -34,6 +34,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>object</c> command, which creates,
+    /// manages, and interacts with managed (CLR) objects from within scripts.
+    /// It is an ensemble whose sub-commands cover object lifetime and
+    /// reference tracking, member invocation, type and assembly resolution,
+    /// aliasing, and related operations.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("95dc42f9-d1f9-467b-acdc-3312d4bcdfee")]
     [CommandFlags(
         CommandFlags.Unsafe | CommandFlags.Critical |
@@ -41,6 +49,13 @@ namespace Eagle._Commands
     [ObjectGroup("managedEnvironment")]
     internal sealed class Object : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>object</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Object(
             ICommandData commandData
             )
@@ -52,6 +67,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
             new EnsembleDictionary(new string[] {
             "addreference", "alias", "aliasnamespaces", "assemblies",
@@ -68,6 +88,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -77,11 +101,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedObjectSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -91,6 +124,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>object</c> command.  It dispatches to
+        /// the requested ensemble sub-command (for example <c>create</c>,
+        /// <c>invoke</c>, <c>dispose</c>, <c>type</c>, <c>load</c>,
+        /// <c>alias</c>, or <c>members</c>) in order to create, query, modify,
+        /// or release managed objects, honoring the recognized options for
+        /// each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

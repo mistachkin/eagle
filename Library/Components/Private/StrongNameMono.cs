@@ -16,6 +16,11 @@ using Eagle._Components.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides support, specific to the Mono runtime, for verifying
+    /// the strong name signature of an assembly file by reflecting into the
+    /// internal Mono.Security strong name types.
+    /// </summary>
     [ObjectId("38a8621b-230f-45c3-a470-b0d4ffc1a2fd")]
     internal static class StrongNameMono
     {
@@ -23,9 +28,15 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The fully qualified name of the Mono strong name type.
+        /// </summary>
         private static string StrongNameTypeName =
             "Mono.Security.StrongName";
 
+        /// <summary>
+        /// The fully qualified name of the Mono strong name manager type.
+        /// </summary>
         private static string StrongNameManagerTypeName =
             "Mono.Security.StrongNameManager";
 
@@ -34,31 +45,84 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The name of the Mono method used to determine whether an assembly is
+        /// strong named.
+        /// </summary>
         private static string IsAssemblyStrongNamedMethodName =
             "IsAssemblyStrongnamed";
 
+        /// <summary>
+        /// The name of the Mono method used to determine whether an assembly
+        /// must be verified.
+        /// </summary>
         private static string MustVerifyMethodName = "MustVerify";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the cached reflection
+        /// state of this class.
+        /// </summary>
         private static object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached Mono strong name type, resolved on first use.
+        /// </summary>
         private static Type strongNameType = null;
+        /// <summary>
+        /// The cached Mono strong name manager type, resolved on first use.
+        /// </summary>
         private static Type strongNameManagerType = null;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached reflection handle for the Mono method used to determine
+        /// whether an assembly is strong named, resolved on first use.
+        /// </summary>
         private static MethodInfo isAssemblyStrongNamedMethodInfo = null;
+        /// <summary>
+        /// The cached reflection handle for the Mono method used to determine
+        /// whether an assembly must be verified, resolved on first use.
+        /// </summary>
         private static MethodInfo mustVerifyMethodInfo = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Determines, on the Mono runtime, whether the strong name signature
+        /// of the specified assembly file is valid by reflecting into the
+        /// internal Mono.Security strong name types.
+        /// </summary>
+        /// <param name="fileName">
+        /// The path of the assembly file to check.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force verification even when it might otherwise be
+        /// skipped.  This parameter is used for diagnostic tracing only.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon return, set to non-zero if the assembly is strong named.
+        /// </param>
+        /// <param name="verified">
+        /// Upon return, set to non-zero if the assembly's strong name signature
+        /// was verified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, set to an error message, or exception, describing the
+        /// problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode IsStrongNameVerifiedMono(
             string fileName,
             bool force,

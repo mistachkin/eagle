@@ -17,10 +17,19 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class carries the client data used when cleaning up a file system
+    /// path (e.g. the path type to match, and whether the cleanup should be
+    /// recursive, forced, or silent).  It derives from <see cref="ClientData" />.
+    /// </summary>
     [ObjectId("5da54054-5d78-4e39-83bc-d13cdff84252")]
     internal sealed class CleanupPathClientData : ClientData
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty cleanup path client data instance, leaving all
+        /// properties at their default values.
+        /// </summary>
         public CleanupPathClientData()
         {
             // do nothing.
@@ -30,7 +39,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the type of path to be matched during cleanup.
+        /// </summary>
         private PathType pathType;
+        /// <summary>
+        /// Gets or sets the type of path to be matched during cleanup.
+        /// </summary>
         public PathType PathType
         {
             get { return pathType; }
@@ -39,7 +54,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the cleanup should be performed recursively.
+        /// </summary>
         private bool recursive;
+        /// <summary>
+        /// Gets or sets a value indicating whether the cleanup should be
+        /// performed recursively.
+        /// </summary>
         public bool Recursive
         {
             get { return recursive; }
@@ -48,7 +70,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the cleanup should be forced.
+        /// </summary>
         private bool force;
+        /// <summary>
+        /// Gets or sets a value indicating whether the cleanup should be
+        /// forced.
+        /// </summary>
         public bool Force
         {
             get { return force; }
@@ -57,7 +86,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, errors encountered during the cleanup should be
+        /// suppressed.
+        /// </summary>
         private bool noComplain;
+        /// <summary>
+        /// Gets or sets a value indicating whether errors encountered during
+        /// the cleanup should be suppressed.
+        /// </summary>
         public bool NoComplain
         {
             get { return noComplain; }
@@ -68,6 +105,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the specified path matches the
+        /// configured path type, discarding any error message.
+        /// </summary>
+        /// <param name="path">
+        /// The file system path to check against the configured path type.
+        /// </param>
+        /// <returns>
+        /// True if the path matches the configured path type; otherwise,
+        /// false.
+        /// </returns>
         public bool MatchPathType(
             string path /* in */
             )
@@ -79,6 +127,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path matches the
+        /// configured path type (e.g. an existing directory or file).
+        /// </summary>
+        /// <param name="path">
+        /// The file system path to check against the configured path type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the path did
+        /// not match the configured path type.
+        /// </param>
+        /// <returns>
+        /// True if the path matches the configured path type; otherwise,
+        /// false.
+        /// </returns>
         public bool MatchPathType(
             string path,     /* in */
             ref Result error /* out */
@@ -121,6 +184,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this cleanup path
+        /// client data instance, listing its property names and values.
+        /// </summary>
+        /// <returns>
+        /// A string containing the property names and values of this instance.
+        /// </returns>
         public override string ToString()
         {
             return StringList.MakeList(

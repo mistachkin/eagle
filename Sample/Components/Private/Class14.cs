@@ -25,6 +25,11 @@ namespace Sample
     //
     // FIXME: Always change this GUID.
     //
+    /// <summary>
+    /// This class is a sample that demonstrates how to implement the web client
+    /// callback interfaces, allowing a plugin to customize web client creation
+    /// and to observe web transfer and web error events.
+    /// </summary>
     [ObjectId("509108fc-537f-4a95-a126-c1105dcd6d70")]
     internal sealed class Class14
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -36,6 +41,10 @@ namespace Sample
         //
         // FIXME: Always change this GUID.
         //
+        /// <summary>
+        /// This class is a sample <see cref="WebClient" /> subclass returned by
+        /// the new web client callback.
+        /// </summary>
         [ObjectId("f7837701-6dcd-4187-bd34-953a941f51bc")]
         private sealed class Class14WebClient : WebClient
         {
@@ -51,12 +60,23 @@ namespace Sample
         //       query for an embedded resource string containing the sample
         //       package script.
         //
+        /// <summary>
+        /// The configured plugin instance associated with this object, used
+        /// when reporting state to the plugin.  This object is not owned by
+        /// this instance and is not disposed by it.
+        /// </summary>
         private IPlugin plugin;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this sample web client callback class.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin instance to associate with this object.
+        /// </param>
         public Class14(
             IPlugin plugin /* in */
             )
@@ -68,6 +88,17 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method creates a new instance of the sample
+        /// <see cref="WebClient" /> subclass, catching any exception that may
+        /// occur.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created web client, or null if it could not be created.
+        /// </returns>
         private static WebClient NewClass14WebClient(
             ref Result error
             )
@@ -88,6 +119,25 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region INewWebClientCallback Members
+        /// <summary>
+        /// This method is invoked to create a new web client instance,
+        /// optionally reporting state to the associated plugin first.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this callback is executing in.
+        /// </param>
+        /// <param name="argument">
+        /// The extra argument associated with the request, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, callback-specific data supplied to this callback, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created web client, or null if it could not be created.
+        /// </returns>
         public WebClient NewWebClient(
             Interpreter interpreter,
             string argument,
@@ -135,6 +185,44 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IWebErrorCallback Members
+        /// <summary>
+        /// This method is invoked when a web error occurs.  This sample
+        /// implementation traces the error details and indicates that the
+        /// operation should continue.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this callback is executing in.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, callback-specific data supplied to this callback, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The URI associated with the web operation that failed.
+        /// </param>
+        /// <param name="webFlags">
+        /// The flags describing the web operation.
+        /// </param>
+        /// <param name="retries">
+        /// The number of retries that have been attempted so far.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, associated with the operation, if any.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of retries permitted, if any.
+        /// </param>
+        /// <param name="result">
+        /// On input and output, the result object associated with the
+        /// operation, if any.
+        /// </param>
+        /// <param name="errors">
+        /// On input and output, the list of errors accumulated for the
+        /// operation, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Continue" /> to indicate that the operation
+        /// should continue.
+        /// </returns>
         public ReturnCode WebError(
             Interpreter interpreter,
             IClientData clientData,
@@ -171,6 +259,27 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IWebTransferCallback Members
+        /// <summary>
+        /// This method is invoked when a web transfer occurs.  This sample
+        /// implementation traces the transfer details and marks the associated
+        /// web client data as having been transferred via the client.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this callback is executing in.
+        /// </param>
+        /// <param name="webFlags">
+        /// The flags describing the web operation.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, callback-specific data supplied to this callback, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode WebTransfer(
             Interpreter interpreter,
             WebFlags webFlags,
@@ -201,7 +310,16 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this object instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an <see cref="InterpreterDisposedException" /> if
+        /// this object instance has been disposed and the interpreter is
+        /// configured to throw on access to disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -212,6 +330,14 @@ namespace Sample
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this object instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -239,6 +365,9 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this object instance.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -249,6 +378,11 @@ namespace Sample
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this object instance, releasing any resources that were
+        /// not already released by an explicit call to the
+        /// <see cref="Dispose()" /> method.
+        /// </summary>
         ~Class14()
         {
             Dispose(false);

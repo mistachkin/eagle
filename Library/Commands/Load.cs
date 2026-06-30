@@ -29,6 +29,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>load</c> command, which loads a
+    /// managed plugin assembly into an interpreter, optionally creating its
+    /// plugin instance from a named type and registering it with a target
+    /// (possibly nested child) interpreter.  See <c>core_language.md</c> for
+    /// the command syntax and semantics.
+    /// </summary>
     [ObjectId("eba460e1-048f-409a-a18c-70c5dc6aad6b")]
     [CommandFlags(
         CommandFlags.Unsafe | CommandFlags.Critical |
@@ -37,6 +44,13 @@ namespace Eagle._Commands
     [ObjectGroup("managedEnvironment")]
     internal sealed class Load : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>load</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Load(
             ICommandData commandData
             )
@@ -46,11 +60,44 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>load</c> command.  It parses any
+        /// options, resolves the plugin file name (or resource name), locates
+        /// the target interpreter, loads the plugin assembly, and adds the
+        /// resulting plugin to that interpreter; on failure it rolls back any
+        /// partially loaded plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null and may be overridden
+        /// by the <c>-clientdata</c>, <c>-needclientdata</c>, and <c>-data</c>
+        /// options.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by any options and then the plugin file
+        /// name, an optional package (type) name, and an optional target
+        /// interpreter path.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced while loading and
+        /// adding the plugin.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the plugin is loaded and added
+        /// successfully; otherwise, <see cref="ReturnCode.Error" /> with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

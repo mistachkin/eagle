@@ -18,9 +18,33 @@ using Eagle._Components.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for testing whether one or
+    /// more flags are present within an <see cref="EngineFlags" /> value used
+    /// by the script engine.
+    /// </summary>
     [ObjectId("edec12ec-7c3b-4028-b66c-b3d8f7eaedc6")]
     internal static class EngineFlagOps
     {
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// a set of flags to check for.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The engine flags to check for within <paramref name="flags" />.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the flags in
+        /// <paramref name="hasFlags" /> be present; otherwise, the presence of
+        /// any one of them is sufficient.
+        /// </param>
+        /// <returns>
+        /// True if the required flags are present in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -39,6 +63,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CALLBACK_QUEUE
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoCallbackQueue" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoCallbackQueue" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -53,6 +88,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoBreakpoint" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoBreakpoint" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -65,6 +111,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoWatchpoint" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoWatchpoint" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -79,6 +136,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER && DEBUGGER_ARGUMENTS
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoDebuggerArguments" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoDebuggerArguments" /> flag is
+        /// set in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -92,6 +160,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoGlobalCancel" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoGlobalCancel" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -105,6 +184,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if HISTORY
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoHistory" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoHistory" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -119,6 +209,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NOTIFY || NOTIFY_OBJECT
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoNotify" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoNotify" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -133,6 +234,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoXml" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoXml" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -146,6 +258,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoHost" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoHost" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -158,6 +281,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoCancel" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoCancel" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -170,6 +304,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoReady" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoReady" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -182,6 +327,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.CheckStack" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.CheckStack" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -194,6 +350,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ForceStack" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ForceStack" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -206,6 +373,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ForcePoolStack" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ForcePoolStack" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -218,6 +396,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoEvent" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoEvent" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -230,6 +419,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.EvaluateGlobal" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.EvaluateGlobal" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -242,6 +442,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ResetReturnCode" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ResetReturnCode" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -254,6 +465,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ResetCancel" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ResetCancel" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -266,6 +488,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ErrorAlreadyLogged" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ErrorAlreadyLogged" /> flag is
+        /// set in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -278,6 +511,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ErrorInProgress" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ErrorInProgress" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -290,6 +534,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ErrorCodeSet" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ErrorCodeSet" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -302,6 +557,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoEvaluate" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoEvaluate" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -314,6 +580,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoRemote" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoRemote" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -326,6 +603,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ExactMatch" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ExactMatch" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -338,6 +626,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoUnknown" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoUnknown" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -350,6 +649,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoResetResult" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoResetResult" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -362,6 +672,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoResetError" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoResetError" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -374,6 +695,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoSafeFunction" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoSafeFunction" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -386,6 +718,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoSubstitute" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoSubstitute" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -398,6 +741,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.BracketTerminator" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.BracketTerminator" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -410,6 +764,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.UseIExecutes" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.UseIExecutes" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -422,6 +787,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.UseCommands" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.UseCommands" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -434,6 +810,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.UseProcedures" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.UseProcedures" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -446,6 +833,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ForceSoftEof" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ForceSoftEof" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -458,6 +856,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.SeekSoftEof" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.SeekSoftEof" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -470,6 +879,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.PostScriptBytes" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.PostScriptBytes" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -482,6 +902,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoPolicy" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoPolicy" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -494,6 +925,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.GetHidden" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.GetHidden" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -506,6 +948,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.MatchHidden" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.MatchHidden" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -518,6 +971,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.IgnoreHidden" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.IgnoreHidden" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -530,6 +994,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.ToExecute" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.ToExecute" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -542,6 +1017,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.UseHidden" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.UseHidden" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -554,6 +1040,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.InvokeHidden" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.InvokeHidden" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -566,6 +1063,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.GlobalOnly" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.GlobalOnly" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -578,6 +1086,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.UseInterpreter" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.UseInterpreter" /> flag is set in
+        /// <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -615,6 +1134,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if TEST
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.SetSecurityProtocol" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.SetSecurityProtocol" /> flag is
+        /// set in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -701,6 +1231,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if PARSE_CACHE
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoCacheParseState" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoCacheParseState" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -715,6 +1256,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ARGUMENT_CACHE
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoCacheArgument" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoCacheArgument" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif
@@ -765,6 +1317,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if PREVIOUS_RESULT
+        /// <summary>
+        /// This method determines whether the specified engine flags include
+        /// the <see cref="EngineFlags.NoPreviousResult" /> flag.
+        /// </summary>
+        /// <param name="flags">
+        /// The engine flags to examine.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="EngineFlags.NoPreviousResult" /> flag is set
+        /// in <paramref name="flags" />; otherwise, false.
+        /// </returns>
 #if NET_45 || NET_451 || NET_452 || NET_46 || NET_461 || NET_462 || NET_47 || NET_471 || NET_472 || NET_48 || NET_481 || NET_STANDARD_20
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #endif

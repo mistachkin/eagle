@@ -26,11 +26,29 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>lsort</c> command, which sorts the
+    /// elements of a list and returns a new, sorted list.  It supports a
+    /// variety of options that control the comparison mode (for example
+    /// <c>-ascii</c>, <c>-dictionary</c>, <c>-integer</c>, <c>-real</c>,
+    /// <c>-random</c>, and <c>-command</c>), the sort direction
+    /// (<c>-increasing</c> or <c>-decreasing</c>), case sensitivity
+    /// (<c>-nocase</c>), sub-element selection (<c>-index</c>), and removal of
+    /// duplicate elements (<c>-unique</c>).  See <c>core_language.md</c> for
+    /// the command syntax and semantics.
+    /// </summary>
     [ObjectId("f4947321-92bf-42a3-8e87-9b562a39d9f4")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("list")]
     internal sealed class Lsort : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>lsort</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Lsort(
             ICommandData commandData
             )
@@ -40,11 +58,43 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>lsort</c> command.  It parses any
+        /// leading options, obtains a private copy of the supplied list,
+        /// selects the appropriate comparer based on the requested comparison
+        /// mode, sorts the list (optionally removing duplicates when
+        /// <c>-unique</c> is specified), and returns the resulting sorted
+        /// list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; it is followed by any options and, finally, the list
+        /// to be sorted.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the sorted list.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the sorted list
+        /// placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the arguments are invalid, an
+        /// unknown option is supplied, or the comparison fails, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;
@@ -204,44 +254,56 @@ namespace Eagle._Commands
                                                 //
                                                 //       If the value has not been added to the final resulting
                                                 //       list yet, add it now and mark the value so that it will
-                                                //       never be added again (i.e. we only want the first value 
-                                                //       from every group of duplicates and we want all the other 
-                                                //       values as well).
+                                                //       never be added again.
+                                                //
+                                                // BUGFIX: Per Tcl, [lsort -unique] retains the LAST element
+                                                //         of every group of equal elements (not the first);
+                                                //         this is only observable when "equal" elements
+                                                //         differ in representation (e.g. case under -nocase,
+                                                //         or whole sublists under -index).  Since the list is
+                                                //         now sorted, equal elements are adjacent, so walk it
+                                                //         in REVERSE: the last element of each group is then
+                                                //         the first one seen (and thus retained), and the
+                                                //         original sort order is restored at the end
+                                                //         (COMPAT: Tcl).
                                                 //
                                                 // HACK: In the worst possible case, this loop can have a runtime
-                                                //       of O(N^2), including called functions, primarily due to 
-                                                //       the inability of .NET to provide proper context to 
-                                                //       IComparer callbacks.  This code could be avoided entirely 
-                                                //       if there was an interface for sorting comparison callbacks 
-                                                //       that provided the indexes of the elements being compared 
+                                                //       of O(N^2), including called functions, primarily due to
+                                                //       the inability of .NET to provide proper context to
+                                                //       IComparer callbacks.  This code could be avoided entirely
+                                                //       if there was an interface for sorting comparison callbacks
+                                                //       that provided the indexes of the elements being compared
                                                 //       in addition to their values.
                                                 //
-                                                foreach (string element in list) /* O(N) */
+                                                for (int elementIndex = list.Count - 1; /* O(N) */
+                                                        elementIndex >= 0; elementIndex--)
                                                 {
+                                                    string element = list[elementIndex];
+
                                                     //
-                                                    // NOTE: Has this value been marked as having been previously 
-                                                    //       added to the final resulting list? 
+                                                    // NOTE: Has this value been marked as having been previously
+                                                    //       added to the final resulting list?
                                                     //
-                                                    int count = 
+                                                    int count =
                                                         ListOps.GetDuplicateCount(comparer, duplicates, element);
 
-                                                    if (count != Count.Invalid) 
+                                                    if (count != Count.Invalid)
                                                     {
                                                         //
                                                         // NOTE: Add this element into the final resulting list.
-                                                        //       Either it has no duplicates or we have not yet 
+                                                        //       Either it has no duplicates or we have not yet
                                                         //       added it to the final resulting list.
                                                         //
                                                         uniqueList.Add(element);
 
                                                         //
-                                                        // NOTE: If this value had any duplicates, mark the value 
+                                                        // NOTE: If this value had any duplicates, mark the value
                                                         //       as having been added to the final resulting list.
                                                         //
                                                         if (!ListOps.SetDuplicateCount(comparer, duplicates, element, Count.Invalid))
                                                         {
                                                             result = String.Format(
-                                                                "failed to update duplicate count for element \"{0}\"", 
+                                                                "failed to update duplicate count for element \"{0}\"",
                                                                 element);
 
                                                             code = ReturnCode.Error;
@@ -251,10 +313,15 @@ namespace Eagle._Commands
                                                 }
 
                                                 //
-                                                // NOTE: The list of unique elements is now the result.
+                                                // NOTE: The unique elements were collected in reverse order;
+                                                //       restore the proper (sorted) order, then the list of
+                                                //       unique elements is the result.
                                                 //
                                                 if (code == ReturnCode.Ok)
+                                                {
+                                                    uniqueList.Reverse();
                                                     list = uniqueList;
+                                                }
                                             }
 
                                             if (code == ReturnCode.Ok)

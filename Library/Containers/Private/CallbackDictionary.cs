@@ -31,9 +31,17 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to callback
+    /// instances.  It extends the underlying generic dictionary with helpers
+    /// for producing a filtered string form of its keys.
+    /// </summary>
     [ObjectId("5c6bdb7c-b30c-4abf-ac6d-40c12382f6fb")]
     internal sealed class CallbackDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public CallbackDictionary()
             : base()
         {
@@ -44,6 +52,28 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method builds a list of the dictionary keys, optionally
+        /// filtered by a name pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included.  This
+        /// parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of matching keys.  If this is null,
+        /// a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private ReturnCode ToList(
             string pattern,
             bool noCase,
@@ -64,6 +94,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -78,6 +123,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

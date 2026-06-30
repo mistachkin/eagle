@@ -32,6 +32,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides static helper methods for manipulating lists and
+    /// related collections, including converting between collection types,
+    /// concatenating elements, computing lengths, selecting sub-list elements,
+    /// finding and counting duplicates, combining and flattening lists, and
+    /// generating permutations.
+    /// </summary>
     [ObjectId("41713d5d-1147-4395-9863-92e45a9f28dc")]
     internal static class ListOps
     {
@@ -39,16 +46,42 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When positive, the list operations may return an existing list, or a
+        /// copy of one, instead of always splitting a value into a new list.
+        /// </summary>
         private static int canGetOrCopyList = 1; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times a value was converted to a list directly from a
+        /// dictionary.
+        /// </summary>
         private static int toDictionaryCount;
+        /// <summary>
+        /// The number of times an existing list was returned without copying.
+        /// </summary>
         private static int getListCount;
+        /// <summary>
+        /// The number of times a new list was created by copying a collection.
+        /// </summary>
         private static int copyListCount;
+        /// <summary>
+        /// The number of times a value that was not a collection was encountered.
+        /// </summary>
         private static int nonCollectionCount;
+        /// <summary>
+        /// The number of times a null or string value was encountered.
+        /// </summary>
         private static int nullOrStringCount;
+        /// <summary>
+        /// The number of times the get-or-copy optimization was skipped.
+        /// </summary>
         private static int skipListCount;
+        /// <summary>
+        /// The number of times a value was split into a new list.
+        /// </summary>
         private static int splitListCount;
         #endregion
 
@@ -58,6 +91,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildInterpreterInfoList method.
         //
+        /// <summary>
+        /// This method appends introspection information describing the list
+        /// operation counters to the specified list, honoring the supplied detail
+        /// flags.
+        /// </summary>
+        /// <param name="list">
+        /// The list to append the information to.  This parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling the level of detail to include.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -125,6 +169,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a new list containing the elements of the specified
+        /// collection in reverse order.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are reversed.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A new list with the elements in reverse order, or null when the
+        /// collection is null.
+        /// </returns>
         public static StringList Reverse(
             IEnumerable<string> collection
             )
@@ -142,6 +197,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified element to the specified list, creating
+        /// the list first when necessary.
+        /// </summary>
+        /// <param name="element">
+        /// The element to add.
+        /// </param>
+        /// <param name="list">
+        /// The list to add to.  When null, a new list is created and stored here.
+        /// </param>
         public static void Add(
             int element,
             ref IntList list
@@ -155,6 +220,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified adjustment to every element of the
+        /// specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are adjusted.  This parameter may be null.
+        /// </param>
+        /// <param name="adjustment">
+        /// The amount to add to each element.
+        /// </param>
         public static void Adjust(
             IntList list,
             int adjustment
@@ -165,6 +240,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified adjustment to every element of the
+        /// specified list, clamping each result to the optional minimum and maximum
+        /// bounds.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are adjusted.  This parameter may be null.
+        /// </param>
+        /// <param name="adjustment">
+        /// The amount to add to each element.
+        /// </param>
+        /// <param name="minimum">
+        /// The minimum allowed value for an element, or null for no minimum.
+        /// </param>
+        /// <param name="maximum">
+        /// The maximum allowed value for an element, or null for no maximum.
+        /// </param>
         public static void Adjust(
             IntList list,
             int adjustment,
@@ -201,6 +293,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates and normalizes the specified start and stop
+        /// indexes against the given bounds.
+        /// </summary>
+        /// <param name="lowerBound">
+        /// The lowest valid index.
+        /// </param>
+        /// <param name="upperBound">
+        /// The highest valid index.
+        /// </param>
+        /// <param name="startIndex">
+        /// The start index to validate.  A negative value is replaced with the
+        /// lower bound.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The stop index to validate.  A negative value is replaced with the upper
+        /// bound.
+        /// </param>
+        /// <returns>
+        /// True if the resulting indexes are valid and in order; otherwise, false.
+        /// </returns>
         public static bool CheckStartAndStopIndex(
             int lowerBound,
             int upperBound,
@@ -216,6 +329,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates and normalizes the specified start and stop
+        /// indexes against the given bounds.
+        /// </summary>
+        /// <param name="lowerBound">
+        /// The lowest valid index.
+        /// </param>
+        /// <param name="upperBound">
+        /// The highest valid index.
+        /// </param>
+        /// <param name="startIndex">
+        /// The start index to validate.  A negative value is replaced with the
+        /// lower bound.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The stop index to validate.  A negative value is replaced with the upper
+        /// bound.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the resulting indexes are valid and in order; otherwise, false.
+        /// </returns>
         public static bool CheckStartAndStopIndex(
             int lowerBound,
             int upperBound,
@@ -260,6 +397,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified dictionary into a flat list of
+        /// alternating keys and values.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A flat list of alternating keys and values, or null when the dictionary
+        /// is null.
+        /// </returns>
         private static StringList ToList(
             IDictionary dictionary
             )
@@ -280,6 +428,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a list from the specified value, either by returning
+        /// an existing list, copying a collection, or splitting a string into a
+        /// list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when splitting a string into a list.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container to obtain a list from.  This parameter may be null.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the caller guarantees it will only read from the returned
+        /// list, permitting an existing list to be returned without copying.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this is set to the resulting list.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetOrCopyOrSplitList(
             Interpreter interpreter,
             IGetValue getValue,
@@ -295,6 +466,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains a list from the specified value, either by returning
+        /// an existing list, copying a collection, or splitting a string into a
+        /// list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when splitting a string into a list.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="getValue">
+        /// The value container to obtain a list from.  This parameter may be null.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the caller guarantees it will only read from the returned
+        /// list, permitting an existing list to be returned without copying.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this is set to the resulting list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetOrCopyOrSplitList(
             Interpreter interpreter,
             IGetValue getValue,
@@ -389,6 +586,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the specified strings into a single string,
+        /// separated by spaces.
+        /// </summary>
+        /// <param name="strings">
+        /// The strings to concatenate.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or an empty string when no strings are
+        /// supplied.
+        /// </returns>
         public static string Concat(params string[] strings)
         {
             return (strings != null) ? Concat(new StringList(strings)) : String.Empty;
@@ -396,6 +604,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the elements of the specified list into a
+        /// single string, separated by spaces.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are concatenated.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or an empty string when the list is null.
+        /// </returns>
         public static string Concat(IList list)
         {
             return Concat(list, 0);
@@ -403,6 +621,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the elements of the specified list, beginning
+        /// at the specified start index, into a single string separated by spaces.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are concatenated.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element to include.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or an empty string when the list is null.
+        /// </returns>
         public static string Concat(IList list, int startIndex)
         {
             return (list != null) ? Concat(list, startIndex, list.Count - 1) : String.Empty;
@@ -410,6 +641,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the elements of the specified list, within the
+        /// specified range of indexes, into a single string separated by spaces.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are concatenated.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element to include.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element to include.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or an empty string when the list is null.
+        /// </returns>
         public static string Concat(IList list, int startIndex, int stopIndex)
         {
             return Concat(list, startIndex, stopIndex, Characters.SpaceString);
@@ -417,6 +664,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the elements of the specified list, beginning
+        /// at the specified start index, into a single string separated by the
+        /// specified separator.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are concatenated.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element to include.
+        /// </param>
+        /// <param name="separator">
+        /// The separator placed between elements.  When null, a single space is
+        /// used.
+        /// </param>
+        /// <returns>
+        /// The concatenated string, or an empty string when the list is null.
+        /// </returns>
         public static string Concat(IList list, int startIndex, string separator)
         {
             return (list != null) ? Concat(list, startIndex, list.Count - 1,
@@ -425,6 +690,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates the elements of the specified list, within the
+        /// specified range of indexes, into a single string separated by the
+        /// specified separator, trimming surrounding white-space from each element
+        /// and skipping empty ones.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are concatenated.  This parameter may be null.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element to include.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last element to include.
+        /// </param>
+        /// <param name="separator">
+        /// The separator placed between elements.
+        /// </param>
+        /// <returns>
+        /// The concatenated string.
+        /// </returns>
         public static string Concat(IList list, int startIndex, int stopIndex, string separator)
         {
             StringBuilder result = StringBuilderFactory.Create();
@@ -473,6 +759,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified item to its string representation,
+        /// using the specified format when the item supports it.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the item to convert.
+        /// </typeparam>
+        /// <param name="format">
+        /// The format to use when the item supports formatted conversion.
+        /// </param>
+        /// <param name="item">
+        /// The item to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the item, or null when the item is null.
+        /// </returns>
         private static string ToString<T>(
             string format,
             T item
@@ -489,6 +791,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the combined length of the string representations
+        /// of the elements of the specified list, beginning at the specified start
+        /// index and counting only those that meet the specified minimum length.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the list.
+        /// </typeparam>
+        /// <param name="list">
+        /// The list whose elements are measured.  This parameter may be null.
+        /// </param>
+        /// <param name="format">
+        /// The format used to convert each element to a string.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first element to measure.
+        /// </param>
+        /// <param name="minimum">
+        /// The minimum length an element must have to be counted.
+        /// </param>
+        /// <returns>
+        /// The combined length of the qualifying element string representations.
+        /// </returns>
         public static int GetTotalLength<T>(
             IList<T> list,
             string format,
@@ -528,6 +853,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the maximum length among the string representations
+        /// of the elements of the specified collection.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection whose elements are measured.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The maximum element string length, or an invalid length when the
+        /// collection is null or empty.
+        /// </returns>
         public static int GetMaximumLength<T>(
             IEnumerable<T> collection
             )
@@ -537,6 +877,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the maximum length among the string representations
+        /// of the elements of the specified collection, using the specified
+        /// format.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection whose elements are measured.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="format">
+        /// The format used to convert each element to a string.
+        /// </param>
+        /// <returns>
+        /// The maximum element string length, or an invalid length when the
+        /// collection is null or empty.
+        /// </returns>
         private static int GetMaximumLength<T>(
             IEnumerable<T> collection,
             string format
@@ -572,6 +931,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the maximum length among the string representations
+        /// of the elements of the specified list, capped at the specified limit.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are measured.  This parameter may be null.
+        /// </param>
+        /// <param name="format">
+        /// The format used to convert each element to a string.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum length to return, or an invalid length for no cap.
+        /// </param>
+        /// <returns>
+        /// The maximum element string length, capped at the limit, or an invalid
+        /// length when the list is null or empty.
+        /// </returns>
         public static int GetMaximumLength(
             IList list,
             string format,
@@ -619,6 +995,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the specified text as a nested list, following the
+        /// chain of indexes described by the index text, and returns the indexes
+        /// that were resolved.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to split the lists.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The text to interpret as a (possibly nested) list.
+        /// </param>
+        /// <param name="indexText">
+        /// The list of indexes to follow into the nested list.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to replace the supplied index list rather than append to it.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the indexes.
+        /// </param>
+        /// <param name="indexList">
+        /// Upon success, this contains the resolved indexes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SelectFromSubList(
             Interpreter interpreter,
             string text,
@@ -637,6 +1044,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the specified text as a nested list, following the
+        /// chain of indexes described by the index text, and returns the selected
+        /// element value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to split the lists.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The text to interpret as a (possibly nested) list.
+        /// </param>
+        /// <param name="indexText">
+        /// The list of indexes to follow into the nested list.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to replace the supplied index list rather than append to it.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the indexes.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the selected element value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SelectFromSubList(
             Interpreter interpreter,
             string text,
@@ -655,6 +1093,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the specified text as a nested list, following the
+        /// chain of indexes described by the index text, returning both the
+        /// selected element value and the indexes that were resolved.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to split the lists.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The text to interpret as a (possibly nested) list.
+        /// </param>
+        /// <param name="indexText">
+        /// The list of indexes to follow into the nested list.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to replace the supplied index list rather than append to it.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the indexes.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the selected element value.
+        /// </param>
+        /// <param name="indexList">
+        /// Upon success, this contains the resolved indexes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SelectFromSubList(
             Interpreter interpreter,
             string text,
@@ -766,6 +1238,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method prepares the two elements to be compared during a sort,
+        /// optionally selecting sub-list elements via the specified index text and
+        /// swapping them when the sort is descending and not pattern-based.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when selecting sub-list elements.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ascending">
+        /// Non-zero if the sort is in ascending order.
+        /// </param>
+        /// <param name="indexText">
+        /// The index text used to select sub-list elements, or null to compare the
+        /// elements directly.
+        /// </param>
+        /// <param name="leftOnly">
+        /// Non-zero to select a sub-list element only from the left element.
+        /// </param>
+        /// <param name="pattern">
+        /// Non-zero if the comparison is pattern-based.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when selecting sub-list elements.
+        /// </param>
+        /// <param name="left">
+        /// The left element to compare, updated in place.
+        /// </param>
+        /// <param name="right">
+        /// The right element to compare, updated in place.
+        /// </param>
         public static void GetElementsToCompare(
             Interpreter interpreter,
             bool ascending,
@@ -825,6 +1328,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two values are equal, according to the
+        /// specified comparer or the default comparer for the type.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the values to compare.
+        /// </typeparam>
+        /// <param name="comparer">
+        /// The comparer used to compare the values, or null to use the default
+        /// comparer.
+        /// </param>
+        /// <param name="left">
+        /// The first value to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second value to compare.
+        /// </param>
+        /// <returns>
+        /// True if the two values are equal; otherwise, false.
+        /// </returns>
         public static bool ComparerEquals<T>(
             IComparer<T> comparer,
             T left,
@@ -839,6 +1362,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes a hash code for the specified value that is
+        /// consistent with equality, optionally ignoring case for string values.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the value.
+        /// </typeparam>
+        /// <param name="comparer">
+        /// The comparer associated with the value.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value to compute a hash code for.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to ignore case when the value is a string.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified value.
+        /// </returns>
         public static int ComparerGetHashCode<T>(
             IComparer<T> comparer,
             T value,
@@ -871,6 +1414,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified list element should be
+        /// skipped because it is null or empty, or because it has already been
+        /// seen.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary tracking the elements seen so far.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="key">
+        /// The element to test.
+        /// </param>
+        /// <returns>
+        /// True if the element should be skipped; otherwise, false.
+        /// </returns>
         private static bool ShouldSkipElement( /* O(1) */
             _StringDictionary dictionary, /* in */
             string key                    /* in */
@@ -895,6 +1453,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a new list containing the unique, non-empty elements
+        /// of the specified list, preserving their original order.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose unique elements are returned.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A new list of the unique elements, or the original list when it is null
+        /// or empty.
+        /// </returns>
         public static StringList GetUniqueElements( /* O(N) */
             StringList list /* in */
             )
@@ -904,6 +1474,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a new list containing the unique elements of the
+        /// specified list, using the specified callback to decide which elements
+        /// are considered duplicates.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose unique elements are returned.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to determine whether an element is a duplicate, or
+        /// null to use the default behavior.
+        /// </param>
+        /// <returns>
+        /// A new list of the unique elements, or the original list when it is null
+        /// or empty.
+        /// </returns>
         public static StringList GetUniqueElements( /* O(N) */
             StringList list,                      /* in */
             UniqueStringCallback<string> callback /* in */
@@ -916,6 +1503,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a new list containing the unique elements of the
+        /// specified list, using the specified callback to decide which elements
+        /// are considered duplicates.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose unique elements are returned.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to determine whether an element is a duplicate.
+        /// </param>
+        /// <returns>
+        /// A new list of the unique elements, or the original list when it is null,
+        /// empty, or no callback is supplied.
+        /// </returns>
         private static StringList GetUniqueElementsViaCallback( /* O(N) */
             StringList list,                      /* in */
             UniqueStringCallback<string> callback /* in */
@@ -951,6 +1554,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a new list containing the unique, non-empty elements
+        /// of the specified list, using the default duplicate-detection behavior.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose unique elements are returned.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A new list of the unique elements, or the original list when it is null
+        /// or empty.
+        /// </returns>
         private static StringList GetUniqueElementsViaDefault( /* O(N) */
             StringList list /* in */
             )
@@ -975,6 +1590,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the recorded duplicate count for the specified
+        /// value, locating it within the specified dictionary using a linear search
+        /// driven by the specified comparer.
+        /// </summary>
+        /// <param name="comparer">
+        /// The comparer used to match the value.  This parameter may be null.
+        /// </param>
+        /// <param name="duplicates">
+        /// The dictionary mapping values to their duplicate counts.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value whose duplicate count is returned.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The duplicate count for the value, or zero when it is not found.
+        /// </returns>
         public static int GetDuplicateCount( /* O(N) */
             IComparer<string> comparer,
             IntDictionary duplicates,
@@ -1012,6 +1646,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the duplicate count for the specified value within
+        /// the specified dictionary, adding the value when it is not already
+        /// present.
+        /// </summary>
+        /// <param name="comparer">
+        /// The comparer used to match the value.  This parameter may be null.
+        /// </param>
+        /// <param name="duplicates">
+        /// The dictionary mapping values to their duplicate counts.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="value">
+        /// The value whose duplicate count is recorded.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="count">
+        /// The duplicate count to record.
+        /// </param>
+        /// <returns>
+        /// True if the count was recorded; otherwise, false.
+        /// </returns>
         public static bool SetDuplicateCount( /* O(N) */
             IComparer<string> comparer,
             IntDictionary duplicates,
@@ -1055,6 +1711,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the duplicate count for the left element when a
+        /// unique sort encounters two equal but distinct elements, guarding against
+        /// re-entrancy using the specified level counter.
+        /// </summary>
+        /// <param name="comparer">
+        /// The comparer used to match elements.  This parameter may be null.
+        /// </param>
+        /// <param name="duplicates">
+        /// The dictionary mapping elements to their duplicate counts.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="left">
+        /// The left element being compared.  This parameter may be null.
+        /// </param>
+        /// <param name="right">
+        /// The right element being compared.  This parameter may be null.
+        /// </param>
+        /// <param name="unique">
+        /// Non-zero if the sort is removing duplicate elements.
+        /// </param>
+        /// <param name="result">
+        /// The result of comparing the two elements.
+        /// </param>
+        /// <param name="levels">
+        /// The counter tracking the number of active duplicate-count updates, used
+        /// to prevent re-entrant processing.
+        /// </param>
         public static void UpdateDuplicateCount( /* 2 * O(N) */
             IComparer<string> comparer,
             IntDictionary duplicates,
@@ -1132,6 +1816,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified name/value collection into a flat
+        /// list of alternating names and values.
+        /// </summary>
+        /// <param name="collection">
+        /// The name/value collection to convert.  This parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The list whose elements seed the result, or null to start with an empty
+        /// list.
+        /// </param>
+        /// <returns>
+        /// A flat list of alternating names and values, or null when both the
+        /// collection and the seed list are null.
+        /// </returns>
         public static IList FromNameValueCollection(
             NameValueCollection collection,
             IList @default
@@ -1159,6 +1858,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified flat list of alternating names and
+        /// values into a name/value collection.
+        /// </summary>
+        /// <param name="list">
+        /// The flat list of alternating names and values to convert.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="default">
+        /// The collection to add to, or null to create a new collection.
+        /// </param>
+        /// <returns>
+        /// The resulting name/value collection, which may be the supplied
+        /// collection when no list is provided.
+        /// </returns>
         public static NameValueCollection ToNameValueCollection(
             IList list,
             NameValueCollection @default
@@ -1201,6 +1915,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the cross-product combination of the specified
+        /// lists of string builders, appending the result to the specified list.
+        /// </summary>
+        /// <param name="lists">
+        /// The lists to combine.  This parameter may be null.
+        /// </param>
+        /// <param name="list">
+        /// The list to append the combined result to.  When null, a new list is
+        /// created and stored here.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Combine(
             IList<IList<StringBuilder>> lists, /* in */
             ref IList<StringBuilder> list,     /* in, out */
@@ -1248,6 +1980,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the cross-product combination of two lists of
+        /// string builders, appending each pairwise concatenation to the result
+        /// list.
+        /// </summary>
+        /// <param name="list1">
+        /// The first list to combine.  This parameter may be null.
+        /// </param>
+        /// <param name="list2">
+        /// The second list to combine.  This parameter may be null.
+        /// </param>
+        /// <param name="list3">
+        /// The list to append the combined result to.  When null, a new list is
+        /// created and stored here.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode Combine(
             IList<StringBuilder> list1,     /* in */
             IList<StringBuilder> list2,     /* in */
@@ -1311,6 +2065,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified list of string builders into a list
+        /// of their string representations.
+        /// </summary>
+        /// <param name="list">
+        /// The list of string builders to flatten.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A list of the string representations, or null when the list is null.
+        /// </returns>
         public static StringList Flatten(
             IList<StringBuilder> list
             )
@@ -1328,6 +2092,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally adds a copy of the specified permutation to
+        /// the result, when the optional callback accepts it.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to decide whether to keep the permutation, or null to
+        /// keep every permutation.
+        /// </param>
+        /// <param name="list">
+        /// The permutation to consider.  This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// The list of accepted permutations.  When null, a new list is created and
+        /// stored here.
+        /// </param>
         private static void HandlePermuteResult(
             ListTransformCallback callback, /* in */
             IList<string> list,             /* in */
@@ -1348,6 +2127,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method generates all permutations of the elements of the specified
+        /// list, optionally filtering them through the specified callback.
+        /// </summary>
+        /// <param name="list">
+        /// The list whose elements are permuted.  This parameter may be null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to filter the permutations, or null to keep every
+        /// permutation.
+        /// </param>
+        /// <returns>
+        /// A list containing the accepted permutations, or null when the list is
+        /// null or no permutations are accepted.
+        /// </returns>
         public static IList<IList<string>> Permute(
             IList<string> list,
             ListTransformCallback callback
@@ -1393,6 +2187,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes an order-independent hash code for the specified
+        /// collection by combining the hash codes of its elements.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection whose hash code is computed.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to compute the hash code of each element, or null to
+        /// use the element's own hash code.
+        /// </param>
+        /// <returns>
+        /// An order-independent hash code for the collection.
+        /// </returns>
         public static int IEnumerableHashCode<T>(
             IEnumerable<T> collection,
             GetHashCodeCallback<T> callback
@@ -1419,6 +2231,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two collections contain equal elements in
+        /// the same order, using the specified callback or the elements' own
+        /// comparison.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collections.
+        /// </typeparam>
+        /// <param name="collection1">
+        /// The first collection to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="collection2">
+        /// The second collection to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to compare elements, or null to use each element's own
+        /// comparison.
+        /// </param>
+        /// <returns>
+        /// True if the collections contain equal elements in the same order;
+        /// otherwise, false.
+        /// </returns>
         public static bool IEnumerableEquals<T>(
             IEnumerable<T> collection1,
             IEnumerable<T> collection2,
@@ -1473,6 +2307,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the specified collection when it is a writable list.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection to clear.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the collection was a writable list and was cleared; otherwise,
+        /// false.
+        /// </returns>
         public static bool IEnumerableClearList<T>(
             IEnumerable<T> collection
             )
@@ -1491,6 +2338,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified item to the specified collection when it
+        /// is a writable list.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection to add to.  This parameter may be null.
+        /// </param>
+        /// <param name="item">
+        /// The item to add.
+        /// </param>
+        /// <returns>
+        /// True if the collection was a writable list and the item was added;
+        /// otherwise, false.
+        /// </returns>
         public static bool IEnumerableAddToList<T>(
             IEnumerable<T> collection,
             T item
@@ -1510,6 +2374,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the elements of the second collection to the first
+        /// collection when the first collection is a list.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collections.
+        /// </typeparam>
+        /// <param name="collection1">
+        /// The collection to append to.  This parameter may be null.
+        /// </param>
+        /// <param name="collection2">
+        /// The collection whose elements are appended.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the elements were appended; otherwise, false.
+        /// </returns>
         public static bool IEnumerableAddRangeToList<T>(
             IEnumerable<T> collection1,
             IEnumerable<T> collection2
@@ -1529,6 +2410,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sorts the specified collection in place when it is a list.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the elements in the collection.
+        /// </typeparam>
+        /// <param name="collection">
+        /// The collection to sort.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the collection was sorted; otherwise, false.
+        /// </returns>
         public static bool IEnumerableSortList<T>(
             IEnumerable<T> collection
             )

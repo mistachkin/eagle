@@ -26,6 +26,10 @@ using System.Security.Permissions;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides helper methods used to verify the strong name
+    /// signature of a managed assembly file via the native runtime.
+    /// </summary>
 #if NET_40 || NET_STANDARD_20
     [SecurityCritical()]
 #else
@@ -40,6 +44,10 @@ namespace Eagle._Components.Private
 
         #region Private Unsafe Native Methods Class
 #if !DEBUG && !MONO
+        /// <summary>
+        /// This class contains the native APIs used, via P/Invoke, to verify
+        /// the strong name signature of a managed assembly file.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [Guid("0748329a-8ab7-46ba-80da-01b0785b3cbe")]
         private static class UnsafeNativeMethods
@@ -50,8 +58,31 @@ namespace Eagle._Components.Private
             //       on the real .NET Framework (all versions).  This is
             //       not available on Mono.
             //
+            /// <summary>
+            /// The native module file name that exports the strong name
+            /// verification API.
+            /// </summary>
             public const string MsCorEe = "mscoree.dll";
 
+            /// <summary>
+            /// This method verifies the strong name signature of the specified
+            /// managed assembly file.
+            /// </summary>
+            /// <param name="filePath">
+            /// The path to the managed assembly file to verify.
+            /// </param>
+            /// <param name="forceVerification">
+            /// Non-zero to force verification even when it would normally be
+            /// skipped.
+            /// </param>
+            /// <param name="wasVerified">
+            /// Upon return, this parameter will be non-zero if the strong name
+            /// signature was actually verified.
+            /// </param>
+            /// <returns>
+            /// Non-zero if the strong name signature is valid; otherwise,
+            /// zero.
+            /// </returns>
             [DllImport(MsCorEe,
                 CallingConvention = CallingConvention.StdCall,
                 CharSet = CharSet.Unicode)]
@@ -68,6 +99,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the specified managed assembly file
+        /// has a valid strong name signature.
+        /// </summary>
+        /// <param name="configuration">
+        /// The configuration used for diagnostic tracing.
+        /// </param>
+        /// <param name="fileName">
+        /// The path to the managed assembly file to verify.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force verification even when it would normally be
+        /// skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// True if the strong name signature is valid; otherwise, false.
+        /// </returns>
         public static bool IsStrongNameSigned(
             Configuration configuration,
             string fileName,
@@ -120,6 +172,33 @@ namespace Eagle._Components.Private
 
         #region Private Methods
 #if !DEBUG
+        /// <summary>
+        /// This method verifies the strong name signature of the specified
+        /// managed assembly file via the native runtime.
+        /// </summary>
+        /// <param name="fileName">
+        /// The path to the managed assembly file to verify.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force verification even when it would normally be
+        /// skipped.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon return, this parameter will be non-zero if the native
+        /// verification API reported that the signature is valid.
+        /// </param>
+        /// <param name="verified">
+        /// Upon return, this parameter will be non-zero if the strong name
+        /// signature was actually verified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// True if the native verification API was invoked successfully;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsStrongNameSigned(
             string fileName,
             bool force,

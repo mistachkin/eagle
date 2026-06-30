@@ -18,10 +18,26 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Packages
 {
+    /// <summary>
+    /// This class implements the core package used by the Eagle engine to
+    /// represent a script package.  It derives from <see cref="Default" /> and
+    /// provides working implementations of version selection and package
+    /// loading, evaluating the appropriate <c>ifneeded</c> script to satisfy a
+    /// [package require] request.  See <c>core_language.md</c> for package
+    /// management semantics.
+    /// </summary>
     [ObjectId("c0e022cd-2c9b-4020-9d27-312eef08a3cd")]
     public class Core : Default
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the core package.
+        /// </summary>
+        /// <param name="packageData">
+        /// The data used to create and identify this package, such as its name
+        /// and the set of available <c>ifneeded</c> scripts.  This parameter
+        /// may be null.
+        /// </param>
         public Core(
             IPackageData packageData
             )
@@ -39,6 +55,24 @@ namespace Eagle._Packages
         ///////////////////////////////////////////////////////////////////////
 
         #region IPackage Members
+        /// <summary>
+        /// Selects a version of this package to satisfy a request, according
+        /// to the supplied preference.
+        /// </summary>
+        /// <param name="preference">
+        /// The preference that governs how a candidate version is chosen.
+        /// </param>
+        /// <param name="version">
+        /// Upon success, receives the selected version of this package.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in the
+        /// <paramref name="error" /> parameter.
+        /// </returns>
         public override ReturnCode Select(
             PackagePreference preference,
             ref Version version,
@@ -97,10 +131,37 @@ namespace Eagle._Packages
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The version of this package that is currently being loaded, if any;
+        /// used to detect circular package dependencies.  This is an internal
+        /// implementation detail and is not exposed via the IPackage interface.
+        /// </summary>
         private Version loading; // which version are we actively loading?
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Loads the specified version of this package by evaluating its
+        /// corresponding <c>ifneeded</c> script.  Circular package
+        /// dependencies are detected and reported as an error.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context in which to evaluate the package script.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="version">
+        /// The version of this package to load.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain the result produced by evaluating
+        /// the package script.  Upon failure, this must contain an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Load(
             Interpreter interpreter,
             Version version,

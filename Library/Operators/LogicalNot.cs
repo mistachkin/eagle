@@ -16,6 +16,14 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>!</c> (logical not) expression
+    /// operator, which negates the boolean value of its single numeric
+    /// operand.  The evaluation itself is provided by the
+    /// <see cref="Logic" /> base class, selected by the
+    /// <see cref="Lexeme.LogicalNot" /> lexeme.  See <c>core_language.md</c>
+    /// for expression and operator semantics.
+    /// </summary>
     [ObjectId("1896ddee-7435-4a0a-b628-0ce851a87880")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Logical |
@@ -28,6 +36,13 @@ namespace Eagle._Operators
     internal sealed class LogicalNot : Logic
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>!</c> logical not operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public LogicalNot(
             IOperatorData operatorData /* in */
             )

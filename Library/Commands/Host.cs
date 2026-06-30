@@ -31,6 +31,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>host</c> command, which provides
+    /// access to the interpreter host (for example the console).  It is an
+    /// ensemble whose sub-commands query and manipulate the host colors,
+    /// size, position, channels, modes, fonts, and other display and
+    /// input/output settings.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("861cf95e-54ea-41db-9be3-16908ab0ec25")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
         CommandFlags.NonStandard)]
@@ -39,6 +47,11 @@ namespace Eagle._Commands
     {
         #region Private Data
 #if NATIVE && (WINDOWS || (CONSOLE && UNIX))
+        /// <summary>
+        /// The collection of <c>screen</c> sub-command names supported by this
+        /// ensemble command, used to dispatch each <c>host screen</c>
+        /// invocation to the appropriate handler.
+        /// </summary>
         private readonly EnsembleDictionary screenSubCommands =
             new EnsembleDictionary(new string[] {
             "active", "create", "delete", "exists", "list", "peek", "pop",
@@ -50,6 +63,13 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>host</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Host(
             ICommandData commandData
             )
@@ -62,6 +82,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands =
         new EnsembleDictionary(new string[] {
             "beep", "boxstyle", "cancel", "clear", "close",
@@ -75,6 +100,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -84,6 +113,39 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>host</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>color</c>,
+        /// <c>size</c>, <c>position</c>, <c>write</c>, or <c>reset</c>) in
+        /// order to query or modify the interpreter host, honoring the
+        /// recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

@@ -27,13 +27,42 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Forms
 {
+    /// <summary>
+    /// This class is a proof-of-concept Windows Forms top-level window that is
+    /// associated with an Eagle interpreter.  It registers itself in the
+    /// interpreter's collection of top-level windows and allows buttons to be
+    /// added to it dynamically from script.
+    /// </summary>
     [ObjectId("19b4ce06-7a3a-4b84-9e51-c759484f7750")]
     public partial class Toplevel : Form
     {
+        /// <summary>
+        /// The name of the interpreter object that holds the collection of
+        /// top-level windows.
+        /// </summary>
         internal const string CollectionName = "toplevels";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This delegate represents a method used to add a button to a
+        /// top-level window.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new button.
+        /// </param>
+        /// <param name="text">
+        /// The text to display on the new button.
+        /// </param>
+        /// <param name="left">
+        /// The horizontal (left) position of the new button.
+        /// </param>
+        /// <param name="top">
+        /// The vertical (top) position of the new button.
+        /// </param>
+        /// <param name="clickHandler">
+        /// The event handler to invoke when the new button is clicked.
+        /// </param>
         [ObjectId("0e8aedf8-ec1b-4143-8dd6-2e5e2ea67557")]
         public delegate void AddButtonDelegate(
             string name,
@@ -45,10 +74,16 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter that this top-level window is associated with.
+        /// </summary>
         private Interpreter interpreter;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class.
+        /// </summary>
         private Toplevel()
             : base()
         {
@@ -57,6 +92,25 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a button with the specified properties to this
+        /// top-level window.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the new button.
+        /// </param>
+        /// <param name="text">
+        /// The text to display on the new button.
+        /// </param>
+        /// <param name="left">
+        /// The horizontal (left) position of the new button.
+        /// </param>
+        /// <param name="top">
+        /// The vertical (top) position of the new button.
+        /// </param>
+        /// <param name="clickHandler">
+        /// The event handler to invoke when the new button is clicked.
+        /// </param>
         internal void AddButton(
             string name,
             string text,
@@ -78,6 +132,14 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method registers this top-level window, under the specified
+        /// name, in the associated interpreter's collection of top-level
+        /// windows, creating that collection if it does not already exist.
+        /// </summary>
+        /// <param name="name">
+        /// The name under which to register this top-level window.
+        /// </param>
         private void AddToplevel(
             string name
             )
@@ -131,6 +193,17 @@ namespace Eagle._Forms
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is associated with the
+        /// specified interpreter and registers it, under the specified name,
+        /// in that interpreter's collection of top-level windows.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to associate with this top-level window.
+        /// </param>
+        /// <param name="name">
+        /// The name under which to register this top-level window.
+        /// </param>
         public Toplevel(
             Interpreter interpreter,
             string name

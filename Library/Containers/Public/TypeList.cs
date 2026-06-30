@@ -23,6 +23,9 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a list of types (<see cref="Type" />).
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -30,6 +33,9 @@ namespace Eagle._Containers.Public
     public sealed class TypeList : List<Type>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty list of types.
+        /// </summary>
         public TypeList()
             : base()
         {
@@ -38,6 +44,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of types that contains the types copied from the
+        /// specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of types whose elements are copied into the new
+        /// list.
+        /// </param>
         public TypeList(
             IEnumerable<Type> collection
             )
@@ -50,6 +64,14 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty list of types that has the specified initial
+        /// capacity.
+        /// </summary>
+        /// <param name="capacity">
+        /// The number of types the new list can initially store without
+        /// resizing.
+        /// </param>
         internal TypeList(
             int capacity
             )
@@ -60,6 +82,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of types from the parameter types of the specified
+        /// collection of parameter information.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of parameter information whose parameter types are
+        /// added to the new list.  This parameter may be null.
+        /// </param>
         internal TypeList(
             IEnumerable<ParameterInfo> collection
             )
@@ -73,6 +103,20 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method determines whether two lists of types are equal,
+        /// comparing them by reference and then element by element.
+        /// </summary>
+        /// <param name="types1">
+        /// The first list of types to compare.  This parameter may be null.
+        /// </param>
+        /// <param name="types2">
+        /// The second list of types to compare.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the two lists are the same reference or contain the same
+        /// types in the same order; otherwise, false.
+        /// </returns>
         internal static bool Equals(
             TypeList types1,
             TypeList types2
@@ -98,6 +142,17 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Add Methods
+        /// <summary>
+        /// This method adds the parameter types of the specified collection of
+        /// parameter information to this list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of parameter information whose parameter types are
+        /// added to this list.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The number of types added to this list.
+        /// </returns>
         private int Add(
             IEnumerable<ParameterInfo> collection
             )
@@ -123,6 +178,34 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method formats the types in this list as a list of strings,
+        /// optionally filtering them by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the type names included in the
+        /// result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <param name="fullName">
+        /// Non-zero to use the full name of each type.
+        /// </param>
+        /// <param name="qualified">
+        /// Non-zero to use the assembly-qualified name of each type.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of formatted type names; a new list
+        /// is created when this parameter is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode ToList(
             string pattern,
             bool noCase,
@@ -149,6 +232,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// types separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the types included in the
+        /// result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <param name="qualified">
+        /// Non-zero to use the qualified name of each type.
+        /// </param>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase,
@@ -177,6 +278,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// types separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the types included in the
+        /// result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -189,6 +305,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// types separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

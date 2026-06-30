@@ -31,9 +31,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps types to the native
+    /// pointer values associated with those types.
+    /// </summary>
     [ObjectId("afaf8723-b1d9-49dc-b051-6f401fa9b362")]
     internal sealed class TypeIntPtrDictionary : SomeDictionary
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public TypeIntPtrDictionary()
             : base()
         {
@@ -42,6 +49,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string representation of the type names in this
+        /// dictionary, optionally filtered by a match pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the type names.  This parameter may be
+        /// null to include all names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <returns>
+        /// The string representation of the (optionally filtered) type names in
+        /// this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -57,6 +79,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method builds a string representation of the type names in this
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the type names in this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

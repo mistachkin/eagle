@@ -58,47 +58,160 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to produce the help,
+    /// usage, banner, version, and option text shown by the interactive shell.
+    /// It also builds and caches the catalog of interactive command groups and
+    /// their associated help topics, and formats the syntax and descriptions of
+    /// commands, procedures, and other executable entities.
+    /// </summary>
     [ObjectId("35ce3166-9f74-460f-aa62-5cb27798ef66")]
     internal static class HelpOps
     {
         #region Private Constants
         #region Help Formatting
 #if SHELL
+        /// <summary>
+        /// The maximum number of columns available when formatting interactive
+        /// shell usage text.
+        /// </summary>
         private const int UsageWidth = 71; /* magic */
 
+        /// <summary>
+        /// The placeholder character embedded within composite format strings
+        /// that is replaced at runtime with a computed field width.
+        /// </summary>
         private const string lengthPlaceholder = "X";
+
+        /// <summary>
+        /// The number of interactive options to emit per line when formatting
+        /// usage text.
+        /// </summary>
         private const int OptionsPerLine = 4; /* magic */
 
 #if INTERACTIVE_COMMANDS
+        /// <summary>
+        /// The string used to separate adjacent items within a formatted list.
+        /// </summary>
         private const string itemSeparator = ", ";
+
+        /// <summary>
+        /// The string prefixed to the final item of a formatted list (e.g.
+        /// "and ").
+        /// </summary>
         private const string itemSuffix = "and ";
 
+        /// <summary>
+        /// The default human-readable description used when classifying a help
+        /// topic whose type is not otherwise known.
+        /// </summary>
         private const string defaultHelpType = "interactive command";
 
+        /// <summary>
+        /// The prefix added to a help type name to indicate that the associated
+        /// command is hidden.
+        /// </summary>
         private const string hiddenPrefix = "hidden ";
+
+        /// <summary>
+        /// The prefix added to a help type name to indicate that the associated
+        /// command originates from an interactive extension.
+        /// </summary>
         private const string interactiveExtensionPrefix = "interactive extension ";
 
+        /// <summary>
+        /// The number of extra spaces used to pad between columns when emitting
+        /// help in a columnar layout.
+        /// </summary>
         private const int columnPadding = 1; /* magic */
 
+        /// <summary>
+        /// The maximum number of columns available when formatting columnar
+        /// interactive help output.
+        /// </summary>
         private const int LineWidth = 79; /* magic */
 
+        /// <summary>
+        /// The number of help topic groups to emit per line.
+        /// </summary>
         private const int GroupsPerLine = 5; /* magic */
+
+        /// <summary>
+        /// The number of help topics to emit per line.
+        /// </summary>
         private const int TopicsPerLine = 5; /* magic */
 
+        /// <summary>
+        /// The composite format string used to emit a help group name by
+        /// itself.
+        /// </summary>
         private const string groupOnlyFormat = "{0}";
+
+        /// <summary>
+        /// The composite format string used to emit a help group name within a
+        /// width-aligned list; the embedded "X" is replaced by a computed field
+        /// width.
+        /// </summary>
         private const string groupListFormat = "{0,X}{1}"; /* NOTE: 'X' is replaced by an integer. */
+
+        /// <summary>
+        /// The composite format string used to emit a help group name together
+        /// with its associated list of topics.
+        /// </summary>
         private const string groupAndListFormat = "{0} -- {1}";
 
+        /// <summary>
+        /// The composite format string used to emit a help topic description by
+        /// itself.
+        /// </summary>
         private const string descriptionOnlyFormat2 = "{2}";
+
+        /// <summary>
+        /// The composite format string used to emit a help topic description
+        /// preceded by a separator.
+        /// </summary>
         private const string descriptionOnlyFormat3 = "{2} --{4}{3}";
 
+        /// <summary>
+        /// The composite format string used to emit a help topic name by
+        /// itself.
+        /// </summary>
         private const string topicOnlyFormat = "{0}{1}";
+
+        /// <summary>
+        /// The composite format string used to emit a help topic name within a
+        /// width-aligned list; the embedded "X" is replaced by a computed field
+        /// width.
+        /// </summary>
         private const string topicListFormat = "{0,X}{1}"; /* NOTE: 'X' is replaced by an integer. */
+
+        /// <summary>
+        /// The composite format string used to emit a help topic name together
+        /// with its argument syntax.
+        /// </summary>
         private const string topicWithArgumentsFormat = "{0}{1} {2}";
+
+        /// <summary>
+        /// The composite format string used to emit a help topic name together
+        /// with its description.
+        /// </summary>
         private const string topicAndDescriptionFormat = "{0}{1} --{3}{2}";
+
+        /// <summary>
+        /// The composite format string used to emit a help topic name together
+        /// with both its argument syntax and its description.
+        /// </summary>
         private const string topicWithArgumentsAndDescriptionFormat = "{0}{1} {2} --{4}{3}";
 
+        /// <summary>
+        /// The string prefixed to a help topic description.
+        /// </summary>
         private const string descriptionPrefix = " ";
+
+        /// <summary>
+        /// The composite format string used to separate a help topic from its
+        /// description.
+        /// </summary>
         private const string descriptionSeparator = " --{0}";
 
 #if XML
@@ -107,7 +220,16 @@ namespace Eagle._Components.Private
         //       order to support having the description for a procedure reside
         //       directly within its body.
         //
+        /// <summary>
+        /// The specially formatted comment marker that delimits the start of an
+        /// embedded help description within the body of a procedure.
+        /// </summary>
         private static readonly string BeginMagic = "# <help>";
+
+        /// <summary>
+        /// The specially formatted comment marker that delimits the end of an
+        /// embedded help description within the body of a procedure.
+        /// </summary>
         private static readonly string EndMagic = "# </help>";
 #endif
 
@@ -117,10 +239,34 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether the list of help topics should
+        /// be shown by the interactive help output.
+        /// </summary>
         private static bool DefaultShowTopics = true;     /* TODO: Good default? */
+
+        /// <summary>
+        /// The default value indicating whether the interpreter should be
+        /// consulted when producing interactive help output.
+        /// </summary>
         private static bool DefaultUseInterpreter = true; /* TODO: Good default? */
+
+        /// <summary>
+        /// The default value indicating whether command syntax should be shown
+        /// by the interactive help output.
+        /// </summary>
         private static bool DefaultUseSyntax = true;      /* TODO: Good default? */
+
+        /// <summary>
+        /// The default value indicating whether a header should be shown by the
+        /// interactive help output.
+        /// </summary>
         private static bool DefaultShowHeader = true;     /* TODO: Good default? */
+
+        /// <summary>
+        /// The default value indicating whether only topics matching the
+        /// requested pattern should be shown by the interactive help output.
+        /// </summary>
         private static bool DefaultMatchingOnly = false;  /* TODO: Good default? */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -128,38 +274,146 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default set of <see cref="TextFlags" /> used when emitting
+        /// interactive help text.
+        /// </summary>
         private static TextFlags DefaultTextFlags = TextFlags.Default;
         #endregion
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The string prefixed to a certificate subject when it is appended to
+        /// the banner.
+        /// </summary>
         private const string certificateSubjectPrefix = " - ";
 
+        /// <summary>
+        /// The composite format string used to build the full product banner.
+        /// </summary>
         private const string bannerFormat = "{0} v{1} {2}{3}{4} {5} ({6}){7}";
+
+        /// <summary>
+        /// The composite format string used to build the compact product
+        /// banner.
+        /// </summary>
         private const string bannerCompactFormat = "{0} v{1} {2}{3}{4} ({6}){7}";
+
+        /// <summary>
+        /// The composite format string used to format the descriptive text
+        /// portion of the banner.
+        /// </summary>
         private const string bannerTextFormat = " {0}";
+
+        /// <summary>
+        /// The composite format string used to format the image runtime version
+        /// portion of the banner.
+        /// </summary>
         private const string bannerImageRuntimeVersionFormat = " {0}";
+
+        /// <summary>
+        /// The composite format string used to format the portion of the banner
+        /// that indicates an official build.
+        /// </summary>
         private const string bannerOfficialFormat = "{0}";
+
+        /// <summary>
+        /// The composite format string used to format the portion of the banner
+        /// that indicates a release build.
+        /// </summary>
         private const string bannerReleaseFormat = "{0}";
 
+        /// <summary>
+        /// The composite format string used to emit the process context line of
+        /// the version information.
+        /// </summary>
         private const string versionContextFormat1 = "    Process: {0}, {2}{1}";
+
+        /// <summary>
+        /// The composite format string used to emit the thread context line of
+        /// the version information.
+        /// </summary>
         private const string versionContextFormat2 = "     Thread: {0}, {2}{1}";
+
+        /// <summary>
+        /// The composite format string used to emit the application domain
+        /// context line of the version information.
+        /// </summary>
         private const string versionContextFormat3 = "  AppDomain: {0}, {2}{1}";
+
+        /// <summary>
+        /// The composite format string used to emit the interpreter context
+        /// line of the version information.
+        /// </summary>
         private const string versionContextFormat4 = "Interpreter: {0}, {2}{1}";
 
+        /// <summary>
+        /// The composite format string used to emit the engine line of the
+        /// self-update version information.
+        /// </summary>
         private const string versionUpdateFormat1 = "Engine [{0}, {1}, {2}]";
+
+        /// <summary>
+        /// The composite format string used to emit the updates location line
+        /// of the self-update version information.
+        /// </summary>
         private const string versionUpdateFormat2 = "Updates @ {0}{1}";
+
+        /// <summary>
+        /// The composite format string used to emit the downloads location line
+        /// of the self-update version information.
+        /// </summary>
         private const string versionUpdateFormat3 = "Downloads @ {0}";
+
+        /// <summary>
+        /// The composite format string used to emit the source identifier
+        /// portion of the version information.
+        /// </summary>
         private const string versionSourceIdFormat = "[{0}]";
+
+        /// <summary>
+        /// The composite format string used to emit the source time stamp
+        /// portion of the version information.
+        /// </summary>
         private const string versionSourceTimeStampFormat = "[{0}]";
+
+        /// <summary>
+        /// The maximum number of columns available when formatting version
+        /// information output.
+        /// </summary>
         private const int versionWidth = 74; /* magic */
 
+        /// <summary>
+        /// The default URI substituted when no update or download location is
+        /// otherwise available.
+        /// </summary>
         private const string defaultUri = "http://localhost/";
+
+        /// <summary>
+        /// The default source identifier substituted when none is otherwise
+        /// available.
+        /// </summary>
         private const string defaultSourceId = "0000000000000000000000000000000000000000";
+
+        /// <summary>
+        /// The default source time stamp substituted when none is otherwise
+        /// available.
+        /// </summary>
         private const string defaultSourceTimeStamp = "0000-00-00 00:00:00 UTC";
 
+        /// <summary>
+        /// The composite format string used to emit a single option within a
+        /// width-aligned list; the embedded "X" is replaced by a computed field
+        /// width.
+        /// </summary>
         private const string optionFormat = "{0,X}"; /* NOTE: 'X' is replaced by an integer. */
+
+        /// <summary>
+        /// The maximum number of columns available when formatting option list
+        /// output.
+        /// </summary>
         private const int optionWidth = 79; /* magic */
 #endif
         #endregion
@@ -169,13 +423,31 @@ namespace Eagle._Components.Private
 
         #region Private Data
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// The object used to synchronize access to the cached interactive
+        /// command group and help data.
+        /// </summary>
         private static readonly object syncRoot = new object();
+
+        /// <summary>
+        /// The cached mapping of interactive command group names to their
+        /// associated lists of command (topic) names.
+        /// </summary>
         private static StringListDictionary commandGroups = null;
+
+        /// <summary>
+        /// The cached mapping of interactive command (topic) names to their
+        /// associated syntax and description pairs.
+        /// </summary>
         private static StringPairDictionary commandHelp = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// The XPath expression used to locate embedded help elements within an
+        /// XML document.
+        /// </summary>
         private static readonly string HelpXPath = "//help";
 #endif
 #endif
@@ -185,6 +457,14 @@ namespace Eagle._Components.Private
 
         #region Help Support Methods
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method discards any cached interactive command group and help
+        /// data, forcing it to be rebuilt on the next request.
+        /// </summary>
+        /// <returns>
+        /// The total number of cached command group and help entries that were
+        /// discarded.
+        /// </returns>
         public static int ClearCache()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -214,6 +494,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method extracts and concatenates the help text contained within
+        /// the help elements of the specified XML document.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document to search for help elements.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the concatenated help text extracted from the
+        /// document.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetHelp(
             XmlDocument document,
             ref string text,
@@ -283,6 +581,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates an embedded help description within the specified
+        /// script text, delimited by the begin and end help markers, and
+        /// extracts its help text via the embedded XML.
+        /// </summary>
+        /// <param name="text">
+        /// The script text to search for an embedded help description.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is processed.
+        /// </param>
+        /// <returns>
+        /// The extracted help text, or null if no embedded help description is
+        /// present or it could not be processed.
+        /// </returns>
         private static string ExtractHelpFromScript(
             string text,        /* in */
             TextFlags textFlags /* in */
@@ -345,6 +658,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the embedded help description from the body of
+        /// the procedure associated with the specified identifier.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier whose associated procedure body is searched for an
+        /// embedded help description.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is processed.
+        /// </param>
+        /// <returns>
+        /// The extracted help text, or null if none is present or it could not
+        /// be processed.
+        /// </returns>
         public static string GetHelp(
             IIdentifier identifier, /* in */
             TextFlags textFlags     /* in */
@@ -357,6 +685,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified executable entity, or
+        /// failing that the specified name, refers to an interactive extension
+        /// command.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to examine; if it exposes an identifier name,
+        /// that name is used.
+        /// </param>
+        /// <param name="name">
+        /// The fallback name to examine when the executable entity does not
+        /// expose an identifier name.
+        /// </param>
+        /// <returns>
+        /// True if the entity or name refers to an interactive extension
+        /// command; otherwise, false.
+        /// </returns>
         private static bool IsInteractiveExtension(
             IExecute execute, /* in */
             string name       /* in */
@@ -372,6 +717,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified executable entity refers
+        /// to an interactive extension command.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to examine; its identifier name, if any, is
+        /// used.
+        /// </param>
+        /// <returns>
+        /// True if the entity refers to an interactive extension command;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsInteractiveExtension(
             IExecute execute /* in */
             )
@@ -386,6 +743,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified name begins with one of
+        /// the recognized interactive extension command prefixes.
+        /// </summary>
+        /// <param name="name">
+        /// The name to examine.
+        /// </param>
+        /// <returns>
+        /// True if the name refers to an interactive extension command;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsInteractiveExtension(
             string name /* in */
             )
@@ -412,6 +780,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes a help item topic, stripping any recognized
+        /// interactive command prefix and producing the prefix that should be
+        /// shown alongside it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topic to an executable entity, if
+        /// possible.
+        /// </param>
+        /// <param name="topic">
+        /// The help item topic to normalize.
+        /// </param>
+        /// <param name="defaultPrefix">
+        /// The prefix to use when the topic does not begin with a recognized
+        /// interactive command prefix.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the prefix is formatted.
+        /// </param>
+        /// <param name="prefix">
+        /// Upon return, receives the prefix that should be shown alongside the
+        /// normalized topic.
+        /// </param>
+        /// <returns>
+        /// The normalized help item topic.
+        /// </returns>
         private static string MaybeAdjustHelpItemTopic(
             Interpreter interpreter, /* in */
             string topic,            /* in */
@@ -429,6 +823,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method normalizes a help item topic, stripping any recognized
+        /// interactive command prefix and producing both the prefix and the
+        /// help type that should be shown alongside it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topic to an executable entity, if
+        /// possible.
+        /// </param>
+        /// <param name="topic">
+        /// The help item topic to normalize.
+        /// </param>
+        /// <param name="defaultPrefix">
+        /// The prefix to use when the topic does not begin with a recognized
+        /// interactive command prefix.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the prefix is formatted.
+        /// </param>
+        /// <param name="prefix">
+        /// Upon return, receives the prefix that should be shown alongside the
+        /// normalized topic.
+        /// </param>
+        /// <param name="helpType">
+        /// Upon return, receives the human-readable help type describing the
+        /// topic.
+        /// </param>
+        /// <returns>
+        /// The normalized help item topic.
+        /// </returns>
         private static string MaybeAdjustHelpItemTopic(
             Interpreter interpreter, /* in */
             string topic,            /* in */
@@ -549,6 +973,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the first element of the specified list to an
+        /// executable entity and classifies it, distinguishing a command from
+        /// one of its sub-commands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topic to an executable entity.
+        /// </param>
+        /// <param name="list">
+        /// The list whose first element is the command name and whose optional
+        /// second element is a sub-command name.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, receives a string describing the kind of entity that
+        /// was resolved (e.g. "command" or "sub-command").
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetIExecuteViaResolvers(
             Interpreter interpreter, /* in */
             StringList list,         /* in */
@@ -608,6 +1052,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified topic to an executable entity
+        /// using the interpreter's command resolvers.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topic.
+        /// </param>
+        /// <param name="topic">
+        /// The name to resolve to an executable entity.
+        /// </param>
+        /// <param name="execute">
+        /// Upon success, receives the resolved executable entity.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetIExecuteViaResolvers(
             Interpreter interpreter, /* in */
             string topic,            /* in */
@@ -632,6 +1093,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the first of two candidate topics that can be
+        /// resolved to an executable entity, returning the matching name along
+        /// with the resolved entity.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topics.
+        /// </param>
+        /// <param name="topic1">
+        /// The first candidate name to resolve.
+        /// </param>
+        /// <param name="topic2">
+        /// The second candidate name to resolve, tried only when the first
+        /// cannot be resolved.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, receives the name of the candidate that was
+        /// successfully resolved.
+        /// </param>
+        /// <param name="execute">
+        /// Upon success, receives the resolved executable entity.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetIExecuteViaResolvers(
             Interpreter interpreter, /* in */
             string topic1,           /* in */
@@ -670,6 +1157,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the help text for an executable entity,
+        /// optionally including its type, name, syntax, and description.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the executable entity.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity to format help for; when null, a message
+        /// indicating that no help is available is produced.
+        /// </param>
+        /// <param name="name">
+        /// The name to display for the executable entity.
+        /// </param>
+        /// <param name="summary">
+        /// When true, only summary (syntax) information is included and the
+        /// description is omitted.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is formatted.
+        /// </param>
+        /// <returns>
+        /// The formatted help text; this method never returns null.
+        /// </returns>
         private static string FormatHelpItem( /* CANNOT RETURN NULL */
             Interpreter interpreter, /* in */
             IExecute execute,        /* in */
@@ -749,6 +1260,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the prefix that should separate a help topic
+        /// from its description, optionally inserting a blank line when the
+        /// description spans multiple lines.
+        /// </summary>
+        /// <param name="description">
+        /// The description text whose preceding prefix is being determined.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the prefix is produced.
+        /// </param>
+        /// <returns>
+        /// The description prefix string, or null when a newline prefix is
+        /// requested but the description is empty.
+        /// </returns>
         private static string GetDescriptionPrefix(
             string description, /* in */
             TextFlags textFlags /* in */
@@ -772,6 +1298,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the help text for a single cached help item,
+        /// composed of its argument syntax and description, selecting an
+        /// appropriate format based on which parts are present.
+        /// </summary>
+        /// <param name="helpItem">
+        /// The help item pair whose first element is the argument syntax and
+        /// whose second element is the description.
+        /// </param>
+        /// <param name="helpType">
+        /// The human-readable type describing the help item.
+        /// </param>
+        /// <param name="topic">
+        /// The topic (command) name associated with the help item.
+        /// </param>
+        /// <param name="topicType">
+        /// The human-readable type describing the topic, used when reporting
+        /// that no help is available.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to display before the topic.
+        /// </param>
+        /// <param name="noError">
+        /// When true, a null result is returned instead of an error message when
+        /// no help is available.
+        /// </param>
+        /// <param name="summary">
+        /// When true, only summary (syntax) information is included and the
+        /// description is omitted.
+        /// </param>
+        /// <param name="noTopic">
+        /// When true, the topic name is omitted from the formatted output.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is formatted.
+        /// </param>
+        /// <param name="type">
+        /// Upon return, receives the help type that was used, or null when no
+        /// help was available.
+        /// </param>
+        /// <returns>
+        /// The formatted help text, or null when no help is available and
+        /// <paramref name="noError" /> is true.
+        /// </returns>
         private static string FormatHelpItem(
             IPair<string> helpItem, /* in */
             string helpType,        /* in */
@@ -929,6 +1499,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the help text for a help group, producing the
+        /// group name together with an English-style list of its member topics.
+        /// </summary>
+        /// <param name="helpGroup">
+        /// The list of topic names belonging to the group.
+        /// </param>
+        /// <param name="groupType">
+        /// The human-readable type describing the help group.
+        /// </param>
+        /// <param name="topic">
+        /// The group (topic) name being formatted.
+        /// </param>
+        /// <param name="topicType">
+        /// The human-readable type describing the topic, used when reporting an
+        /// invalid help group.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix to display before each member topic.
+        /// </param>
+        /// <param name="noError">
+        /// When true, a null result is returned instead of an error message when
+        /// the help group is invalid.
+        /// </param>
+        /// <param name="type">
+        /// Upon return, receives the group type that was used, or null when the
+        /// group was invalid.
+        /// </param>
+        /// <returns>
+        /// The formatted help group text, or null when the group is invalid and
+        /// <paramref name="noError" /> is true.
+        /// </returns>
         private static string FormatHelpGroup(
             StringList helpGroup, /* in */
             string groupType,     /* in */
@@ -984,6 +1586,71 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the help text for a single topic, resolving it
+        /// against the supplied command groups, cached help, and (optionally)
+        /// the interpreter, and selecting between group, syntax, and description
+        /// output as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the topic to an executable entity
+        /// when <paramref name="useInterpreter" /> is true.
+        /// </param>
+        /// <param name="groups">
+        /// The mapping of command group names to their member topic lists.
+        /// </param>
+        /// <param name="help">
+        /// The mapping of command (topic) names to their syntax and description
+        /// pairs.
+        /// </param>
+        /// <param name="groupType">
+        /// The human-readable type describing a help group.
+        /// </param>
+        /// <param name="helpType">
+        /// The human-readable type describing a help item.
+        /// </param>
+        /// <param name="topic">
+        /// The topic to format help for.
+        /// </param>
+        /// <param name="topicType">
+        /// The human-readable type describing the topic, used in error and
+        /// no-help messages.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used when resolving the topic against the groups
+        /// and help data.
+        /// </param>
+        /// <param name="noError">
+        /// When true, a null result is returned instead of an error message when
+        /// no help is available.
+        /// </param>
+        /// <param name="noPrefix">
+        /// When true, no interactive command prefix is shown alongside the
+        /// topic.
+        /// </param>
+        /// <param name="summary">
+        /// When true, only summary (syntax) information is included and the
+        /// description is omitted.
+        /// </param>
+        /// <param name="noTopic">
+        /// When true, the topic name is omitted from the formatted output.
+        /// </param>
+        /// <param name="useInterpreter">
+        /// When true, the interpreter is consulted to resolve the topic to an
+        /// executable entity.
+        /// </param>
+        /// <param name="useSyntax">
+        /// When true, command syntax is included in the formatted output.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is formatted.
+        /// </param>
+        /// <param name="type">
+        /// Upon return, receives the help or group type that was used.
+        /// </param>
+        /// <returns>
+        /// The formatted help text; this method never returns null.
+        /// </returns>
         private static string FormatHelpItem( /* CANNOT RETURN NULL */
             Interpreter interpreter,     /* in */
             StringListDictionary groups, /* in */
@@ -1268,6 +1935,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the interactive commands whose help
+        /// topics match the specified pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive command help is consulted.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter command names, or null to return all of
+        /// them.
+        /// </param>
+        /// <param name="noCase">
+        /// When true, pattern matching is performed without regard to case.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <returns>
+        /// A list of matching interactive command names, or null when no help
+        /// data is available.
+        /// </returns>
         public static StringList GetInteractiveCommandNames(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -1283,6 +1971,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a copy of the syntax and description pair
+        /// associated with the named interactive command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive command help is consulted.
+        /// </param>
+        /// <param name="name">
+        /// The name of the interactive command whose help item is requested.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <returns>
+        /// A copy of the syntax and description pair for the named command, or
+        /// null when it is not found.
+        /// </returns>
         public static StringPair GetInteractiveCommandHelpItem(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -1309,6 +2014,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the complete catalog of interactive command
+        /// groups and assigns each known interactive command to its group.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are added to the
+        /// catalog.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <returns>
+        /// The mapping of command group names to their member command lists;
+        /// this method never returns null.
+        /// </returns>
         private static StringListDictionary GetInteractiveCommandGroups(
             Interpreter interpreter, /* in */
             TextFlags textFlags      /* in */
@@ -1654,6 +2374,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the interactive extension commands of the specified
+        /// interpreter to the supplied command group catalog under the
+        /// "extension" group.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are added.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <param name="groups">
+        /// The command group catalog to which the extension group is added; it
+        /// is created when null and any matching commands are present.
+        /// </param>
         private static void AddInteractiveCommandExtensionGroup(
             Interpreter interpreter,        /* in */
             TextFlags textFlags,            /* in */
@@ -1679,6 +2414,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the catalog of interactive command groups,
+        /// building and caching the built-in groups on first use and merging in
+        /// the current interpreter's extension commands, optionally filtered by
+        /// a pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are merged into
+        /// the returned catalog.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the returned groups, or null to return all
+        /// of them.
+        /// </param>
+        /// <param name="noCase">
+        /// When true, pattern matching is performed without regard to case.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <returns>
+        /// The mapping of command group names to their member command lists;
+        /// this method never returns null.
+        /// </returns>
         private static StringListDictionary GetCachedInteractiveCommandGroups(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -1713,6 +2472,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the formal argument list of the specified
+        /// procedure.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose argument list is requested.
+        /// </param>
+        /// <returns>
+        /// The argument list of the procedure, or null when the procedure is
+        /// null.
+        /// </returns>
         private static ArgumentList GetArguments(
             IProcedure procedure /* in */
             )
@@ -1725,6 +2495,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the named argument collection of the specified
+        /// procedure.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose named arguments are requested.
+        /// </param>
+        /// <returns>
+        /// The named argument collection of the procedure, or null when the
+        /// procedure is null.
+        /// </returns>
         private static ArgumentDictionary GetNamedArguments(
             IProcedure procedure /* in */
             )
@@ -1738,6 +2519,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method returns the body script of the specified procedure.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose body is requested.
+        /// </param>
+        /// <returns>
+        /// The body script of the procedure, or null when the procedure is
+        /// null.
+        /// </returns>
         private static string GetBody(
             IProcedure procedure /* in */
             )
@@ -1751,6 +2542,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the human-readable type describing the
+        /// specified executable entity (e.g. command or procedure), including
+        /// any hidden or interactive extension qualifiers.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity to classify.
+        /// </param>
+        /// <param name="name">
+        /// The name associated with the executable entity.
+        /// </param>
+        /// <param name="default">
+        /// The fallback type to return when the entity cannot otherwise be
+        /// classified.
+        /// </param>
+        /// <param name="noType">
+        /// When true, no fallback type is produced for an unclassified entity.
+        /// </param>
+        /// <returns>
+        /// The human-readable type describing the executable entity, or the
+        /// fallback value as governed by <paramref name="noType" />.
+        /// </returns>
         private static string GetTopicTypeForIExecute(
             IExecute execute, /* in */
             string name,      /* in */
@@ -1798,6 +2611,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string associated with the specified
+        /// syntax provider, falling back to a default when none is available.
+        /// </summary>
+        /// <param name="syntax">
+        /// The syntax provider whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the provider has none.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, indicates whether the returned syntax should be treated
+        /// verbatim rather than further decorated.
+        /// </param>
+        /// <returns>
+        /// The syntax string, or the fallback value, or null when the provider
+        /// is null.
+        /// </returns>
         private static string GetSyntax(
             ISyntax syntax,   /* in */
             string @default,  /* in */
@@ -1824,6 +2655,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a syntax string for the specified ensemble,
+        /// listing its sub-command names.
+        /// </summary>
+        /// <param name="ensemble">
+        /// The ensemble whose sub-command syntax is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the ensemble is null.
+        /// </param>
+        /// <param name="noName">
+        /// When true, the ensemble name is omitted from the produced syntax.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, indicates whether the returned syntax should be treated
+        /// verbatim rather than further decorated.
+        /// </param>
+        /// <returns>
+        /// The sub-command syntax string, the fallback value, or null when the
+        /// ensemble has no sub-commands.
+        /// </returns>
         private static string GetSyntaxForIEnsemble(
             IEnsemble ensemble, /* in */
             string @default,    /* in */
@@ -1857,6 +2709,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a syntax string that lists the supplied
+        /// sub-command names, optionally prefixed by an ensemble name.
+        /// </summary>
+        /// <param name="name">
+        /// The optional ensemble name to prefix the produced syntax with.
+        /// </param>
+        /// <param name="subCommandNames">
+        /// The list of sub-command names to include in the produced syntax.
+        /// </param>
+        /// <returns>
+        /// The sub-command syntax string, or null when no sub-command names are
+        /// supplied.
+        /// </returns>
         public static string GetSyntaxForIEnsemble(
             string name,               /* in: OPTIONAL */
             StringList subCommandNames /* in */
@@ -1871,6 +2737,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified command,
+        /// falling back to a default when none is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the command.
+        /// </param>
+        /// <param name="command">
+        /// The command whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the command has none.
+        /// </param>
+        /// <param name="noName">
+        /// When true, the command name is omitted from any produced ensemble
+        /// syntax.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the command, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForCommand(
             Interpreter interpreter, /* in */
             ICommand command,        /* in */
@@ -1886,6 +2772,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified command,
+        /// combining any explicit, ensemble, and formatted syntax sources and
+        /// falling back to a default when none is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the command.
+        /// </param>
+        /// <param name="command">
+        /// The command whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the command has none.
+        /// </param>
+        /// <param name="noName">
+        /// When true, the command name is omitted from any produced ensemble
+        /// syntax.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, indicates whether the returned syntax should be treated
+        /// verbatim rather than further decorated.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the command, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForCommand(
             Interpreter interpreter, /* in */
             ICommand command,        /* in */
@@ -1934,6 +2845,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified procedure,
+        /// derived from its formal arguments, falling back to a default when
+        /// none is available.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the procedure has none.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the procedure, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForProcedure(
             IProcedure procedure, /* in */
             string @default       /* in */
@@ -1947,6 +2872,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified procedure,
+        /// derived from its positional or named formal arguments, falling back
+        /// to a default when none is available.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the procedure has none.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, indicates whether the returned syntax should be treated
+        /// verbatim rather than further decorated.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the procedure, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForProcedure(
             IProcedure procedure, /* in */
             string @default,      /* in */
@@ -1998,6 +2941,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified executable
+        /// entity, falling back to a default when none is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the executable entity.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the entity has none.
+        /// </param>
+        /// <param name="noName">
+        /// When true, the entity name is omitted from any produced ensemble
+        /// syntax.
+        /// </param>
+        /// <param name="noType">
+        /// When true, the entity type name is not used as a last-resort syntax.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the executable entity, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForIExecute(
             Interpreter interpreter, /* in */
             IExecute execute,        /* in */
@@ -2015,6 +2981,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the syntax string for the specified executable
+        /// entity, trying command, procedure, syntax provider, ensemble, and
+        /// type name sources in turn, falling back to a default when none is
+        /// available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the executable entity.
+        /// </param>
+        /// <param name="execute">
+        /// The executable entity whose syntax string is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback syntax to return when the entity has none.
+        /// </param>
+        /// <param name="noName">
+        /// When true, the entity name is omitted from any produced ensemble
+        /// syntax.
+        /// </param>
+        /// <param name="noType">
+        /// When true, the entity type name is not used as a last-resort syntax.
+        /// </param>
+        /// <param name="verbatim">
+        /// Upon return, indicates whether the returned syntax should be treated
+        /// verbatim rather than further decorated.
+        /// </param>
+        /// <returns>
+        /// The syntax string for the executable entity, or the fallback value.
+        /// </returns>
         private static string GetSyntaxForIExecute(
             Interpreter interpreter, /* in */
             IExecute execute,        /* in */
@@ -2066,6 +3061,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the description associated with the specified
+        /// identifier, falling back to a default when none is available.
+        /// </summary>
+        /// <param name="identifier">
+        /// The identifier whose description is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback description to return when the identifier has none.
+        /// </param>
+        /// <returns>
+        /// The description of the identifier, or the fallback value.
+        /// </returns>
         private static string GetDescription(
             IIdentifier identifier, /* in */
             string @default         /* in */
@@ -2084,6 +3092,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the description for the specified command,
+        /// falling back to a default when none is available.
+        /// </summary>
+        /// <param name="command">
+        /// The command whose description is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback description to return when the command has none.
+        /// </param>
+        /// <returns>
+        /// The description of the command, or the fallback value.
+        /// </returns>
         private static string GetDescriptionForCommand(
             ICommand command, /* in */
             string @default   /* in */
@@ -2099,6 +3120,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the description for the specified procedure,
+        /// using its explicit description or any embedded help in its body, and
+        /// falling back to a default when none is available.
+        /// </summary>
+        /// <param name="procedure">
+        /// The procedure whose description is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback description to return when the procedure has none.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how embedded help text is processed.
+        /// </param>
+        /// <returns>
+        /// The description of the procedure, or the fallback value.
+        /// </returns>
         private static string GetDescriptionForProcedure(
             IProcedure procedure, /* in */
             string @default,      /* in */
@@ -2123,6 +3161,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the description for the specified executable
+        /// entity, dispatching to the command, procedure, or identifier
+        /// description logic as appropriate, and falling back to a default when
+        /// none is available.
+        /// </summary>
+        /// <param name="execute">
+        /// The executable entity whose description is requested.
+        /// </param>
+        /// <param name="default">
+        /// The fallback description to return when the entity has none.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how embedded help text is processed.
+        /// </param>
+        /// <returns>
+        /// The description of the executable entity, or the fallback value.
+        /// </returns>
         private static string GetDescriptionForIExecute(
             IExecute execute,   /* in */
             string @default,    /* in */
@@ -2152,6 +3208,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the names of the interactive extension commands
+        /// of the specified interpreter that match the supplied prefix.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are examined.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix used to match interactive extension command names.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <param name="names">
+        /// Upon return, receives the matching interactive extension command
+        /// names.
+        /// </param>
         private static void GetInteractiveExtensionCommandNames(
             Interpreter interpreter, /* in */
             string prefix,           /* in */
@@ -2168,6 +3241,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the help items of the interactive extension
+        /// commands of the specified interpreter that match the supplied prefix.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are examined.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix used to match interactive extension command names.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <param name="help">
+        /// Upon return, receives the mapping of matching interactive extension
+        /// command names to their syntax and description pairs.
+        /// </param>
         private static void GetInteractiveExtensionCommandHelp(
             Interpreter interpreter,      /* in */
             string prefix,                /* in */
@@ -2184,6 +3274,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the names and/or help items of the interactive
+        /// extension commands of the specified interpreter that match the
+        /// supplied prefix.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension commands are examined.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix used to match interactive extension command names.
+        /// </param>
+        /// <param name="getNames">
+        /// When true, the matching command names are collected.
+        /// </param>
+        /// <param name="getHelp">
+        /// When true, the matching command help items are collected.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <param name="names">
+        /// Upon return, receives the matching command names when
+        /// <paramref name="getNames" /> is true.
+        /// </param>
+        /// <param name="help">
+        /// Upon return, receives the matching command help items when
+        /// <paramref name="getHelp" /> is true.
+        /// </param>
         private static void GetInteractiveExtensionCommandNamesOrHelp(
             Interpreter interpreter,      /* in */
             string prefix,                /* in */
@@ -2478,6 +3596,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the complete mapping of built-in interactive
+        /// command names to their syntax and description help pairs.
+        /// </summary>
+        /// <returns>
+        /// The mapping of interactive command names to their help pairs; this
+        /// method never returns null.
+        /// </returns>
         private static StringPairDictionary GetInteractiveCommandHelp() /* CANNOT RETURN NULL */
         {
             StringPairDictionary result = new StringPairDictionary();
@@ -3226,6 +4352,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the mapping of interactive command names to their
+        /// help pairs, building and caching the built-in help on first use and
+        /// merging in the current interpreter's extension command help,
+        /// optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive extension command help is merged
+        /// into the returned mapping.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the returned help entries, or null to
+        /// return all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// When true, pattern matching is performed without regard to case.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help data is produced.
+        /// </param>
+        /// <returns>
+        /// The mapping of interactive command names to their help pairs; this
+        /// method never returns null.
+        /// </returns>
         private static StringPairDictionary GetCachedInteractiveCommandHelp(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -3262,6 +4412,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method returns the display-capable interactive host associated
+        /// with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host is requested.
+        /// </param>
+        /// <returns>
+        /// The display-capable interactive host, or null when the interpreter is
+        /// null or has no such host.
+        /// </returns>
         private static IDisplayHost GetDisplayHost(
             Interpreter interpreter /* in */
             )
@@ -3275,6 +4436,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the host using the supplied
+        /// colors, falling back to a colorless write when the host does not
+        /// support color.
+        /// </summary>
+        /// <param name="writeHost">
+        /// The host to write the value to.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="newLine">
+        /// When true, a line terminator is written after the value.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use.
+        /// </param>
+        /// <returns>
+        /// True if the value was written; otherwise, false.
+        /// </returns>
         private static bool HostTryWriteColor(
             IWriteHost writeHost,         /* in */
             string value,                 /* in */
@@ -3321,6 +4505,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the product banner version line for the specified
+        /// assembly, including its name, version, tag, runtime version, build
+        /// date, configuration, and certificate subject.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used when checking the certificate subject of the
+        /// assembly file.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose version line is built; the default assembly is
+        /// used when null.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the assembly; it is derived from the assembly when
+        /// null.
+        /// </param>
+        /// <param name="compactMode">
+        /// When true, a compact banner format omitting the configuration is
+        /// used.
+        /// </param>
+        /// <returns>
+        /// The formatted version line.
+        /// </returns>
         private static string GetVersionLine(
             Interpreter interpreter, /* in */
             Assembly assembly,       /* in */
@@ -3365,6 +4573,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the product banner release line for the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose release line is built; the default assembly is
+        /// used when null.
+        /// </param>
+        /// <returns>
+        /// The formatted release line, or null when the assembly has no release
+        /// information.
+        /// </returns>
         private static string GetReleaseLine(
             Assembly assembly /* in */
             )
@@ -3382,6 +4602,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the product banner description line.
+        /// </summary>
+        /// <returns>
+        /// The formatted description line.
+        /// </returns>
         private static string GetDescriptionLine()
         {
             return String.Format(
@@ -3390,6 +4616,47 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the product banner, including the version,
+        /// release, description, and various status indicators, to the
+        /// interactive host of the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the banner is written to.
+        /// </param>
+        /// <param name="noRelease">
+        /// When true, the release line is omitted from the banner.
+        /// </param>
+        /// <param name="noDescription">
+        /// When true, the description line is omitted from the banner.
+        /// </param>
+        /// <param name="noOfficial">
+        /// When true, the official build indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noTrusted">
+        /// When true, the trusted build indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noStable">
+        /// When true, the stable build indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noSafe">
+        /// When true, the safe interpreter indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noLockdown">
+        /// When true, the lockdown indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noSecurity">
+        /// When true, the security indicator is omitted from the banner.
+        /// </param>
+        /// <param name="noPlugins">
+        /// When true, the plugin information is omitted from the banner.
+        /// </param>
+        /// <param name="compactMode">
+        /// When true, a compact banner format is used.
+        /// </param>
+        /// <returns>
+        /// True if the banner was written; otherwise, false.
+        /// </returns>
         public static bool WriteBanner(
             Interpreter interpreter, /* in */
             bool noRelease,          /* in */
@@ -3850,6 +5117,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the copyright and license text to the interactive
+        /// host of the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the legal text is written to.
+        /// </param>
+        /// <param name="summaryOnly">
+        /// When true, only a summary of the license text is written.
+        /// </param>
+        /// <returns>
+        /// True if the legal text was written; otherwise, false.
+        /// </returns>
         public static bool WriteLegalese(
             Interpreter interpreter, /* in */
             bool summaryOnly         /* in */
@@ -3916,6 +5196,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a centered, ruled section header to the specified
+        /// interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host the section header is written to.
+        /// </param>
+        /// <param name="text">
+        /// The header text to center; when empty, only the rule is written.
+        /// </param>
+        /// <param name="length">
+        /// The width, in characters, of the rule and centered text.
+        /// </param>
         private static void WriteSectionHeader(
             IInteractiveHost interactiveHost, /* in */
             string text,                      /* in */
@@ -3943,6 +5236,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the interactive shell usage text to the
+        /// interactive host of the specified interpreter, optionally including
+        /// the banner, legal text, command-line options, and environment
+        /// variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the usage text is written to.
+        /// </param>
+        /// <param name="error">
+        /// An optional error message to display before the usage text.
+        /// </param>
+        /// <param name="showBanner">
+        /// When true, the product banner is included.
+        /// </param>
+        /// <param name="showLegalese">
+        /// When true, the copyright and license text is included.
+        /// </param>
+        /// <param name="showOptions">
+        /// When true, the supported command-line options are included.
+        /// </param>
+        /// <param name="showEnvironment">
+        /// When true, the relevant environment variables are included.
+        /// </param>
+        /// <param name="compactMode">
+        /// When true, a compact banner format is used.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteUsage(
             Interpreter interpreter, /* in */
             string error,            /* in */
@@ -5287,6 +6614,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the banner text of the specified plugin,
+        /// guarding against any exception it might throw.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter passed to the plugin when requesting its banner.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose banner is requested.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the plugin banner; upon failure, receives
+        /// information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode WritePluginBanner(
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
@@ -5311,6 +6656,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the about text of the specified plugin,
+        /// optionally appending its security certificate information, and
+        /// guarding against any exception it might throw.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter passed to the plugin when requesting its about text.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose about text is requested.
+        /// </param>
+        /// <param name="showCertificate">
+        /// When true, the plugin security certificate information is appended to
+        /// the about text.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the plugin about text; upon failure, receives
+        /// information about the error.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the plugin's about method, or
+        /// <see cref="ReturnCode.Error" /> when an exception is caught.
+        /// </returns>
         public static ReturnCode GetPluginAbout(
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
@@ -5379,6 +6747,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the "Using ... plugins:" header (preceded by any
+        /// necessary spacer line) to the interactive host, unless it has already
+        /// been written.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host the header is written to.
+        /// </param>
+        /// <param name="showSystem">
+        /// When true, the header refers to core (system) plugins; otherwise, it
+        /// refers to loaded plugins.
+        /// </param>
+        /// <param name="showBanner">
+        /// Indicates whether the banner section was written, affecting whether a
+        /// spacer line is needed.
+        /// </param>
+        /// <param name="showLegalese">
+        /// Indicates whether the legal section was written, affecting whether a
+        /// spacer line is needed.
+        /// </param>
+        /// <param name="showSource">
+        /// Indicates whether the source section was written, affecting whether a
+        /// spacer line is needed.
+        /// </param>
+        /// <param name="showUpdate">
+        /// Indicates whether the update section was written, affecting whether a
+        /// spacer line is needed.
+        /// </param>
+        /// <param name="showContext">
+        /// Indicates whether the context section was written, affecting whether
+        /// a spacer line is needed.
+        /// </param>
+        /// <param name="wrotePlugin">
+        /// Indicates whether a plugin was already written, affecting whether a
+        /// spacer line is needed.
+        /// </param>
+        /// <param name="wrote">
+        /// On input, indicates whether the header has already been written; on
+        /// output, set to true once the header has been written.
+        /// </param>
         private static void MaybeWritePluginsHeader(
             IInteractiveHost interactiveHost, /* in */
             bool showSystem,                  /* in */
@@ -5435,6 +6843,70 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the about information for a single plugin to the
+        /// interactive host, choosing a single-line, multi-line, or boxed layout
+        /// as appropriate and tracking which layouts have been used.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the plugin.
+        /// </param>
+        /// <param name="displayHost">
+        /// The display-capable interactive host the about information is written
+        /// to.
+        /// </param>
+        /// <param name="aboutResult">
+        /// The about result, expected to contain a string pair list describing
+        /// the plugin.
+        /// </param>
+        /// <param name="positioning">
+        /// When true, host cursor positioning is used when emitting the about
+        /// information.
+        /// </param>
+        /// <param name="showSystem">
+        /// When true, the plugin is treated as a core (system) plugin for header
+        /// purposes.
+        /// </param>
+        /// <param name="showBanner">
+        /// Indicates whether the banner section was written, affecting spacing
+        /// of the plugins header.
+        /// </param>
+        /// <param name="showLegalese">
+        /// Indicates whether the legal section was written, affecting spacing of
+        /// the plugins header.
+        /// </param>
+        /// <param name="showSource">
+        /// Indicates whether the source section was written, affecting spacing of
+        /// the plugins header.
+        /// </param>
+        /// <param name="showUpdate">
+        /// Indicates whether the update section was written, affecting spacing of
+        /// the plugins header.
+        /// </param>
+        /// <param name="showContext">
+        /// Indicates whether the context section was written, affecting spacing
+        /// of the plugins header.
+        /// </param>
+        /// <param name="wrotePlugin">
+        /// Indicates whether a plugin was already written, affecting spacing of
+        /// the plugins header.
+        /// </param>
+        /// <param name="wrote">
+        /// On input, indicates whether the plugins header has already been
+        /// written; on output, set to true once it has been written.
+        /// </param>
+        /// <param name="wroteSingleLine">
+        /// On output, set to true when about information was emitted using the
+        /// single-line layout.
+        /// </param>
+        /// <param name="wroteMultiLine">
+        /// On output, set to true when about information was emitted using the
+        /// multi-line layout.
+        /// </param>
+        /// <param name="wroteBox">
+        /// On output, set to true when about information was emitted using the
+        /// boxed layout.
+        /// </param>
         private static void WritePluginAbout(
             Interpreter interpreter,  /* in */
             IDisplayHost displayHost, /* in */
@@ -5544,6 +7016,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the supplied list of compile-time options to the
+        /// interactive host in a right-aligned, columnar layout.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host the options are written to.
+        /// </param>
+        /// <param name="options">
+        /// The options to write.
+        /// </param>
+        /// <param name="perLine">
+        /// The number of options to emit per line, or a non-positive value to
+        /// use a computed default.
+        /// </param>
+        /// <param name="newLine">
+        /// When true, a trailing line terminator is written after the options.
+        /// </param>
+        /// <returns>
+        /// True if any options were written; false if none were written; or null
+        /// when the host or options are null.
+        /// </returns>
         public static bool? WriteOptions(
             IInteractiveHost interactiveHost, /* in */
             IEnumerable<string> options,      /* in */
@@ -5605,6 +7098,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the full version information to the interactive
+        /// host of the specified interpreter, optionally including the banner,
+        /// legal text, source identity, update information, runtime context,
+        /// plugin information, and compile-time options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the version information is
+        /// written to.
+        /// </param>
+        /// <param name="showBanner">
+        /// When true, the product banner is included.
+        /// </param>
+        /// <param name="showLegalese">
+        /// When true, the copyright and license text is included.
+        /// </param>
+        /// <param name="showSource">
+        /// When true, the source identity information is included.
+        /// </param>
+        /// <param name="showUpdate">
+        /// When true, the update and download location information is included.
+        /// </param>
+        /// <param name="showContext">
+        /// When true, the process, thread, application domain, and interpreter
+        /// context information is included.
+        /// </param>
+        /// <param name="showPlugins">
+        /// When true, information about the loaded plugins is included.
+        /// </param>
+        /// <param name="showCertificate">
+        /// When true, plugin security certificate information is included.
+        /// </param>
+        /// <param name="showOptions">
+        /// When true, the compile-time options are included.
+        /// </param>
+        /// <param name="compactMode">
+        /// When true, a compact banner format is used.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteVersion(
             Interpreter interpreter, /* in */
             bool showBanner,         /* in */
@@ -5872,6 +7410,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes how many items will fit on a single line, given
+        /// the item length, prefix, padding, and maximum line length, reducing
+        /// the count until the line fits within the allowed width.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix shown before each item, whose length is included in the
+        /// calculation.
+        /// </param>
+        /// <param name="padding">
+        /// The amount of padding added per item.
+        /// </param>
+        /// <param name="maximumItemLength">
+        /// The length of the longest item to be emitted.
+        /// </param>
+        /// <param name="maximumItemsPerLine">
+        /// The maximum number of items allowed per line.
+        /// </param>
+        /// <param name="maximumLineLength">
+        /// The maximum allowed line length, in characters.
+        /// </param>
+        /// <returns>
+        /// The number of items that fit on a line, never less than one.
+        /// </returns>
         private static int GetItemsPerLine(
             string prefix,           /* in */
             int padding,             /* in */
@@ -5933,6 +7495,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method writes the supplied collection of items to the host in a
+        /// right-aligned, multi-column layout using the specified colors.
+        /// </summary>
+        /// <param name="writeHost">
+        /// The host the items are written to.
+        /// </param>
+        /// <param name="collection">
+        /// The items to write.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string used to emit each item; the embedded
+        /// length placeholder is replaced by a computed field width.
+        /// </param>
+        /// <param name="prefix">
+        /// The prefix shown before each item.
+        /// </param>
+        /// <param name="maximumLength">
+        /// The length of the longest item, used to right-align the column.
+        /// </param>
+        /// <param name="countPerLine">
+        /// The number of items to emit per line.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use.
+        /// </param>
+        /// <returns>
+        /// True if all items were written; otherwise, false.
+        /// </returns>
         private static bool WriteInteractiveHelpColumns(
             IWriteHost writeHost,           /* in */
             IEnumerable<string> collection, /* in */
@@ -5991,6 +7585,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the length of the longest built-in interactive
+        /// command name, deliberately excluding extension commands.
+        /// </summary>
+        /// <returns>
+        /// The maximum built-in interactive command name length, or zero when no
+        /// help data is available.
+        /// </returns>
         private static int GetDefaultMaximumLength()
         {
             //
@@ -6007,6 +7609,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default set of <see cref="TextFlags" /> used
+        /// when emitting interactive help text.
+        /// </summary>
+        /// <returns>
+        /// The default text flags.
+        /// </returns>
         public static TextFlags GetDefaultTextFlags()
         {
             return DefaultTextFlags;
@@ -6014,6 +7623,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes interactive help to the host, parsing the supplied
+        /// argument list into a topic and help options before dispatching to the
+        /// detailed help writing logic.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the help is written to.
+        /// </param>
+        /// <param name="arguments">
+        /// The argument list supplied to the interactive help command; its
+        /// second element, if present, is the requested topic.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteInteractiveHelp(
             Interpreter interpreter, /* in */
             ArgumentList arguments,  /* in */
@@ -6156,6 +7784,62 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes interactive help for the specified topic to the
+        /// host, listing matching command groups and topics, the syntax and
+        /// description of a specific command, or a complete help overview as
+        /// governed by the supplied options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host the help is written to.
+        /// </param>
+        /// <param name="topic">
+        /// The topic to write help for, or null to write a help overview.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode used when resolving the topic against the command
+        /// groups and help data.
+        /// </param>
+        /// <param name="textFlags">
+        /// The flags used to control how the help text is formatted.
+        /// </param>
+        /// <param name="noError">
+        /// When true, missing help is reported via the <paramref name="found" />
+        /// flag rather than as an error.
+        /// </param>
+        /// <param name="noTopic">
+        /// When true, topic names are omitted from the formatted output.
+        /// </param>
+        /// <param name="showGroups">
+        /// When non-null, overrides whether command groups are shown.
+        /// </param>
+        /// <param name="showTopics">
+        /// When non-null, overrides whether command topics are shown.
+        /// </param>
+        /// <param name="useInterpreter">
+        /// When non-null, overrides whether the interpreter is consulted to
+        /// resolve topics.
+        /// </param>
+        /// <param name="useSyntax">
+        /// When non-null, overrides whether command syntax is shown.
+        /// </param>
+        /// <param name="showHeader">
+        /// When non-null, overrides whether section headers are shown.
+        /// </param>
+        /// <param name="matchingOnly">
+        /// When non-null, overrides whether only matching topics are shown.
+        /// </param>
+        /// <param name="found">
+        /// Upon return, indicates whether any matching help was found and
+        /// written.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode WriteInteractiveHelp(
             Interpreter interpreter, /* in */
             string topic,            /* in */

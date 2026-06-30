@@ -500,6 +500,20 @@ unset -nocomplain x0 x1 x2 x3 x4
 # HACK: *MONO* This test does not work on Mono due to bug #478489, which is
 #       still present as of version 6.0.
 #
+runTest {test fileIO-2.1.0 {file dirname} -body {
+  list [file dirname .] [file dirname ..] [file dirname :C/] \
+      [file dirname C:/] [file dirname C:\\] [file dirname C:\\foo] \
+      [file dirname C:\\foo\\bar] [file dirname foo] [file dirname foo/bar] \
+      [file dirname foo\\bar]
+} -constraints {windows dotNet20 monoBug612} -result \
+{. . . C: C: C:/ C:/foo . foo foo}}
+
+###############################################################################
+
+#
+# HACK: *MONO* This test does not work on Mono due to bug #478489, which is
+#       still present as of version 6.0.
+#
 # HACK: Due to a change (bug?) in the .NET Framework 4.6.2 (and higher?),
 #       this test is disabled for those cases.
 #
@@ -508,7 +522,7 @@ runTest {test fileIO-2.1.1 {file dirname} -body {
       [file dirname C:/] [file dirname C:\\] [file dirname C:\\foo] \
       [file dirname C:\\foo\\bar] [file dirname foo] [file dirname foo/bar] \
       [file dirname foo\\bar]
-} -constraints {windows monoBug612} -constraintExpression \
+} -constraints {windows dotNet40 monoBug612} -constraintExpression \
 {![haveConstraint targetFramework.NETFramework.Version.v4.6.2] && \
 ![haveConstraint targetFramework.NETFramework.Version.v4.7] && \
 ![haveConstraint targetFramework.NETFramework.Version.v4.7.1] && \

@@ -21,6 +21,12 @@ using Eagle._Attributes;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents an exception raised by the Eagle script engine
+    /// itself while preparing to evaluate, or while evaluating, a script.  It
+    /// specializes <see cref="ScriptException" /> for errors that originate
+    /// within the engine rather than within the script being evaluated.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -28,6 +34,10 @@ namespace Eagle._Components.Public
     public class ScriptEngineException : ScriptException
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class with a default error return
+        /// code and no associated message.
+        /// </summary>
         public ScriptEngineException()
             : base()
         {
@@ -36,6 +46,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified error
+        /// message and a default error return code.
+        /// </summary>
+        /// <param name="message">
+        /// The error message that describes this exception.  This parameter
+        /// may be null.
+        /// </param>
         public ScriptEngineException(
             string message
             )
@@ -46,6 +64,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified error
+        /// message, inner exception, and a default error return code.
+        /// </summary>
+        /// <param name="message">
+        /// The error message that describes this exception.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="innerException">
+        /// The exception that is the underlying cause of this exception.  This
+        /// parameter may be null.
+        /// </param>
         public ScriptEngineException(
             string message,
             Exception innerException
@@ -57,6 +87,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified return code
+        /// and result.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with this exception.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with this exception, used as its error
+        /// message.  This parameter may be null.
+        /// </param>
         public ScriptEngineException(
             ReturnCode code,
             Result result
@@ -68,6 +109,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified return code,
+        /// result, and inner exception.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with this exception.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with this exception, used as its error
+        /// message.  This parameter may be null.
+        /// </param>
+        /// <param name="innerException">
+        /// The exception that is the underlying cause of this exception.  This
+        /// parameter may be null.
+        /// </param>
         public ScriptEngineException(
             ReturnCode code,
             Result result,
@@ -82,6 +138,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method provides a convenient location for setting a debugger
+        /// breakpoint.  It does nothing and is only present in debug builds.
+        /// </summary>
         [Conditional("DEBUG")]
         private void Breakpoint()
         {
@@ -96,6 +156,18 @@ namespace Eagle._Components.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class with serialized data.  This
+        /// constructor is used during deserialization to reconstitute the
+        /// exception object transmitted over a stream.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized object data.
+        /// </param>
+        /// <param name="context">
+        /// The contextual information about the source or destination of the
+        /// serialized data.
+        /// </param>
         protected ScriptEngineException(
             SerializationInfo info,
             StreamingContext context
@@ -111,6 +183,17 @@ namespace Eagle._Components.Public
 
         #region System.Runtime.Serialization.ISerializable Members
 #if SERIALIZATION
+        /// <summary>
+        /// This method populates the specified serialization information with
+        /// the data needed to serialize this exception.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized object data.
+        /// </param>
+        /// <param name="context">
+        /// The contextual information about the source or destination of the
+        /// serialized data.
+        /// </param>
         [SecurityPermission(
             SecurityAction.LinkDemand,
             Flags = SecurityPermissionFlag.SerializationFormatter)]

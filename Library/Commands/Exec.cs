@@ -27,11 +27,28 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>exec</c> command, which runs an
+    /// external program as a child process, optionally passing it arguments
+    /// and input and capturing its standard output, standard error, process
+    /// identifier, and exit code.  It supports a large set of options that
+    /// control how the command line is built, how the process is launched
+    /// (including shell execution and alternate credentials), and how its
+    /// results are reported back to the interpreter.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("f622148a-93e0-4fbc-9645-e2ead4e5483b")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Standard)]
     [ObjectGroup("nativeEnvironment")]
     internal sealed class Exec : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>exec</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Exec(
             ICommandData commandData
             )
@@ -41,11 +58,46 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>exec</c> command.  It parses the
+        /// supplied options, builds the external command line, launches the
+        /// requested program as a child process (synchronously or in the
+        /// background), and then captures and reports the process identifier,
+        /// exit code, standard output, and standard error as directed by the
+        /// options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements supply any options, the name
+        /// of the program to execute, and the arguments to pass to it.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the captured standard output of the
+        /// child process (subject to the capture options).  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an option cannot be parsed, the command line cannot be
+        /// built, the process cannot be executed, or the interpreter or
+        /// argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

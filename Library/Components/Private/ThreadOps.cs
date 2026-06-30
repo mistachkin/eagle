@@ -36,6 +36,13 @@ using WaitCallbackTriplet = Eagle._Components.Public.AnyTriplet<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of static helper methods for creating,
+    /// starting, and shutting down threads, for queuing work items to the
+    /// thread pool, and for creating and manipulating event, wait handle, and
+    /// semaphore synchronization primitives.  It also centralizes the default
+    /// timeout values used throughout the library.
+    /// </summary>
     [ObjectId("b81d425a-8049-4404-92c7-d106402b6bba")]
     internal static class ThreadOps
     {
@@ -43,6 +50,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// Non-zero if the current runtime is Mono.  This value is cached when
+        /// this class is first used.
+        /// </summary>
         private static bool isMono = CommonOps.Runtime.IsMono();
         #endregion
 
@@ -54,21 +65,49 @@ namespace Eagle._Components.Private
         //       Thread objects have ever been created by this class and
         //       how many work items have been queued by this class.
         //
+        /// <summary>
+        /// The total number of threads that have ever been created by this
+        /// class.
+        /// </summary>
         private static long createCount;
+        /// <summary>
+        /// The number of threads created by this class that are currently
+        /// active.
+        /// </summary>
         private static long createActiveCount;
 
+        /// <summary>
+        /// The total number of work items that have ever been queued to the
+        /// thread pool by this class.
+        /// </summary>
         private static long queueCount;
+        /// <summary>
+        /// The number of work items queued by this class that are currently
+        /// active.
+        /// </summary>
         private static long queueActiveCount;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The total number of events that have ever been created by this
+        /// class.
+        /// </summary>
         private static long eventCount;
+        /// <summary>
+        /// The number of events created by this class that are currently
+        /// active.
+        /// </summary>
         private static long eventActiveCount;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private NamedEventWaitHandle Data
+        /// <summary>
+        /// The object used to synchronize access to the collection of named
+        /// events and the associated counters.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -76,6 +115,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, named events are used in place of the standard system
+        /// event wait handles.  This defaults to non-zero on non-Windows
+        /// operating systems.
+        /// </summary>
         private static int useNamedEvents =
             !PlatformOps.IsWindowsOperatingSystem() ? 1 : 0;
 
@@ -84,24 +128,50 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The collection of named events that have been created by this class,
+        /// keyed by name.
+        /// </summary>
         private static NamedEventWaitHandleDictionary namedEvents;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private NamedEventWaitHandle Class
+        /// <summary>
+        /// This class represents an event wait handle that is tracked by name
+        /// and reference counted by this class.  It is used to emulate named
+        /// system events on platforms where they are not natively available.
+        /// </summary>
         [ObjectId("1c85f028-0e75-4a06-85ce-b81ca169b33e")]
         internal sealed class NamedEventWaitHandle :
                 EventWaitHandle, IIdentifierName
         {
             #region Private Data
+            /// <summary>
+            /// The number of outstanding references to this named event.
+            /// </summary>
             private int referenceCount;
+            /// <summary>
+            /// The number of pending close operations for this named event.
+            /// </summary>
             private int closeCount;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs a new instance of this class with an automatically
+            /// generated name.
+            /// </summary>
+            /// <param name="initialState">
+            /// Non-zero if the event should be set initially; otherwise, the
+            /// event is initially reset.
+            /// </param>
+            /// <param name="mode">
+            /// The reset behavior (automatic or manual) for this event.
+            /// </param>
             public NamedEventWaitHandle(
                 bool initialState,  /* in */
                 EventResetMode mode /* in */
@@ -114,6 +184,20 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Constructs a new instance of this class with the specified name.
+            /// </summary>
+            /// <param name="initialState">
+            /// Non-zero if the event should be set initially; otherwise, the
+            /// event is initially reset.
+            /// </param>
+            /// <param name="mode">
+            /// The reset behavior (automatic or manual) for this event.
+            /// </param>
+            /// <param name="name">
+            /// The name of the event, or null to use an automatically generated
+            /// name.
+            /// </param>
             public NamedEventWaitHandle(
                 bool initialState,   /* in */
                 EventResetMode mode, /* in */
@@ -127,6 +211,25 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Constructs a new instance of this class with the specified name,
+            /// indicating whether the event was newly created.
+            /// </summary>
+            /// <param name="initialState">
+            /// Non-zero if the event should be set initially; otherwise, the
+            /// event is initially reset.
+            /// </param>
+            /// <param name="mode">
+            /// The reset behavior (automatic or manual) for this event.
+            /// </param>
+            /// <param name="name">
+            /// The name of the event, or null to use an automatically generated
+            /// name.
+            /// </param>
+            /// <param name="createdNew">
+            /// Upon return, this is non-zero if the event was created by this
+            /// call; otherwise, an existing event was opened.
+            /// </param>
             public NamedEventWaitHandle(
                 bool initialState,   /* in */
                 EventResetMode mode, /* in */
@@ -142,6 +245,29 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+            /// <summary>
+            /// Constructs a new instance of this class with the specified name
+            /// and access control security, indicating whether the event was
+            /// newly created.
+            /// </summary>
+            /// <param name="initialState">
+            /// Non-zero if the event should be set initially; otherwise, the
+            /// event is initially reset.
+            /// </param>
+            /// <param name="mode">
+            /// The reset behavior (automatic or manual) for this event.
+            /// </param>
+            /// <param name="name">
+            /// The name of the event, or null to use an automatically generated
+            /// name.
+            /// </param>
+            /// <param name="createdNew">
+            /// Upon return, this is non-zero if the event was created by this
+            /// call; otherwise, an existing event was opened.
+            /// </param>
+            /// <param name="eventSecurity">
+            /// The access control security to apply to the event.
+            /// </param>
             public NamedEventWaitHandle(
                 bool initialState,                    /* in */
                 EventResetMode mode,                  /* in */
@@ -160,7 +286,15 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region IIdentifierName Members
+            /// <summary>
+            /// The name associated with this named event.
+            /// </summary>
             private string name;
+            /// <summary>
+            /// Gets the name associated with this named event; Setting this
+            /// property is not supported and always throws
+            /// <see cref="System.NotSupportedException" />.
+            /// </summary>
             public string Name
             {
                 get { CheckDisposed(); return name; }
@@ -171,6 +305,14 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method determines whether this named event currently has
+            /// more than one outstanding reference.
+            /// </summary>
+            /// <returns>
+            /// True if this named event has more than one outstanding reference;
+            /// otherwise, false.
+            /// </returns>
             public bool HasMoreThanOneReference()
             {
                 CheckDisposed();
@@ -181,6 +323,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method increments the outstanding reference count for this
+            /// named event.
+            /// </summary>
+            /// <returns>
+            /// The new reference count after the increment.
+            /// </returns>
             public int AddReference()
             {
                 CheckDisposed();
@@ -190,6 +339,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method decrements the outstanding reference count for this
+            /// named event.
+            /// </summary>
+            /// <returns>
+            /// The new reference count after the decrement.
+            /// </returns>
             public int RemoveReference()
             {
                 CheckDisposed();
@@ -201,6 +357,10 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method verifies that this named event has a non-null name,
+            /// throwing an exception if it does not.
+            /// </summary>
             private void CheckName()
             {
                 if (name == null)
@@ -212,6 +372,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method initializes the name of this named event, generating
+            /// an automatic name when no name is supplied.
+            /// </summary>
+            /// <param name="name">
+            /// The name of the event, or null to use an automatically generated
+            /// name.
+            /// </param>
             private void SetupName(
                 string name /* in */
                 )
@@ -223,6 +391,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method determines whether a close operation is currently
+            /// pending for this named event.
+            /// </summary>
+            /// <returns>
+            /// True if a close operation is pending; otherwise, false.
+            /// </returns>
             private bool IsClosePending()
             {
                 return Interlocked.CompareExchange(ref closeCount, 0, 0) > 0;
@@ -230,6 +405,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method marks that a close operation is pending for this
+            /// named event.
+            /// </summary>
             private void SetClosePending()
             {
                 /* IGNORED */
@@ -238,6 +417,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method clears the indication that a close operation is
+            /// pending for this named event.
+            /// </summary>
             private void UnsetClosePending()
             {
                 /* IGNORED */
@@ -248,6 +431,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region System.Object Overrides
+            /// <summary>
+            /// This method produces a string representation of this named event.
+            /// </summary>
+            /// <returns>
+            /// A string that combines the base wait handle representation with
+            /// the name of this named event.
+            /// </returns>
             public override string ToString()
             {
                 CheckDisposed();
@@ -260,6 +450,10 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region System.Threading.WaitHandle Overrides
+            /// <summary>
+            /// This method releases one reference to this named event, closing
+            /// the underlying wait handle when the final reference is removed.
+            /// </summary>
             public override void Close()
             {
                 CheckDisposed();
@@ -283,7 +477,14 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region IDisposable "Pattern" Members
+            /// <summary>
+            /// Non-zero if this named event has been disposed.
+            /// </summary>
             private bool disposed;
+            /// <summary>
+            /// This method throws an exception if this named event has already
+            /// been disposed.
+            /// </summary>
             private void CheckDisposed() /* throw */
             {
 #if THROW_ON_DISPOSED
@@ -297,6 +498,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method releases the resources used by this named event.
+            /// </summary>
+            /// <param name="disposing">
+            /// Non-zero if this method is being called from the
+            /// <see cref="System.IDisposable.Dispose" /> method; zero if it is
+            /// being called from the finalizer.
+            /// </param>
             protected override void Dispose(
                 bool disposing /* in */
                 )
@@ -339,6 +548,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds diagnostic information about the threads and named
+        /// events managed by this class to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the diagnostic information is added.  If this is
+        /// null, no information is added.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control how much detail is included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -408,6 +628,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private NamedEventWaitHandle Methods (.NET Standard)
+        /// <summary>
+        /// This method determines whether named events should be used in place
+        /// of the standard system event wait handles.
+        /// </summary>
+        /// <returns>
+        /// True if named events should be used; otherwise, false.
+        /// </returns>
         private static bool ShouldUseNamedEvents()
         {
             if (Interlocked.CompareExchange(
@@ -427,6 +654,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables the use of named events.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable the use of named events; zero to disable it.
+        /// </param>
         private static void EnableOrDisableNamedEvents(
             bool enable /* in */
             )
@@ -438,6 +671,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures that the collection used to track named events
+        /// has been created.
+        /// </summary>
         private static void InitializeNamedEvents()
         {
             //
@@ -453,6 +690,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to look up an existing named event by name,
+        /// adding a reference to it when found.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event to look up.
+        /// </param>
+        /// <param name="event">
+        /// Upon success, this contains the named event that was found; upon
+        /// failure, this is null.
+        /// </param>
+        /// <returns>
+        /// True if a named event with the specified name was found; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetNamedEventForOpen(
             string name,                    /* in */
             out NamedEventWaitHandle @event /* out */
@@ -492,6 +744,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a newly created named event to the collection used
+        /// to track named events.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event being added.
+        /// </param>
+        /// <param name="event">
+        /// The named event being added.
+        /// </param>
         private static void AddNamedEventForCreate(
             string name,                /* in */
             NamedEventWaitHandle @event /* in */
@@ -510,6 +772,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes one reference to the specified named event,
+        /// removing it from the collection and closing it when the final
+        /// reference is released.
+        /// </summary>
+        /// <param name="event">
+        /// The named event to remove and close.  Upon return, this is set to
+        /// null when the event has been removed from the collection.
+        /// </param>
+        /// <returns>
+        /// True if the named event was removed from the collection; otherwise,
+        /// false.
+        /// </returns>
         private static bool MaybeRemoveAndCloseNamedEvent(
             ref NamedEventWaitHandle @event /* in, out */
             )
@@ -555,6 +830,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default number of times to retry acquiring a lock.  This does
+        /// not include the initial attempt.
+        /// </summary>
         private static int defaultLockRetries = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -566,6 +845,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default number of times to retry an operation when a more
+        /// specific value is not available.  This does not include the initial
+        /// attempt.
+        /// </summary>
         private static int defaultRetries = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -576,6 +860,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default multiplier to apply to all timeouts and wait times, or
+        /// null to compute the multiplier based on the current context.
+        /// </summary>
         private static int? defaultMultiplier = null;
 
         ///////////////////////////////////////////////////////////////////////
@@ -587,9 +875,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The multiplier used for "wait" locks to be acquired, when running on
+        /// Mono.
+        /// </summary>
         private static int defaultMonoWaitLockMultiplier = 3;
 #endif
 
+        /// <summary>
+        /// The multiplier used for "wait" locks to be acquired, when running on
+        /// the .NET Framework.
+        /// </summary>
         private static int defaultDotNetWaitLockMultiplier = 2;
 
         ///////////////////////////////////////////////////////////////////////
@@ -601,6 +897,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The multiplier used for timeouts when the waiting is being done from
+        /// a thread that is not the primary thread for the target interpreter.
+        /// </summary>
         private static int defaultBackgroundMultiplier = 5;
 
         ///////////////////////////////////////////////////////////////////////
@@ -612,9 +912,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The multiplier used for "hard" locks to be acquired, when running on
+        /// Mono.
+        /// </summary>
         private static int defaultMonoHardLockMultiplier = 5;
 #endif
 
+        /// <summary>
+        /// The multiplier used for "hard" locks to be acquired, when running on
+        /// the .NET Framework.
+        /// </summary>
         private static int defaultDotNetHardLockMultiplier = 4;
 
         ///////////////////////////////////////////////////////////////////////
@@ -626,9 +934,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The multiplier used for engine locks to be acquired, when running on
+        /// Mono.
+        /// </summary>
         private static int defaultMonoEngineLockMultiplier = 1;
 #endif
 
+        /// <summary>
+        /// The multiplier used for engine locks to be acquired, when running on
+        /// the .NET Framework.
+        /// </summary>
         private static int defaultDotNetEngineLockMultiplier = 1;
 
         ///////////////////////////////////////////////////////////////////////
@@ -640,9 +956,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait until a lock can be acquired,
+        /// when running on Mono.
+        /// </summary>
         private static int defaultMonoLockTimeout = 2000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait until a lock can be acquired,
+        /// when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetLockTimeout = 1000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -656,9 +980,19 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait before a readiness operation will
+        /// fail due to being unable to acquire the interpreter lock, when
+        /// running on Mono.
+        /// </summary>
         private static int defaultMonoReadyTimeout = 4000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait before a readiness operation will
+        /// fail due to being unable to acquire the interpreter lock, when
+        /// running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetReadyTimeout = 2000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -671,9 +1005,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds for the engine to wait until a lock can
+        /// be acquired, when running on Mono.
+        /// </summary>
         private static int defaultMonoEngineLockTimeout = 120000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds for the engine to wait until a lock can
+        /// be acquired, when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetEngineLockTimeout = 60000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -685,9 +1027,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds that an event has to be signaled, when
+        /// running on Mono.
+        /// </summary>
         private static int defaultMonoEventTimeout = 20000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds that an event has to be signaled, when
+        /// running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetEventTimeout = 10000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -701,9 +1051,17 @@ namespace Eagle._Components.Private
         //
 #if THREADING
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds that the health thread should wait
+        /// between running checks, when running on Mono.
+        /// </summary>
         private static int defaultMonoHealthTimeout = 60000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds that the health thread should wait
+        /// between running checks, when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetHealthTimeout = 60000;
 #endif
 
@@ -716,9 +1074,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds that a script has to complete, when
+        /// running on Mono.
+        /// </summary>
         private static int defaultMonoScriptTimeout = 10000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds that a script has to complete, when
+        /// running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetScriptTimeout = 5000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -731,9 +1097,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The minimum number of milliseconds to wait after starting a thread,
+        /// when running on Mono.
+        /// </summary>
         private static int defaultMonoStartTimeout = 6000;
 #endif
 
+        /// <summary>
+        /// The minimum number of milliseconds to wait after starting a thread,
+        /// when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetStartTimeout = 3000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -746,9 +1120,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The minimum number of milliseconds to wait after interrupting a
+        /// thread, when running on Mono.
+        /// </summary>
         private static int defaultMonoInterruptTimeout = 1000;
 #endif
 
+        /// <summary>
+        /// The minimum number of milliseconds to wait after interrupting a
+        /// thread, when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetInterruptTimeout = 500;
 
         ///////////////////////////////////////////////////////////////////////
@@ -761,9 +1143,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when joining a thread after
+        /// interrupting or aborting it, when running on Mono.
+        /// </summary>
         private static int defaultMonoJoinTimeout = 6000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when joining a thread after
+        /// interrupting or aborting it, when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetJoinTimeout = 3000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -776,10 +1166,20 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when waiting for a process to
+        /// exit before processing events and trying again, when running on
+        /// Mono.
+        /// </summary>
         private static int defaultMonoExitTimeout =
             2 * EventManager.MinimumSleepTime;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when waiting for a process to
+        /// exit before processing events and trying again, when running on the
+        /// .NET Framework.
+        /// </summary>
         private static int defaultDotNetExitTimeout =
             EventManager.MinimumSleepTime;
 
@@ -793,9 +1193,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when contacting a network, when
+        /// running on Mono.
+        /// </summary>
         private static int defaultMonoNetworkTimeout = 40000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when contacting a network, when
+        /// running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetNetworkTimeout = 20000;
 #endif
 
@@ -809,9 +1217,18 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when evaluating finally blocks
+        /// for [try] in an "unsafe" interpreter, when running on Mono.
+        /// </summary>
         private static int defaultMonoUnsafeFinallyTimeout = _Timeout.Infinite;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when evaluating finally blocks
+        /// for [try] in an "unsafe" interpreter, when running on the .NET
+        /// Framework.
+        /// </summary>
         private static int defaultDotNetUnsafeFinallyTimeout = _Timeout.Infinite;
 
         ///////////////////////////////////////////////////////////////////////
@@ -824,9 +1241,18 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when evaluating finally blocks
+        /// for [try] in a "safe" interpreter, when running on Mono.
+        /// </summary>
         private static int defaultMonoSafeFinallyTimeout = 20000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when evaluating finally blocks
+        /// for [try] in a "safe" interpreter, when running on the .NET
+        /// Framework.
+        /// </summary>
         private static int defaultDotNetSafeFinallyTimeout = 10000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -839,9 +1265,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The number of milliseconds to wait when disposing a thread after
+        /// interrupting or aborting it, when running on Mono.
+        /// </summary>
         private static int defaultMonoDisposeTimeout = 3000;
 #endif
 
+        /// <summary>
+        /// The number of milliseconds to wait when disposing a thread after
+        /// interrupting or aborting it, when running on the .NET Framework.
+        /// </summary>
         private static int defaultDotNetDisposeTimeout = 1500;
 
         ///////////////////////////////////////////////////////////////////////
@@ -854,9 +1288,17 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The default number of milliseconds to wait when a more specific
+        /// value is not available, when running on Mono.
+        /// </summary>
         private static int defaultMonoFallbackTimeout = 0;
 #endif
 
+        /// <summary>
+        /// The default number of milliseconds to wait when a more specific
+        /// value is not available, when running on the .NET Framework.
+        /// </summary>
         private static int defaultFallbackTimeout = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -869,9 +1311,19 @@ namespace Eagle._Components.Private
         // HACK: These are purposely not read-only.
         //
 #if MONO || MONO_HACKS
+        /// <summary>
+        /// The default number of milliseconds to wait when the specific timeout
+        /// type is unknown or unsupported within the current context, when
+        /// running on Mono.
+        /// </summary>
         private static int defaultMonoUnknownTimeout = 0;
 #endif
 
+        /// <summary>
+        /// The default number of milliseconds to wait when the specific timeout
+        /// type is unknown or unsupported within the current context, when
+        /// running on the .NET Framework.
+        /// </summary>
         private static int defaultUnknownTimeout = 0;
         #endregion
 
@@ -884,12 +1336,23 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The number of milliseconds to wait when joining a thread after
+        /// interrupting or aborting it.
+        /// </summary>
         public static int DefaultJoinTimeout = GetDefaultJoinTimeout();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Timeout Helper Methods
+        /// <summary>
+        /// This method gets the multiplier used for "wait" locks to be
+        /// acquired, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The multiplier used for "wait" locks.
+        /// </returns>
         private static int GetDefaultWaitLockMultiplier()
         {
 #if MONO || MONO_HACKS
@@ -902,6 +1365,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the multiplier used for "hard" locks to be
+        /// acquired, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The multiplier used for "hard" locks.
+        /// </returns>
         private static int GetDefaultHardLockMultiplier()
         {
 #if MONO || MONO_HACKS
@@ -914,6 +1384,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the multiplier used for engine locks to be
+        /// acquired, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The multiplier used for engine locks.
+        /// </returns>
         private static int GetDefaultEngineLockMultiplier()
         {
 #if MONO || MONO_HACKS
@@ -926,6 +1403,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the multiplier used for timeouts when the waiting
+        /// is being done from a thread that is not the primary thread for the
+        /// target interpreter.
+        /// </summary>
+        /// <returns>
+        /// The multiplier used for background threads.
+        /// </returns>
         private static int GetDefaultBackgroundMultiplier()
         {
             return defaultBackgroundMultiplier;
@@ -933,6 +1418,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait until a lock can
+        /// be acquired, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The lock timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultLockTimeout()
         {
 #if MONO || MONO_HACKS
@@ -945,6 +1437,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait before a
+        /// readiness operation will fail due to being unable to acquire the
+        /// interpreter lock, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The readiness timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultReadyTimeout()
         {
 #if MONO || MONO_HACKS
@@ -957,6 +1457,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds for the engine to wait
+        /// until a lock can be acquired, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The engine lock timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultEngineTimeout()
         {
 #if MONO || MONO_HACKS
@@ -969,6 +1476,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds that an event has to be
+        /// signaled, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The event timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultEventTimeout()
         {
 #if MONO || MONO_HACKS
@@ -982,6 +1496,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if THREADING
+        /// <summary>
+        /// This method gets the number of milliseconds that the health thread
+        /// should wait between running checks, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The health timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultHealthTimeout()
         {
 #if MONO || MONO_HACKS
@@ -995,6 +1516,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds that a script has to
+        /// complete, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The script timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultScriptTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1007,6 +1535,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the minimum number of milliseconds to wait after
+        /// starting a thread, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The start timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultStartTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1019,6 +1554,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the minimum number of milliseconds to wait after
+        /// interrupting a thread, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The interrupt timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultInterruptTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1031,6 +1573,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when joining a
+        /// thread after interrupting or aborting it, based on the current
+        /// runtime.
+        /// </summary>
+        /// <returns>
+        /// The join timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultJoinTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1043,6 +1593,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when waiting for
+        /// a process to exit before processing events and trying again, based on
+        /// the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The exit timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultExitTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1056,6 +1614,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NETWORK
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when contacting
+        /// a network, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The network timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultNetworkTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1069,6 +1634,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when evaluating
+        /// finally blocks for [try] in an "unsafe" interpreter, based on the
+        /// current runtime.
+        /// </summary>
+        /// <returns>
+        /// The "unsafe" finally timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultUnsafeFinallyTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1081,6 +1654,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when evaluating
+        /// finally blocks for [try] in a "safe" interpreter, based on the
+        /// current runtime.
+        /// </summary>
+        /// <returns>
+        /// The "safe" finally timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultSafeFinallyTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1093,6 +1674,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to wait when disposing a
+        /// thread after interrupting or aborting it, based on the current
+        /// runtime.
+        /// </summary>
+        /// <returns>
+        /// The dispose timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultDisposeTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1105,6 +1694,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default number of milliseconds to wait when a
+        /// more specific value is not available, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The fallback timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultFallbackTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1117,6 +1713,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default number of milliseconds to wait when the
+        /// specific timeout type is unknown or unsupported within the current
+        /// context, based on the current runtime.
+        /// </summary>
+        /// <returns>
+        /// The unknown timeout, in milliseconds.
+        /// </returns>
         private static int GetDefaultUnknownTimeout()
         {
 #if MONO || MONO_HACKS
@@ -1129,6 +1733,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the effective timeout to use, given an
+        /// optional specific timeout value, falling back to the default timeout
+        /// for the specified operation when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The specific timeout value, or null to use the default timeout.  A
+        /// negative value is replaced with the default unless infinite timeouts
+        /// are allowed for the specified timeout type.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of operation the timeout applies to.
+        /// </param>
+        /// <returns>
+        /// The effective timeout, in milliseconds.
+        /// </returns>
         private static int GetEffectiveTimeout(
             Interpreter interpreter, /* in: OPTIONAL */
             int? timeout,            /* in */
@@ -1172,6 +1795,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Timeout Helper Methods
+        /// <summary>
+        /// This method extracts the base timeout type, with all flag bits
+        /// removed.
+        /// </summary>
+        /// <param name="timeoutType">
+        /// The timeout type, possibly including flag bits.
+        /// </param>
+        /// <returns>
+        /// The base timeout type, without any flag bits.
+        /// </returns>
         public static TimeoutType BaseTimeoutType(
             TimeoutType timeoutType
             )
@@ -1181,6 +1814,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default number of times to retry an operation
+        /// of the specified timeout type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of operation the retries apply to.
+        /// </param>
+        /// <returns>
+        /// The default number of retries for the specified operation.
+        /// </returns>
         public static int GetDefaultRetries(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType  /* in */
@@ -1213,6 +1859,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default timeout, in milliseconds, for the
+        /// specified operation, applying any applicable multipliers.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of operation the timeout applies to.
+        /// </param>
+        /// <returns>
+        /// The default timeout, in milliseconds.
+        /// </returns>
         public static int GetDefaultTimeout(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType  /* in */
@@ -1382,6 +2041,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified timeout type, substituting the
+        /// configured default for any hard-coded timeout types that require it.
+        /// </summary>
+        /// <param name="timeoutType">
+        /// The timeout type to translate.
+        /// </param>
+        /// <returns>
+        /// The translated timeout type.
+        /// </returns>
         private static TimeoutType TranslateTimeoutType(
             TimeoutType timeoutType  /* in */
             )
@@ -1405,6 +2074,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified timeout type, deferring to the
+        /// interpreter for translation when one is available, and otherwise
+        /// applying the hard-coded translation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to translate the timeout type, which may
+        /// be null.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The timeout type to translate.
+        /// </param>
+        /// <returns>
+        /// The translated timeout type.
+        /// </returns>
         private static TimeoutType TranslateTimeoutType(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType  /* in */
@@ -1453,6 +2137,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the timeout to use for the specified operation,
+        /// preferring the specific timeout, then the timeout configured for the
+        /// interpreter, and finally the default timeout for the operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The specific timeout value, or null to use the interpreter or default
+        /// timeout.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of operation the timeout applies to.
+        /// </param>
+        /// <returns>
+        /// The timeout, in milliseconds.
+        /// </returns>
         public static int GetTimeout(
             Interpreter interpreter, /* in: OPTIONAL */
             int? timeout,            /* in */
@@ -1552,6 +2254,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Thread Helper Methods
+        /// <summary>
+        /// This method determines whether the specified thread is currently
+        /// alive.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread to check, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if the thread is non-null and alive; otherwise, false.
+        /// </returns>
         public static bool IsAlive(
             Thread thread
             )
@@ -1567,6 +2279,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified thread is the current
+        /// thread.
+        /// </summary>
+        /// <param name="thread">
+        /// The thread to check, which may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified thread is the current thread; otherwise, false.
+        /// </returns>
         public static bool IsCurrent(
             Thread thread
             )
@@ -1584,6 +2306,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current thread is a thread pool
+        /// thread.
+        /// </summary>
+        /// <returns>
+        /// True if the current thread is a thread pool thread; otherwise, false.
+        /// </returns>
         public static bool IsCurrentPool()
         {
             Thread currentThread = Thread.CurrentThread;
@@ -1596,6 +2325,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current thread is in the
+        /// single-threaded apartment (STA) state.
+        /// </summary>
+        /// <returns>
+        /// True if the current thread is an STA thread; otherwise, false.
+        /// </returns>
         public static bool IsStaThread()
         {
             Thread currentThread = Thread.CurrentThread;
@@ -1608,6 +2344,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and/or starts a thread to run the specified
+        /// start delegate, optionally queuing a work item to the thread pool
+        /// instead of creating a dedicated thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name to assign to the thread, or null to derive a name from the
+        /// start delegate.
+        /// </param>
+        /// <param name="start">
+        /// The delegate that the thread or work item will execute.
+        /// </param>
+        /// <param name="parameter">
+        /// The parameter to pass to the start delegate, which may be null.
+        /// </param>
+        /// <param name="useThreadPool">
+        /// Non-zero to queue a work item to the thread pool instead of creating
+        /// a dedicated thread.
+        /// </param>
+        /// <param name="maxStackSize">
+        /// The maximum stack size, in bytes, to use for a newly created thread.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if the thread will be used for user-interface purposes.
+        /// </param>
+        /// <param name="isBackground">
+        /// Non-zero if the thread should be created as a background thread.
+        /// </param>
+        /// <param name="useActiveStack">
+        /// Non-zero if the active call stack should be associated with the
+        /// thread.
+        /// </param>
+        /// <param name="thread">
+        /// Upon return, this contains the thread that was created.  This must be
+        /// null on entry when a dedicated thread is being created.
+        /// </param>
         public static void CreateAndOrStart(
             Interpreter interpreter,        /* in, optional */
             string name,                    /* in */
@@ -1695,6 +2470,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to shut down the specified thread, optionally
+        /// waiting for it, interrupting it, and aborting it, according to the
+        /// specified flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, which may be null.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout to use when waiting for the thread to join, or null to
+        /// use the default timeout.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how the thread is shut down.
+        /// </param>
+        /// <param name="thread">
+        /// The thread to shut down.  Upon return, this is set to null unless the
+        /// flags request that it be preserved.
+        /// </param>
         public static void MaybeShutdown(
             Interpreter interpreter, /* in: OPTIONAL */
             int? timeout,            /* in: OPTIONAL */
@@ -1828,6 +2622,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ThreadPool Helper Methods
+        /// <summary>
+        /// This method is the thread pool callback that unwraps the state for a
+        /// queued <see cref="System.Threading.ThreadStart" /> delegate, signals
+        /// the associated start event, and invokes the delegate.
+        /// </summary>
+        /// <param name="state">
+        /// The state object, which is expected to be a triplet containing the
+        /// start delegate and an optional start event.
+        /// </param>
         private static void ThreadStartWrapper(
             object state /* in */
             ) /* System.Threading.WaitCallback */
@@ -1876,6 +2679,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the thread pool callback that unwraps the state for a
+        /// queued <see cref="System.Threading.WaitCallback" /> delegate, signals
+        /// the associated start event, and invokes the delegate with its state.
+        /// </summary>
+        /// <param name="state">
+        /// The state object, which is expected to be a triplet containing the
+        /// callback delegate, its state, and an optional start event.
+        /// </param>
         private static void WaitCallbackWrapper(
             object state /* in */
             ) /* System.Threading.WaitCallback */
@@ -1926,6 +2738,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified start event to be signaled,
+        /// tracing the outcome and the elapsed time.
+        /// </summary>
+        /// <param name="event">
+        /// The start event to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <param name="started">
+        /// The time at which the queued work item was started, used to compute
+        /// the elapsed time for tracing.
+        /// </param>
         private static void WaitForStart(
             EventWaitHandle @event, /* in */
             int timeout,            /* in */
@@ -1956,6 +2782,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the queue flags corresponding to the specified
+        /// options.
+        /// </summary>
+        /// <param name="waitForStart">
+        /// Non-zero if the caller wants to wait for the queued work item to
+        /// start.
+        /// </param>
+        /// <returns>
+        /// The queue flags corresponding to the specified options.
+        /// </returns>
         public static QueueFlags GetQueueFlags(
             bool waitForStart /* in */
             )
@@ -1970,6 +2807,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified start delegate to the thread pool,
+        /// optionally waiting for the work item to start.
+        /// </summary>
+        /// <param name="callBack">
+        /// The start delegate to queue to the thread pool.
+        /// </param>
+        /// <param name="waitForStart">
+        /// Non-zero to wait for the queued work item to start before returning.
+        /// </param>
+        /// <returns>
+        /// True if the work item was successfully queued; otherwise, false.
+        /// </returns>
         public static bool QueueUserWorkItem(
             ThreadStart callBack, /* in */
             bool waitForStart     /* in */
@@ -2001,6 +2851,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified callback delegate to the thread
+        /// pool, optionally waiting for the work item to start.
+        /// </summary>
+        /// <param name="callBack">
+        /// The callback delegate to queue to the thread pool.
+        /// </param>
+        /// <param name="waitForStart">
+        /// Non-zero to wait for the queued work item to start before returning.
+        /// </param>
+        /// <returns>
+        /// True if the work item was successfully queued; otherwise, false.
+        /// </returns>
         public static bool QueueUserWorkItem(
             WaitCallback callBack, /* in */
             bool waitForStart      /* in */
@@ -2032,6 +2895,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues the specified callback delegate and state to the
+        /// thread pool, optionally waiting for the work item to start.
+        /// </summary>
+        /// <param name="callBack">
+        /// The callback delegate to queue to the thread pool.
+        /// </param>
+        /// <param name="state">
+        /// The state object to pass to the callback delegate.
+        /// </param>
+        /// <param name="waitForStart">
+        /// Non-zero to wait for the queued work item to start before returning.
+        /// </param>
+        /// <returns>
+        /// True if the work item was successfully queued; otherwise, false.
+        /// </returns>
         public static bool QueueUserWorkItem(
             WaitCallback callBack, /* in */
             object state,          /* in */
@@ -2066,6 +2945,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region WaitHandle Helper Methods
+        /// <summary>
+        /// This method gets the native operating system handle for the specified
+        /// wait handle.
+        /// </summary>
+        /// <param name="waitHandle">
+        /// The wait handle whose native handle is to be returned, which may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The native handle for the wait handle, or
+        /// <see cref="System.IntPtr.Zero" /> if it could not be obtained.
+        /// </returns>
         public static IntPtr GetHandle(
             WaitHandle waitHandle /* in */
             )
@@ -2089,6 +2980,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region EventWaitHandle Helper Methods
+        /// <summary>
+        /// This method maps a flag indicating automatic reset behavior to the
+        /// corresponding event reset mode.
+        /// </summary>
+        /// <param name="automatic">
+        /// Non-zero for an automatically resetting event; zero for a manually
+        /// resetting event.
+        /// </param>
+        /// <returns>
+        /// The event reset mode corresponding to the specified flag.
+        /// </returns>
         private static EventResetMode GetEventResetMode(
             bool automatic /* in */
             )
@@ -2099,6 +3001,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, unnamed event wait handle.
+        /// </summary>
+        /// <param name="automatic">
+        /// Non-zero for an automatically resetting event; zero for a manually
+        /// resetting event.
+        /// </param>
+        /// <returns>
+        /// The newly created event wait handle.
+        /// </returns>
         public static EventWaitHandle CreateEvent(
             bool automatic /* in */
             )
@@ -2123,6 +3035,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new, manually resetting event wait handle with
+        /// the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event to create.
+        /// </param>
+        /// <returns>
+        /// The newly created event wait handle.
+        /// </returns>
         public static EventWaitHandle CreateEvent(
             string name /* in */
             )
@@ -2132,6 +3054,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new event wait handle with the specified name,
+        /// using a named event when configured to do so.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event to create.
+        /// </param>
+        /// <param name="automatic">
+        /// Non-zero for an automatically resetting event; zero for a manually
+        /// resetting event.
+        /// </param>
+        /// <returns>
+        /// The newly created event wait handle.
+        /// </returns>
         public static EventWaitHandle CreateEvent(
             string name,   /* in */
             bool automatic /* in */
@@ -2169,6 +3105,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new event wait handle with the specified name
+        /// and reset behavior, using a named event when configured to do so, and
+        /// indicating whether the event was newly created.
+        /// </summary>
+        /// <param name="initialState">
+        /// Non-zero if the event should be set initially; otherwise, the event
+        /// is initially reset.
+        /// </param>
+        /// <param name="mode">
+        /// The reset behavior (automatic or manual) for the event.
+        /// </param>
+        /// <param name="name">
+        /// The name of the event to create.
+        /// </param>
+        /// <param name="createdNew">
+        /// Upon return, this is non-zero if the event was created by this call;
+        /// otherwise, an existing event was opened.
+        /// </param>
+        /// <returns>
+        /// The newly created or opened event wait handle.
+        /// </returns>
         public static EventWaitHandle CreateEvent(
             bool initialState,   /* in */
             EventResetMode mode, /* in */
@@ -2209,6 +3167,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method creates a new event wait handle with the specified name,
+        /// reset behavior, and access control security, using a named event when
+        /// configured to do so, and indicating whether the event was newly
+        /// created.
+        /// </summary>
+        /// <param name="initialState">
+        /// Non-zero if the event should be set initially; otherwise, the event
+        /// is initially reset.
+        /// </param>
+        /// <param name="mode">
+        /// The reset behavior (automatic or manual) for the event.
+        /// </param>
+        /// <param name="name">
+        /// The name of the event to create.
+        /// </param>
+        /// <param name="createdNew">
+        /// Upon return, this is non-zero if the event was created by this call;
+        /// otherwise, an existing event was opened.
+        /// </param>
+        /// <param name="eventSecurity">
+        /// The access control security to apply to the event.
+        /// </param>
+        /// <returns>
+        /// The newly created or opened event wait handle.
+        /// </returns>
         public static EventWaitHandle CreateEvent(
             bool initialState,                    /* in */
             EventResetMode mode,                  /* in */
@@ -2252,6 +3236,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens an existing event wait handle with the specified
+        /// name, using a named event when configured to do so.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the event to open.
+        /// </param>
+        /// <returns>
+        /// The opened event wait handle, or null if it could not be opened.
+        /// </returns>
         public static EventWaitHandle OpenEvent(
             string name /* in */
             )
@@ -2302,6 +3296,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the specified event wait handle, releasing a
+        /// reference to a named event when applicable.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to close.  Upon return, this is set to null
+        /// when the event has been closed.
+        /// </param>
         public static void CloseEvent(
             ref EventWaitHandle @event /* in, out */
             )
@@ -2347,6 +3349,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the specified event wait handle to the
+        /// non-signaled state.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to reset.
+        /// </param>
+        /// <returns>
+        /// True if the event was successfully reset; otherwise, false.
+        /// </returns>
         public static bool ResetEvent(
             EventWaitHandle @event /* in */
             )
@@ -2377,6 +3389,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the specified event wait handle to the signaled
+        /// state.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to set.
+        /// </param>
+        /// <returns>
+        /// True if the event was successfully set; otherwise, false.
+        /// </returns>
         public static bool SetEvent(
             EventWaitHandle @event /* in */
             )
@@ -2407,6 +3429,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits indefinitely for the specified event wait handle to
+        /// be signaled.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to wait for.
+        /// </param>
+        /// <returns>
+        /// True if the event was signaled; otherwise, false.
+        /// </returns>
         public static bool WaitEvent(
             EventWaitHandle @event /* in */
             )
@@ -2437,6 +3469,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified event wait handle to be signaled,
+        /// up to the specified timeout.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <returns>
+        /// True if the event was signaled before the timeout elapsed; otherwise,
+        /// false.
+        /// </returns>
         public static bool WaitEvent(
             EventWaitHandle @event, /* in */
             int timeout             /* in */
@@ -2472,6 +3518,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified event wait handle to be signaled,
+        /// up to the specified timeout, re-throwing any exception that occurs
+        /// while waiting.
+        /// </summary>
+        /// <param name="event">
+        /// The event wait handle to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <returns>
+        /// True if the event was signaled before the timeout elapsed; otherwise,
+        /// false.
+        /// </returns>
         public static bool WaitEventOrThrow(
             EventWaitHandle @event, /* in */
             int timeout             /* in */
@@ -2509,6 +3570,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for any one of the specified event wait handles to
+        /// be signaled, up to the specified timeout.
+        /// </summary>
+        /// <param name="events">
+        /// The array of event wait handles to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <returns>
+        /// The index of the event that was signaled, or
+        /// <see cref="System.Threading.WaitHandle.WaitTimeout" /> if the timeout
+        /// elapsed.
+        /// </returns>
         public static int WaitAnyEvent(
             EventWaitHandle[] events, /* in */
             int timeout               /* in */
@@ -2544,6 +3620,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified wait result index
+        /// indicates that the wait failed.
+        /// </summary>
+        /// <param name="index">
+        /// The wait result index to examine.
+        /// </param>
+        /// <returns>
+        /// True if the index indicates that the wait failed; otherwise, false.
+        /// </returns>
         public static bool WasAnyWaitFailed(
             int index /* in */
             )
@@ -2561,6 +3647,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified wait result index
+        /// indicates that the wait timed out.
+        /// </summary>
+        /// <param name="index">
+        /// The wait result index to examine.
+        /// </param>
+        /// <returns>
+        /// True if the index indicates that the wait timed out; otherwise,
+        /// false.
+        /// </returns>
         public static bool WasAnyEventTimeout(
             int index /* in */
             )
@@ -2573,6 +3670,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified wait result index
+        /// indicates that an event was signaled.
+        /// </summary>
+        /// <param name="index">
+        /// The wait result index to examine.
+        /// </param>
+        /// <returns>
+        /// True if the index indicates that an event was signaled; otherwise,
+        /// false.
+        /// </returns>
         public static bool WasAnyEventSignaled(
             int index /* in */
             )
@@ -2604,6 +3712,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method signals one event wait handle and waits for another, up
+        /// to the specified timeout, performing the operation on a worker thread
+        /// when necessary to avoid restrictions on STA threads.
+        /// </summary>
+        /// <param name="signalEvent">
+        /// The event wait handle to signal.
+        /// </param>
+        /// <param name="waitEvent">
+        /// The event wait handle to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <param name="noStaThread">
+        /// Non-zero to perform the operation on the current thread even when it
+        /// is an STA thread.
+        /// </param>
+        /// <returns>
+        /// True if the wait event was signaled before the timeout elapsed;
+        /// otherwise, false.
+        /// </returns>
         public static bool SignalAndWaitEvents(
             EventWaitHandle signalEvent, /* in */
             EventWaitHandle waitEvent,   /* in */
@@ -2671,6 +3801,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Semaphore Helper Methods
+        /// <summary>
+        /// This method creates a new semaphore with the specified initial and
+        /// maximum counts.
+        /// </summary>
+        /// <param name="initialCount">
+        /// The initial number of requests for the semaphore that can be granted
+        /// concurrently.
+        /// </param>
+        /// <param name="maximumCount">
+        /// The maximum number of requests for the semaphore that can be granted
+        /// concurrently.
+        /// </param>
+        /// <returns>
+        /// The newly created semaphore.
+        /// </returns>
         public static Semaphore CreateSemaphore(
             int initialCount, /* in */
             int maximumCount  /* in */
@@ -2692,6 +3837,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the specified semaphore.
+        /// </summary>
+        /// <param name="semaphore">
+        /// The semaphore to close.  Upon return, this is set to null when the
+        /// semaphore has been closed.
+        /// </param>
         public static void CloseSemaphore(
             ref Semaphore semaphore /* in, out */
             )
@@ -2721,6 +3873,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the specified semaphore once.
+        /// </summary>
+        /// <param name="semaphore">
+        /// The semaphore to release.
+        /// </param>
+        /// <returns>
+        /// The previous count of the semaphore, or
+        /// <see cref="Count.Invalid" /> if the semaphore could not be released.
+        /// </returns>
         public static int ReleaseSemaphore(
             Semaphore semaphore /* in */
             )
@@ -2751,6 +3913,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits indefinitely for the specified semaphore to be
+        /// available.
+        /// </summary>
+        /// <param name="semaphore">
+        /// The semaphore to wait for.
+        /// </param>
+        /// <returns>
+        /// True if the semaphore was entered; otherwise, false.
+        /// </returns>
         public static bool WaitSemaphore(
             Semaphore semaphore /* in */
             )
@@ -2781,6 +3953,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method waits for the specified semaphore to be available, up to
+        /// the specified timeout.
+        /// </summary>
+        /// <param name="semaphore">
+        /// The semaphore to wait for.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait.
+        /// </param>
+        /// <returns>
+        /// True if the semaphore was entered before the timeout elapsed;
+        /// otherwise, false.
+        /// </returns>
         public static bool WaitSemaphore(
             Semaphore semaphore, /* in */
             int timeout          /* in */

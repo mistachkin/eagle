@@ -17,6 +17,13 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class accumulates result fragments and flattens them into a single
+    /// command result, optionally enforcing a maximum capacity.  When the
+    /// accumulated result consists of a single value, that value may be
+    /// returned directly (preserving its type) rather than being converted to a
+    /// string.
+    /// </summary>
     [ObjectId("cc10a3eb-0433-4f1d-abdf-ea46ed7cccb0")]
     internal sealed class CommandBuilder
     {
@@ -26,6 +33,11 @@ namespace Eagle._Components.Private
         //       Using a zero here means there is no limit except the ones
         //       imposed by the .NET Framework itself.
         //
+        /// <summary>
+        /// The maximum possible capacity, in characters, for a command string.
+        /// A value of zero means there is no limit except those imposed by the
+        /// .NET Framework itself.
+        /// </summary>
         private static int MaximumCapacity = 0; /* READ-WRITE */
 
         ///////////////////////////////////////////////////////////////////////
@@ -34,18 +46,31 @@ namespace Eagle._Components.Private
         // NOTE: This must be the same value that the Flatten method would
         //       return for an empty result list.
         //
+        /// <summary>
+        /// The value returned when there is nothing to flatten.  This must be
+        /// the same value that the <c>Flatten</c> method would return for an
+        /// empty result list.
+        /// </summary>
         private static readonly object EmptyValue = String.Empty;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The list of accumulated result fragments that will be flattened into
+        /// the final command result.
+        /// </summary>
         private ResultList results;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty command builder with its internal result list
+        /// configured to add nested result lists as single items.
+        /// </summary>
         private CommandBuilder()
         {
             //
@@ -61,6 +86,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new, empty command builder instance.
+        /// </summary>
+        /// <returns>
+        /// The newly created command builder instance.
+        /// </returns>
         public static CommandBuilder Create()
         {
             return new CommandBuilder();
@@ -70,6 +101,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method checks whether a requested capacity is valid, that is,
+        /// non-negative, within the optional maximum, and within the range of a
+        /// 32-bit integer.
+        /// </summary>
+        /// <param name="capacity">
+        /// The requested capacity, in characters, to be validated.
+        /// </param>
+        /// <param name="maximumCapacity">
+        /// The maximum allowed capacity, in characters, or zero for no limit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message describing why
+        /// the capacity is invalid.
+        /// </param>
+        /// <returns>
+        /// True if the requested capacity is valid; otherwise, false.
+        /// </returns>
         private static bool IsCapacityOk(
             long capacity,        /* in */
             long maximumCapacity, /* in */
@@ -102,6 +151,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method checks whether adding the specified result would keep the
+        /// accumulated length within the specified maximum capacity.
+        /// </summary>
+        /// <param name="maximumCapacity">
+        /// The maximum allowed capacity, in characters, or zero for no limit.
+        /// </param>
+        /// <param name="result">
+        /// The result whose length is to be checked.  This parameter may be
+        /// null, in which case there is always enough capacity.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message describing why
+        /// there is not enough capacity.
+        /// </param>
+        /// <returns>
+        /// True if there is enough capacity; otherwise, false.
+        /// </returns>
         public static bool StaticHaveEnoughCapacity(
             int maximumCapacity, /* in */
             Result result,       /* in */
@@ -124,6 +191,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether adding the specified number of characters
+        /// would keep the accumulated length within the specified maximum
+        /// capacity.
+        /// </summary>
+        /// <param name="maximumCapacity">
+        /// The maximum allowed capacity, in characters, or zero for no limit.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to be added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message describing why
+        /// there is not enough capacity.
+        /// </param>
+        /// <returns>
+        /// True if there is enough capacity; otherwise, false.
+        /// </returns>
         public static bool StaticHaveEnoughCapacity(
             int maximumCapacity, /* in */
             int length,          /* in */
@@ -145,6 +230,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method estimates the total capacity, in characters, required to
+        /// flatten all of the accumulated result fragments.
+        /// </summary>
+        /// <returns>
+        /// The estimated capacity, in characters.
+        /// </returns>
         private long EstimateCapacity()
         {
             long capacity = 0;
@@ -163,6 +255,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method concatenates all of the accumulated result fragments into
+        /// a single string, enforcing the maximum capacity, if any.
+        /// </summary>
+        /// <returns>
+        /// The flattened string, or null if there are no accumulated result
+        /// fragments.
+        /// </returns>
         private string Flatten()
         {
             if (results == null)
@@ -191,6 +291,25 @@ namespace Eagle._Components.Private
         #region Public Methods
         #region Result Limit Methods
 #if RESULT_LIMITS
+        /// <summary>
+        /// This method checks whether adding the specified result to the already
+        /// accumulated result fragments would keep the total length within the
+        /// specified maximum capacity.
+        /// </summary>
+        /// <param name="maximumCapacity">
+        /// The maximum allowed capacity, in characters, or zero for no limit.
+        /// </param>
+        /// <param name="result">
+        /// The result whose length is to be checked.  This parameter may be
+        /// null, in which case there is always enough capacity.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message describing why
+        /// there is not enough capacity.
+        /// </param>
+        /// <returns>
+        /// True if there is enough capacity; otherwise, false.
+        /// </returns>
         public bool HaveEnoughCapacity(
             int maximumCapacity, /* in */
             Result result,       /* in */
@@ -215,6 +334,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether adding the specified number of characters
+        /// to the already accumulated result fragments would keep the total
+        /// length within the specified maximum capacity.
+        /// </summary>
+        /// <param name="maximumCapacity">
+        /// The maximum allowed capacity, in characters, or zero for no limit.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to be added.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives an error message describing why
+        /// there is not enough capacity.
+        /// </param>
+        /// <returns>
+        /// True if there is enough capacity; otherwise, false.
+        /// </returns>
         public bool HaveEnoughCapacity(
             int maximumCapacity, /* in */
             int length,          /* in */
@@ -240,6 +377,10 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method discards all of the accumulated result fragments,
+        /// resetting the command builder to its empty state.
+        /// </summary>
         public void Clear()
         {
             if (results == null)
@@ -252,6 +393,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified result to the accumulated result
+        /// fragments.
+        /// </summary>
+        /// <param name="result">
+        /// The result to be appended.
+        /// </param>
         public void Add(
             Result result /* in */
             )
@@ -261,6 +409,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a substring of the specified text to the
+        /// accumulated result fragments.
+        /// </summary>
+        /// <param name="text">
+        /// The text containing the substring to be appended.
+        /// </param>
+        /// <param name="startIndex">
+        /// The zero-based starting character position of the substring within
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters in the substring.
+        /// </param>
         public void Add(
             string text,    /* in */
             int startIndex, /* in */
@@ -272,6 +434,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces the final command result from the accumulated
+        /// result fragments.  When the accumulated result consists of a single
+        /// value, that value may be returned directly (preserving its type)
+        /// rather than being flattened to a string.
+        /// </summary>
+        /// <returns>
+        /// The final command result, which may be a single typed value or a
+        /// flattened string.
+        /// </returns>
         public object GetResult()
         {
             ResultList localResults = results;

@@ -1,7 +1,150 @@
 
 ************************* Beta 1.0.XXXX.XXXXX RELEASE *************************
 
-BUGFIX: fix and/or address Coverity issues from #434153 to #556387.
+BUGFIX: fix and/or address Coverity issues from #434153 to #561168.
+
+BUGFIX: the IsPrecisionVariable helper compared the candidate variable
+        name against the "auto_path" variable name instead of the
+        precision variable name ("tcl_precision"), a copy-and-paste
+        error from the sibling IsAutoPathVariable helper.  As a result
+        IsSpecialVariable never recognized "tcl_precision" as a built-in
+        trace-managed special variable, so (unlike "auto_path" and
+        "env") it was not excluded from variable-dictionary cloning,
+        call frame resets, and related operations.  It now compares
+        against TclVars.Core.PrecisionName.
+
+
+BUGFIX: the interactive shell (PrivateShellMainCore) no longer disposes the
+        caller-owned parent interpreter when only a child interpreter was
+        (re-)created via the "-child" / "-recreate" / "-reconfigure" command
+        line options.  It now disposes exactly the interpreter it created --
+        a child through its parent's registry, a top-level interpreter
+        directly -- leaving the caller-owned parent for the caller to dispose.
+
+BUGFIX: integer division ("/") in expressions now floors (rounds toward
+        negative infinity) for the Int32, Int64, and BigInteger operand
+        types, matching Tcl and the already-floored modulo ("%") operator.
+        Previously "/" truncated toward zero while "%" floored, breaking
+        the fundamental identity (a/b)*b + (a%b) == a for operands of
+        differing sign (e.g. -7/2 yielded -3 instead of -4).  Boolean,
+        Double, and Decimal division are unchanged.
+
+BUGFIX: the optional Bolt helper library "bolt_snprintf_double" delegate
+        type was missing its [ObjectId] attribute (it carried the empty
+        GUID), violating the "ObjectId on every type" convention; added a
+        unique identifier.
+
+BUGFIX: *SECURITY* the managed (non-Windows) Authenticode verifier
+        (WinTrustDotNet) must hash the PE "extra data" (overlay) region
+        between the last section and the attribute certificate table, and
+        must require the certificate table to be the final structure in
+        the file.  Previously the overlay was not hashed by default,
+        allowing arbitrary bytes to be injected into a signed image
+        without invalidating the signature (a verification result that
+        diverged from, and was weaker than, Windows WinVerifyTrust).
+
+BUGFIX: *SECURITY* the managed (non-Windows) Authenticode verifier must
+        only use an embedded timestamp's time as the signing-certificate
+        validity-period reference when that timestamp is itself fully
+        validated (cryptographically valid, bound to the signer, and
+        chain-valid); otherwise the current time is used.  Previously an
+        unverified/partial timestamp could supply an arbitrary time,
+        letting an expired signing certificate pass.
+
+REFACTOR: *SECURITY* the managed (non-Windows) Authenticode verifier no
+          longer performs certificate AIA (caIssuers) auto-download by
+          default; following URLs from an untrusted certificate during
+          verification is an attacker-directed outbound-request (SSRF)
+          vector.  It remains available as an explicit opt-in (HTTPS-only,
+          size/time/depth bounded).
+
+BUGFIX: harden the managed (non-Windows) Authenticode verifier's DER
+        length parsing (reject negative/over-range lengths, widen bounds
+        arithmetic) and fix an 8-byte misalignment when iterating
+        multi-entry PE certificate tables.
+
+BUGFIX: the managed (non-Windows) Authenticode verifier now disposes the
+        X509Chain it builds, the intermediate certificates it downloads
+        via AIA, and the intermediate / custom-root certificates it loads
+        from disk, avoiding handle/memory accumulation during repeated
+        verification.  (Certificates owned by the SignedCms are
+        intentionally not disposed.)
+
+BUGFIX: channel input under "crlf" (and "platform") end-of-line
+        translation must not drop a lone carriage-return that lands on a
+        read-buffer boundary or is the final byte of the stream; such
+        carriage-returns were silently lost, which (because the read split
+        point is timing/OS dependent) intermittently corrupted
+        channel/socket reads on non-Windows platforms.
+
+BUGFIX: the [lset] command empty-index "wholesale" form (e.g. "lset var
+        {} value") must replace the (sub)list with the value rather than
+        appending to it when the value is a string instead of an internal
+        list.
+
+BUGFIX: the [regexp] command with the -start option must not re-anchor
+        the "^" and "$" assertions to the start index; the search begins
+        at the index but the anchors still match the true string
+        boundaries.
+
+BUGFIX: the [clock format] command must space-pad the "%e" (day of month), "%k"
+        (hour 0-23), and "%l" (hour 1-12) specifiers to a width of two.
+
+BUGFIX: the [lsort -unique] command must retain the last element of each group
+        of equal elements rather than the first (observable when equal elements
+        differ in representation, e.g. with -nocase or -index).
+
+BUGFIX: the [format] command floating-point conversions (%e, %f, %g) produced
+        incorrect results on arm64 macOS when using native printf, due to the
+        variadic calling convention.  add a native wrapper to the Bolt helper
+        library, load it dynamically, and use it on the affected platform; when
+        it is unavailable, fall back to the managed formatting by default.
+
+BUGFIX: the [expr] exponentiation operator (**) must be right-associative, e.g.
+        "2 ** 3 ** 2" must evaluate as "2 ** (3 ** 2)" instead of as
+        "(2 ** 3) ** 2".
+
+BUGFIX: the [expr] modulo operator (%) must yield a result with the divisor's
+        sign, rather than the sign of the dividend.
+
+BUGFIX: the [string replace] command must return the original string unchanged
+        when the first index is greater than or equal to the length of the
+        string, instead of appending the replacement string.
+
+BUGFIX: the [linsert] command must treat the "end" index (and end-relative
+        indices) as the append position, fixing an off-by-one error for
+        end-relative insertions.
+
+BUGFIX: the [regsub] command with the -all option must honor the -start index,
+        preserving the prefix before it instead of replacing matches throughout
+        the entire string.
+
+BUGFIX: the [clock scan] command must use the -base clock value to supply the
+        date components that are missing from the input string.
+
+BUGFIX: the integer comparison used by [lsort -integer] (and similar) must not
+        overflow when comparing values of large, opposite-signed magnitude,
+        which could otherwise mis-sort the list.
+
+BUGFIX: the [lsearch -sorted] command must use an ordinal string comparison so
+        that it agrees with [lsort] and [lsearch -exact], instead of a culture
+        based comparison that could fail to find a present element.
+
+BUGFIX: the [expr] hypot() function must be overflow- and underflow-safe for
+        operands of very large or very small magnitude.
+
+BUGFIX: the [expr] fmod() function must compute the C fmod() (a truncated
+        quotient, with the sign of the dividend) instead of using the
+        Math.IEEERemainder method.
+
+BUGFIX: the [expr] round() function must round halves away from zero instead of
+        to the nearest even value.
+
+BUGFIX: the [expr] exponentiation operator (**) must return the correct value
+        for a base of -1 with an odd exponent greater than one.
+
+BUGFIX: the 32-bit [expr] shift operators (<< and >>) must yield zero for a
+        negative shift count, consistent with the wide-integer code path.
 
 BUGFIX: fix incorrect command resolution due to non-global IExecute caching in
         Argument instances.
@@ -87,6 +230,11 @@ REFACTOR: *BREAKING CHANGE* add the MAYBE_ENTERPRISE_LOCKDOWN compile-time
 
 REFACTOR: *BREAKING CHANGE* move the Interactive interpreter creation flag to
           the InterpreterFlags enumeration.
+
+FEATURE: add the [scan] command, the inverse of [format], supporting the %d,
+         %i, %o, %x, %u, %b, %c, %e, %f, %g, %s, %n, and %[...] conversions,
+         along with field widths, assignment suppression (*), XPG3 positional
+         specifiers, and the inline result form.
 
 FEATURE: add the DisposeThread method to the IInterpreter interface.
 

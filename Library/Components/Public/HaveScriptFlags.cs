@@ -16,6 +16,11 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides a container for the various flag values that govern
+    /// script evaluation in an interpreter, including the engine mode, script,
+    /// engine, substitution, event, and expression flags.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -23,6 +28,13 @@ namespace Eagle._Components.Public
     public sealed class HaveScriptFlags : IHaveScriptFlags
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs a script flags container, optionally initializing the
+        /// contained flags to their default values.
+        /// </summary>
+        /// <param name="useDefaults">
+        /// Non-zero to initialize the contained flags to their default values.
+        /// </param>
         public HaveScriptFlags(
             bool useDefaults /* in */
             )
@@ -41,7 +53,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveScriptFlags Members
+        /// <summary>
+        /// Stores the engine mode used for script evaluation.
+        /// </summary>
         private EngineMode engineMode;
+        /// <summary>
+        /// Gets or sets the engine mode used for script evaluation.
+        /// </summary>
         public EngineMode EngineMode
         {
             get { return engineMode; }
@@ -50,7 +68,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the script flags used for script evaluation.
+        /// </summary>
         private ScriptFlags scriptFlags;
+        /// <summary>
+        /// Gets or sets the script flags used for script evaluation.
+        /// </summary>
         public ScriptFlags ScriptFlags
         {
             get { return scriptFlags; }
@@ -59,7 +83,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the engine flags used for script evaluation.
+        /// </summary>
         private EngineFlags engineFlags;
+        /// <summary>
+        /// Gets or sets the engine flags used for script evaluation.
+        /// </summary>
         public EngineFlags EngineFlags
         {
             get { return engineFlags; }
@@ -68,7 +98,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the substitution flags used for script evaluation.
+        /// </summary>
         private SubstitutionFlags substitutionFlags;
+        /// <summary>
+        /// Gets or sets the substitution flags used for script evaluation.
+        /// </summary>
         public SubstitutionFlags SubstitutionFlags
         {
             get { return substitutionFlags; }
@@ -77,7 +113,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the event flags used for script evaluation.
+        /// </summary>
         private EventFlags eventFlags;
+        /// <summary>
+        /// Gets or sets the event flags used for script evaluation.
+        /// </summary>
         public EventFlags EventFlags
         {
             get { return eventFlags; }
@@ -86,7 +128,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the expression flags used for script evaluation.
+        /// </summary>
         private ExpressionFlags expressionFlags;
+        /// <summary>
+        /// Gets or sets the expression flags used for script evaluation.
+        /// </summary>
         public ExpressionFlags ExpressionFlags
         {
             get { return expressionFlags; }
@@ -96,7 +144,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// Stores the bundle flags used for script evaluation.
+        /// </summary>
         private BundleFlags bundleFlags;
+        /// <summary>
+        /// Gets or sets the bundle flags used for script evaluation.
+        /// </summary>
         public BundleFlags BundleFlags
         {
             get { return bundleFlags; }

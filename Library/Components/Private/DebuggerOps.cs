@@ -28,11 +28,22 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the collection of static helper methods that support
+    /// the Eagle script debugger, including creation of debugger interpreters,
+    /// breakpoint and watchpoint handling, command queue access, and header and
+    /// detail flag management.
+    /// </summary>
     [ObjectId("438a61ad-907d-4089-a80c-c6d5e7edac05")]
     internal static class DebuggerOps
     {
         #region Private Constants
 #if DEBUGGER
+        /// <summary>
+        /// The engine flags used when entering the interactive loop for an
+        /// active debugger; these mask off the debugger-related flags and enable
+        /// interactive mode.
+        /// </summary>
         private static readonly EngineFlags InteractiveEngineFlags =
             EngineFlags.NoDebuggerMask | EngineFlags.Interactive;
 #endif
@@ -42,6 +53,53 @@ namespace Eagle._Components.Private
 
         #region Debugger Interpreter Support Methods
 #if DEBUGGER
+        /// <summary>
+        /// This method creates a new isolated debugger interpreter using the
+        /// specified options, complaining if the creation fails.
+        /// </summary>
+        /// <param name="culture">
+        /// The culture to use for the new interpreter, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="createFlags">
+        /// The flags that control how the new interpreter is created.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The flags that control how the interpreter host is created.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The flags that control how the new interpreter is initialized.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The flags that control how scripts are located and loaded by the new
+        /// interpreter.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The miscellaneous flags that control the behavior of the new
+        /// interpreter.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The flags that control how plugins are loaded by the new interpreter.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which the new interpreter should be created,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host to use (or clone) for the new interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path for the new interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths for the new interpreter,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter, or null if creation failed.
+        /// </returns>
         public static Interpreter CreateInterpreter(
             string culture,
             CreateFlags createFlags,
@@ -71,6 +129,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new isolated debugger interpreter using the
+        /// specified options, returning any error message through the supplied
+        /// result.
+        /// </summary>
+        /// <param name="culture">
+        /// The culture to use for the new interpreter, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="createFlags">
+        /// The flags that control how the new interpreter is created.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The flags that control how the interpreter host is created.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The flags that control how the new interpreter is initialized.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The flags that control how scripts are located and loaded by the new
+        /// interpreter.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The miscellaneous flags that control the behavior of the new
+        /// interpreter.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The flags that control how plugins are loaded by the new interpreter.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which the new interpreter should be created,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host to use (or clone) for the new interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path for the new interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths for the new interpreter,
+        /// if any.  This parameter may be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an error message describing why the
+        /// interpreter could not be created.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter, or null if creation failed.
+        /// </returns>
         public static Interpreter CreateInterpreter(
             string culture,
             CreateFlags createFlags,
@@ -108,6 +218,26 @@ namespace Eagle._Components.Private
 
         #region Debugger Watchpoint Support Methods
 #if DEBUGGER
+        /// <summary>
+        /// This method handles a variable watchpoint by breaking into the
+        /// interactive debugger loop.
+        /// </summary>
+        /// <param name="debugger">
+        /// The debugger associated with the interpreter, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that hit the watchpoint.
+        /// </param>
+        /// <param name="loopData">
+        /// The interactive loop data describing the context of the watchpoint.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by the interactive loop.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Watchpoint(
             IDebugger debugger,
             Interpreter interpreter,
@@ -124,6 +254,35 @@ namespace Eagle._Components.Private
 
         #region Debugger Breakpoint Support Methods
 #if DEBUGGER
+        /// <summary>
+        /// This method determines whether the specified breakpoint types match
+        /// the required breakpoint types, optionally appending a human-readable
+        /// description of the comparison.
+        /// </summary>
+        /// <param name="flags">
+        /// The breakpoint types that are currently present.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The breakpoint types that are required for a match.
+        /// </param>
+        /// <param name="enabled">
+        /// When non-null, indicates whether all of the required types must be
+        /// present (true) or any of them (false); when null, all of the required
+        /// types must be present and verbose output is forced.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to append a description of the comparison to
+        /// <paramref name="builder" />.
+        /// </param>
+        /// <param name="builder">
+        /// The string builder that receives the optional description, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the breakpoint types match the required types; otherwise,
+        /// false.
+        /// </returns>
         public static bool MatchBreakpointTypes(
             BreakpointType flags,
             BreakpointType hasFlags,
@@ -166,6 +325,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles a breakpoint by entering the interactive
+        /// debugger loop for the specified interpreter, invoking the configured
+        /// interactive loop callback when present.
+        /// </summary>
+        /// <param name="debugger">
+        /// The debugger associated with the interpreter, if any.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter that hit the breakpoint.
+        /// </param>
+        /// <param name="loopData">
+        /// The interactive loop data describing the context of the breakpoint.
+        /// </param>
+        /// <param name="result">
+        /// Upon return, receives the result produced by the interactive loop, or
+        /// an error message upon failure.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode Breakpoint(
             IDebugger debugger,
             Interpreter interpreter,
@@ -266,6 +447,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Debugger General Support Methods
+        /// <summary>
+        /// This method queries whether the debugger associated with the
+        /// specified interpreter is configured to break into the interactive
+        /// loop when a script is canceled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger should be queried, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to query the setting even when the debugger is not currently
+        /// enabled.
+        /// </param>
+        /// <returns>
+        /// True if the debugger should break on cancellation; otherwise, false.
+        /// </returns>
         public static bool GetBreakOnCancel(
             Interpreter interpreter,
             bool ignoreEnabled
@@ -290,6 +487,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
+        /// <summary>
+        /// This method appends the queued and pending interactive commands from
+        /// the debugger associated with the specified interpreter to the
+        /// supplied command list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger commands should be dumped, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to dump the commands even when the debugger is not currently
+        /// enabled.
+        /// </param>
+        /// <param name="commands">
+        /// The command list to append the queued and pending commands to; it is
+        /// created when null and commands are available.
+        /// </param>
         public static void DumpCommands(
             Interpreter interpreter, /* in */
             bool ignoreEnabled,      /* in */
@@ -338,6 +552,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the next interactive command for the debugger
+        /// associated with the specified interpreter, enforcing one-time
+        /// semantics and falling back to the debugger command queue.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger command should be retrieved, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to retrieve the command even when the debugger is not
+        /// currently enabled.
+        /// </param>
+        /// <returns>
+        /// The next interactive command, or null if none is available.
+        /// </returns>
         public static string GetCommand(
             Interpreter interpreter,
             bool ignoreEnabled
@@ -382,6 +612,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the effective interactive header display flags,
+        /// applying the default flags when requested, toggling the active
+        /// debugger flag, and optionally enabling empty content display.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host used to obtain the default header flags, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="headerFlags">
+        /// The current header flags to start from.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero if a debugger is currently active.
+        /// </param>
+        /// <param name="show">
+        /// Non-zero to set or unset the active debugger flag based on
+        /// <paramref name="debug" />.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to enable display of empty content.
+        /// </param>
+        /// <param name="default">
+        /// Non-zero to initialize the header flags to their default value when
+        /// they have not yet been set up.
+        /// </param>
+        /// <returns>
+        /// The resulting header display flags.
+        /// </returns>
         public static HeaderFlags GetHeaderFlags(
             IInteractiveHost interactiveHost,
             HeaderFlags headerFlags,
@@ -461,6 +720,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the effective interactive detail display flags,
+        /// applying the default flags when requested, toggling the active
+        /// debugger flag, and optionally enabling empty content display.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host used to obtain the default detail flags, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The current detail flags to start from.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero if a debugger is currently active.
+        /// </param>
+        /// <param name="show">
+        /// Non-zero to set or unset the active debugger flag based on
+        /// <paramref name="debug" />.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero to enable display of empty content.
+        /// </param>
+        /// <param name="default">
+        /// Non-zero to initialize the detail flags to their default value when
+        /// they have not yet been set up.
+        /// </param>
+        /// <returns>
+        /// The resulting detail display flags.
+        /// </returns>
         public static DetailFlags GetDetailFlags(
             IInteractiveHost interactiveHost,
             DetailFlags detailFlags,
@@ -540,6 +828,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the engine flags appropriate for entering the
+        /// interactive loop, accounting for whether a debugger is active.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero if a debugger is currently active.
+        /// </param>
+        /// <returns>
+        /// The engine flags to use for the interactive loop.
+        /// </returns>
         public static EngineFlags GetEngineFlags(
             bool debug
             )
@@ -555,6 +853,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER
+        /// <summary>
+        /// This method determines whether the specified interpreter is able to
+        /// hit breakpoints of the given type under the given engine flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that may suppress breakpoints.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The breakpoint type to check for.
+        /// </param>
+        /// <returns>
+        /// True if the interpreter can hit breakpoints of the specified type;
+        /// otherwise, false.
+        /// </returns>
         public static bool CanHitBreakpoints(
             Interpreter interpreter,
             EngineFlags engineFlags,
@@ -572,6 +887,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the script library path of the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose library path should be returned, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The library path of the interpreter, or null if the interpreter is
+        /// null.
+        /// </returns>
         public static string GetLibraryPath(
             Interpreter interpreter
             )
@@ -584,6 +911,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the list of automatic package search paths of the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose automatic path list should be returned, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The automatic path list of the interpreter, or null if the
+        /// interpreter is null.
+        /// </returns>
         public static StringList GetAutoPathList(
             Interpreter interpreter
             )
@@ -596,6 +935,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new debugger instance using the specified
+        /// options.
+        /// </summary>
+        /// <param name="isolated">
+        /// Non-zero to create the debugger with its own isolated interpreter.
+        /// </param>
+        /// <param name="culture">
+        /// The culture to use for the debugger interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="createFlags">
+        /// The flags that control how the debugger interpreter is created.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The flags that control how the debugger interpreter host is created.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The flags that control how the debugger interpreter is initialized.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The flags that control how scripts are located and loaded by the
+        /// debugger interpreter.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The miscellaneous flags that control the behavior of the debugger
+        /// interpreter.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The flags that control how plugins are loaded by the debugger
+        /// interpreter.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which the debugger interpreter should be
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host to use (or clone) for the debugger interpreter, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path for the debugger interpreter, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths for the debugger
+        /// interpreter, if any.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created debugger instance.
+        /// </returns>
         public static IDebugger Create(
             bool isolated,
             string culture,
@@ -621,6 +1011,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores a copy of the specified return code and result on
+        /// the debugger associated with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose debugger result should be set, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="code">
+        /// The return code to associate with the copied result.
+        /// </param>
+        /// <param name="result">
+        /// The result to copy onto the debugger.  This parameter may be null.
+        /// </param>
+        /// <param name="ignoreEnabled">
+        /// Non-zero to set the result even when the debugger is not currently
+        /// enabled.
+        /// </param>
+        /// <returns>
+        /// True if the result was set on the debugger; otherwise, false.
+        /// </returns>
         public static bool SetResult(
             Interpreter interpreter,
             ReturnCode code,

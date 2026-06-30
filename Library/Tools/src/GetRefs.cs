@@ -56,9 +56,26 @@ using System.Runtime.InteropServices;
 
 namespace Tools
 {
+    /// <summary>
+    /// This class implements the GetRefs tool, a command line utility that
+    /// loads a single managed assembly and displays all of the assemblies it
+    /// references.
+    /// </summary>
     public class GetRefs
     {
         #region Application Entry Point
+        /// <summary>
+        /// This is the entry-point for this tool.  It loads the assembly file
+        /// named on the command line for reflection only and then displays the
+        /// name of each assembly it references on the console.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments.  Exactly one argument, the name of the
+        /// assembly file to process, is required.
+        /// </param>
+        /// <returns>
+        /// Zero upon success; non-zero on failure.
+        /// </returns>
         public static int Main(string[] args)
         {
             if (args == null)

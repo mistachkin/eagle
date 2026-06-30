@@ -36,6 +36,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents an ordered mapping of sub-command names to their
+    /// associated <see cref="ISubCommand" /> implementations, as used by an
+    /// ensemble command.  It maintains a cache of the contained names and
+    /// invalidates that cache whenever the contents of the dictionary are
+    /// modified.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -44,6 +51,9 @@ namespace Eagle._Containers.Public
             SomeDictionary, IDictionary<string, ISubCommand>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public EnsembleDictionary()
             : base()
         {
@@ -52,6 +62,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the entries
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose sub-command entries are copied into the new
+        /// instance.
+        /// </param>
         public EnsembleDictionary(
             IDictionary<string, ISubCommand> dictionary
             )
@@ -62,6 +80,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified sub-command
+        /// names, associating each name with a null sub-command value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of sub-command names to add to the new instance.
+        /// </param>
         public EnsembleDictionary(
             IEnumerable<string> collection
             )
@@ -73,6 +98,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified collection
+        /// of name and sub-command pairs.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of name and sub-command pairs to add to the new
+        /// instance.
+        /// </param>
         public EnsembleDictionary(
             IEnumerable<KeyValuePair<string, ISubCommand>> collection
             )
@@ -84,6 +117,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the keys of the specified
+        /// dictionary as sub-command names, associating each name with a null
+        /// sub-command value.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose keys are used as the sub-command names for the
+        /// new instance.
+        /// </param>
         public EnsembleDictionary(
             IDictionary<string, string> dictionary
             )
@@ -98,6 +140,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class using previously serialized
+        /// data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the new instance.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source and destination of
+        /// the serialized data.
+        /// </param>
         private EnsembleDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -112,6 +165,12 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICollection<KeyValuePair<string, ISubCommand>> Overrides
+        /// <summary>
+        /// This method is not supported and always throws an exception.
+        /// </summary>
+        /// <param name="item">
+        /// The name and sub-command pair that would have been added.
+        /// </param>
         void ICollection<KeyValuePair<string, ISubCommand>>.Add(
             KeyValuePair<string, ISubCommand> item
             )
@@ -121,6 +180,9 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws an exception.
+        /// </summary>
         void ICollection<KeyValuePair<string, ISubCommand>>.Clear()
         {
             throw new NotSupportedException();
@@ -128,6 +190,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws an exception.
+        /// </summary>
+        /// <param name="item">
+        /// The name and sub-command pair that would have been removed.
+        /// </param>
+        /// <returns>
+        /// This method does not return; it always throws an exception.
+        /// </returns>
         bool ICollection<KeyValuePair<string, ISubCommand>>.Remove(
             KeyValuePair<string, ISubCommand> item
             )
@@ -139,6 +210,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDictionary<string, ISubCommand> Overrides
+        /// <summary>
+        /// Gets or sets the sub-command associated with the specified name,
+        /// clearing the cached names whenever a value is set.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to get or set.
+        /// </param>
+        /// <returns>
+        /// The sub-command associated with the specified name.
+        /// </returns>
         ISubCommand IDictionary<string, ISubCommand>.this[string key]
         {
             get { return base[key]; /* throw */ }
@@ -152,6 +233,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified name and sub-command to the
+        /// dictionary, clearing the cached names beforehand.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to add.
+        /// </param>
+        /// <param name="value">
+        /// The sub-command to associate with the specified name.
+        /// </param>
         void IDictionary<string, ISubCommand>.Add(
             string key,
             ISubCommand value
@@ -164,6 +255,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the sub-command with the specified name from the
+        /// dictionary, clearing the cached names beforehand.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to remove.
+        /// </param>
+        /// <returns>
+        /// True if the sub-command was found and removed; otherwise, false.
+        /// </returns>
         bool IDictionary<string, ISubCommand>.Remove(
             string key
             )
@@ -177,6 +278,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Explicit IDictionary<string, ISubCommand> Overrides
+        /// <summary>
+        /// Gets or sets the sub-command associated with the specified name,
+        /// clearing the cached names whenever a value is set.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to get or set.
+        /// </param>
+        /// <returns>
+        /// The sub-command associated with the specified name.
+        /// </returns>
         public new ISubCommand this[string key]
         {
             get { return base[key]; /* throw */ }
@@ -190,6 +301,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified name and sub-command to the
+        /// dictionary, clearing the cached names beforehand.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to add.
+        /// </param>
+        /// <param name="value">
+        /// The sub-command to associate with the specified name.
+        /// </param>
         public new void Add(
             string key,
             ISubCommand value
@@ -202,6 +323,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the sub-command with the specified name from the
+        /// dictionary, clearing the cached names beforehand.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the sub-command to remove.
+        /// </param>
+        /// <returns>
+        /// True if the sub-command was found and removed; otherwise, false.
+        /// </returns>
         public new bool Remove(
             string key
             )
@@ -215,6 +346,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Dictionary<TKey, TValue> Overrides
+        /// <summary>
+        /// This method removes all sub-commands from the dictionary, clearing
+        /// the cached names beforehand.
+        /// </summary>
         public new void Clear()
         {
             ClearCachedNames();
@@ -226,6 +361,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method clears and discards the cache of contained sub-command
+        /// names, if any, so that it will be recomputed on demand.
+        /// </summary>
         private void ClearCachedNames()
         {
             if (cachedNames != null)
@@ -239,7 +378,15 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Properties
+        /// <summary>
+        /// The cache of contained sub-command names, or null if it has not yet
+        /// been computed.
+        /// </summary>
         private StringDictionary cachedNames;
+        /// <summary>
+        /// Gets or sets the cache of contained sub-command names, or null if it
+        /// has not yet been computed.
+        /// </summary>
         internal StringDictionary CachedNames
         {
             get { return cachedNames; }
@@ -250,6 +397,22 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method merges the entries from the specified dictionary into
+        /// this dictionary, clearing the cached names beforehand.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are merged into this dictionary.  If
+        /// this value is null, no entries are merged.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to overwrite entries that already exist in this dictionary;
+        /// otherwise, existing entries are left unchanged.
+        /// </param>
+        /// <returns>
+        /// The number of entries that were added or overwritten, or a negative
+        /// value if the specified dictionary was null.
+        /// </returns>
         public int Merge(
             IDictionary<string, ISubCommand> dictionary,
             bool force
@@ -276,6 +439,45 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of the contained sub-command names,
+        /// optionally filtered by their command flags and by a string pattern.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The command flags that a sub-command must have in order to be
+        /// included, or <see cref="CommandFlags.None" /> to skip this filter.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The command flags that a sub-command must not have in order to be
+        /// included, or <see cref="CommandFlags.None" /> to skip this filter.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that all of the <paramref name="hasFlags" /> are
+        /// present; otherwise, the presence of any one of them is sufficient.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that all of the <paramref name="notHasFlags" />
+        /// are present in order to exclude a sub-command; otherwise, the
+        /// presence of any one of them is sufficient to exclude it.
+        /// </param>
+        /// <param name="pattern">
+        /// The string match pattern used to filter the sub-command names, or
+        /// null to include all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this list receives the matching sub-command names.  If
+        /// this value is null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public ReturnCode ToList(
             CommandFlags hasFlags,
             CommandFlags notHasFlags,
@@ -331,6 +533,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string containing the contained sub-command
+        /// names, separated by spaces and optionally filtered by a string
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The string match pattern used to filter the sub-command names, or
+        /// null to include all of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The space-separated list of matching sub-command names.
+        /// </returns>
         public string ToString(
             string pattern, bool noCase
             )
@@ -346,6 +563,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method builds a string containing all of the contained
+        /// sub-command names, separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The space-separated list of all contained sub-command names.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

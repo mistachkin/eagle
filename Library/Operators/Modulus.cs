@@ -16,6 +16,14 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>%</c> (modulus) expression operator,
+    /// which computes the remainder of dividing its first integral operand by
+    /// its second integral operand.  The evaluation itself is provided by the
+    /// <see cref="Math" /> base class, selected by the
+    /// <see cref="Lexeme.Modulus" /> lexeme.  See <c>core_language.md</c> for
+    /// expression and operator semantics.
+    /// </summary>
     [ObjectId("93eff400-bbf3-4478-b778-61244b460eea")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Arithmetic)]
@@ -27,6 +35,13 @@ namespace Eagle._Operators
     internal sealed class Modulus : Math
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>%</c> modulus operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Modulus(
             IOperatorData operatorData /* in */
             )

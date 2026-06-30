@@ -28,6 +28,10 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides Authenticode trust verification for files using the
+    /// native Windows WinTrust API (specifically WinVerifyTrust) via P/Invoke.
+    /// </summary>
 #if NET_40
     [SecurityCritical()]
 #else
@@ -38,10 +42,18 @@ namespace Eagle._Components.Private
     {
         #region Private Constants
 #if WINDOWS
+        /// <summary>
+        /// The native invalid handle value (negative one), used as the window handle
+        /// when no interactive user interface is permitted.
+        /// </summary>
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the embedded resource containing the default trust values used
+        /// when overriding the WinTrust verification parameters.
+        /// </summary>
         private const string TrustValuesResourceName = "DefaultTrustValues.txt";
 #endif
         #endregion
@@ -51,6 +63,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the private constants, structures, and native method
+        /// declarations used to invoke the Windows WinTrust API via P/Invoke.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("e8dc85ea-ceba-47db-9ed0-a66ba3f0f916")]
         private static class UnsafeNativeMethods
@@ -60,6 +76,10 @@ namespace Eagle._Components.Private
             //       API; however, it is still needed even when the WINDOWS
             //       compile-time option is disabled.
             //
+            /// <summary>
+            /// The native success status code (zero) used to indicate that a trust
+            /// verification operation completed without error.
+            /// </summary>
             internal const uint ERROR_SUCCESS = 0;
 
             ///////////////////////////////////////////////////////////////////
@@ -67,49 +87,96 @@ namespace Eagle._Components.Private
 #if WINDOWS
             #region WinTrust API
             #region Constants
+            /// <summary>
+            /// The action identifier that selects the generic Authenticode verification
+            /// policy provider for use with the WinTrust API.
+            /// </summary>
             internal static readonly Guid WINTRUST_ACTION_GENERIC_VERIFY_V2 =
                 new Guid("00aac56b-cd44-11d0-8cc2-00c04fc295ee");
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust user interface choice that permits all user interface elements
+            /// to be displayed.
+            /// </summary>
             internal const uint WTD_UI_ALL =
                 (uint)TrustValues.WTD_UI_ALL;
 
+            /// <summary>
+            /// The WinTrust user interface choice that suppresses all user interface
+            /// elements.
+            /// </summary>
             internal const uint WTD_UI_NONE =
                 (uint)TrustValues.WTD_UI_NONE;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust revocation flag that disables certificate revocation checking.
+            /// </summary>
             internal const uint WTD_REVOKE_NONE =
                 (uint)TrustValues.WTD_REVOKE_NONE;
 
+            /// <summary>
+            /// The WinTrust revocation flag that enables revocation checking for the entire
+            /// certificate chain.
+            /// </summary>
             internal const uint WTD_REVOKE_WHOLECHAIN =
                 (uint)TrustValues.WTD_REVOKE_WHOLECHAIN;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust union choice indicating that a file is the subject of the
+            /// verification.
+            /// </summary>
             internal const uint WTD_CHOICE_FILE = 1;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust state action indicating that no verification state is retained
+            /// across calls.
+            /// </summary>
             internal const uint WTD_STATEACTION_IGNORE = 0x0;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust provider flag that enables the trust evaluation behavior used
+            /// by Software Restriction Policies.
+            /// </summary>
             internal const uint WTD_SAFER_FLAG =
                 (uint)TrustValues.WTD_SAFER_FLAG;
 
+            /// <summary>
+            /// The WinTrust provider flag that restricts revocation retrieval to the local
+            /// cache, preventing network access.
+            /// </summary>
             internal const uint WTD_CACHE_ONLY_URL_RETRIEVAL =
                 (uint)TrustValues.WTD_CACHE_ONLY_URL_RETRIEVAL;
 
+            /// <summary>
+            /// The default combination of WinTrust provider flags used during
+            /// verification.
+            /// </summary>
             internal const uint WTD_DEFAULT =
                 WTD_SAFER_FLAG | WTD_CACHE_ONLY_URL_RETRIEVAL;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The WinTrust user interface context indicating the file is being verified
+            /// prior to execution.
+            /// </summary>
             internal const uint WTD_UICONTEXT_EXECUTE =
                 (uint)TrustValues.WTD_UICONTEXT_EXECUTE;
 
+            /// <summary>
+            /// The WinTrust user interface context indicating the file is being verified
+            /// prior to installation.
+            /// </summary>
             internal const uint WTD_UICONTEXT_INSTALL =
                 (uint)TrustValues.WTD_UICONTEXT_INSTALL;
             #endregion
@@ -117,33 +184,91 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Structures
+            /// <summary>
+            /// This structure provides information about a file whose trust is being
+            /// verified, corresponding to the native WINTRUST_FILE_INFO structure.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
             [ObjectId("5c7cdbf0-c943-49b7-87fe-471813fa88d5")]
             internal struct WINTRUST_FILE_INFO
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public /* DWORD */ uint cbStruct;
+                /// <summary>
+                /// The full path of the file whose trust is being verified.
+                /// </summary>
                 public /* LPCWSTR */ string pcwszFilePath;
+                /// <summary>
+                /// An optional open handle to the file whose trust is being verified.
+                /// </summary>
                 public /* HANDLE */ IntPtr hFile;
+                /// <summary>
+                /// An optional pointer to the known subject interface identifier for the file.
+                /// </summary>
                 public /* LPGUID */ IntPtr pgKnownSubject;
             }
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure provides the data used by the WinTrust API to verify the
+            /// trust of a subject, corresponding to the native WINTRUST_DATA structure.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
             [ObjectId("7cb4009e-d4c5-403c-a246-16751dfacb6b")]
             internal struct WINTRUST_DATA
             {
+                /// <summary>
+                /// The size, in bytes, of this structure.
+                /// </summary>
                 public /* DWORD */ uint cbStruct;
+                /// <summary>
+                /// An optional pointer to data passed to the policy provider callback.
+                /// </summary>
                 public /* LPVOID */ IntPtr pPolicyCallbackData;
+                /// <summary>
+                /// An optional pointer to data passed to the subject interface package.
+                /// </summary>
                 public /* LPVOID */ IntPtr pSIPClientData;
+                /// <summary>
+                /// The value controlling which user interface elements may be displayed during
+                /// verification.
+                /// </summary>
                 public /* DWORD */ uint dwUIChoice;
+                /// <summary>
+                /// The value controlling how certificate revocation checking is performed.
+                /// </summary>
                 public /* DWORD */ uint fdwRevocationChecks;
+                /// <summary>
+                /// The value indicating which kind of subject is being verified.
+                /// </summary>
                 public /* DWORD */ uint dwUnionChoice;
+                /// <summary>
+                /// A pointer to the WINTRUST_FILE_INFO structure describing the file subject.
+                /// </summary>
                 public /* PWINTRUST_FILE_INFO */ IntPtr pFile;
+                /// <summary>
+                /// The value controlling how verification state is retained across calls.
+                /// </summary>
                 public /* DWORD */ uint dwStateAction;
+                /// <summary>
+                /// A handle to the verification state data maintained between calls.
+                /// </summary>
                 public /* HANDLE */ IntPtr hWVTStateData;
+                /// <summary>
+                /// An optional URL reference associated with the subject being verified.
+                /// </summary>
                 public /* LPWSTR */ string pwszURLReference;
+                /// <summary>
+                /// The flags controlling the behavior of the trust provider.
+                /// </summary>
                 public /* DWORD */ uint dwProvFlags;
+                /// <summary>
+                /// The value indicating the context in which the verification is being
+                /// performed.
+                /// </summary>
                 public /* DWORD */ uint dwUIContext;
             }
             #endregion
@@ -151,6 +276,25 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Functions
+            /// <summary>
+            /// This method invokes the native WinTrust API to perform trust verification
+            /// for the specified subject.
+            /// </summary>
+            /// <param name="hWnd">
+            /// A handle to the window to use as the parent for any user interface, or the
+            /// invalid handle value to suppress user interface.
+            /// </param>
+            /// <param name="actionId">
+            /// The action identifier selecting the policy provider to use.
+            /// </param>
+            /// <param name="pData">
+            /// The trust data describing the subject to verify and the verification
+            /// options.
+            /// </param>
+            /// <returns>
+            /// The native status code produced by the verification; zero indicates the
+            /// subject is trusted.
+            /// </returns>
             [DllImport(DllName.WinTrust,
                 CallingConvention = CallingConvention.Winapi,
                 CharSet = CharSet.Unicode, SetLastError = true)]
@@ -168,6 +312,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the specified file is trusted, returning a
+        /// simple Boolean result.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to verify.
+        /// </param>
+        /// <param name="fileHandle">
+        /// An optional open handle to the file to verify.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if user interface elements may be displayed during verification.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero if certificate revocation checking should be performed.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being verified in an installation context.
+        /// </param>
+        /// <returns>
+        /// True if the file is trusted; otherwise, false.
+        /// </returns>
         public static bool IsFileTrusted(
             string fileName,
             IntPtr fileHandle,
@@ -200,6 +369,13 @@ namespace Eagle._Components.Private
 
         #region Private Methods
 #if WINDOWS
+        /// <summary>
+        /// This method returns the action identifier used to select the generic
+        /// Authenticode verification policy provider.
+        /// </summary>
+        /// <returns>
+        /// The action identifier for generic Authenticode verification.
+        /// </returns>
         private static Guid GetActionId()
         {
             return UnsafeNativeMethods.WINTRUST_ACTION_GENERIC_VERIFY_V2;
@@ -207,6 +383,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the supplied array with the WinTrust parameter values
+        /// that correspond to the specified verification options.
+        /// </summary>
+        /// <param name="userInterface">
+        /// Non-zero if user interface elements may be displayed during verification.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero if certificate revocation checking should be performed.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being verified in an installation context.
+        /// </param>
+        /// <param name="parameters">
+        /// The array to populate with the resulting WinTrust parameter values.
+        /// </param>
         private static void InitializeParameters(
             bool userInterface,
             bool userPrompt,
@@ -236,6 +431,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !ENTERPRISE_LOCKDOWN
+        /// <summary>
+        /// This method builds the parsed enumeration value tables representing the
+        /// WinTrust parameters derived from the default trust values resource and the
+        /// specified verification options.
+        /// </summary>
+        /// <param name="userInterface">
+        /// Non-zero if user interface elements may be displayed during verification.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero if certificate revocation checking should be performed.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being verified in an installation context.
+        /// </param>
+        /// <param name="tables">
+        /// Upon success, receives the array of parsed enumeration value tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode InitializeTables(
             bool userInterface,
             bool userPrompt,
@@ -286,6 +508,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is trusted, resolving the
+        /// WinTrust verification parameters (including any configured overrides) before
+        /// delegating to the lower-level verification method.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to verify.
+        /// </param>
+        /// <param name="fileHandle">
+        /// An optional open handle to the file to verify.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if user interface elements may be displayed during verification.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero if the user may be prompted during verification.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero if certificate revocation checking should be performed.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the file is being verified in an installation context.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon return, receives the native status code produced by the verification;
+        /// zero indicates success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode IsFileTrusted(
             string fileName,
             IntPtr fileHandle,
@@ -381,6 +637,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is trusted by invoking the
+        /// native WinTrust API with the supplied verification parameters.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to verify.
+        /// </param>
+        /// <param name="fileHandle">
+        /// An optional open handle to the file to verify.
+        /// </param>
+        /// <param name="uiChoice">
+        /// The WinTrust user interface choice controlling which user interface elements
+        /// may be displayed.
+        /// </param>
+        /// <param name="revocationChecks">
+        /// The WinTrust value controlling how certificate revocation checking is
+        /// performed.
+        /// </param>
+        /// <param name="providerFlags">
+        /// The WinTrust provider flags controlling the behavior of the trust provider.
+        /// </param>
+        /// <param name="uiContext">
+        /// The WinTrust value indicating the context in which the verification is being
+        /// performed.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero if user interface elements may be displayed during verification.
+        /// </param>
+        /// <param name="returnValue">
+        /// Upon return, receives the native status code produced by the verification;
+        /// zero indicates success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode IsFileTrusted(
             string fileName,
             IntPtr fileHandle,

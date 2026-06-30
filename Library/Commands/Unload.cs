@@ -24,12 +24,25 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>unload</c> command, which unloads a
+    /// previously loaded plugin assembly from an interpreter, identified by its
+    /// file name and an optional type or package name.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("c37b126c-c84e-4296-9931-4f0033645ff4")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
         CommandFlags.Standard)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Unload : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>unload</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Unload(
             ICommandData commandData
             )
@@ -39,11 +52,45 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>unload</c> command.  It parses any
+        /// options, resolves the target (possibly nested) child interpreter,
+        /// resolves the supplied file name to a full path, and unloads the
+        /// matching loaded plugin assembly, optionally filtered by a type or
+        /// package name and honoring the match-mode and case options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null and may be overridden
+        /// by the <c>-clientdata</c> and <c>-data</c> options.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by any options and then the file name and
+        /// the optional package name and child interpreter path.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of unloading the plugin.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an option is invalid, the target interpreter cannot be
+        /// found, the file name is invalid, the matching plugin was never
+        /// loaded, the interpreter is null, or the argument list is null, with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

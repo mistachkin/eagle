@@ -26,6 +26,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps process instances to values
+    /// of an arbitrary type.  It extends the underlying generic dictionary with
+    /// a helper for producing a filtered string form of its keys.
+    /// </summary>
+    /// <typeparam name="T">
+    /// The type of the values stored in the dictionary.
+    /// </typeparam>
     [ObjectId("e061793d-5cad-4146-94a8-2b1a557aa15f")]
     internal class ProcessDictionary<T> :
 #if FAST_DICTIONARY
@@ -35,6 +43,9 @@ namespace Eagle._Containers.Private
 #endif
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ProcessDictionary()
             : base()
         {
@@ -45,6 +56,20 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -61,6 +86,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

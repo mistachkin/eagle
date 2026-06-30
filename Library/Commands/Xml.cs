@@ -30,11 +30,27 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>xml</c> command, which serves as the
+    /// central clearinghouse for all XML related operations.  It is an ensemble
+    /// command exposing the <c>deserialize</c>, <c>foreach</c>,
+    /// <c>serialize</c>, and <c>validate</c> sub-commands for converting
+    /// between objects and XML, iterating over XML nodes, and validating XML
+    /// against a schema.  See <c>core_language.md</c> for the command syntax
+    /// and semantics.
+    /// </summary>
     [ObjectId("ab8802bd-bcfd-4042-8e75-ea85c4a67959")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard)]
     [ObjectGroup("managedEnvironment")]
     internal sealed class Xml : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>xml</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Xml(
             ICommandData commandData
             )
@@ -49,10 +65,19 @@ namespace Eagle._Commands
         //       because this is intended to be the central clearinghouse 
         //       for all Xml related commands.
         //
+        /// <summary>
+        /// The collection of sub-commands supported by this ensemble command,
+        /// namely <c>deserialize</c>, <c>foreach</c>, <c>serialize</c>, and
+        /// <c>validate</c>.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
             "deserialize", "foreach", "serialize", "validate"
         });
 
+        /// <summary>
+        /// Gets the collection of sub-commands supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -60,11 +85,44 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>xml</c> command.  It dispatches to one
+        /// of the supported sub-commands (<c>deserialize</c>, <c>foreach</c>,
+        /// <c>serialize</c>, or <c>validate</c>) based on the first argument,
+        /// performing the corresponding XML operation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the arguments to that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command (for example, the deserialized object handle, the
+        /// serialized XML string, or an empty string).  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an unknown sub-command is named, the interpreter is
+        /// null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

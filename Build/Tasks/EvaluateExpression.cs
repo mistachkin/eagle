@@ -15,10 +15,24 @@ using Eagle._Components.Public;
 
 namespace Eagle._Tasks
 {
+    /// <summary>
+    /// This class implements an MSBuild task that creates an interpreter,
+    /// evaluates a configured Eagle expression within it, and reports the
+    /// result.
+    /// </summary>
     [ObjectId("b3641ebe-8528-4658-be70-aa0e86bee1f4")]
     public sealed class EvaluateExpression : Script
     {
         #region Microsoft.Build.Utilities.Task Overrides
+        /// <summary>
+        /// This method executes the task.  It creates an interpreter,
+        /// evaluates the configured Eagle expression within it, stores the
+        /// result, and logs any error that is encountered.
+        /// </summary>
+        /// <returns>
+        /// True if the task succeeded and no errors were logged; otherwise,
+        /// false.
+        /// </returns>
         public override bool Execute()
         {
             CheckDisposed();
@@ -72,7 +86,16 @@ namespace Eagle._Tasks
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this object instance has been
+        /// disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this object instance has already
+        /// been disposed.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -86,6 +109,15 @@ namespace Eagle._Tasks
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this object instance.
+        /// It implements the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="IDisposable.Dispose()" /> method (i.e.
+        /// deterministically); zero if it is being called from the finalizer.
+        /// </param>
         protected override void Dispose(
             bool disposing
             )

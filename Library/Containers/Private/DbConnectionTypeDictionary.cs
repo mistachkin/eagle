@@ -41,6 +41,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps each
+    /// <see cref="DbConnectionType" /> to a triplet describing the associated
+    /// database connection (its type name, invariant name, and assembly bytes).
+    /// It extends the underlying generic dictionary with conversion of its keys
+    /// to the Eagle string list format, including optional pattern matching.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -48,6 +55,9 @@ namespace Eagle._Containers.Private
     internal sealed class DbConnectionTypeDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public DbConnectionTypeDictionary()
             : base()
         {
@@ -56,6 +66,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is initialized with the
+        /// entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public DbConnectionTypeDictionary(
             IDictionary<DbConnectionType, ConnectionTriplet> dictionary
             )
@@ -69,6 +87,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized data.
+        /// This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source of the serialized
+        /// data.
+        /// </param>
         private DbConnectionTypeDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -83,6 +112,22 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format, optionally including only those keys matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each key must match in order to be included in the
+        /// resulting string.  This parameter may be null, in which case all keys
+        /// are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -100,6 +145,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts the keys of this dictionary to a string in the Eagle list
+        /// format.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

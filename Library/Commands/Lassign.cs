@@ -19,11 +19,24 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>lassign</c> command, which assigns
+    /// the successive elements of a list to one or more variables and returns
+    /// any elements that were left over.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("b19de186-5d3e-4543-82fe-2d3b9355dc4a")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("list")]
     internal sealed class Lassign : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>lassign</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Lassign(
             ICommandData commandData
             )
@@ -33,11 +46,45 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>lassign</c> command.  It splits the
+        /// supplied list and assigns its elements, in order, to the named
+        /// variables; any variables for which no element exists are set to the
+        /// empty string, and any elements left over after the last variable
+        /// are returned.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the list whose elements are to be
+        /// assigned; the remaining elements name the variables to receive
+        /// those values.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the list of elements that were left
+        /// over after the last variable was assigned (or an empty string when
+        /// none remain).  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the list cannot be parsed, a variable cannot be set,
+        /// the interpreter is null, or the argument list is null, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

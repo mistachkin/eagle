@@ -32,10 +32,26 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the central support routines used to read and write
+    /// the Eagle-specific XML attributes (and inner text) that describe a saved
+    /// script block.  It maps between an <see cref="XmlElement" /> and the set
+    /// of strongly typed attribute values (such as the block identifier, block
+    /// type, name, group, description, time stamp, public key token, and
+    /// signature), using per-attribute getter and setter callbacks together
+    /// with helpers for escaping CDATA, populating dictionaries, and validating
+    /// the configured callbacks.
+    /// </summary>
     [ObjectId("79f7763f-aca9-40d0-ae37-bbd8afb9a4c7")]
     internal static class ScriptXmlOps
     {
         #region Private Constants
+        /// <summary>
+        /// The pair of markers used to escape and unescape the XML end-of-CDATA
+        /// sequence.  The first element is the unescaped end-of-CDATA marker;
+        /// the second element is its equivalent expressed using XML numeric
+        /// character references.
+        /// </summary>
         private static readonly string[] CDataEnd = {
             "]]>",               /* XML unescaped end-of-CData marker */
             "&#x5D;&#x5D;&#x3E;" /* XML numeric character references */
@@ -45,11 +61,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The dictionary of per-attribute callbacks used to read XML attribute
+        /// values, keyed by attribute name.
+        /// </summary>
         private static XmlGetAttributeDictionary attributeGetters;
+
+        /// <summary>
+        /// The dictionary of per-attribute callbacks used to write XML attribute
+        /// values, keyed by attribute name.
+        /// </summary>
         private static XmlSetAttributeDictionary attributeSetters;
 
         ///////////////////////////////////////////////////////////////////////
@@ -57,17 +86,54 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the XML end-of-CDATA marker is escaped when CDATA
+        /// content is being written.
+        /// </summary>
         private static bool EscapeCDataEnd = true; /* TODO: Good default? */
+
+        /// <summary>
+        /// When non-zero, the escaped XML end-of-CDATA marker is unescaped when
+        /// CDATA content is being read.
+        /// </summary>
         private static bool UnescapeCDataEnd = true; /* TODO: Good default? */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region AttributeGetters Helper Class
+        /// <summary>
+        /// This class provides the per-attribute callbacks used to read the
+        /// individual Eagle-specific XML attribute values from an
+        /// <see cref="XmlElement" />.  Each method matches the
+        /// <see cref="XmlGetAttributeCallback" /> delegate signature and is
+        /// responsible for a single named attribute.
+        /// </summary>
         [ObjectId("70fd0624-64a1-458d-a47b-fe729a516955")]
         private static class AttributeGetters
         {
             #region Private XmlGetAttributeCallback Methods
+            /// <summary>
+            /// This method gets the value of the identifier XML attribute,
+            /// converting it to a <see cref="Guid" />.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the converted attribute value; otherwise,
+            /// receives null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool Id(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -87,6 +153,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the block type XML attribute,
+            /// converting it to an <see cref="XmlBlockType" /> value.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the converted attribute value; otherwise,
+            /// receives null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool BlockType(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -109,6 +196,29 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the text value associated with the XML element,
+            /// which is read from its inner text rather than from a named
+            /// attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the inner text from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.  This parameter is
+            /// ignored.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the value must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the inner text value; otherwise, receives
+            /// null.
+            /// </param>
+            /// <returns>
+            /// True if the value was read successfully (or was absent and not
+            /// required); otherwise, false.
+            /// </returns>
             private static bool Text(
                 XmlElement element,       /* in */
                 string attributeName,     /* in: IGNORED */
@@ -127,6 +237,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the name XML attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the attribute value; otherwise, receives
+            /// null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool Name(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -145,6 +275,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the group XML attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the attribute value; otherwise, receives
+            /// null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool Group(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -163,6 +313,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the description XML attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the attribute value; otherwise, receives
+            /// null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool Description(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -181,6 +351,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the time stamp XML attribute,
+            /// parsing it and converting it to a coordinated universal time
+            /// (UTC) <see cref="DateTime" /> value.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the parsed attribute value; otherwise,
+            /// receives null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read and parsed successfully (or
+            /// was absent and not required); otherwise, false.
+            /// </returns>
             private static bool TimeStamp(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -209,6 +401,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the public key token XML
+            /// attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the attribute value; otherwise, receives
+            /// null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool PublicKeyToken(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -227,6 +440,27 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method gets the value of the signature XML attribute,
+            /// converting it from its base64 text form to a byte array.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to read the attribute value from.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to read.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be present.
+            /// </param>
+            /// <param name="attributeValue">
+            /// Upon success, receives the converted attribute value; otherwise,
+            /// receives null.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was read successfully (or was absent
+            /// and not required); otherwise, false.
+            /// </returns>
             private static bool Signature(
                 XmlElement element,       /* in */
                 string attributeName,     /* in */
@@ -250,6 +484,15 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method initializes the array of attribute getter callbacks,
+            /// in the canonical attribute order, used to read the
+            /// Eagle-specific XML attribute values.
+            /// </summary>
+            /// <param name="callbacks">
+            /// Upon return, receives the newly created array of attribute getter
+            /// callbacks.
+            /// </param>
             public static void InitializeCallbacksArray(
                 out XmlGetAttributeCallback[] callbacks /* out */
                 )
@@ -273,10 +516,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region AttributeSetters Helper Class
+        /// <summary>
+        /// This class provides the per-attribute callbacks used to write the
+        /// individual Eagle-specific XML attribute values to an
+        /// <see cref="XmlElement" />.  Each method matches the
+        /// <see cref="XmlSetAttributeCallback" /> delegate signature and is
+        /// responsible for a single named attribute.
+        /// </summary>
         [ObjectId("f5caac0d-7e49-432c-b646-f447357e5366")]
         private static class AttributeSetters
         {
             #region Private XmlSetAttributeCallback Methods
+            /// <summary>
+            /// This method sets the value of the identifier XML attribute,
+            /// which must be a <see cref="Guid" />.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool Id(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -298,6 +568,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the block type XML attribute,
+            /// which must be an <see cref="XmlBlockType" /> value.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool BlockType(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -319,6 +609,28 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the text value associated with the XML element,
+            /// which must be a string and is written as the element's inner text
+            /// rather than to a named attribute.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the inner text to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.  This parameter is
+            /// ignored.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the value must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The value to write.
+            /// </param>
+            /// <returns>
+            /// True if the value was written successfully (or could be omitted
+            /// because it was not required); otherwise, false.
+            /// </returns>
             private static bool Text(
                 XmlElement element,   /* in */
                 string attributeName, /* in: IGNORED */
@@ -340,6 +652,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the name XML attribute, which must
+            /// be a string.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool Name(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -361,6 +693,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the group XML attribute, which
+            /// must be a string.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool Group(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -382,6 +734,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the description XML attribute,
+            /// which must be a string.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool Description(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -403,6 +775,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the time stamp XML attribute,
+            /// which must be a <see cref="DateTime" /> value.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool TimeStamp(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -424,6 +816,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the public key token XML
+            /// attribute, which must be a string.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool PublicKeyToken(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -445,6 +857,26 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method sets the value of the signature XML attribute, which
+            /// must be a byte array and is written in its base64 text form.
+            /// </summary>
+            /// <param name="element">
+            /// The XML element to write the attribute value to.
+            /// </param>
+            /// <param name="attributeName">
+            /// The name of the XML attribute to write.
+            /// </param>
+            /// <param name="required">
+            /// Non-zero if the attribute must be written successfully.
+            /// </param>
+            /// <param name="attributeValue">
+            /// The attribute value to write.
+            /// </param>
+            /// <returns>
+            /// True if the attribute value was written successfully (or could be
+            /// omitted because it was not required); otherwise, false.
+            /// </returns>
             private static bool Signature(
                 XmlElement element,   /* in */
                 string attributeName, /* in */
@@ -468,6 +900,15 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method initializes the array of attribute setter callbacks,
+            /// in the canonical attribute order, used to write the
+            /// Eagle-specific XML attribute values.
+            /// </summary>
+            /// <param name="callbacks">
+            /// Upon return, receives the newly created array of attribute setter
+            /// callbacks.
+            /// </param>
             public static void InitializeCallbacksArray(
                 out XmlSetAttributeCallback[] callbacks /* out */
                 )
@@ -492,6 +933,13 @@ namespace Eagle._Components.Private
 
         #region Private Methods
         #region Array Support Methods
+        /// <summary>
+        /// This method initializes the array of supported XML attribute names,
+        /// in the canonical attribute order.
+        /// </summary>
+        /// <param name="names">
+        /// Upon return, receives the newly created array of attribute names.
+        /// </param>
         private static void InitializeNamesArray(
             out string[] names /* out */
             )
@@ -511,6 +959,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the array of attribute callbacks by invoking
+        /// the specified initialization callback, if any.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks contained in the array.
+        /// </typeparam>
+        /// <param name="callback">
+        /// The callback used to initialize the array of attribute callbacks.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="callbacks">
+        /// Upon return, receives the array of attribute callbacks, or null if no
+        /// initialization callback was supplied.
+        /// </param>
         private static void InitializeCallbacksArray<T>(
             XmlInitializeArrayCallback<T> callback, /* in */
             out T[] callbacks                       /* out */
@@ -524,6 +987,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes both the array of supported XML attribute
+        /// names and the corresponding array of attribute callbacks.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks contained in the array.
+        /// </typeparam>
+        /// <param name="callback">
+        /// The callback used to initialize the array of attribute callbacks.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="names">
+        /// Upon return, receives the newly created array of attribute names.
+        /// </param>
+        /// <param name="callbacks">
+        /// Upon return, receives the array of attribute callbacks, or null if no
+        /// initialization callback was supplied.
+        /// </param>
         private static void InitializeArrays<T>(
             XmlInitializeArrayCallback<T> callback, /* in */
             out string[] names,                     /* out */
@@ -536,6 +1017,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the array of attribute names and the array
+        /// of attribute callbacks are both present and have matching lengths.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks contained in the array.
+        /// </typeparam>
+        /// <param name="names">
+        /// The array of attribute names to check.
+        /// </param>
+        /// <param name="callbacks">
+        /// The array of attribute callbacks to check.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the common length of both arrays.
+        /// </param>
+        /// <returns>
+        /// True if both arrays are present and have matching lengths; otherwise,
+        /// false.
+        /// </returns>
         private static bool CheckArrays<T>(
             string[] names, /* in */
             T[] callbacks,  /* in */
@@ -558,6 +1059,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified XML attribute name is
+        /// one of the supported attribute names, initializing the array of
+        /// supported names on demand.
+        /// </summary>
+        /// <param name="names">
+        /// The array of supported attribute names.  If null, it is initialized
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <param name="name">
+        /// The attribute name to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified attribute name is supported; otherwise, false.
+        /// </returns>
         private static bool IsSupported(
             ref string[] names, /* in, out */
             string name         /* in */
@@ -574,6 +1090,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////
 
         #region Dictionary Support Methods
+        /// <summary>
+        /// This method initializes the specified dictionary of attribute
+        /// callbacks, keyed by attribute name, creating it if necessary and
+        /// populating it from the supported attribute names and callbacks.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks contained in the dictionary.
+        /// </typeparam>
+        /// <param name="callback">
+        /// The callback used to initialize the array of attribute callbacks.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary of attribute callbacks to initialize.  If null, it is
+        /// created by this method and returned to the caller.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to (re-)initialize the dictionary even when it has already
+        /// been populated.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite any pre-existing entries with the same
+        /// attribute name.
+        /// </param>
         private static void InitializeDictionary<T>(
             XmlInitializeArrayCallback<T> callback, /* in */
             ref Dictionary<string, T> dictionary,   /* in, out */
@@ -614,6 +1154,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////
 
         #region Introspection Support Methods
+        /// <summary>
+        /// This method determines whether the two specified attribute callbacks
+        /// refer to the same delegate.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks being compared.
+        /// </typeparam>
+        /// <param name="callback1">
+        /// The first attribute callback to compare.
+        /// </param>
+        /// <param name="callback2">
+        /// The second attribute callback to compare.
+        /// </param>
+        /// <returns>
+        /// True if both callbacks refer to the same delegate; otherwise, false.
+        /// </returns>
         private static bool MatchDelegates<T>(
             T callback1, /* in */
             T callback2  /* in */
@@ -627,6 +1183,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified dictionary of attribute callbacks
+        /// against the expected supported attribute names and callbacks,
+        /// reporting any missing, mismatched, or extra entries.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the attribute callbacks contained in the dictionary.
+        /// </typeparam>
+        /// <param name="callback">
+        /// The callback used to initialize the array of expected attribute
+        /// callbacks.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary of attribute callbacks to check.
+        /// </param>
+        /// <param name="list">
+        /// The list of human-readable diagnostic messages to populate.  If null,
+        /// it is created by this method and returned to the caller.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// True if the dictionary and expected arrays were able to be checked;
+        /// otherwise, false.
+        /// </returns>
         private static bool CheckDictionary<T>(
             XmlInitializeArrayCallback<T> callback, /* in */
             Dictionary<string, T> dictionary,       /* in */
@@ -726,6 +1309,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region XmlAttributeListType Support Methods
+        /// <summary>
+        /// This method gets the human-readable name fragment associated with the
+        /// specified attribute list type, for use in diagnostic messages.
+        /// </summary>
+        /// <param name="listType">
+        /// The attribute list type to get the name fragment for.
+        /// </param>
+        /// <returns>
+        /// The name fragment for the specified attribute list type, or null if
+        /// the list type is not recognized.
+        /// </returns>
         private static string GetAttributeListName(
             XmlAttributeListType listType /* in */
             )
@@ -753,6 +1347,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of XML attribute names associated with the
+        /// specified attribute list type.
+        /// </summary>
+        /// <param name="listType">
+        /// The attribute list type to get the attribute names for.
+        /// </param>
+        /// <returns>
+        /// The list of attribute names for the specified attribute list type,
+        /// or null if the list type is not recognized.
+        /// </returns>
         private static StringList GetAttributeNames(
             XmlAttributeListType listType /* in */
             )
@@ -786,6 +1391,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified XML element has all of
+        /// the attributes associated with the specified attribute list type.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to check.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names must be present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the missing attribute or
+        /// other error.
+        /// </param>
+        /// <returns>
+        /// True if the element has all of the required attributes; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasAttributeNames(
             XmlElement element,            /* in */
             XmlAttributeListType listType, /* in */
@@ -799,6 +1422,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified XML element has all of
+        /// the specified attributes, treating an attribute name that maps to the
+        /// inner text specially.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to check.
+        /// </param>
+        /// <param name="attributeNames">
+        /// The list of attribute names that must be present.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type, used when formatting diagnostic messages.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the missing attribute or
+        /// other error.
+        /// </param>
+        /// <returns>
+        /// True if the element has all of the specified attributes; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasAttributeNames(
             XmlElement element,            /* in */
             StringList attributeNames,     /* in */
@@ -852,6 +1497,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified attribute name belongs
+        /// to the set of attribute names associated with the specified attribute
+        /// list type.
+        /// </summary>
+        /// <param name="attributeName">
+        /// The attribute name to check.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are checked.
+        /// </param>
+        /// <returns>
+        /// True if the specified attribute name belongs to the attribute list
+        /// type; otherwise, false.
+        /// </returns>
         private static bool IsAttributeName(
             string attributeName,         /* in */
             XmlAttributeListType listType /* in */
@@ -867,6 +1527,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified attribute name is a
+        /// required attribute for the specified attribute list type.  The
+        /// <c>All</c> list type is treated as the <c>Required</c> list type for
+        /// the purposes of this check.
+        /// </summary>
+        /// <param name="attributeName">
+        /// The attribute name to check.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose required attribute names are checked.
+        /// </param>
+        /// <returns>
+        /// True if the specified attribute name is required; otherwise, false.
+        /// </returns>
         private static bool IsRequiredAttributeName(
             string attributeName,         /* in */
             XmlAttributeListType listType /* in */
@@ -882,6 +1557,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Helper Methods
+        /// <summary>
+        /// This method determines whether the specified attribute name refers to
+        /// the value stored in the inner text of an XML element rather than in a
+        /// named attribute.  A null attribute name is treated as referring to
+        /// the inner text.
+        /// </summary>
+        /// <param name="attributeName">
+        /// The attribute name to check.
+        /// </param>
+        /// <returns>
+        /// True if the specified attribute name refers to the inner text;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsInnerTextAttributeName(
             string attributeName /* in */
             )
@@ -901,6 +1589,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified inner text value is
+        /// considered missing (that is, null or empty).
+        /// </summary>
+        /// <param name="innerText">
+        /// The inner text value to check.
+        /// </param>
+        /// <returns>
+        /// True if the inner text value is missing; otherwise, false.
+        /// </returns>
         private static bool IsMissingInnerText(
             string innerText /* in */
             )
@@ -914,6 +1612,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified attribute value to its XML string
+        /// representation, using a type-specific format for block type, time
+        /// stamp, and byte array values.
+        /// </summary>
+        /// <param name="attributeValue">
+        /// The attribute value to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the specified attribute value.
+        /// </returns>
         private static string AttributeValueToString(
             object attributeValue /* in */
             )
@@ -946,6 +1655,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method escapes or unescapes the XML end-of-CDATA marker within
+        /// the specified string value, subject to the configured escape and
+        /// unescape settings.
+        /// </summary>
+        /// <param name="stringValue">
+        /// The string value to escape or unescape.  This parameter may be null
+        /// or empty.
+        /// </param>
+        /// <param name="escape">
+        /// Non-zero to escape the end-of-CDATA marker; zero to unescape it.
+        /// </param>
+        /// <returns>
+        /// The escaped or unescaped string value, or the original value if no
+        /// transformation was applicable.
+        /// </returns>
         private static string EscapeOrUnescapeCData(
             string stringValue, /* in */
             bool escape         /* in */
@@ -984,6 +1709,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Callback Helper Methods
+        /// <summary>
+        /// This method gets the value of a single named XML attribute by looking
+        /// up and invoking its registered getter callback.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to read the attribute value from.
+        /// </param>
+        /// <param name="attributeName">
+        /// The name of the XML attribute to read.
+        /// </param>
+        /// <param name="required">
+        /// Non-zero if the attribute must be present.
+        /// </param>
+        /// <param name="attributeValue">
+        /// Upon success, receives the attribute value produced by the callback.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the attribute value was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetAttributeValueViaCallback(
             XmlElement element,        /* in */
             string attributeName,      /* in */
@@ -1057,6 +1805,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the value of a single named XML attribute by looking
+        /// up and invoking its registered setter callback.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to write the attribute value to.
+        /// </param>
+        /// <param name="attributeName">
+        /// The name of the XML attribute to write.
+        /// </param>
+        /// <param name="required">
+        /// Non-zero if the attribute must be written successfully.
+        /// </param>
+        /// <param name="attributeValue">
+        /// The attribute value to write.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the attribute value was written successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TrySetAttributeValueViaCallback(
             XmlElement element,    /* in */
             string attributeName,  /* in */
@@ -1130,6 +1901,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Xml Support Methods
+        /// <summary>
+        /// This method gets the value of the specified XML attribute (or inner
+        /// text), using a null default value when the attribute is absent.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to read the attribute value from.
+        /// </param>
+        /// <param name="attributeName">
+        /// The name of the XML attribute to read.
+        /// </param>
+        /// <param name="attributeValue">
+        /// Upon success, receives the attribute value; otherwise, receives null.
+        /// </param>
+        /// <returns>
+        /// True if the attribute value was read successfully; otherwise, false.
+        /// </returns>
         private static bool TryGetAttributeValue(
             XmlElement element,       /* in */
             string attributeName,     /* in */
@@ -1142,6 +1929,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a CDATA section containing the specified string
+        /// value, after escaping the end-of-CDATA marker, to the specified XML
+        /// element.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to append the CDATA section to.
+        /// </param>
+        /// <param name="stringValue">
+        /// The string value to place inside the CDATA section.
+        /// </param>
+        /// <returns>
+        /// True if the CDATA section was appended successfully; otherwise, false.
+        /// </returns>
         private static bool TryAppendCData(
             XmlElement element, /* in */
             string stringValue  /* in */
@@ -1164,6 +1965,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates a dictionary of attribute values by reading the
+        /// attributes associated with the specified attribute list type from the
+        /// specified XML element.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to read the attribute values from.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are read.
+        /// </param>
+        /// <param name="attributes">
+        /// Upon success, receives the dictionary of attribute names and values.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// True if the attribute values were populated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryPopulateAttributes(
             XmlElement element,              /* in */
             XmlAttributeListType listType,   /* in */
@@ -1178,6 +2001,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates a dictionary of attribute values by reading the
+        /// specified attributes from the specified XML element, skipping null
+        /// attribute values.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to read the attribute values from.
+        /// </param>
+        /// <param name="attributeNames">
+        /// The list of attribute names to read.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type, used when determining which attributes are
+        /// required and when formatting diagnostic messages.
+        /// </param>
+        /// <param name="attributes">
+        /// Upon success, receives the dictionary of attribute names and values.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// True if the attribute values were populated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryPopulateAttributes(
             XmlElement element,              /* in */
             StringList attributeNames,       /* in */
@@ -1250,6 +2099,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified XML element by writing the
+        /// attributes associated with the specified attribute list type from the
+        /// specified dictionary of attribute values.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to write the attribute values to.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are written.
+        /// </param>
+        /// <param name="attributes">
+        /// The dictionary of attribute names and values to write.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// True if the element was populated successfully; otherwise, false.
+        /// </returns>
         private static bool TryPopulateElement(
             XmlElement element,            /* in */
             XmlAttributeListType listType, /* in */
@@ -1264,6 +2134,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified XML element by writing the
+        /// specified attributes from the specified dictionary of attribute
+        /// values, reporting an error for any missing required attribute.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to write the attribute values to.
+        /// </param>
+        /// <param name="attributeNames">
+        /// The list of attribute names to write.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type, used when determining which attributes are
+        /// required and when formatting diagnostic messages.
+        /// </param>
+        /// <param name="attributes">
+        /// The dictionary of attribute names and values to write.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// True if the element was populated successfully; otherwise, false.
+        /// </returns>
         private static bool TryPopulateElement(
             XmlElement element,            /* in */
             StringList attributeNames,     /* in */
@@ -1349,6 +2244,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the specified XML element any unsupported
+        /// (extra) attributes named in the specified dictionary.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to remove the attributes from.
+        /// </param>
+        /// <param name="extra">
+        /// The dictionary of extra attribute names and values whose unsupported
+        /// names are removed from the element.
+        /// </param>
+        /// <returns>
+        /// True if the operation completed successfully; otherwise, false.
+        /// </returns>
         private static bool TryRemoveAttributes(
             XmlElement element,
             ObjectDictionary extra
@@ -1381,6 +2290,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the specified XML element all of the
+        /// attributes associated with the specified attribute list type.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to remove the attributes from.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are removed.
+        /// </param>
+        /// <returns>
+        /// True if the operation completed successfully; otherwise, false.
+        /// </returns>
         private static bool TryRemoveAttributes(
             XmlElement element,           /* in */
             XmlAttributeListType listType /* in */
@@ -1409,6 +2331,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Parameter Support Methods
+        /// <summary>
+        /// This method resets the block type and text attribute values to their
+        /// well-known default values.
+        /// </summary>
+        /// <param name="blockType">
+        /// Upon return, receives the default block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the default text value.
+        /// </param>
         private static void ResetAttributeValues(
             out XmlBlockType blockType, /* out */
             out string text             /* out */
@@ -1420,6 +2352,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the full set of script block attribute values to
+        /// their well-known default values.
+        /// </summary>
+        /// <param name="id">
+        /// Upon return, receives the default identifier value.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon return, receives the default block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the default text value.
+        /// </param>
+        /// <param name="name">
+        /// Upon return, receives the default name value.
+        /// </param>
+        /// <param name="group">
+        /// Upon return, receives the default group value.
+        /// </param>
+        /// <param name="description">
+        /// Upon return, receives the default description value.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon return, receives the default time stamp value.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon return, receives the default public key token value.
+        /// </param>
+        /// <param name="signature">
+        /// Upon return, receives the default signature value.
+        /// </param>
+        /// <param name="extra">
+        /// Upon return, receives the default extra attributes value.
+        /// </param>
         private static void ResetAttributeValues(
             out Guid id,                /* out */
             out XmlBlockType blockType, /* out */
@@ -1450,6 +2416,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unpacks the block type and text attribute values from the
+        /// specified dictionary of attribute values into their corresponding
+        /// strongly typed output parameters.
+        /// </summary>
+        /// <param name="attributes">
+        /// The dictionary of attribute names and values to unpack.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite pre-existing values; this parameter is provided
+        /// for symmetry with the related methods.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon return, receives the unpacked block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the unpacked text value.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// The number of attribute values that were successfully unpacked, or an
+        /// invalid count if the dictionary was null.
+        /// </returns>
         private static int UnpackAttributeValues(
             ObjectDictionary attributes, /* in */
             bool overwrite,              /* in */
@@ -1510,6 +2503,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unpacks the full set of script block attribute values
+        /// from the specified dictionary of attribute values into their
+        /// corresponding strongly typed output parameters, collecting any
+        /// unsupported attributes into the extra dictionary.
+        /// </summary>
+        /// <param name="attributes">
+        /// The dictionary of attribute names and values to unpack.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to count pre-existing extra attribute names as overwritten
+        /// rather than skipping them.
+        /// </param>
+        /// <param name="id">
+        /// Upon return, receives the unpacked identifier value.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon return, receives the unpacked block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the unpacked text value.
+        /// </param>
+        /// <param name="name">
+        /// Upon return, receives the unpacked name value.
+        /// </param>
+        /// <param name="group">
+        /// Upon return, receives the unpacked group value.
+        /// </param>
+        /// <param name="description">
+        /// Upon return, receives the unpacked description value.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon return, receives the unpacked time stamp value.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon return, receives the unpacked public key token value.
+        /// </param>
+        /// <param name="signature">
+        /// Upon return, receives the unpacked signature value.
+        /// </param>
+        /// <param name="extra">
+        /// Upon return, receives the dictionary of unsupported (extra) attribute
+        /// names and values, if any.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// The number of attribute values that were successfully unpacked, or an
+        /// invalid count if the dictionary was null.
+        /// </returns>
         private static int UnpackAttributeValues(
             ObjectDictionary attributes, /* in */
             bool overwrite,              /* in */
@@ -1749,6 +2795,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method packs the full set of script block attribute values into
+        /// the specified dictionary of attribute values, omitting values that
+        /// are at their default and adding any unsupported (extra) attributes.
+        /// </summary>
+        /// <param name="attributes">
+        /// The dictionary of attribute names and values to populate.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to count pre-existing extra attribute names as overwritten
+        /// rather than skipping them.
+        /// </param>
+        /// <param name="id">
+        /// The identifier value to pack.
+        /// </param>
+        /// <param name="blockType">
+        /// The block type value to pack.
+        /// </param>
+        /// <param name="text">
+        /// The text value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp value to pack.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="signature">
+        /// The signature value to pack.  This parameter may be null.
+        /// </param>
+        /// <param name="extra">
+        /// The dictionary of unsupported (extra) attribute names and values to
+        /// pack.  This parameter may be null.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to populate upon failure.  If null, it is created
+        /// by this method and returned to the caller.
+        /// </param>
+        /// <returns>
+        /// The number of attribute values that were successfully packed, or an
+        /// invalid count if the dictionary was null.
+        /// </returns>
         private static int PackAttributeValues(
             ObjectDictionary attributes, /* in */
             bool overwrite,              /* in */
@@ -1889,6 +2987,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.WriteEngineInfo method.
         //
+        /// <summary>
+        /// This method adds diagnostic information about the script XML
+        /// subsystem (such as the configured attribute getters and setters and
+        /// the CDATA escape settings) to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to add the diagnostic information to.  If null, this method
+        /// does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the verbosity and content of the diagnostic
+        /// information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -1992,6 +3103,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Helper Methods
+        /// <summary>
+        /// This method gets the value of the specified XML attribute, or the
+        /// inner text when the attribute name refers to the inner text, falling
+        /// back to the specified default value when the value is absent.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to read the attribute value from.
+        /// </param>
+        /// <param name="attributeName">
+        /// The name of the XML attribute to read.
+        /// </param>
+        /// <param name="defaultAttributeValue">
+        /// The default value to use when the attribute value is absent.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="attributeValue">
+        /// Upon success, receives the attribute value; otherwise, receives the
+        /// default value.
+        /// </param>
+        /// <returns>
+        /// True if the attribute value was read successfully; otherwise, false.
+        /// </returns>
         public static bool TryGetAttributeValue(
             XmlElement element,           /* in */
             string attributeName,         /* in */
@@ -2039,6 +3172,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the value of the specified XML attribute, or the
+        /// inner text (as a CDATA section) when the attribute name refers to the
+        /// inner text.
+        /// </summary>
+        /// <param name="element">
+        /// The XML element to write the attribute value to.
+        /// </param>
+        /// <param name="attributeName">
+        /// The name of the XML attribute to write.
+        /// </param>
+        /// <param name="attributeValue">
+        /// The attribute value to write.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the attribute value was written successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool TrySetAttributeValue(
             XmlElement element,   /* in */
             string attributeName, /* in */
@@ -2072,6 +3223,13 @@ namespace Eagle._Components.Private
 
         #region Testing Support Methods
 #if TEST
+        /// <summary>
+        /// This method gets the object used to synchronize access to the static
+        /// data of this class.  It is intended for testing purposes only.
+        /// </summary>
+        /// <returns>
+        /// The synchronization object.  This method cannot return null.
+        /// </returns>
         public static object GetSyncRoot() /* CANNOT RETURN NULL */
         {
             return syncRoot;
@@ -2079,6 +3237,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the dictionary of per-attribute getter callbacks.
+        /// It is intended for testing purposes only.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of attribute getter callbacks, or null if it has not
+        /// been initialized.
+        /// </returns>
         public static XmlGetAttributeDictionary GetAttributeGetters()
         {
             return attributeGetters;
@@ -2086,6 +3252,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the dictionary of per-attribute setter callbacks.
+        /// It is intended for testing purposes only.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of attribute setter callbacks, or null if it has not
+        /// been initialized.
+        /// </returns>
         public static XmlSetAttributeDictionary GetAttributeSetters()
         {
             return attributeSetters;
@@ -2096,6 +3270,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Subsystem Initialization Methods
+        /// <summary>
+        /// This method initializes the dictionary of per-attribute getter
+        /// callbacks used to read the Eagle-specific XML attribute values.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to (re-)initialize the dictionary even when it has already
+        /// been populated.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite any pre-existing entries with the same
+        /// attribute name.
+        /// </param>
         public static void InitializeAttributeGetters(
             bool force,    /* in */
             bool overwrite /* in */
@@ -2111,6 +3297,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the dictionary of per-attribute setter
+        /// callbacks used to write the Eagle-specific XML attribute values.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to (re-)initialize the dictionary even when it has already
+        /// been populated.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite any pre-existing entries with the same
+        /// attribute name.
+        /// </param>
         public static void InitializeAttributeSetters(
             bool force,    /* in */
             bool overwrite /* in */
@@ -2128,6 +3326,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Attribute Value Reader / Writer Methods
+        /// <summary>
+        /// This method reads the engine block type and text values from the
+        /// specified XML node.  It is for use by the static Engine class only;
+        /// the attribute list type is forced to the engine list type.
+        /// </summary>
+        /// <param name="node">
+        /// The XML node to read the attribute values from.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type.  This parameter is ignored; the engine list
+        /// type is always used.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite pre-existing values during unpacking.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon success, receives the block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the attribute values were read successfully; otherwise, false.
+        /// </returns>
         public static bool TryGetAttributeValues(
             XmlNode node,                  /* in */
             XmlAttributeListType listType, /* in: IGNORED */
@@ -2235,6 +3460,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the full set of script block attribute values from
+        /// the specified XML node, validating that all required attributes are
+        /// present.
+        /// </summary>
+        /// <param name="node">
+        /// The XML node to read the attribute values from.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are read.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite pre-existing values during unpacking.
+        /// </param>
+        /// <param name="id">
+        /// Upon success, receives the identifier value.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon success, receives the block type value.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text value.
+        /// </param>
+        /// <param name="name">
+        /// Upon success, receives the name value.
+        /// </param>
+        /// <param name="group">
+        /// Upon success, receives the group value.
+        /// </param>
+        /// <param name="description">
+        /// Upon success, receives the description value.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon success, receives the time stamp value.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the public key token value.
+        /// </param>
+        /// <param name="signature">
+        /// Upon success, receives the signature value.
+        /// </param>
+        /// <param name="extra">
+        /// Upon success, receives the dictionary of unsupported (extra)
+        /// attribute names and values, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the attribute values were read successfully; otherwise, false.
+        /// </returns>
         public static bool TryGetAttributeValues(
             XmlNode node,                  /* in */
             XmlAttributeListType listType, /* in */
@@ -2352,6 +3628,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the full set of script block attribute values to
+        /// the specified XML node, first removing any pre-existing attributes
+        /// and then validating that all required attributes were written.
+        /// </summary>
+        /// <param name="node">
+        /// The XML node to write the attribute values to.
+        /// </param>
+        /// <param name="listType">
+        /// The attribute list type whose attribute names are written.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero to overwrite pre-existing values during packing.
+        /// </param>
+        /// <param name="id">
+        /// The identifier value to write.
+        /// </param>
+        /// <param name="blockType">
+        /// The block type value to write.
+        /// </param>
+        /// <param name="text">
+        /// The text value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp value to write.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="signature">
+        /// The signature value to write.  This parameter may be null.
+        /// </param>
+        /// <param name="extra">
+        /// The dictionary of unsupported (extra) attribute names and values to
+        /// write.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the attribute values were written successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool TrySetAttributeValues(
             XmlNode node,                  /* in */
             XmlAttributeListType listType, /* in */

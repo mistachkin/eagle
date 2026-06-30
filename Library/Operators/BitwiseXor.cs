@@ -16,6 +16,14 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>^</c> (bitwise exclusive-or)
+    /// expression operator, which computes the bitwise exclusive-or of its two
+    /// integral operands.  The evaluation itself is provided by the
+    /// <see cref="Math" /> base class, selected by the
+    /// <see cref="Lexeme.BitwiseXor" /> lexeme.  See <c>core_language.md</c>
+    /// for expression and operator semantics.
+    /// </summary>
     [ObjectId("5b602c6b-1621-4d00-9f01-8d93e1c15cc4")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Bitwise)]
@@ -27,6 +35,14 @@ namespace Eagle._Operators
     internal sealed class BitwiseXor : Math
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>^</c> bitwise exclusive-or
+        /// operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public BitwiseXor(
             IOperatorData operatorData /* in */
             )

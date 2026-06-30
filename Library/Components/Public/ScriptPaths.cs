@@ -15,9 +15,18 @@ using Eagle._Components.Private;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides the well-known relative path fragments used to
+    /// locate the standard Eagle library packages (the plugin loader, the core
+    /// script library, the test package, and the kit package).
+    /// </summary>
     [ObjectId("b57cce30-e11d-4b31-b3a8-aedc2d7207f3")]
     public static class ScriptPaths
     {
+        /// <summary>
+        /// The relative path fragment to the Eagle plugin loader library
+        /// package.  It should look something like "lib/Loader1.0".
+        /// </summary>
         //
         // NOTE: This is the "path fragment" to the Eagle plugin loader library
         //       package.  It should look something like "lib/Loader1.0".
@@ -28,6 +37,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The relative path fragment to the Eagle core script library
+        /// package.  It should look something like "lib/Eagle1.0".
+        /// </summary>
         //
         // NOTE: This is the "path fragment" to the Eagle core script library
         //       package.  It should look something like "lib/Eagle1.0".
@@ -38,6 +51,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The relative path fragment to the Eagle test package.  It should
+        /// look something like "lib/Test1.0".
+        /// </summary>
         //
         // NOTE: This is the "path fragment" to the Eagle test package.  It
         //       should look something like "lib/Test1.0".
@@ -48,6 +65,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The relative path fragment to the Eagle kit package.  It should
+        /// look something like "lib/Kit1.0".
+        /// </summary>
         //
         // NOTE: This is the "path fragment" to the Eagle test package.  It
         //       should look something like "lib/Kit1.0".

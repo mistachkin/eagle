@@ -17,6 +17,11 @@ using Eagle._Components.Public;
 
 namespace Eagle._Cmdlets
 {
+    /// <summary>
+    /// This class implements a PowerShell cmdlet that performs command, variable,
+    /// and backslash substitution on the contents of a text file using an Eagle
+    /// interpreter, writing the substituted result to the pipeline.
+    /// </summary>
     [Cmdlet(
         _Constants.Verb.Substitute,
         _Constants.Noun.TextFile,
@@ -26,6 +31,11 @@ namespace Eagle._Cmdlets
     public sealed class SubstituteFile : Script
     {
         #region System.Management.Automation.Cmdlet Overrides
+        /// <summary>
+        /// This method processes a single input record for the cmdlet.  It
+        /// performs the substitution on the configured text file and writes the
+        /// result, or any error, to the pipeline.
+        /// </summary>
         protected override void ProcessRecord()
         {
             //

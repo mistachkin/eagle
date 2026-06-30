@@ -45,10 +45,22 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of private file system helper methods
+    /// used internally by the Eagle core library, including support for
+    /// querying portable executable (PE) file metadata, checking and
+    /// manipulating file system access rights, implementing the various forms
+    /// of the [glob] command, and performing common file and directory
+    /// operations (copy, move, delete, touch, attribute and time queries).
+    /// </summary>
     [ObjectId("814d0e8c-c65a-4c7c-8c2e-2e6cee551509")]
     internal static class FileOps
     {
         #region Private StreamReader Support Constants
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class from multiple threads.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -59,6 +71,11 @@ namespace Eagle._Components.Private
         //       as .NET Core for the StreamReader class; therefore, try its
         //       name first ("_byteBuffer") when targeted to those platforms.
         //
+        /// <summary>
+        /// The candidate names of the private byte buffer field within the
+        /// <see cref="StreamReader" /> class, in the order they should be
+        /// tried when reflecting that field on Mono or .NET Standard targets.
+        /// </summary>
         private static string[] byteBufferFieldNames = {
             "_byteBuffer", "byteBuffer", null, null
         };
@@ -68,6 +85,11 @@ namespace Eagle._Components.Private
         //       legacy name ("byteBuffer") as of v4.8.0; therefore, try that
         //       name first when targeted to that platform.
         //
+        /// <summary>
+        /// The candidate names of the private byte buffer field within the
+        /// <see cref="StreamReader" /> class, in the order they should be
+        /// tried when reflecting that field on the desktop .NET Framework.
+        /// </summary>
         private static string[] byteBufferFieldNames = {
             "byteBuffer", "_byteBuffer", null, null
         };
@@ -78,12 +100,22 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The cached reflected field information for the private byte buffer
+        /// field of the <see cref="StreamReader" /> class, or null if it has
+        /// not yet been resolved.
+        /// </summary>
         private static FieldInfo byteBufferFieldInfo = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private [glob] Support Collection Classes
+        /// <summary>
+        /// This class represents a dictionary that maps file system path names
+        /// to their associated file system information objects, for use while
+        /// processing the [glob] command.
+        /// </summary>
         [ObjectId("64966544-0142-4f06-a335-63baa4c14293")]
         private sealed class FileSystemInfoDictionary : PathDictionary<object>
         {
@@ -96,30 +128,55 @@ namespace Eagle._Components.Private
         //
         // NOTE: The EXE header signature.
         //
+        /// <summary>
+        /// The signature value found at the start of an MS-DOS executable
+        /// header (the ASCII characters "MZ").
+        /// </summary>
         private const ushort IMAGE_DOS_SIGNATURE = 0x5A4D; // "MZ"
 
         //
         // NOTE: The PE header signature.
         //
+        /// <summary>
+        /// The signature value found at the start of a portable executable
+        /// (PE) header (the ASCII characters "PE" followed by two null bytes).
+        /// </summary>
         private const uint IMAGE_NT_SIGNATURE = 0x00004550; // "PE\0\0"
 
         //
         // NOTE: This "magic" value means that we have no idea what
         //       the value for the file (or operating system) is.
         //
+        /// <summary>
+        /// The sentinel "magic" value indicating that the architecture of the
+        /// file (or operating system) is unknown.
+        /// </summary>
         internal const ushort IMAGE_NT_OPTIONAL_BAD_MAGIC = 0x0;
 
         //
         // NOTE: The "magic" values from the PE header for 32-bit
         //       and 64-bit executables.
         //
+        /// <summary>
+        /// The "magic" value found in the optional header of a 32-bit portable
+        /// executable (PE) file.
+        /// </summary>
         private const ushort IMAGE_NT_OPTIONAL_HDR32_MAGIC = 0x010B;
+
+        /// <summary>
+        /// The "magic" value found in the optional header of a 64-bit portable
+        /// executable (PE) file.
+        /// </summary>
         private const ushort IMAGE_NT_OPTIONAL_HDR64_MAGIC = 0x020B;
 
         //
         // NOTE: The offset into the file where the offset into
         //       the file of the PE header is located.
         //
+        /// <summary>
+        /// The byte offset into the file at which the offset of the portable
+        /// executable (PE) header is located.
+        /// </summary>
         private const int filePeSignatureOffsetOffset = 0x3C;
 
         //
@@ -127,6 +184,10 @@ namespace Eagle._Components.Private
         //       IMAGE_FILE_HEADER structure from the start of the
         //       PE signature.
         //
+        /// <summary>
+        /// The byte offset of the TimeDateStamp field in the IMAGE_FILE_HEADER
+        /// structure, measured from the start of the PE signature.
+        /// </summary>
         private const int peTimeStampOffset = 0x8;
 
         //
@@ -134,13 +195,26 @@ namespace Eagle._Components.Private
         //       IMAGE_OPTIONAL_HEADER structure from the start of
         //       the PE signature.
         //
+        /// <summary>
+        /// The byte offset of the Magic field in the IMAGE_OPTIONAL_HEADER
+        /// structure, measured from the start of the PE signature.
+        /// </summary>
         private const int peMagicOffset = 0x18;
 
         //
         // NOTE: The offset for the CLR header virtual address from
         //       the start of the IMAGE_OPTIONAL_HEADER structure.
         //
+        /// <summary>
+        /// The byte offset of the CLR header virtual address from the start of
+        /// the IMAGE_OPTIONAL_HEADER structure for a 32-bit executable.
+        /// </summary>
         private const int peClrHeaderOffset32 = 0xD0;
+
+        /// <summary>
+        /// The byte offset of the CLR header virtual address from the start of
+        /// the IMAGE_OPTIONAL_HEADER structure for a 64-bit executable.
+        /// </summary>
         private const int peClrHeaderOffset64 = 0xE0;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -152,6 +226,12 @@ namespace Eagle._Components.Private
         //       the PE signature.  This value just happens to be
         //       the same for 32-bit and 64-bit executables.
         //
+        /// <summary>
+        /// The byte offset of the SizeOfStackReserve field in the
+        /// IMAGE_OPTIONAL_HEADER structure, measured from the start of the PE
+        /// signature.  This value is the same for 32-bit and 64-bit
+        /// executables.
+        /// </summary>
         private const int peReserveOffset = 0x60;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -162,7 +242,18 @@ namespace Eagle._Components.Private
         //       the PE signature.  This value is different for
         //       32-bit and 64-bit executables.
         //
+        /// <summary>
+        /// The byte offset of the SizeOfStackCommit field in the
+        /// IMAGE_OPTIONAL_HEADER structure for a 32-bit executable, measured
+        /// from the start of the PE signature.
+        /// </summary>
         private const int peCommitOffset32Bit = 0x64;
+
+        /// <summary>
+        /// The byte offset of the SizeOfStackCommit field in the
+        /// IMAGE_OPTIONAL_HEADER structure for a 64-bit executable, measured
+        /// from the start of the PE signature.
+        /// </summary>
         private const int peCommitOffset64Bit = 0x68;
 #endif
 
@@ -171,17 +262,35 @@ namespace Eagle._Components.Private
         //
         // NOTE: These strings are only used by GetPeFileMagicName.
         //
+        /// <summary>
+        /// The human-readable name returned for the "magic" value of a 32-bit
+        /// portable executable (PE) file.
+        /// </summary>
         private const string magicPe32 = "PE32";
+
+        /// <summary>
+        /// The human-readable name returned for the "magic" value of a 64-bit
+        /// portable executable (PE) file.
+        /// </summary>
         private const string magicPe32Plus = "PE32+";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && !MONO
+        /// <summary>
+        /// Represents the empty set of file system rights (i.e. no rights at
+        /// all).
+        /// </summary>
         internal static readonly FileSystemRights NoFileSystemRights =
             (FileSystemRights)0; /* None */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Represents the complete set of file system rights that the .NET
+        /// Framework is able to handle, used to detect and skip rights values
+        /// it cannot process.
+        /// </summary>
         private static readonly FileSystemRights AllFileSystemRights =
             FileSystemRights.ListDirectory |
             FileSystemRights.ReadData |
@@ -214,6 +323,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, only "normal" file system paths are returned by the
+        /// [glob] command, filtering out "special" paths (e.g. reparse points
+        /// and other non-normal entries).
+        /// </summary>
         private static bool GlobNormalPathsOnly = true;
 #endif
 
@@ -222,13 +336,28 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, "synthetic" file attributes (those fabricated by the
+        /// .NET runtime on non-Windows operating systems, such as the hidden
+        /// flag for "dotfiles") are ignored during [glob] type matching.
+        /// </summary>
         private static bool GlobIgnoreSyntheticAttributes = true;
 
+        /// <summary>
+        /// When non-zero, the file attributes reported by the operating system
+        /// are treated as Windows-style (non-synthetic) attributes; this is
+        /// initialized based on whether the current operating system is
+        /// Windows.
+        /// </summary>
         private static bool GlobWindowsSyntheticAttributes =
             PlatformOps.IsWindowsOperatingSystem();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of characters that are treated as glob wildcard or escape
+        /// metacharacters, used to detect and escape them within path prefixes.
+        /// </summary>
         private static readonly char[] GlobWildcardChars = {
             Characters.OpenBracket,
             Characters.Backslash,
@@ -240,11 +369,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// The cached native stack size (reserve and commit) extracted from the
+        /// PE header of the main Eagle assembly, or null if it has not yet been
+        /// initialized.
+        /// </summary>
         private static NativeStack.StackSize PeFileStackSize;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the static state of this class, optionally
+        /// forcing the cached PE file stack size to be recomputed.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force the cached values to be recomputed even if they
+        /// have already been initialized.
+        /// </param>
         public static void Initialize(
             bool force
             )
@@ -263,6 +405,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the human-readable name corresponding to a
+        /// portable executable (PE) file "magic" value.
+        /// </summary>
+        /// <param name="magic">
+        /// The PE optional header "magic" value to translate.
+        /// </param>
+        /// <returns>
+        /// The human-readable name for the specified "magic" value (e.g. "PE32"
+        /// or "PE32+"), or null if the value is not recognized.
+        /// </returns>
         public static string GetPeFileMagicName(
             ushort magic
             )
@@ -281,6 +434,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method returns the portable executable (PE) file "magic" value
+        /// that corresponds to the bitness of the current process.
+        /// </summary>
+        /// <returns>
+        /// The "magic" value matching the current process (32-bit or 64-bit) on
+        /// Windows, or <see cref="IMAGE_NT_OPTIONAL_BAD_MAGIC" /> if it cannot
+        /// be determined.
+        /// </returns>
         public static ushort GetPeFileMagicForProcess()
         {
             if (PlatformOps.IsWindowsOperatingSystem())
@@ -296,6 +458,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the architecture of the specified
+        /// portable executable (PE) file matches that of the current process.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the file architecture matches (or could not be checked
+        /// because the operating system does not use PE files); otherwise,
+        /// false.
+        /// </returns>
         public static bool CheckPeFileArchitecture(
             string fileName,
             ref Result error
@@ -310,6 +488,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the architecture of the specified
+        /// portable executable (PE) file matches that of the current process,
+        /// optionally returning the extracted "magic" value.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to check.
+        /// </param>
+        /// <param name="findFlags">
+        /// The flags that control whether the file architecture is actually
+        /// matched against that of the current process.
+        /// </param>
+        /// <param name="magic">
+        /// Upon success, receives the "magic" value extracted from the PE file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the file architecture matches (or matching was not requested
+        /// or the operating system does not use PE files); otherwise, false.
+        /// </returns>
         public static bool CheckPeFileArchitecture(
             string fileName,
             FindFlags findFlags,
@@ -367,6 +568,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the "magic" value from the optional header of
+        /// the specified portable executable (PE) file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="magic">
+        /// Upon success, receives the "magic" value extracted from the PE file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the "magic" value was extracted successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool GetPeFileMagic(
             string fileName,
             ref ushort magic,
@@ -381,6 +600,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the "magic" value and CLR header virtual
+        /// address from the specified portable executable (PE) file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="magic">
+        /// Upon success, receives the "magic" value extracted from the PE file.
+        /// </param>
+        /// <param name="clrHeader">
+        /// Upon success, receives the CLR header virtual address extracted from
+        /// the PE file, or zero if it is not present.
+        /// </param>
+        /// <returns>
+        /// True if the values were extracted successfully; otherwise, false.
+        /// </returns>
         public static bool GetPeFileMagic(
             string fileName,
             ref ushort magic,
@@ -395,6 +631,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the "magic" value and CLR header virtual
+        /// address from the specified portable executable (PE) file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="magic">
+        /// Upon success, receives the "magic" value extracted from the PE file.
+        /// </param>
+        /// <param name="clrHeader">
+        /// Upon success, receives the CLR header virtual address extracted from
+        /// the PE file, or zero if it is not present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the values were extracted successfully; otherwise, false.
+        /// </returns>
         public static bool GetPeFileMagic(
             string fileName,
             ref ushort magic,
@@ -517,6 +774,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method extracts the native stack reserve and commit sizes from
+        /// the portable executable (PE) file backing the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose backing PE file should be examined.
+        /// </param>
+        /// <returns>
+        /// A new stack size object populated from the PE file, or null if the
+        /// specified assembly is null.
+        /// </returns>
         private static NativeStack.StackSize GetPeFileStackSize(
             Assembly assembly
             ) /* THREAD-SAFE */
@@ -537,6 +805,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the native stack reserve and commit sizes from
+        /// the specified portable executable (PE) file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="reserve">
+        /// Upon success, receives the size of the stack reserve from the PE
+        /// file.
+        /// </param>
+        /// <param name="commit">
+        /// Upon success, receives the size of the stack commit from the PE
+        /// file.
+        /// </param>
+        /// <returns>
+        /// True if the values were extracted successfully; otherwise, false.
+        /// </returns>
         public static bool GetPeFileStackReserveAndCommit(
             string fileName,
             ref UIntPtr reserve,
@@ -640,6 +926,15 @@ namespace Eagle._Components.Private
         //
         // NOTE: For use by the RuntimeOps.CheckForStackSpace method only.
         //
+        /// <summary>
+        /// This method copies the cached PE file stack reserve and commit sizes
+        /// into the specified stack size object for any of its values that have
+        /// not already been set.
+        /// </summary>
+        /// <param name="stackSize">
+        /// The stack size object to populate; any reserve or commit value that
+        /// is currently zero is filled in from the cached PE file values.
+        /// </param>
         public static void CopyPeFileStackReserveAndCommit(
             NativeStack.StackSize stackSize
             )
@@ -668,6 +963,13 @@ namespace Eagle._Components.Private
         // NOTE: For use by the NativeStack.QueryNewThreadNativeStackSize
         //       method only.
         //
+        /// <summary>
+        /// This method returns the cached native stack reserve size extracted
+        /// from the PE header of the main Eagle assembly.
+        /// </summary>
+        /// <returns>
+        /// The cached stack reserve size, or zero if it is not available.
+        /// </returns>
         public static ulong GetPeFileStackReserve()
         {
             Initialize(false);
@@ -684,6 +986,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the link timestamp from the specified portable
+        /// executable (PE) file and converts it to a date and time value.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, receives the date and time corresponding to the PE
+        /// file link timestamp.
+        /// </param>
+        /// <returns>
+        /// True if the date and time were extracted successfully; otherwise,
+        /// false.
+        /// </returns>
         public static bool GetPeFileDateTime(
             string fileName,      /* in */
             ref DateTime dateTime /* out */
@@ -711,6 +1028,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the raw link timestamp from the
+        /// IMAGE_FILE_HEADER of the specified portable executable (PE) file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon success, receives the raw link timestamp from the PE file.
+        /// </param>
+        /// <returns>
+        /// True if the timestamp was extracted successfully; otherwise, false.
+        /// </returns>
         public static bool GetPeFileTimeStamp(
             string fileName,
             ref uint timeStamp
@@ -780,6 +1110,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the product version portion of the
+        /// specified file version information is empty (i.e. all parts are
+        /// zero).
+        /// </summary>
+        /// <param name="version">
+        /// The file version information to examine; this may be null.
+        /// </param>
+        /// <param name="nullIsEmpty">
+        /// The value to return when the specified version information is null.
+        /// </param>
+        /// <returns>
+        /// True if the product version is empty (or the version is null and
+        /// <paramref name="nullIsEmpty" /> is non-zero); otherwise, false.
+        /// </returns>
         private static bool IsProductVersionEmpty(
             FileVersionInfo version,
             bool nullIsEmpty
@@ -796,6 +1141,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the file version portion of the
+        /// specified file version information is empty (i.e. all parts are
+        /// zero).
+        /// </summary>
+        /// <param name="version">
+        /// The file version information to examine; this may be null.
+        /// </param>
+        /// <param name="nullIsEmpty">
+        /// The value to return when the specified version information is null.
+        /// </param>
+        /// <returns>
+        /// True if the file version is empty (or the version is null and
+        /// <paramref name="nullIsEmpty" /> is non-zero); otherwise, false.
+        /// </returns>
         private static bool IsFileVersionEmpty(
             FileVersionInfo version,
             bool nullIsEmpty
@@ -812,6 +1172,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the version of the specified file, preferring
+        /// the file version and falling back to the product version.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file whose version is to be retrieved.
+        /// </param>
+        /// <param name="nonEmpty">
+        /// Non-zero to treat an empty version as an error.
+        /// </param>
+        /// <param name="version">
+        /// Upon success, receives the version of the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileVersion(
             string fileName,                 /* in */
             bool nonEmpty,                   /* in */
@@ -828,6 +1209,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the version of the specified file, preferring
+        /// the file version and falling back to the product version, also
+        /// returning the underlying file version information.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file whose version is to be retrieved.
+        /// </param>
+        /// <param name="nonEmpty">
+        /// Non-zero to treat an empty version as an error.
+        /// </param>
+        /// <param name="fileVersion">
+        /// Upon success, receives the underlying file version information.
+        /// </param>
+        /// <param name="version">
+        /// Upon success, receives the version of the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileVersion(
             string fileName,                 /* in */
             bool nonEmpty,                   /* in */
@@ -895,6 +1301,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to create a new, empty file with the specified
+        /// name.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to create.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode TryCreate(
             string fileName,
             ref Result error
@@ -917,6 +1338,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method updates the last write time of the specified file or
+        /// directory to the current time, creating the file if it does not
+        /// already exist.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to touch.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Touch(
             string path,
             ref Result error
@@ -964,6 +1401,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified path can be executed by
+        /// the current user.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="accessStatus">
+        /// Upon return, receives non-zero if the path can be executed;
+        /// otherwise, false.
+        /// </param>
         public static void VerifyExecutable(
             Interpreter interpreter,
             string path,
@@ -1019,6 +1470,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified path can be read by the
+        /// current user.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="accessStatus">
+        /// Upon return, receives non-zero if the path can be read; otherwise,
+        /// false.
+        /// </param>
         public static void VerifyReadable(
             Interpreter interpreter,
             string path,
@@ -1071,6 +1536,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified path can be written by
+        /// the current user.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="accessStatus">
+        /// Upon return, receives non-zero if the path can be written;
+        /// otherwise, false.
+        /// </param>
         public static void VerifyWritable(
             Interpreter interpreter,
             string path,
@@ -1123,6 +1602,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified path can be accessed with
+        /// the specified file access.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="access">
+        /// The kind of access (read, write, or both) to verify.
+        /// </param>
+        /// <returns>
+        /// True if the path can be accessed with the specified access;
+        /// otherwise, false.
+        /// </returns>
         public static bool VerifyPathAccess(
             Interpreter interpreter,
             string path,
@@ -1137,6 +1633,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified path can be accessed with
+        /// the specified file access, dispatching to the directory or file
+        /// verification helper as appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="access">
+        /// The kind of access (read, write, or both) to verify.
+        /// </param>
+        /// <param name="mustCreate">
+        /// Non-zero if the file must be created in order to verify access.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the path can be accessed with the specified access;
+        /// otherwise, false.
+        /// </returns>
         private static bool VerifyPathAccess(
             Interpreter interpreter,
             string path,
@@ -1152,6 +1673,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified directory can be written
+        /// to by attempting to create and delete a unique temporary file and
+        /// directory within it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="directory">
+        /// The directory whose write access is to be verified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the directory can be written to; otherwise, false.
+        /// </returns>
         private static bool VerifyDirectoryWriteAccess(
             Interpreter interpreter,
             string directory,
@@ -1220,6 +1759,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified directory can be accessed
+        /// with the specified file access.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="directory">
+        /// The directory whose access is to be verified.
+        /// </param>
+        /// <param name="access">
+        /// The kind of access (read, write, or both) to verify.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the directory can be accessed with the specified access;
+        /// otherwise, false.
+        /// </returns>
         private static bool VerifyDirectoryAccess(
             Interpreter interpreter,
             string directory,
@@ -1269,6 +1829,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies whether the specified file can be accessed with
+        /// the specified file access by attempting to open it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose access is to be verified.
+        /// </param>
+        /// <param name="access">
+        /// The kind of access (read, write, or both) to verify.
+        /// </param>
+        /// <param name="mustCreate">
+        /// Non-zero if the file must be newly created in order to verify access.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the file can be accessed with the specified access;
+        /// otherwise, false.
+        /// </returns>
         private static bool VerifyFileAccess(
             Interpreter interpreter,
             string fileName,
@@ -1317,6 +1901,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && !MONO
+        /// <summary>
+        /// This method determines whether the specified set of file system
+        /// rights contains a given subset of rights.
+        /// </summary>
+        /// <param name="rights">
+        /// The set of file system rights to examine.
+        /// </param>
+        /// <param name="hasRights">
+        /// The subset of file system rights to look for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified rights are present;
+        /// otherwise, only any one of them need be present.
+        /// </param>
+        /// <returns>
+        /// True if the required rights are present according to
+        /// <paramref name="all" />; otherwise, false.
+        /// </returns>
         private static bool HasRights(
             FileSystemRights rights,
             FileSystemRights hasRights,
@@ -1331,6 +1933,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified Eagle file permissions into the
+        /// equivalent set of .NET Framework file system rights.
+        /// </summary>
+        /// <param name="permissions">
+        /// The Eagle file permissions to translate.
+        /// </param>
+        /// <returns>
+        /// The set of file system rights corresponding to the specified
+        /// permissions.
+        /// </returns>
         private static FileSystemRights FilePermissionsToFileSystemRights(
             FilePermission permissions
             )
@@ -1351,6 +1964,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current user is the owner of the
+        /// specified file or directory.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="owner">
+        /// Upon success, receives the identity reference of the owner of the
+        /// path.
+        /// </param>
+        /// <param name="ownerStatus">
+        /// Upon success, receives non-zero if the current user is the owner of
+        /// the path; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode IsOwner(
             string path,
             ref IdentityReference owner,
@@ -1364,6 +2000,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified user (or the current
+        /// user, if none is specified) is the owner of the specified file or
+        /// directory.
+        /// </summary>
+        /// <param name="identity">
+        /// The Windows identity to check against; if null, the identity of the
+        /// current thread is used.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="owner">
+        /// Upon success, receives the identity reference of the owner of the
+        /// path.
+        /// </param>
+        /// <param name="ownerStatus">
+        /// Upon success, receives non-zero if the specified user is the owner
+        /// of the path; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode IsOwner(
             WindowsIdentity identity,
             string path,
@@ -1433,6 +2097,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs an access check against the specified file
+        /// system security object, computing the rights granted to the
+        /// specified user and whether the desired rights are all granted.
+        /// </summary>
+        /// <param name="identity">
+        /// The Windows identity to check against; if null, the identity of the
+        /// current thread is used.
+        /// </param>
+        /// <param name="security">
+        /// The file system security object describing the access rules to
+        /// evaluate.
+        /// </param>
+        /// <param name="desiredRights">
+        /// The set of file system rights that the caller wants to be granted.
+        /// </param>
+        /// <param name="grantedRights">
+        /// Upon success, receives the set of file system rights actually
+        /// granted to the user.
+        /// </param>
+        /// <param name="accessStatus">
+        /// Upon success, receives non-zero if all of the desired rights are
+        /// granted; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode AccessCheck(
             WindowsIdentity identity,
             FileSystemSecurity security,
@@ -1524,6 +2220,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs an access check against the specified file or
+        /// directory for the current user, computing the rights granted and
+        /// whether the desired rights are all granted.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="desiredRights">
+        /// The set of file system rights that the caller wants to be granted.
+        /// </param>
+        /// <param name="grantedRights">
+        /// Upon success, receives the set of file system rights actually
+        /// granted to the current user.
+        /// </param>
+        /// <param name="accessStatus">
+        /// Upon success, receives non-zero if all of the desired rights are
+        /// granted; otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode AccessCheck(
             string path,
             FileSystemRights desiredRights,
@@ -1577,6 +2300,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current user has the rights
+        /// necessary to read the attributes of the specified file or directory.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the current user can read the file attributes; otherwise,
+        /// false.
+        /// </returns>
         public static bool CanReadFileAttributes(
             string path,     /* in */
             ref Result error /* out */
@@ -1614,6 +2352,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries whether the specified path exists and, if so,
+        /// whether it is read-only and whether it is a directory.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to check.
+        /// </param>
+        /// <param name="exists">
+        /// Upon success, receives non-zero if the path exists; otherwise,
+        /// false.
+        /// </param>
+        /// <param name="readOnly">
+        /// Upon success, receives non-zero if the path is read-only; otherwise,
+        /// false.
+        /// </param>
+        /// <param name="directory">
+        /// Upon success, receives non-zero if the path is a directory;
+        /// otherwise, false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CheckReadOnlyAndDirectory(
             string path,
             ref bool exists,
@@ -1649,6 +2414,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified set of file system
+        /// rights contains any bits that the .NET Framework is unable to
+        /// handle.
+        /// </summary>
+        /// <param name="rights">
+        /// The set of file system rights to examine.
+        /// </param>
+        /// <returns>
+        /// True if the rights contain any bits outside the set of known-good
+        /// rights; otherwise, false.
+        /// </returns>
         private static bool IsBadFileSystemRights(
             FileSystemRights rights /* in */
             )
@@ -1665,6 +2442,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string representation of the specified file
+        /// system access rule, as a flat list of property name and value pairs.
+        /// </summary>
+        /// <param name="rule">
+        /// The file system access rule to format; this may be null.
+        /// </param>
+        /// <returns>
+        /// A string representation of the access rule, or null if the specified
+        /// rule is null.
+        /// </returns>
         private static string ToString(
             FileSystemAccessRule rule /* in */
             )
@@ -1703,6 +2491,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of string representations for each file
+        /// system access rule in the specified collection.
+        /// </summary>
+        /// <param name="rules">
+        /// The collection of authorization rules to format; this may be null.
+        /// </param>
+        /// <returns>
+        /// A list containing the string representation of each access rule, or
+        /// null if the specified collection is null.
+        /// </returns>
         public static StringList ToList(
             AuthorizationRuleCollection rules /* in */
             )
@@ -1725,6 +2524,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes access rules from the specified file system
+        /// security object, optionally disabling inheritance and skipping rules
+        /// that cannot be handled.
+        /// </summary>
+        /// <param name="security">
+        /// The file system security object whose access rules are to be
+        /// removed.
+        /// </param>
+        /// <param name="includeExplicit">
+        /// Non-zero to include explicitly defined access rules.
+        /// </param>
+        /// <param name="includeInherited">
+        /// Non-zero to include inherited access rules (and to first protect the
+        /// access rules from further inheritance).
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to silently skip null access rules instead of treating them
+        /// as an error.
+        /// </param>
+        /// <param name="skipBadRights">
+        /// Non-zero to skip access rules whose rights cannot be handled by the
+        /// .NET Framework.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode RemoveAccessRules(
             FileSystemSecurity security, /* in */
             bool includeExplicit,        /* in */
@@ -1796,6 +2627,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified path satisfies the requested
+        /// permissions, taking into account whether it exists, whether it is a
+        /// file or directory, whether it is read-only, and the access rights of
+        /// the current user.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to verify.
+        /// </param>
+        /// <param name="permissions">
+        /// The set of file permissions to verify against the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the path satisfies the requested
+        /// permissions; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode VerifyPath(
             string path,
             FilePermission permissions,
@@ -1919,6 +2770,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region [glob] Command Support Methods
+        /// <summary>
+        /// This method determines whether the specified string contains any
+        /// glob wildcard or escape metacharacters.
+        /// </summary>
+        /// <param name="value">
+        /// The string to examine.
+        /// </param>
+        /// <returns>
+        /// True if the string contains at least one glob wildcard character;
+        /// otherwise, false.
+        /// </returns>
         private static bool HasGlobWildcard(
             string value
             )
@@ -1930,6 +2792,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method escapes any glob wildcard metacharacters within the
+        /// specified string by prefixing each one with a backslash.
+        /// </summary>
+        /// <param name="value">
+        /// The string whose glob wildcard characters are to be escaped.
+        /// </param>
+        /// <returns>
+        /// The string with each glob wildcard character escaped, or the
+        /// original string if it is null, empty, or contains no such
+        /// characters.
+        /// </returns>
         private static string EscapeGlobWildcards(
             string value
             )
@@ -1970,6 +2844,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the file name to use for a glob match result,
+        /// optionally including the directory portion.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory that contains the file system entry.
+        /// </param>
+        /// <param name="fileSystemInfo">
+        /// The file system information describing the matched entry.
+        /// </param>
+        /// <param name="withDirectory">
+        /// Non-zero to include the directory portion in the returned file name.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow a leading drive letter and colon in the directory
+        /// to be combined without an extra separator (for Tcl compatibility).
+        /// </param>
+        /// <returns>
+        /// The computed file name, or null if the specified file system
+        /// information is null.
+        /// </returns>
         private static string GetGlobFileName(
             string directory,
             FileSystemInfo fileSystemInfo,
@@ -2000,6 +2895,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the directory portion out of the specified glob
+        /// path prefix, escaping the remaining prefix for glob matching.
+        /// </summary>
+        /// <param name="pathPrefix">
+        /// On input, the path prefix to split; on output, the (escaped)
+        /// non-directory remainder of the prefix, or null.
+        /// </param>
+        /// <param name="directory">
+        /// Upon return, receives the directory portion extracted from the path
+        /// prefix, or null if there is none.
+        /// </param>
         private static void SplitGlobPathPrefix(
             ref string pathPrefix, /* in, out */
             ref string directory   /* out */
@@ -2041,6 +2948,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20 && !MONO
+        /// <summary>
+        /// This method retrieves the file system security object for the
+        /// specified file system entry.
+        /// </summary>
+        /// <param name="fileSystemInfo">
+        /// The file system information describing the file or directory.
+        /// </param>
+        /// <returns>
+        /// The file system security object for the entry, or null if the entry
+        /// is neither a file nor a directory.
+        /// </returns>
         private static FileSystemSecurity GetFileSystemSecurity(
             FileSystemInfo fileSystemInfo
             )
@@ -2057,6 +2975,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decomposes the file attributes of the specified file
+        /// system entry into a set of individual boolean flags.
+        /// </summary>
+        /// <param name="fileSystemInfo">
+        /// The file system information describing the file or directory; this
+        /// may be null, in which case all output flags are false.
+        /// </param>
+        /// <param name="isReadOnly">
+        /// Upon return, receives non-zero if the entry is read-only.
+        /// </param>
+        /// <param name="isHidden">
+        /// Upon return, receives non-zero if the entry is hidden.
+        /// </param>
+        /// <param name="isSystem">
+        /// Upon return, receives non-zero if the entry is a system file.
+        /// </param>
+        /// <param name="isDirectory">
+        /// Upon return, receives non-zero if the entry is a directory.
+        /// </param>
+        /// <param name="isArchive">
+        /// Upon return, receives non-zero if the entry has the archive
+        /// attribute.
+        /// </param>
+        /// <param name="isDevice">
+        /// Upon return, receives non-zero if the entry is a device.
+        /// </param>
+        /// <param name="isNormal">
+        /// Upon return, receives non-zero if the entry has the normal
+        /// attribute.
+        /// </param>
+        /// <param name="isTemporary">
+        /// Upon return, receives non-zero if the entry is temporary.
+        /// </param>
+        /// <param name="isSparseFile">
+        /// Upon return, receives non-zero if the entry is a sparse file.
+        /// </param>
+        /// <param name="isReparsePoint">
+        /// Upon return, receives non-zero if the entry is a reparse point.
+        /// </param>
+        /// <param name="isCompressed">
+        /// Upon return, receives non-zero if the entry is compressed.
+        /// </param>
+        /// <param name="isOffline">
+        /// Upon return, receives non-zero if the entry is offline.
+        /// </param>
+        /// <param name="isNotContentIndexed">
+        /// Upon return, receives non-zero if the entry is not content indexed.
+        /// </param>
+        /// <param name="isEncrypted">
+        /// Upon return, receives non-zero if the entry is encrypted.
+        /// </param>
         private static void GetGlobFileAttributes(
             FileSystemInfo fileSystemInfo,
             out bool isReadOnly,
@@ -2140,6 +3110,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file system entry
+        /// matches the requested set of [glob] type and permission filters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary of requested type and permission filters; this may be
+        /// null, in which case all entries match.
+        /// </param>
+        /// <param name="fileSystemInfo">
+        /// The file system information describing the entry to test.
+        /// </param>
+        /// <returns>
+        /// True if the entry matches the requested type filters; otherwise,
+        /// false.
+        /// </returns>
         private static bool MatchGlobFileTypes(
             Interpreter interpreter,
             IntDictionary types,
@@ -2392,6 +3380,40 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enumerates the file system entries within the specified
+        /// directory, returning a dictionary that maps their glob file names to
+        /// their file system information objects.
+        /// </summary>
+        /// <param name="directoryInfo">
+        /// The directory to enumerate; this may be null, in which case null is
+        /// returned.
+        /// </param>
+        /// <param name="directory">
+        /// The directory name used when computing the returned file names.
+        /// </param>
+        /// <param name="includeDirectories">
+        /// Non-zero to include subdirectories in the result.
+        /// </param>
+        /// <param name="includeFiles">
+        /// Non-zero to include files in the result.
+        /// </param>
+        /// <param name="includeSpecial">
+        /// Non-zero to include the special current and parent directory entries
+        /// in the result.
+        /// </param>
+        /// <param name="withDirectory">
+        /// Non-zero to include the directory portion in the computed file
+        /// names.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow a leading drive letter and colon when computing
+        /// the file names.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping file names to their file system information, or
+        /// null if the specified directory is null.
+        /// </returns>
         private static FileSystemInfoDictionary GetGlobFileSystemInfos(
             DirectoryInfo directoryInfo,
             string directory,
@@ -2487,6 +3509,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a directory information object for the specified
+        /// directory name.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory name; this may be null.
+        /// </param>
+        /// <returns>
+        /// A new directory information object, or null if the specified
+        /// directory name is null.
+        /// </returns>
         private static DirectoryInfo GetDirectoryInfo(
             string directory /* in: OPTIONAL */
             )
@@ -2497,6 +3530,59 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the recursive work of matching a single glob
+        /// pattern against the file system, accumulating any matching file
+        /// names into the specified list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob pattern to match.
+        /// </param>
+        /// <param name="directoryInfo">
+        /// The directory in which to search.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary of requested type and permission filters; this may be
+        /// null.
+        /// </param>
+        /// <param name="pathPrefix">
+        /// The literal path prefix that matching file names must begin with;
+        /// this may be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory name used when computing the returned file names; this
+        /// may be null.
+        /// </param>
+        /// <param name="fileNames">
+        /// The list to which matching file names are added.
+        /// </param>
+        /// <param name="level">
+        /// The current recursion level, used to decide when to include the
+        /// directory portion.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Non-zero to add only the final file name component of each match.
+        /// </param>
+        /// <param name="withDirectory">
+        /// Non-zero to include the directory portion in the matched file names.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow a leading drive letter and colon in the pattern.
+        /// </param>
+        /// <param name="allowCurrent">
+        /// Non-zero to allow the pattern to reference the current directory.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode DoGlobFiles(
             Interpreter interpreter,
             string pattern,
@@ -2838,6 +3924,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method implements the core of the [glob] command, matching one
+        /// or more glob patterns against the file system and returning the list
+        /// of matching file names.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of glob patterns to match.
+        /// </param>
+        /// <param name="types">
+        /// The dictionary of requested type and permission filters; this may be
+        /// null.
+        /// </param>
+        /// <param name="pathPrefix">
+        /// The literal path prefix that matching file names must begin with;
+        /// this may be null.
+        /// </param>
+        /// <param name="directory">
+        /// The directory in which to perform the search; this may be null, in
+        /// which case the current directory is used.
+        /// </param>
+        /// <param name="join">
+        /// Non-zero to join all of the patterns into a single combined path
+        /// before matching.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Non-zero to return only the final file name component of each match.
+        /// </param>
+        /// <param name="allowDrive">
+        /// Non-zero to allow a leading drive letter and colon in the patterns.
+        /// </param>
+        /// <param name="allowCurrent">
+        /// Non-zero to allow the patterns to reference the current directory.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat the absence of any matching file as an error.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The list of matching file names, or null on failure.
+        /// </returns>
         public static StringList GlobFiles(
             Interpreter interpreter, /* in */
             StringList patterns,     /* in */
@@ -2925,6 +4057,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates a recursive flag into the corresponding
+        /// directory search option.
+        /// </summary>
+        /// <param name="recursive">
+        /// Non-zero to search all subdirectories; otherwise, only the top
+        /// directory.
+        /// </param>
+        /// <returns>
+        /// The search option corresponding to the specified recursive flag.
+        /// </returns>
         public static SearchOption GetSearchOption(
             bool recursive
             )
@@ -2936,6 +4079,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the size, in bytes, of the specified file,
+        /// silently returning zero on any error.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose size is to be retrieved.
+        /// </param>
+        /// <returns>
+        /// The size of the file in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static long GetFileSize(
             string path
             )
@@ -2954,6 +4108,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the size, in bytes, of the specified file.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose size is to be retrieved.
+        /// </param>
+        /// <param name="size">
+        /// Upon success, receives the size of the file in bytes.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileSize(
             string path,
             ref long size
@@ -2966,6 +4133,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the size, in bytes, of the specified file.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose size is to be retrieved.
+        /// </param>
+        /// <param name="size">
+        /// Upon success, receives the size of the file in bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileSize(
             string path,
             ref long size,
@@ -2988,6 +4172,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads up to the specified number of bytes from the
+        /// beginning of the specified file.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file to read.
+        /// </param>
+        /// <param name="count">
+        /// The number of bytes to read; if negative, the entire file is read;
+        /// if zero, an empty array is returned.
+        /// </param>
+        /// <returns>
+        /// The bytes read from the file, an empty array if the count is zero,
+        /// or null if the file is empty, too small, or could not be read.
+        /// </returns>
         public static byte[] GetFileBytes(
             string path,
             int count
@@ -3030,6 +4229,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a human-readable description of the type of the
+        /// specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file or directory to classify.
+        /// </param>
+        /// <returns>
+        /// The string "directory", "file", or "unknown", depending on what the
+        /// path refers to.
+        /// </returns>
         public static string GetFileType(
             string path
             )
@@ -3044,6 +4254,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified map-open access flags into the
+        /// equivalent file access value.
+        /// </summary>
+        /// <param name="access">
+        /// The map-open access flags to translate.
+        /// </param>
+        /// <returns>
+        /// The file access value (read, write, or read/write) corresponding to
+        /// the specified flags.
+        /// </returns>
         public static FileAccess FileAccessFromAccess(
             MapOpenAccess access
             )
@@ -3059,6 +4280,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified map-open access flags into the
+        /// equivalent file mode value, following POSIX-like semantics.
+        /// </summary>
+        /// <param name="access">
+        /// The map-open access flags to translate.
+        /// </param>
+        /// <returns>
+        /// The file mode value corresponding to the specified flags.
+        /// </returns>
         public static FileMode FileModeFromAccess(
             MapOpenAccess access
             )
@@ -3105,6 +4336,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified set of file attributes
+        /// contains all of a given subset of attributes.
+        /// </summary>
+        /// <param name="attributes">
+        /// The set of file attributes to examine.
+        /// </param>
+        /// <param name="haveAttributes">
+        /// The subset of file attributes that must all be present.
+        /// </param>
+        /// <returns>
+        /// True if all of the specified attributes are present; otherwise,
+        /// false.
+        /// </returns>
         public static bool HaveFileAttributes(
             FileAttributes attributes,
             FileAttributes haveAttributes
@@ -3115,6 +4360,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the file attributes of the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose attributes are to be set.
+        /// </param>
+        /// <param name="fileAttributes">
+        /// The file attributes to apply to the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetFileAttributes(
             string path,
             FileAttributes fileAttributes,
@@ -3139,6 +4401,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the file attributes of the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose attributes are to be retrieved.
+        /// </param>
+        /// <param name="fileAttributes">
+        /// Upon success, receives the file attributes of the path.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileAttributes(
             string path,
             ref FileAttributes fileAttributes
@@ -3151,6 +4426,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the file attributes of the specified path.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose attributes are to be retrieved.
+        /// </param>
+        /// <param name="fileAttributes">
+        /// Upon success, receives the file attributes of the path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileAttributes(
             string path,
             ref FileAttributes fileAttributes,
@@ -3175,6 +4467,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the files matching the specified patterns within
+        /// the specified directory, then removes the (now empty)
+        /// subdirectories and the directory itself.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory to clean up and remove.
+        /// </param>
+        /// <param name="patterns">
+        /// The file name patterns identifying which files to delete; this may
+        /// be null.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to process all subdirectories of the specified directory.
+        /// </param>
+        /// <returns>
+        /// True if the directory was successfully cleaned up and removed;
+        /// otherwise, false.
+        /// </returns>
         public static bool CleanupDirectory(
             string directory,             /* in */
             IEnumerable<string> patterns, /* in */
@@ -3269,6 +4580,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the current working directory to the specified
+        /// directory, silently ignoring any error.
+        /// </summary>
+        /// <param name="directory">
+        /// The directory to make current; if null, no action is taken.
+        /// </param>
         private static void MaybeSetCurrentDirectory(
             string directory /* in */
             )
@@ -3278,6 +4596,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the current working directory to the specified
+        /// directory, silently ignoring any error and resetting the reference
+        /// to null afterward.
+        /// </summary>
+        /// <param name="directory">
+        /// On input, the directory to make current; if null, no action is
+        /// taken; on output, this is set to null.
+        /// </param>
         private static void MaybeSetCurrentDirectory(
             ref string directory /* in, out */
             )
@@ -3301,6 +4628,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the set of registered cleanup paths, in reverse
+        /// order, after validating each path against its associated cleanup
+        /// metadata.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="paths">
+        /// The dictionary of paths to clean up, mapped to their cleanup
+        /// metadata; this may be null.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress diagnostic trace output.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress complaints about failed deletions.
+        /// </param>
+        /// <param name="list">
+        /// If not null, receives the path and metadata of each successfully
+        /// deleted entry.
+        /// </param>
+        /// <param name="errors">
+        /// Receives the accumulated errors encountered while cleaning up the
+        /// paths.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if all paths were cleaned up without
+        /// error; otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CleanupPaths(
             Interpreter interpreter,
             PathDictionary<CleanupPathClientData> paths,
@@ -3463,6 +4820,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the specified files and/or directories.
+        /// </summary>
+        /// <param name="paths">
+        /// The list of file or directory paths to delete.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to recursively delete the contents of directories.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to clear the read-only attribute on files prior to deleting
+        /// them.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors for missing or invalid paths.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FileDelete(
             IList paths,
             bool recursive,
@@ -3479,6 +4860,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deletes the specified files and/or directories, also
+        /// returning a description of the type of the last path that was
+        /// deleted.
+        /// </summary>
+        /// <param name="paths">
+        /// The list of file or directory paths to delete.
+        /// </param>
+        /// <param name="recursive">
+        /// Non-zero to recursively delete the contents of directories.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to clear the read-only attribute on files prior to deleting
+        /// them.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors for missing or invalid paths.
+        /// </param>
+        /// <param name="pathType">
+        /// Upon return, receives a description of the type of the last path
+        /// that was deleted (e.g. file or directory).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FileDelete(
             IList paths,
             bool recursive,
@@ -3600,6 +5011,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies (or moves) one or more files to the specified
+        /// target file or directory.
+        /// </summary>
+        /// <param name="fileNames">
+        /// The list of source file names to copy or move.
+        /// </param>
+        /// <param name="path">
+        /// The target file name (when there is a single source) or target
+        /// directory (when there are multiple sources).
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to move the files (delete each source after copying);
+        /// otherwise, copy them.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to overwrite any existing target file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode FileCopy(
             IList fileNames,
             string path,
@@ -3722,6 +5159,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves a file time value for the specified path using
+        /// the specified callback.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose time is to be retrieved.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to obtain the desired file time (e.g. creation,
+        /// last access, or last write time).
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, receives the requested file time.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileTime(
             string path,
             GetDateTimeCallback callback,
@@ -3747,6 +5206,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets a file time value for the specified path using the
+        /// specified callback.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the file whose time is to be set.
+        /// </param>
+        /// <param name="callback">
+        /// The callback used to set the desired file time (e.g. creation, last
+        /// access, or last write time).
+        /// </param>
+        /// <param name="dateTime">
+        /// The file time value to set.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SetFileTime(
             string path,
             SetDateTimeCallback callback,
@@ -3772,6 +5253,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the names of the file system entries within
+        /// the specified directory, optionally filtered by a search pattern.
+        /// </summary>
+        /// <param name="path">
+        /// The path of the directory to enumerate.
+        /// </param>
+        /// <param name="searchPattern">
+        /// The search pattern used to filter the entries; this may be null to
+        /// return all entries.
+        /// </param>
+        /// <param name="entries">
+        /// Upon success, receives the list of file system entry names (in Unix
+        /// path form).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetFileSystemEntries(
             string path,
             string searchPattern,
@@ -3815,6 +5319,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reflects the private byte buffer field of the
+        /// <see cref="StreamReader" /> class, trying each of the candidate
+        /// field names in order.
+        /// </summary>
+        /// <returns>
+        /// The reflected field information for the byte buffer field, or null if
+        /// none of the candidate names could be resolved.
+        /// </returns>
         private static FieldInfo FindByteBufferFieldInfo()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -3848,6 +5361,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to extract the bytes currently buffered within
+        /// the specified stream reader, by reflecting its private byte buffer
+        /// field.
+        /// </summary>
+        /// <param name="streamReader">
+        /// The stream reader whose buffered bytes are to be extracted.
+        /// </param>
+        /// <param name="bytes">
+        /// Receives the buffered bytes; if null, a new list is created and the
+        /// bytes are appended to it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the buffered bytes were successfully extracted; otherwise,
+        /// false.
+        /// </returns>
         public static bool TryGrabByteBuffer(
             StreamReader streamReader,
             ref ByteList bytes,

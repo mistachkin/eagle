@@ -23,11 +23,24 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>unset</c> command, which removes one
+    /// or more variables (scalars, arrays, or array elements) from the current
+    /// scope.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("fcafc062-3490-4cf9-83d7-7ddb2c1e8838")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("variable")]
     internal sealed class Unset : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>unset</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Unset(
             ICommandData commandData
             )
@@ -37,11 +50,44 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>unset</c> command.  It parses any
+        /// supplied options into a set of <see cref="VariableFlags" /> and then
+        /// removes each named variable from the interpreter, optionally
+        /// suppressing complaints about missing variables and controlling link,
+        /// trace, removal, and purge behavior.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements are an optional set of options
+        /// followed by the names of the variables to unset.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains an empty string.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when all named variables are removed
+        /// (or when no variable names are supplied); otherwise,
+        /// <see cref="ReturnCode.Error" /> when option parsing fails, a
+        /// variable cannot be removed, the wrong number of arguments is
+        /// supplied, the interpreter is null, or the argument list is null,
+        /// with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter != null)

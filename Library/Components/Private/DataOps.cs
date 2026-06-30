@@ -47,10 +47,24 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to support the
+    /// scripting integration with ADO.NET style databases (e.g. the
+    /// <c>[sql]</c> command) as well as the encrypted, signed script
+    /// "bundle" subsystem.  It handles creating database connections of
+    /// various kinds, validating database identifiers and parameters,
+    /// building and verifying bundle paths and records, binding command
+    /// parameters, and converting data records and readers into Eagle
+    /// results, lists, arrays, and variables.
+    /// </summary>
     [ObjectId("2e72f5b2-15df-4d65-98ec-fa01f3300ac8")]
     internal static class DataOps
     {
         #region Synchronization Objects
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class when building the set of "other" database connection types.
+        /// </summary>
         private static readonly object syncRoot = new object();
         #endregion
 
@@ -60,11 +74,20 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, a failure to unset a result-set variable is reported
+        /// via the interpreter complaint subsystem.
+        /// </summary>
         private static bool ComplainOnUnsetError = true;
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Assembly Qualified Type Name Constants
+        /// <summary>
+        /// The format string used to build the assembly qualified type name of
+        /// the Oracle database connection type; the public key token is the
+        /// only format argument.
+        /// </summary>
         private static string OracleFullTypeFormat =
             "System.Data.OracleClient.OracleConnection, " +
             "System.Data.OracleClient, Version=2.0.0.0, " +
@@ -72,6 +95,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to build the assembly qualified type name of
+        /// the SQL Server Compact Edition database connection type; the public
+        /// key token is the only format argument.
+        /// </summary>
         private static string SqlCeFullTypeFormat =
             "System.Data.SqlServerCe.SqlCeConnection, " +
             "System.Data.SqlServerCe, Version=3.5.1.0, " +
@@ -84,17 +112,30 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The file name of the System.Data.SQLite managed assembly used when
+        /// loading the SQLite database connection type by file.
+        /// </summary>
         private static string SQLiteAssemblyFileName =
             "System.Data.SQLite.dll";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to build the assembly qualified type name of
+        /// the System.Data.SQLite database connection type; the public key
+        /// token is the only format argument.
+        /// </summary>
         private static string SQLiteFullTypeFormat =
             "System.Data.SQLite.SQLiteConnection, System.Data.SQLite, " +
             "Version=1.0, Culture=neutral, PublicKeyToken={0}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The simple (non-assembly-qualified) type name of the
+        /// System.Data.SQLite database connection type.
+        /// </summary>
         private static string SQLiteTypeName =
             "System.Data.SQLite.SQLiteConnection";
         #endregion
@@ -109,10 +150,17 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to validate a database parameter name.
+        /// </summary>
         private static Regex parameterRegEx = RegExOps.Create(
             "^[@A-Z_][0-9A-Z_]*$", RegexOptions.IgnoreCase |
             RegexOptions.Compiled);
 
+        /// <summary>
+        /// The regular expression used to validate a database identifier (e.g.
+        /// a table or column name).
+        /// </summary>
         private static Regex identifierRegEx = RegExOps.Create(
             "^[$A-Z_][$0-9A-Z_]*$", RegexOptions.IgnoreCase |
             RegexOptions.Compiled);
@@ -128,6 +176,10 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to validate the full name field value
+        /// of a script bundle record.
+        /// </summary>
         private static Regex bundleFullNameRegEx = RegExOps.Create(
             String.Format("^\\/(?:[A-Z_][0-9A-Z_]*\\/)*" +
             "(?:[A-Z_][0-9A-Z_\\-]*)(?:{0}|{0}{2}|{1}|{1}{2}|{3}|{3}{2})$",
@@ -149,6 +201,11 @@ namespace Eagle._Components.Private
         //       these are only used for ".harpy" files that have their
         //       own embedded signature value.
         //
+        /// <summary>
+        /// The sentinel byte sequence (the ASCII letters "NULL") used to
+        /// represent a purposely absent script signature value in a script
+        /// bundle.
+        /// </summary>
         private static byte[] nullBundleSignature = {
             78, /* N */
             85, /* U */
@@ -158,12 +215,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum acceptable length, in bytes, of a script bundle record
+        /// signature value.  A negative value is interpreted as a length in
+        /// bits instead of bytes.
+        /// </summary>
         private static int minimumSignatureLength = 2048; /* 16384-bit RSA */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The minimum acceptable length, in characters, of a combined script
+        /// bundle path (file name, delimiter, and full name).
+        /// </summary>
         private static int minimumBundlePathSize = 3; /* "<fileName>:<fullName>" */
+
+        /// <summary>
+        /// The minimum acceptable size, in bytes, of a script bundle database
+        /// file; it is also the database page size used to validate the file
+        /// size.
+        /// </summary>
         private static int minimumBundleFileSize = 512; /* 1 database page */
+
+        /// <summary>
+        /// The character used to delimit the file name from the full name
+        /// within a combined script bundle path.
+        /// </summary>
         private static readonly char bundleNameDelimiter = Characters.Colon;
         #endregion
         #endregion
@@ -171,6 +248,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Data Support Methods
+        /// <summary>
+        /// This method validates that the specified value is a legal database
+        /// identifier, throwing an exception if it is not.
+        /// </summary>
+        /// <param name="propertyName">
+        /// The name of the property or argument being checked; this is used as
+        /// the parameter name when throwing an exception.
+        /// </param>
+        /// <param name="propertyValue">
+        /// The candidate identifier value to validate.
+        /// </param>
         public static void CheckIdentifier(
             string propertyName, /* in */
             string propertyValue /* in */
@@ -181,6 +269,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates that the specified value is a legal database
+        /// identifier or parameter name, throwing an exception if it is not.
+        /// </summary>
+        /// <param name="propertyName">
+        /// The name of the property or argument being checked; this is used as
+        /// the parameter name when throwing an exception.
+        /// </param>
+        /// <param name="propertyValue">
+        /// The candidate identifier or parameter name value to validate.
+        /// </param>
+        /// <param name="isParameterName">
+        /// Non-zero if the value should be validated as a database parameter
+        /// name; otherwise, it is validated as a database identifier.
+        /// </param>
         public static void CheckIdentifier(
             string propertyName,  /* in */
             string propertyValue, /* in */
@@ -239,6 +342,25 @@ namespace Eagle._Components.Private
         //       they are one of the "well-known" (constant) parameter
         //       names.
         //
+        /// <summary>
+        /// This method formats the command text for execution against the
+        /// target database, validating each supplied identifier or parameter
+        /// name as a "last resort" check.
+        /// </summary>
+        /// <param name="format">
+        /// The format string into which the identifier names are substituted.
+        /// </param>
+        /// <param name="parameterCount">
+        /// The number of trailing names, from the end of the list, that are
+        /// parameter names rather than identifiers.
+        /// </param>
+        /// <param name="names">
+        /// The identifier and parameter names to validate and substitute into
+        /// the format string.
+        /// </param>
+        /// <returns>
+        /// The formatted command text.
+        /// </returns>
         public static string FormatCommandText(
             string format,        /* in */
             int parameterCount,   /* in */
@@ -274,6 +396,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the public key token string associated with the
+        /// specified database connection type.
+        /// </summary>
+        /// <param name="dbConnectionType">
+        /// The database connection type whose public key token is needed.
+        /// </param>
+        /// <returns>
+        /// The public key token string, or the null public key token string if
+        /// the connection type is not recognized.
+        /// </returns>
         private static string GetPublicKeyToken(
             DbConnectionType dbConnectionType /* in */
             )
@@ -308,6 +441,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the connection triplet (type name, optional
+        /// assembly file name, and public key token) used to create a SQLite
+        /// database connection.
+        /// </summary>
+        /// <param name="dbConnectionType">
+        /// The SQLite database connection type whose triplet is needed.
+        /// </param>
+        /// <param name="useFullName">
+        /// Non-zero to use the assembly qualified type name; otherwise, the
+        /// simple type name is used.
+        /// </param>
+        /// <param name="useFileName">
+        /// Non-zero to include the assembly file name in the triplet.
+        /// </param>
+        /// <returns>
+        /// The connection triplet describing how to create the SQLite database
+        /// connection.
+        /// </returns>
         private static ConnectionTriplet GetConnectionTripletForSQLite(
             DbConnectionType dbConnectionType, /* in */
             bool useFullName,                  /* in */
@@ -365,6 +517,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the mapping of the "built-in" database
+        /// connection types to their assembly qualified type names.
+        /// </summary>
+        /// <returns>
+        /// A dictionary mapping each built-in database connection type to its
+        /// assembly qualified type name.
+        /// </returns>
         public static StringDictionary GetDbConnectionTypeNames()
         {
             StringDictionary result = new StringDictionary();
@@ -388,6 +548,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the mapping of the "other" (optional, non
+        /// built-in) database connection types to their type names.
+        /// </summary>
+        /// <param name="useSqlite">
+        /// Non-zero to include the SQLite database connection types.
+        /// </param>
+        /// <param name="useFullName">
+        /// Non-zero to use assembly qualified type names; otherwise, simple
+        /// type names are used.
+        /// </param>
+        /// <param name="useFileName">
+        /// Non-zero to include the assembly file name with each type name.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each "other" database connection type to its
+        /// type name (and optionally its assembly file name).
+        /// </returns>
         public static StringDictionary GetOtherDbConnectionTypeNames(
             bool useSqlite,   /* in */
             bool useFullName, /* in */
@@ -453,6 +631,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the mapping of the "other" (optional, non
+        /// built-in) database connection types to their connection triplets,
+        /// honoring the supplied trust and signing requirements.
+        /// </summary>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="useSqlite">
+        /// Non-zero to include the SQLite database connection types.
+        /// </param>
+        /// <param name="usePublicKeyToken">
+        /// Non-zero if the public key token is required, which forces use of
+        /// the assembly file name.
+        /// </param>
+        /// <param name="useFullName">
+        /// Non-zero to use assembly qualified type names; otherwise, simple
+        /// type names are used.
+        /// </param>
+        /// <returns>
+        /// A dictionary mapping each "other" database connection type to its
+        /// connection triplet.
+        /// </returns>
         public static ConnectionDictionary GetOtherDbConnectionTypes(
             ValueFlags valueFlags,  /* in */
             bool useSqlite,         /* in */
@@ -536,6 +738,57 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve the type used to create an "other"
+        /// database connection, optionally loading its assembly from a trusted,
+        /// strong-name verified file beforehand.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used for trust checks and type resolution;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain used when resolving the type.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during type resolution; this parameter may be
+        /// null.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The database connection type being resolved, used for diagnostics.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token of the assembly; when present, the
+        /// assembly file must be strong-name signed and match it.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeOrName">
+        /// The type, or the type name string, to resolve.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="assembly">
+        /// Upon success, receives the assembly that was loaded from the file,
+        /// if any.
+        /// </param>
+        /// <param name="attemptedLoad">
+        /// On input and output, whether an assembly load has already been
+        /// attempted; the load is a one-shot operation.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <param name="errors">
+        /// On input and output, the list to which any errors encountered are
+        /// appended.
+        /// </param>
+        /// <returns>
+        /// True if the type was resolved; otherwise, false.
+        /// </returns>
         private static bool MaybeResolveTypeForOtherDbConnection(
             Interpreter interpreter,           /* in */
             AppDomain appDomain,               /* in */
@@ -683,6 +936,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the standard SQLite connection string settings
+        /// used for reading a script bundle database, optionally including a
+        /// per-file content hash value.
+        /// </summary>
+        /// <param name="idIndex">
+        /// The index used to form the identifier setting name for the supplied
+        /// hash value.
+        /// </param>
+        /// <param name="hashValue">
+        /// The content hash value to embed in the connection string; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="builder">
+        /// On input and output, the string builder to which the connection
+        /// string settings are appended; it is created if it is null.
+        /// </param>
         private static void AppendToBundleConnectionStringForSQLite(
             int idIndex,              /* in */
             byte[] hashValue,         /* in */
@@ -710,6 +980,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a combined script bundle path from the specified
+        /// file name and full name, after verifying both.
+        /// </summary>
+        /// <param name="fileName">
+        /// The bundle database file name.
+        /// </param>
+        /// <param name="fullName">
+        /// The bundle full name (the script path within the bundle).
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the full name is being verified for a demand-loaded
+        /// script; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// The combined bundle path, or null if verification fails.
+        /// </returns>
         public static string BuildBundlePath(
             string fileName, /* in */
             string fullName, /* in */
@@ -723,6 +1010,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a combined script bundle path from the specified
+        /// file name and full name, after verifying both.
+        /// </summary>
+        /// <param name="fileName">
+        /// The bundle database file name.
+        /// </param>
+        /// <param name="fullName">
+        /// The bundle full name (the script path within the bundle).
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the full name is being verified for a demand-loaded
+        /// script; otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The combined bundle path, or null if verification fails.
+        /// </returns>
         public static string BuildBundlePath(
             string fileName, /* in */
             string fullName, /* in */
@@ -742,6 +1049,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies a combined script bundle path and splits it
+        /// into its file name and full name components.
+        /// </summary>
+        /// <param name="path">
+        /// The combined bundle path to verify and split.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the full name is being verified for a demand-loaded
+        /// script; otherwise, zero.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the bundle database file name.
+        /// </param>
+        /// <param name="fullName">
+        /// Upon success, receives the bundle full name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the bundle path is valid; otherwise, false.
+        /// </returns>
         public static bool VerifyBundlePath(
             string path,         /* in */
             bool demand,         /* in */
@@ -804,6 +1134,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified script bundle database file
+        /// exists and has a valid size, normalizing the file name to its full
+        /// path on success.
+        /// </summary>
+        /// <param name="fileName">
+        /// On input, the bundle database file name to verify; upon success, it
+        /// is replaced with the fully qualified file name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the bundle file name is valid; otherwise, false.
+        /// </returns>
         public static bool VerifyBundleFileName(
             ref string fileName, /* in, out */
             ref Result error     /* out */
@@ -860,6 +1205,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified script bundle full name is
+        /// non-empty and matches the bundle full name regular expression.
+        /// </summary>
+        /// <param name="fullName">
+        /// The bundle full name to verify.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the full name is being verified for a demand-loaded
+        /// script; otherwise, zero.  This affects the error message wording.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the bundle full name is valid; otherwise, false.
+        /// </returns>
         public static bool VerifyBundleFullName(
             string fullName, /* in */
             bool demand,     /* in */
@@ -902,6 +1264,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the SQLite connection string used to open the
+        /// specified script bundle database file, embedding a content hash and
+        /// an optional password.
+        /// </summary>
+        /// <param name="fileName">
+        /// The bundle database file name.
+        /// </param>
+        /// <param name="password">
+        /// The optional password bytes used to open an encrypted bundle
+        /// database; this parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The connection string, or null if the file cannot be verified or
+        /// hashed.
+        /// </returns>
         public static string GetBundleConnectionString(
             string fileName, /* in */
             byte[] password, /* in */
@@ -945,6 +1326,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified non-query command text against
+        /// the specified database connection.
+        /// </summary>
+        /// <param name="connection">
+        /// The open database connection against which the command is executed.
+        /// </param>
+        /// <param name="commandText">
+        /// The command text to execute; if it is null, nothing is executed.
+        /// </param>
+        /// <returns>
+        /// The number of rows affected, or the value of
+        /// <see cref="Count.None" /> if the command text is null.
+        /// </returns>
         public static int ExecuteNonQuery(
             IDbConnection connection, /* in */
             string commandText        /* in */
@@ -965,6 +1360,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified command text against the
+        /// specified database connection and returns the first column of the
+        /// first row of the result set.
+        /// </summary>
+        /// <param name="connection">
+        /// The open database connection against which the command is executed.
+        /// </param>
+        /// <param name="commandText">
+        /// The command text to execute; if it is null, nothing is executed.
+        /// </param>
+        /// <returns>
+        /// The scalar result value, or the value of
+        /// <see cref="Count.None" /> if the command text is null.
+        /// </returns>
         public static object ExecuteScalar(
             IDbConnection connection, /* in */
             string commandText        /* in */
@@ -985,6 +1395,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the pair of database connection types, in
+        /// preference order, that are tried when opening a script bundle
+        /// database.
+        /// </summary>
+        /// <param name="dbConnectionType1">
+        /// Upon return, receives the first (preferred) bundle database
+        /// connection type.
+        /// </param>
+        /// <param name="dbConnectionType2">
+        /// Upon return, receives the second (fallback) bundle database
+        /// connection type.
+        /// </param>
         public static void GetBundleConnectionTypes(
             out DbConnectionType dbConnectionType1, /* out */
             out DbConnectionType dbConnectionType2  /* out */
@@ -996,6 +1419,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the SQL command text used to select the script
+        /// records from a script bundle database.
+        /// </summary>
+        /// <param name="demand">
+        /// Non-zero to select demand-loaded scripts (negative sequence
+        /// numbers); otherwise, the normally-loaded scripts are selected.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The SQL command text used to select the bundle script records.
+        /// </returns>
         public static string GetBundleCommandText(
             bool demand,     /* in */
             ref Result error /* out */
@@ -1038,6 +1475,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets every output field of a script bundle record to
+        /// its default value.
+        /// </summary>
+        /// <param name="id">
+        /// Upon return, receives the default bundle record identifier.
+        /// </param>
+        /// <param name="language">
+        /// Upon return, receives the default bundle record language.
+        /// </param>
+        /// <param name="sequence">
+        /// Upon return, receives the default bundle record sequence number.
+        /// </param>
+        /// <param name="vendor">
+        /// Upon return, receives the default bundle record vendor.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// Upon return, receives the default bundle record hash algorithm name.
+        /// </param>
+        /// <param name="isolationLevel">
+        /// Upon return, receives the default bundle record isolation level.
+        /// </param>
+        /// <param name="securityLevel">
+        /// Upon return, receives the default bundle record security level.
+        /// </param>
+        /// <param name="securityFlags">
+        /// Upon return, receives the default bundle record security flags.
+        /// </param>
+        /// <param name="ruleSet">
+        /// Upon return, receives the default bundle record rule set.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon return, receives the default bundle record block type.
+        /// </param>
+        /// <param name="fullName">
+        /// Upon return, receives the default bundle record full name.
+        /// </param>
+        /// <param name="group">
+        /// Upon return, receives the default bundle record group.
+        /// </param>
+        /// <param name="description">
+        /// Upon return, receives the default bundle record description.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon return, receives the default bundle record time stamp.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon return, receives the default bundle record public key token.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the default bundle record script text.
+        /// </param>
+        /// <param name="signature">
+        /// Upon return, receives the default bundle record signature.
+        /// </param>
         private static void ResetBundleRecord(
             out Guid id,                           /* out */
             out string language,                   /* out */
@@ -1082,6 +1574,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that exactly one usable script was gathered
+        /// from a bundle and returns its text as encoded bytes.
+        /// </summary>
+        /// <param name="fileName">
+        /// The bundle database file name, used for diagnostics.
+        /// </param>
+        /// <param name="fullName">
+        /// The bundle full name, used for diagnostics.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the script text into bytes.
+        /// </param>
+        /// <param name="scripts">
+        /// The list of scripts gathered from the bundle; the first one is
+        /// used.
+        /// </param>
+        /// <param name="data">
+        /// Upon success, receives the encoded bytes of the script text.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if a usable script was found and encoded; otherwise, false.
+        /// </returns>
         public static bool VerifyOneBundleScript(
             string fileName,      /* in */
             string fullName,      /* in */
@@ -1143,6 +1661,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that a script bundle record signature is
+        /// present and of sufficient length, treating the null-signature
+        /// sentinel as valid.
+        /// </summary>
+        /// <param name="signature">
+        /// The signature bytes to verify.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the record belongs to a demand-loaded script; otherwise,
+        /// zero.  This affects the error message wording.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the signature is valid; otherwise, false.
+        /// </returns>
         private static bool VerifyBundleRecordSignature(
             byte[] signature, /* in */
             bool demand,      /* in */
@@ -1197,6 +1733,85 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method validates every field of a script bundle data record,
+        /// extracting and converting each field value while accumulating any
+        /// errors encountered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used for enumeration parsing and script
+        /// completeness checks; this parameter may be null.
+        /// </param>
+        /// <param name="record">
+        /// The data record whose fields are validated and extracted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during enumeration parsing; this parameter may be
+        /// null.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero if the record belongs to a demand-loaded script; otherwise,
+        /// zero.  This affects validation and error message wording.
+        /// </param>
+        /// <param name="id">
+        /// Upon return, receives the bundle record identifier.
+        /// </param>
+        /// <param name="language">
+        /// Upon return, receives the bundle record language.
+        /// </param>
+        /// <param name="sequence">
+        /// Upon return, receives the bundle record sequence number.
+        /// </param>
+        /// <param name="vendor">
+        /// Upon return, receives the bundle record vendor.
+        /// </param>
+        /// <param name="hashAlgorithmName">
+        /// Upon return, receives the bundle record hash algorithm name.
+        /// </param>
+        /// <param name="isolationLevel">
+        /// Upon return, receives the bundle record isolation level.
+        /// </param>
+        /// <param name="securityLevel">
+        /// Upon return, receives the bundle record security level.
+        /// </param>
+        /// <param name="securityFlags">
+        /// Upon return, receives the bundle record security flags.
+        /// </param>
+        /// <param name="ruleSet">
+        /// Upon return, receives the bundle record rule set.
+        /// </param>
+        /// <param name="blockType">
+        /// Upon return, receives the bundle record block type.
+        /// </param>
+        /// <param name="fullName">
+        /// Upon return, receives the bundle record full name.
+        /// </param>
+        /// <param name="group">
+        /// Upon return, receives the bundle record group.
+        /// </param>
+        /// <param name="description">
+        /// Upon return, receives the bundle record description.
+        /// </param>
+        /// <param name="timeStamp">
+        /// Upon return, receives the bundle record time stamp.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon return, receives the bundle record public key token.
+        /// </param>
+        /// <param name="text">
+        /// Upon return, receives the bundle record script text.
+        /// </param>
+        /// <param name="signature">
+        /// Upon return, receives the bundle record signature.
+        /// </param>
+        /// <param name="errors">
+        /// On input and output, the list to which any errors encountered are
+        /// appended.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if every field was valid; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode VerifyBundleRecord(
             Interpreter interpreter,               /* in: OPTIONAL */
             IDataRecord record,                    /* in */
@@ -1735,6 +2350,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens the specified script bundle database and gathers
+        /// the matching, verified scripts into the supplied list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to open the connection, verify the
+        /// records, and create the scripts.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during parsing and conversion; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="haveScriptFlags">
+        /// The optional source of the script and engine flags used when
+        /// creating the scripts; this parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data associated with each created script; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the script text into bytes.
+        /// </param>
+        /// <param name="fileName">
+        /// The bundle database file name.
+        /// </param>
+        /// <param name="password">
+        /// The optional password bytes used to open an encrypted bundle
+        /// database; this parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to match script full names; this parameter
+        /// may be null to match all scripts.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching of script full names.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero to gather demand-loaded scripts; otherwise, the
+        /// normally-loaded scripts are gathered.
+        /// </param>
+        /// <param name="scripts">
+        /// On input and output, the list to which the gathered scripts are
+        /// added; it is created if it is null.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GatherBundleScripts(
             Interpreter interpreter,          /* in */
             CultureInfo cultureInfo,          /* in: OPTIONAL */
@@ -1759,6 +2423,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens the specified script bundle database and gathers
+        /// the matching, verified scripts into the supplied list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to open the connection, verify the
+        /// records, and create the scripts.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during parsing and conversion; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="haveScriptFlags">
+        /// The optional source of the script and engine flags used when
+        /// creating the scripts; this parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data associated with each created script; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the script text into bytes.
+        /// </param>
+        /// <param name="fileName">
+        /// The bundle database file name.
+        /// </param>
+        /// <param name="password">
+        /// The optional password bytes used to open an encrypted bundle
+        /// database; this parameter may be null.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to match script full names; this parameter
+        /// may be null to match all scripts.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching of script full names.
+        /// </param>
+        /// <param name="demand">
+        /// Non-zero to gather demand-loaded scripts; otherwise, the
+        /// normally-loaded scripts are gathered.
+        /// </param>
+        /// <param name="scripts">
+        /// On input and output, the list to which the gathered scripts are
+        /// added; it is created if it is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GatherBundleScripts(
             Interpreter interpreter,          /* in */
             CultureInfo cultureInfo,          /* in: OPTIONAL */
@@ -2063,6 +2779,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an "other" (non built-in) database connection
+        /// by resolving and instantiating the supplied type, full type name, or
+        /// type name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used during type resolution; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The database connection type being created, used for diagnostics.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token of the assembly containing the type;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string passed to the connection constructor.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeFullName">
+        /// The assembly qualified type name of the connection type, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The simple type name of the connection type, if any.
+        /// </param>
+        /// <param name="type">
+        /// The connection type itself, if already resolved; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="connection">
+        /// Upon success, receives the created database connection.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CreateOtherDbConnection(
             Interpreter interpreter,           /* in */
             DbConnectionType dbConnectionType, /* in */
@@ -2206,6 +2968,65 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a database connection by trying two candidate
+        /// connection types in order, reporting which one succeeded.  The sets
+        /// of "other" connection types are derived automatically.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used during type resolution; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dbConnectionType1">
+        /// The first (preferred) candidate database connection type.
+        /// </param>
+        /// <param name="dbConnectionType2">
+        /// The second (fallback) candidate database connection type.
+        /// </param>
+        /// <param name="publicKeyToken1">
+        /// The expected public key token for the first candidate type; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="publicKeyToken2">
+        /// The expected public key token for the second candidate type; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string passed to the connection constructor.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeFullName">
+        /// The assembly qualified type name of the connection type, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The simple type name of the connection type, if any.
+        /// </param>
+        /// <param name="type">
+        /// The connection type itself, if already resolved; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="connection">
+        /// Upon success, receives the created database connection.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// Upon success, receives the candidate connection type that was used.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the public key token that was used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CreateDbConnection(
             Interpreter interpreter,               /* in */
             DbConnectionType dbConnectionType1,    /* in */
@@ -2245,6 +3066,73 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a database connection by trying two candidate
+        /// connection types in order, using the supplied dictionaries of
+        /// "other" connection type names, and reports which one succeeded.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used during type resolution; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dbConnectionType1">
+        /// The first (preferred) candidate database connection type.
+        /// </param>
+        /// <param name="dbConnectionType2">
+        /// The second (fallback) candidate database connection type.
+        /// </param>
+        /// <param name="publicKeyToken1">
+        /// The expected public key token for the first candidate type; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="publicKeyToken2">
+        /// The expected public key token for the second candidate type; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string passed to the connection constructor.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeFullName">
+        /// The assembly qualified type name of the connection type, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The simple type name of the connection type, if any.
+        /// </param>
+        /// <param name="type">
+        /// The connection type itself, if already resolved; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="dbConnectionTypeFullNames">
+        /// The dictionary mapping "other" connection types to their assembly
+        /// qualified type name triplets.
+        /// </param>
+        /// <param name="dbConnectionTypeNames">
+        /// The dictionary mapping "other" connection types to their simple type
+        /// name triplets.
+        /// </param>
+        /// <param name="connection">
+        /// Upon success, receives the created database connection.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// Upon success, receives the candidate connection type that was used.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the public key token that was used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CreateDbConnection(
             Interpreter interpreter,                        /* in */
             DbConnectionType dbConnectionType1,             /* in */
@@ -2315,6 +3203,52 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a database connection of the specified single
+        /// connection type.  The sets of "other" connection types are derived
+        /// automatically.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used during type resolution; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The database connection type to create.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token of the assembly containing the type;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string passed to the connection constructor.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeFullName">
+        /// The assembly qualified type name of the connection type, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The simple type name of the connection type, if any.
+        /// </param>
+        /// <param name="type">
+        /// The connection type itself, if already resolved; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="connection">
+        /// Upon success, receives the created database connection.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CreateDbConnection(
             Interpreter interpreter,           /* in */
             DbConnectionType dbConnectionType, /* in */
@@ -2347,6 +3281,60 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a database connection of the specified single
+        /// connection type, using the supplied dictionaries of "other"
+        /// connection type names to resolve non built-in types.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used during type resolution; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="dbConnectionType">
+        /// The database connection type to create.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The expected public key token of the assembly containing the type;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="connectionString">
+        /// The connection string passed to the connection constructor.
+        /// </param>
+        /// <param name="assemblyFileName">
+        /// The file name of the assembly to load, if any.
+        /// </param>
+        /// <param name="typeFullName">
+        /// The assembly qualified type name of the connection type, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The simple type name of the connection type, if any.
+        /// </param>
+        /// <param name="type">
+        /// The connection type itself, if already resolved; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags that govern, among other things, whether only
+        /// trusted assembly files may be used.
+        /// </param>
+        /// <param name="dbConnectionTypeFullNames">
+        /// The dictionary mapping "other" connection types to their assembly
+        /// qualified type name triplets.
+        /// </param>
+        /// <param name="dbConnectionTypeNames">
+        /// The dictionary mapping "other" connection types to their simple type
+        /// name triplets.
+        /// </param>
+        /// <param name="connection">
+        /// Upon success, receives the created database connection.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CreateDbConnection(
             Interpreter interpreter,                        /* in */
             DbConnectionType dbConnectionType,              /* in */
@@ -2493,6 +3481,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified arguments, each describing a
+        /// database parameter, and adds the resulting parameters to the
+        /// specified database command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to resolve opaque object handles and
+        /// values; this parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value parsing.
+        /// </param>
+        /// <param name="valueFormat">
+        /// The optional format string used when parsing parameter values.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The value flags used when parsing parameter values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when parsing date and time values.
+        /// </param>
+        /// <param name="dateTimeStyles">
+        /// The date and time styles used when parsing date and time values.
+        /// </param>
+        /// <param name="command">
+        /// The database command to which the parsed parameters are added.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments, each describing one parameter as a list of
+        /// name, type, value, size, and value flags.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first argument to process.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last argument to process; a negative value means
+        /// the final argument.
+        /// </param>
+        /// <param name="verbatim">
+        /// Non-zero to treat each parameter value verbatim, without value
+        /// conversion.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetParameters(
             Interpreter interpreter,       /* in */
             CultureInfo cultureInfo,       /* in */
@@ -2673,6 +3710,132 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single database data record into an Eagle
+        /// result in the requested format, optionally storing it into a
+        /// variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to store variables and fix up values;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used when fixing up an object return value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="record">
+        /// The data record to convert.
+        /// </param>
+        /// <param name="options">
+        /// The options used when fixing up an object return value.
+        /// </param>
+        /// <param name="resultFormat">
+        /// The format in which the record is converted into a result.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable into which the result is stored; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index used when storing the result into a
+        /// variable; this parameter may be null.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="count">
+        /// The current record count, used when an associated count value is
+        /// also stored.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records; this is used by related conversion
+        /// methods.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to produce a nested list (one sub-list per record).
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="andCount">
+        /// Non-zero to also store the record count alongside the result.
+        /// </param>
+        /// <param name="returnType">
+        /// The desired return type used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectName">
+        /// The object name used when fixing up an object return value.
+        /// </param>
+        /// <param name="interpName">
+        /// The interpreter name used when fixing up an object return value.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an opaque object handle for an object return
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose of the object when its handle is removed.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for an object return value.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Non-zero to create a raw command alias for an object return value.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Non-zero to create aliases for all members of an object return
+        /// value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add an opaque object reference for the created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero to convert an object return value to its string form.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the converted result or the empty string;
+        /// upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode DataRecordToResults(
             Interpreter interpreter,           /* in */
             IBinder binder,                    /* in */
@@ -2905,6 +4068,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified data reader has already
+        /// been transferred to the interpreter as an opaque object handle, in
+        /// which case it no longer needs to be closed here.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose object list is checked; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="reader">
+        /// The data reader to look for; this parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the data reader is owned by the interpreter; otherwise,
+        /// false.
+        /// </returns>
         private static bool HasDataReaderObject(
             Interpreter interpreter, /* in */
             IDataReader reader       /* in */
@@ -2925,6 +4104,129 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts every record produced by a database data
+        /// reader into an Eagle result in the requested format, optionally
+        /// storing it into a variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to store variables and fix up values;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used when fixing up an object return value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="reader">
+        /// The data reader whose records are converted.
+        /// </param>
+        /// <param name="options">
+        /// The options used when fixing up an object return value.
+        /// </param>
+        /// <param name="resultFormat">
+        /// The format in which the records are converted into a result.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable into which the result is stored; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records to convert; a value of
+        /// <see cref="Limits.Unlimited" /> means no limit.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to produce a nested list (one sub-list per record).
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="andCount">
+        /// Non-zero to also store the record count alongside the result.
+        /// </param>
+        /// <param name="returnType">
+        /// The desired return type used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectName">
+        /// The object name used when fixing up an object return value.
+        /// </param>
+        /// <param name="interpName">
+        /// The interpreter name used when fixing up an object return value.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an opaque object handle for an object return
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose of the object when its handle is removed.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for an object return value.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Non-zero to create a raw command alias for an object return value.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Non-zero to create aliases for all members of an object return
+        /// value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add an opaque object reference for the created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero to convert an object return value to its string form.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="close">
+        /// On input and output, whether the caller should close the data
+        /// reader; this may be cleared when the reader is transferred to the
+        /// interpreter.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the converted result or the empty string;
+        /// upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode DataReaderToResults(
             Interpreter interpreter,           /* in */
             IBinder binder,                    /* in */
@@ -3140,6 +4442,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a database field value into its string form
+        /// without performing any value fix up.
+        /// </summary>
+        /// <param name="value">
+        /// The database field value to convert.
+        /// </param>
+        /// <returns>
+        /// The string form of the specified value.
+        /// </returns>
         private static string DataValueToString(
             object value /* in */
             )
@@ -3149,6 +4461,126 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified database command and converts its
+        /// result into an Eagle result in the requested format.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to store variables and fix up values;
+        /// this parameter may be null.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used when fixing up an object return value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="command">
+        /// The database command to execute.
+        /// </param>
+        /// <param name="options">
+        /// The options used when fixing up an object return value.
+        /// </param>
+        /// <param name="executeType">
+        /// The kind of execution to perform (non-query, scalar, or reader).
+        /// </param>
+        /// <param name="commandBehavior">
+        /// The command behavior used when executing a reader.
+        /// </param>
+        /// <param name="resultFormat">
+        /// The format in which the result is converted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable into which the result is stored; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records to convert; a value of
+        /// <see cref="Limits.Unlimited" /> means no limit.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to produce a nested list (one sub-list per record).
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="returnType">
+        /// The desired return type used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectName">
+        /// The object name used when fixing up an object return value.
+        /// </param>
+        /// <param name="interpName">
+        /// The interpreter name used when fixing up an object return value.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an opaque object handle for an object return
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose of the object when its handle is removed.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for an object return value.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Non-zero to create a raw command alias for an object return value.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Non-zero to create aliases for all members of an object return
+        /// value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add an opaque object reference for the created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero to convert an object return value to its string form.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the converted result; upon failure, receives
+        /// information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExecuteCommandAndGetResults(
             Interpreter interpreter,           /* in */
             IBinder binder,                    /* in */
@@ -3307,6 +4739,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the field names of the specified data record to
+        /// the supplied list.
+        /// </summary>
+        /// <param name="record">
+        /// The data record whose field names are gathered; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the field names are added; it
+        /// is created if it is null or being cleared.
+        /// </param>
         private static void GetDataRecordFieldNames(
             IDataRecord record, /* in */
             bool clear,         /* in */
@@ -3327,6 +4775,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the raw field values of the specified data
+        /// record to the supplied list of objects.
+        /// </summary>
+        /// <param name="record">
+        /// The data record whose field values are gathered; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the field values are added;
+        /// it is created if it is null or being cleared.
+        /// </param>
         private static void GetDataRecordFieldValues(
             IDataRecord record, /* in */
             bool clear,         /* in */
@@ -3347,6 +4811,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the field data type names of the specified data
+        /// record to the supplied list.
+        /// </summary>
+        /// <param name="record">
+        /// The data record whose field data type names are gathered; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the field data type names are
+        /// added; it is created if it is null or being cleared.
+        /// </param>
         private static void GetDataRecordFieldTypeNames(
             IDataRecord record, /* in */
             bool clear,         /* in */
@@ -3367,6 +4847,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the field types of the specified data record to
+        /// the supplied list.
+        /// </summary>
+        /// <param name="record">
+        /// The data record whose field types are gathered; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the field types are added; it
+        /// is created if it is null or being cleared.
+        /// </param>
         private static void GetDataRecordFieldTypes(
             IDataRecord record, /* in */
             bool clear,         /* in */
@@ -3387,6 +4883,69 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the converted (string) field values of the
+        /// specified data record to the supplied list, optionally including
+        /// field names.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context; this parameter is not used.
+        /// </param>
+        /// <param name="record">
+        /// The data record whose field values are gathered; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the field values are added;
+        /// it is created if it is null or being cleared.
+        /// </param>
         private static void GetDataRecordFieldValues(
             Interpreter interpreter,           /* in: NOT USED */
             IDataRecord record,                /* in */
@@ -3471,6 +5030,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a detached, in-memory copy of the specified data
+        /// record, capturing its field names, values, type names, and types.
+        /// </summary>
+        /// <param name="record">
+        /// The data record to copy.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The detached copy of the data record, or null on failure.
+        /// </returns>
         private static IDataRecord CreateDataRecord(
             IDataRecord record, /* in */
             ref Result error    /* out */
@@ -3527,6 +5099,50 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method creates and populates a data table from the records
+        /// produced by the specified database data reader.
+        /// </summary>
+        /// <param name="reader">
+        /// The data reader whose records are loaded into the data table.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context used during value conversion; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// The populated data table, or null on failure.
+        /// </returns>
         public static IDataTable CreateDataTable(
             IDataReader reader,        /* in */
             Interpreter interpreter,   /* in */
@@ -3566,6 +5182,77 @@ namespace Eagle._Components.Private
         // WARNING: This method cannot currently "fail"; however, its
         //          return code should still be checked by the caller.
         //
+        /// <summary>
+        /// This method converts a single database data record into list form
+        /// and appends it to the supplied list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context; this parameter is not used.
+        /// </param>
+        /// <param name="record">
+        /// The data record to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to append the record as a single nested sub-list; otherwise,
+        /// its elements are appended individually.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh row list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the converted record is
+        /// appended; it is created if it is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" />; this method does not currently fail.
+        /// </returns>
         private static ReturnCode DataRecordToList(
             Interpreter interpreter,           /* in: NOT USED */
             IDataRecord record,                /* in */
@@ -3624,6 +5311,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unsets the specified variable, optionally reporting any
+        /// failure via the interpreter complaint subsystem.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose variable is unset; this parameter may
+        /// be null.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable to unset; this parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The optional array element index to unset; this parameter may be
+        /// null.
+        /// </param>
         private static void UnsetVariableOrMaybeComplain(
             Interpreter interpreter, /* in */
             string varName,          /* in */
@@ -3649,6 +5351,64 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single database value and stores it into the
+        /// specified variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose variable is set.
+        /// </param>
+        /// <param name="value">
+        /// The database value to convert and store.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable into which the value is stored; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index used when storing the value; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and store the value as-is.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode DataValueToVariable(
             Interpreter interpreter,           /* in */
             object value,                      /* in */
@@ -3703,6 +5463,78 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single database data record into list form
+        /// and stores it into the specified array element variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose variable is set.
+        /// </param>
+        /// <param name="record">
+        /// The data record to convert.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable into which the record is stored; this
+        /// parameter may be null.
+        /// </param>
+        /// <param name="varIndex">
+        /// The array element index used when storing the record; this parameter
+        /// may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh row list rather than appending to any
+        /// existing one.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode DataRecordToVariable(
             Interpreter interpreter,           /* in */
             IDataRecord record,                /* in */
@@ -3763,6 +5595,84 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts every record produced by a database data
+        /// reader into list form and appends them to the supplied list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context; this parameter is not used.
+        /// </param>
+        /// <param name="reader">
+        /// The data reader whose records are converted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records to convert; a value of
+        /// <see cref="Limits.Unlimited" /> means no limit.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to append each record as a single nested sub-list.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh row list for each record.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="list">
+        /// On input and output, the list to which the converted records are
+        /// appended.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, the running count of records converted, which
+        /// is incremented by this method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode DataReaderToList(
             Interpreter interpreter,           /* in: NOT USED */
             IDataReader reader,                /* in */
@@ -3826,6 +5736,82 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts every record produced by a database data
+        /// reader into elements of the specified array variable, also recording
+        /// the field names and the record count.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose array variable is populated.
+        /// </param>
+        /// <param name="reader">
+        /// The data reader whose records are converted.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the array variable to populate; this parameter may be
+        /// null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records to convert; a value of
+        /// <see cref="Limits.Unlimited" /> means no limit.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to start with a fresh row list for each record.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias when fixing up an object value.
+        /// </param>
+        /// <param name="count">
+        /// On input and output, the running count of records converted, which
+        /// is incremented by this method.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode DataReaderToArray(
             Interpreter interpreter,           /* in */
             IDataReader reader,                /* in */
@@ -3930,6 +5916,138 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method executes the specified database command and evaluates a
+        /// script body once per result (or once for a non-query or scalar
+        /// execution), exposing each converted result to the body via a
+        /// variable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to store variables, convert values, and
+        /// evaluate the script body.
+        /// </param>
+        /// <param name="binder">
+        /// The binder used when fixing up an object return value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used during value conversion.
+        /// </param>
+        /// <param name="command">
+        /// The database command to execute.
+        /// </param>
+        /// <param name="options">
+        /// The options used when fixing up an object return value.
+        /// </param>
+        /// <param name="executeType">
+        /// The kind of execution to perform (non-query, scalar, or reader).
+        /// </param>
+        /// <param name="commandBehavior">
+        /// The command behavior used when executing a reader.
+        /// </param>
+        /// <param name="resultFormat">
+        /// The format in which each record is converted before the body is
+        /// evaluated.
+        /// </param>
+        /// <param name="commandName">
+        /// The name of the calling command, used in error information.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the variable through which each result is exposed to the
+        /// body; this parameter may be null.
+        /// </param>
+        /// <param name="body">
+        /// The script body to evaluate for each result.
+        /// </param>
+        /// <param name="location">
+        /// The script location associated with the body.
+        /// </param>
+        /// <param name="blobBehavior">
+        /// The behavior used when converting binary large object values.
+        /// </param>
+        /// <param name="dateTimeBehavior">
+        /// The behavior used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeKind">
+        /// The date and time kind used when converting date and time values.
+        /// </param>
+        /// <param name="dateTimeFormat">
+        /// The format used when converting date and time values.
+        /// </param>
+        /// <param name="numberFormat">
+        /// The format used when converting numeric values.
+        /// </param>
+        /// <param name="nullValue">
+        /// The string used to represent a null value.
+        /// </param>
+        /// <param name="dbNullValue">
+        /// The string used to represent a database null value.
+        /// </param>
+        /// <param name="errorValue">
+        /// The string used to represent a value that could not be converted.
+        /// </param>
+        /// <param name="limit">
+        /// The maximum number of records to process; a value of
+        /// <see cref="Limits.Unlimited" /> means no limit.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero to produce a nested list (one sub-list per record).
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to include null and database null field values in the
+        /// output.
+        /// </param>
+        /// <param name="pairs">
+        /// Non-zero to emit each field as a name and value pair.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include field names in the output.
+        /// </param>
+        /// <param name="returnType">
+        /// The desired return type used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The object flags used when fixing up an object return value.
+        /// </param>
+        /// <param name="objectName">
+        /// The object name used when fixing up an object return value.
+        /// </param>
+        /// <param name="interpName">
+        /// The interpreter name used when fixing up an object return value.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero to create an opaque object handle for an object return
+        /// value.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero to dispose of the object when its handle is removed.
+        /// </param>
+        /// <param name="alias">
+        /// Non-zero to create a command alias for an object return value.
+        /// </param>
+        /// <param name="aliasRaw">
+        /// Non-zero to create a raw command alias for an object return value.
+        /// </param>
+        /// <param name="aliasAll">
+        /// Non-zero to create aliases for all members of an object return
+        /// value.
+        /// </param>
+        /// <param name="aliasReference">
+        /// Non-zero to add an opaque object reference for the created alias.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero to convert an object return value to its string form.
+        /// </param>
+        /// <param name="noFixup">
+        /// Non-zero to skip value fix up and use the raw string form instead.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the empty string or the body break result;
+        /// upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, the return code
+        /// produced by the failing operation.
+        /// </returns>
         public static ReturnCode ExecuteCommandAndEvaluateBody(
             Interpreter interpreter,           /* in */
             IBinder binder,                    /* in */
@@ -4282,25 +6400,109 @@ namespace Eagle._Components.Private
 
         #region DataTable Helper Class
 #if XML
+        /// <summary>
+        /// This class extends the framework data table to support converting
+        /// its rows into Eagle lists and dictionaries, applying the same value
+        /// formatting as the other <c>[sql execute]</c> result formats.
+        /// </summary>
         [ObjectId("2199651c-fd55-4319-bb47-9ea05ea7995d")]
         private sealed class _DataTable : DataTable /* Xml */, IDataTable
         {
             #region Private Data
+            /// <summary>
+            /// The interpreter context used during value conversion; this field
+            /// may be null.
+            /// </summary>
             private Interpreter interpreter;
+
+            /// <summary>
+            /// The culture used during value conversion.
+            /// </summary>
             private CultureInfo cultureInfo;
+
+            /// <summary>
+            /// The behavior used when converting binary large object values.
+            /// </summary>
             private BlobBehavior blobBehavior;
+
+            /// <summary>
+            /// The behavior used when converting date and time values.
+            /// </summary>
             private DateTimeBehavior dateTimeBehavior;
+
+            /// <summary>
+            /// The date and time kind used when converting date and time
+            /// values.
+            /// </summary>
             private DateTimeKind dateTimeKind;
+
+            /// <summary>
+            /// The format used when converting date and time values.
+            /// </summary>
             private string dateTimeFormat;
+
+            /// <summary>
+            /// The format used when converting numeric values.
+            /// </summary>
             private string numberFormat;
+
+            /// <summary>
+            /// The string used to represent a null value.
+            /// </summary>
             private string nullValue;
+
+            /// <summary>
+            /// The string used to represent a database null value.
+            /// </summary>
             private string dbNullValue;
+
+            /// <summary>
+            /// The string used to represent a value that could not be
+            /// converted.
+            /// </summary>
             private string errorValue;
             #endregion
 
             ///////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class, capturing the value
+            /// conversion settings used when its rows are later converted.
+            /// </summary>
+            /// <param name="interpreter">
+            /// The interpreter context used during value conversion; this
+            /// parameter may be null.
+            /// </param>
+            /// <param name="cultureInfo">
+            /// The culture used during value conversion.
+            /// </param>
+            /// <param name="blobBehavior">
+            /// The behavior used when converting binary large object values.
+            /// </param>
+            /// <param name="dateTimeBehavior">
+            /// The behavior used when converting date and time values.
+            /// </param>
+            /// <param name="dateTimeKind">
+            /// The date and time kind used when converting date and time
+            /// values.
+            /// </param>
+            /// <param name="dateTimeFormat">
+            /// The format used when converting date and time values.
+            /// </param>
+            /// <param name="numberFormat">
+            /// The format used when converting numeric values.
+            /// </param>
+            /// <param name="nullValue">
+            /// The string used to represent a null value.
+            /// </param>
+            /// <param name="dbNullValue">
+            /// The string used to represent a database null value.
+            /// </param>
+            /// <param name="errorValue">
+            /// The string used to represent a value that could not be
+            /// converted.
+            /// </param>
             public _DataTable(
                 Interpreter interpreter,           /* in */
                 CultureInfo cultureInfo,           /* in */
@@ -4330,6 +6532,23 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// This method converts the specified data rows into a list,
+            /// applying the captured value formatting to each field.
+            /// </summary>
+            /// <param name="rows">
+            /// The data rows to convert.
+            /// </param>
+            /// <param name="names">
+            /// Non-zero to include column names alongside their values.
+            /// </param>
+            /// <param name="limit">
+            /// The maximum number of rows to convert; a value of zero or less
+            /// means no limit.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list per converted row.
+            /// </returns>
             private IStringList RowsToList(
                 DataRow[] rows, /* in */
                 bool names,     /* in */
@@ -4378,6 +6597,13 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////
 
             #region Public Methods
+            /// <summary>
+            /// This method converts all rows of this data table into a list of
+            /// values.
+            /// </summary>
+            /// <returns>
+            /// A list containing one sub-list of values per row.
+            /// </returns>
             public IStringList ToList()
             {
                 return ToList(Limits.Unlimited);
@@ -4391,6 +6617,16 @@ namespace Eagle._Components.Private
             //       result formats.  This replaces the manual
             //       getRowsFromDataTable pattern.
             //
+            /// <summary>
+            /// This method converts the rows of this data table into a list of
+            /// values, up to the specified limit.
+            /// </summary>
+            /// <param name="limit">
+            /// The maximum number of rows to convert.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of values per row.
+            /// </returns>
             public IStringList ToList(
                 int limit /* in */
                 )
@@ -4400,6 +6636,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method converts the filtered and/or sorted rows of this
+            /// data table into a list of values.
+            /// </summary>
+            /// <param name="filter">
+            /// The optional filter expression selecting the rows; this
+            /// parameter may be null.
+            /// </param>
+            /// <param name="sort">
+            /// The optional sort expression ordering the rows; this parameter
+            /// may be null.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of values per matching row.
+            /// </returns>
             public IStringList ToList(
                 string filter, /* in */
                 string sort    /* in */
@@ -4415,6 +6666,24 @@ namespace Eagle._Components.Private
             // NOTE: Like ToList but operates on a filtered and/or
             //       sorted subset of rows via DataTable.Select.
             //
+            /// <summary>
+            /// This method converts the filtered and/or sorted rows of this
+            /// data table into a list of values, up to the specified limit.
+            /// </summary>
+            /// <param name="filter">
+            /// The optional filter expression selecting the rows; this
+            /// parameter may be null.
+            /// </param>
+            /// <param name="sort">
+            /// The optional sort expression ordering the rows; this parameter
+            /// may be null.
+            /// </param>
+            /// <param name="limit">
+            /// The maximum number of rows to convert.
+            /// </param>
+            /// <returns>
+            /// A list containing one sub-list of values per matching row.
+            /// </returns>
             public IStringList ToList(
                 string filter, /* in */
                 string sort,   /* in */
@@ -4427,6 +6696,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method converts all rows of this data table into a list of
+            /// column name and value pairs.
+            /// </summary>
+            /// <returns>
+            /// A list containing one sub-list of name and value pairs per row.
+            /// </returns>
             public IStringList ToDictionary()
             {
                 return ToDictionary(Limits.Unlimited);

@@ -23,11 +23,25 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>after</c> command, which schedules
+    /// scripts to run after a delay or when the interpreter becomes idle,
+    /// waits for a specified interval, and manages the queued and pending
+    /// events maintained by the interpreter event manager.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("4f867f2c-e65f-48d8-bf81-e794d10f7466")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("event")]
     internal sealed class After : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>after</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public After(
             ICommandData commandData
             )
@@ -37,11 +51,19 @@ namespace Eagle._Commands
         }
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-command names supported by the <c>after</c> command
+        /// ensemble.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "active", "cancel", "clear", "counts",
             "dump", "enable", "flags", "idle", "info"
         });
 
+        /// <summary>
+        /// Gets the dictionary of sub-command names supported by the
+        /// <c>after</c> command ensemble.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -49,11 +71,45 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>after</c> command.  It dispatches to
+        /// one of the ensemble sub-commands (for example <c>active</c>,
+        /// <c>cancel</c>, <c>clear</c>, <c>counts</c>, <c>dump</c>,
+        /// <c>enable</c>, <c>flags</c>, <c>idle</c>, or <c>info</c>); when the
+        /// first argument is a number instead, it either waits for that many
+        /// milliseconds or schedules the supplied script to run after that
+        /// delay.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name or a delay in
+        /// milliseconds; the remaining elements are the arguments for the
+        /// selected sub-command.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command, such as a scheduled event identifier, the event
+        /// manager state, or an empty string.  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

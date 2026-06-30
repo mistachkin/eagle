@@ -16,6 +16,14 @@ using Eagle._Interfaces.Private;
 
 namespace Eagle._Operators
 {
+    /// <summary>
+    /// This class implements the Eagle <c>~</c> (bitwise complement)
+    /// expression operator, which produces the bitwise NOT of its single
+    /// integral operand.  The evaluation itself is provided by the
+    /// <see cref="Math" /> base class, selected by the
+    /// <see cref="Lexeme.BitwiseNot" /> lexeme.  See <c>core_language.md</c>
+    /// for expression and operator semantics.
+    /// </summary>
     [ObjectId("1e9331a3-b6be-45c1-aa04-5063410d3f09")]
     [OperatorFlags(
         OperatorFlags.Standard | OperatorFlags.Bitwise)]
@@ -27,6 +35,13 @@ namespace Eagle._Operators
     internal sealed class BitwiseNot : Math
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>~</c> bitwise complement operator.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The data used to create and identify this operator, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public BitwiseNot(
             IOperatorData operatorData /* in */
             )

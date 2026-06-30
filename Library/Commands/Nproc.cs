@@ -19,11 +19,25 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>nproc</c> command, which creates a
+    /// new procedure whose arguments are passed by name rather than by
+    /// position.  It behaves like the <c>proc</c> command except that the
+    /// resulting procedure uses named arguments.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("2039903a-b5fc-4afa-a43e-2d20d31c2f61")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("procedure")]
     internal sealed class Nproc : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>nproc</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Nproc(
             ICommandData commandData
             )
@@ -35,11 +49,42 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>nproc</c> command.  It parses the
+        /// procedure name, formal argument list, and body, derives the named
+        /// argument metadata, and adds (or replaces) the resulting procedure
+        /// in the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the procedure name, element two is the
+        /// formal argument list, and element three is the procedure body.
+        /// This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains an empty string.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the procedure is created
+        /// successfully; otherwise, <see cref="ReturnCode.Error" /> when the
+        /// wrong number of arguments is supplied, the interpreter is null, the
+        /// argument list is null, or the procedure cannot be created, with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

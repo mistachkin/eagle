@@ -44,6 +44,15 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the platform-specific support necessary to query
+    /// the native stack of the current thread (e.g. its current pointer,
+    /// allocated size, and maximum size), which is used by the script engine
+    /// to perform native stack overflow checking.  It abstracts the Windows
+    /// (Thread Environment Block and thread context) and Unix (pthread and
+    /// rlimit) mechanisms, and also computes the stack reserve size to use
+    /// when creating new engine threads.
+    /// </summary>
 #if NET_40
     [SecurityCritical()]
 #else
@@ -57,44 +66,108 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region Private Unsafe Native Methods Class
+        /// <summary>
+        /// This class contains the "unsafe" native methods, types, and
+        /// constants (i.e. those that do not have the unmanaged code security
+        /// checks enforced) used by this class via P/Invoke to query native
+        /// stack information on the supported platforms.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("92cecfd9-3ef3-42c1-83e2-055cd6f9dbfe")]
         private static class UnsafeNativeMethods
         {
 #if WINDOWS
+            /// <summary>
+            /// This enumeration specifies the class of information being
+            /// queried for a thread via the native <c>NtQueryInformationThread</c>
+            /// API.
+            /// </summary>
             [ObjectId("643773c8-cf43-4d74-9559-35ce377d86f5")]
             internal enum THREADINFOCLASS
             {
+                /// <summary>
+                /// Query the basic information for the thread.
+                /// </summary>
                 ThreadBasicInformation
                 // ...
             }
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native <c>CLIENT_ID</c> structure,
+            /// which identifies a process and thread via their unique handles.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("d5537405-4611-48b8-a2d4-f588f4001fcb")]
             internal struct CLIENT_ID
             {
+                /// <summary>
+                /// The unique handle of the owning process.
+                /// </summary>
                 public /* PVOID */ IntPtr UniqueProcess;
+                /// <summary>
+                /// The unique handle of the thread.
+                /// </summary>
                 public /* PVOID */ IntPtr UniqueThread;
             }
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native <c>THREAD_BASIC_INFORMATION</c>
+            /// structure returned by the <c>NtQueryInformationThread</c> API
+            /// when querying for basic thread information.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("e9663a89-68cd-420e-a37e-4058e1b8e6ea")]
             internal struct THREAD_BASIC_INFORMATION
             {
+                /// <summary>
+                /// The exit status of the thread.
+                /// </summary>
                 public /* NTSTATUS */ int ExitStatus;
+                /// <summary>
+                /// The base address of the Thread Environment Block (TEB) for
+                /// the thread.
+                /// </summary>
                 public /* PVOID */ IntPtr TebBaseAddress;
+                /// <summary>
+                /// The process and thread identifiers for the thread.
+                /// </summary>
                 public CLIENT_ID ClientId;
+                /// <summary>
+                /// The processor affinity mask for the thread.
+                /// </summary>
                 public /* KAFFINITY */ IntPtr AffinityMask;
+                /// <summary>
+                /// The current (dynamic) priority of the thread.
+                /// </summary>
                 public /* KPRIORITY */ int Priority;
+                /// <summary>
+                /// The base priority of the thread.
+                /// </summary>
                 public /* KPRIORITY */ int BasePriority;
             }
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>GetThreadContext</c> Win32 API,
+            /// which retrieves the context (register state) of the specified
+            /// thread into the supplied buffer.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread whose context is to be queried.
+            /// </param>
+            /// <param name="context">
+            /// The pointer to the native <c>CONTEXT</c> structure buffer that
+            /// will receive the thread context.
+            /// </param>
+            /// <returns>
+            /// True if the thread context was retrieved successfully;
+            /// otherwise, false.
+            /// </returns>
             [DllImport(DllName.Kernel32,
                 CallingConvention = CallingConvention.Winapi,
                 SetLastError = true)]
@@ -106,6 +179,32 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>NtQueryInformationThread</c>
+            /// API, which retrieves the requested class of information for the
+            /// specified thread.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread to be queried.
+            /// </param>
+            /// <param name="threadInformationClass">
+            /// The class of information to be queried for the thread.
+            /// </param>
+            /// <param name="threadInformation">
+            /// Upon success, receives the queried thread information.
+            /// </param>
+            /// <param name="threadInformationLength">
+            /// The size, in bytes, of the <paramref name="threadInformation" />
+            /// buffer.
+            /// </param>
+            /// <param name="returnLength">
+            /// Upon return, receives the number of bytes of information
+            /// actually written.
+            /// </param>
+            /// <returns>
+            /// An <c>NTSTATUS</c> value indicating success or failure; the
+            /// value <c>STATUS_SUCCESS</c> (zero) indicates success.
+            /// </returns>
             [DllImport(DllName.NtDll,
                 CallingConvention = CallingConvention.StdCall)]
             internal static extern int NtQueryInformationThread(
@@ -120,35 +219,77 @@ namespace Eagle._Components.Private
             /////////////////////////////////////////////////////////////////////////////
 
 #if UNIX
+            /// <summary>
+            /// The native resource identifier used to query the maximum stack
+            /// size limit via the <c>getrlimit</c> API.
+            /// </summary>
             internal static readonly int RLIMIT_STACK = 3; /* Linux only? */
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The native value representing an unlimited resource limit, sized
+            /// to match the native pointer width.
+            /// </summary>
             internal static readonly UIntPtr RLIM_INFINITY = new UIntPtr(
                 (UIntPtr.Size == sizeof(ulong)) ? ulong.MaxValue : uint.MaxValue);
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native <c>rlimit</c> structure, which
+            /// holds the soft (current) and hard (maximum) values for a
+            /// resource limit.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("82c1c43a-7b4b-45fd-a8f9-ce2b2ec44444")]
             internal struct rlimit
             {
+                /// <summary>
+                /// The soft (current) resource limit value.
+                /// </summary>
                 public /* rlim_t */ UIntPtr rlim_cur;
+                /// <summary>
+                /// The hard (maximum) resource limit value.
+                /// </summary>
                 public /* rlim_t */ UIntPtr rlim_max;
             }
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This structure mirrors the native <c>pthread_attr_t</c>
+            /// structure, which holds the attributes of a thread; it is treated
+            /// here as an opaque fixed-size byte buffer.
+            /// </summary>
             [StructLayout(LayoutKind.Sequential)]
             [ObjectId("b6f59db7-2220-4a71-9727-17cd281f0958")]
             internal struct pthread_attr_t
             {
+                /// <summary>
+                /// The opaque fixed-size storage backing the native thread
+                /// attributes.
+                /// </summary>
                 [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
                 public byte[] buffer;
             }
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>getrlimit</c> API, which queries
+            /// the current and maximum limits for the specified resource.
+            /// </summary>
+            /// <param name="resource">
+            /// The native identifier of the resource to be queried.
+            /// </param>
+            /// <param name="rlp">
+            /// Upon success, receives the current and maximum limits for the
+            /// resource.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int getrlimit(
@@ -158,6 +299,17 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native (Darwin) <c>pthread_get_stackaddr_np</c>
+            /// API, which returns the base address of the stack for the
+            /// specified thread.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread to be queried.
+            /// </param>
+            /// <returns>
+            /// The base address of the thread's stack.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr pthread_get_stackaddr_np( /* Darwin */
@@ -166,6 +318,17 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native (Darwin) <c>pthread_get_stacksize_np</c>
+            /// API, which returns the size of the stack for the specified
+            /// thread.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread to be queried.
+            /// </param>
+            /// <returns>
+            /// The size, in bytes, of the thread's stack.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern UIntPtr pthread_get_stacksize_np( /* Darwin */
@@ -174,6 +337,16 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>pthread_attr_init</c> API, which
+            /// initializes a thread attributes object to its default values.
+            /// </summary>
+            /// <param name="attr">
+            /// Upon success, receives the initialized thread attributes.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int pthread_attr_init(
@@ -182,6 +355,20 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native (Linux) <c>pthread_getattr_np</c>
+            /// API, which retrieves the attributes of the specified running
+            /// thread.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread to be queried.
+            /// </param>
+            /// <param name="attr">
+            /// Upon success, receives the attributes of the thread.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int pthread_getattr_np( /* Linux */
@@ -191,6 +378,20 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native (FreeBSD) <c>pthread_attr_get_np</c>
+            /// API, which retrieves the attributes of the specified running
+            /// thread.
+            /// </summary>
+            /// <param name="thread">
+            /// The native handle of the thread to be queried.
+            /// </param>
+            /// <param name="attr">
+            /// Upon success, receives the attributes of the thread.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int pthread_attr_get_np( /* FreeBSD */
@@ -200,6 +401,20 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>pthread_attr_getstacksize</c>
+            /// API, which retrieves the stack size attribute from a thread
+            /// attributes object.
+            /// </summary>
+            /// <param name="attr">
+            /// The thread attributes to be queried.
+            /// </param>
+            /// <param name="stacksize">
+            /// Upon success, receives the stack size, in bytes.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int pthread_attr_getstacksize(
@@ -209,6 +424,17 @@ namespace Eagle._Components.Private
 
             /////////////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method wraps the native <c>pthread_attr_destroy</c> API,
+            /// which destroys a thread attributes object, releasing any
+            /// resources it holds.
+            /// </summary>
+            /// <param name="attr">
+            /// The thread attributes to be destroyed.
+            /// </param>
+            /// <returns>
+            /// Zero on success; otherwise, a non-zero error value.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern int pthread_attr_destroy(
@@ -221,11 +447,26 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region Private Safe Native Methods Class
+        /// <summary>
+        /// This class contains the "safe" native methods (i.e. those that have
+        /// no unmanaged code security side effects) used by this class via
+        /// P/Invoke to query native stack information on the supported
+        /// platforms.
+        /// </summary>
         [SuppressUnmanagedCodeSecurity()]
         [ObjectId("89610a3c-5b4d-4c75-b779-426e72615f9c")]
         private static class SafeNativeMethods
         {
 #if WINDOWS
+            /// <summary>
+            /// This method wraps the native <c>NtCurrentTeb</c> API, which
+            /// returns the address of the Thread Environment Block (TEB) for
+            /// the current thread.
+            /// </summary>
+            /// <returns>
+            /// The address of the Thread Environment Block (TEB) for the
+            /// current thread.
+            /// </returns>
             [DllImport(DllName.NtDll,
                 CallingConvention = CallingConvention.StdCall)]
             internal static extern IntPtr NtCurrentTeb();
@@ -234,6 +475,13 @@ namespace Eagle._Components.Private
             /////////////////////////////////////////////////////////////////////////////
 
 #if UNIX
+            /// <summary>
+            /// This method wraps the native <c>pthread_self</c> API, which
+            /// returns the handle of the calling thread.
+            /// </summary>
+            /// <returns>
+            /// The native handle of the calling thread.
+            /// </returns>
             [DllImport(DllName.Internal,
                 CallingConvention = CallingConvention.Cdecl)]
             internal static extern IntPtr pthread_self();
@@ -244,10 +492,19 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region Private Stack Size Support Class
+        /// <summary>
+        /// This class holds the set of computed native stack size values for a
+        /// thread (e.g. the amount used, allocated, and the maximum available,
+        /// along with the safety margin and PE file reserve and commit sizes).
+        /// </summary>
         [ObjectId("32de459b-ba4d-492b-8e5e-731f418e9ca1")]
         internal sealed class StackSize
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs an instance of this class with all of its size values
+            /// initialized to zero.
+            /// </summary>
             public StackSize()
             {
                 used = UIntPtr.Zero;
@@ -264,6 +521,13 @@ namespace Eagle._Components.Private
 
             #region Dead Code
 #if DEAD_CODE
+            /// <summary>
+            /// This constructor creates a new instance of the structure using
+            /// the values copied from the specified instance.
+            /// </summary>
+            /// <param name="stackSize">
+            /// The instance whose values are to be copied, if any.
+            /// </param>
             public StackSize(
                 StackSize stackSize
                 )
@@ -288,19 +552,51 @@ namespace Eagle._Components.Private
             /////////////////////////////////////////////////////////////////////////////
 
             #region Public Data
+            /// <summary>
+            /// The amount of native stack space, in bytes, currently in use.
+            /// </summary>
             public UIntPtr used;
+            /// <summary>
+            /// The amount of native stack space, in bytes, currently allocated.
+            /// </summary>
             public UIntPtr allocated;
+            /// <summary>
+            /// The amount of extra native stack space, in bytes.
+            /// </summary>
             public UIntPtr extra;
+            /// <summary>
+            /// The size, in bytes, of the native stack safety margin (i.e.
+            /// "buffer zone").
+            /// </summary>
             public UIntPtr margin;
+            /// <summary>
+            /// The maximum amount of native stack space, in bytes, available.
+            /// </summary>
             public UIntPtr maximum;
 
+            /// <summary>
+            /// The amount of native stack space, in bytes, reserved per the PE
+            /// file header.
+            /// </summary>
             public UIntPtr reserve;
+            /// <summary>
+            /// The amount of native stack space, in bytes, committed per the PE
+            /// file header.
+            /// </summary>
             public UIntPtr commit;
             #endregion
 
             /////////////////////////////////////////////////////////////////////////////
 
             #region System.Object Overrides
+            /// <summary>
+            /// Returns a string representation of this object, formatted as a
+            /// list of name/value pairs for each of its native stack size
+            /// values.
+            /// </summary>
+            /// <returns>
+            /// A string representation of this object.
+            /// </returns>
             public override string ToString()
             {
                 return StringList.MakeList(
@@ -318,6 +614,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: This is the successful value for the NTSTATUS data type.
         //
+        /// <summary>
+        /// The native <c>NTSTATUS</c> value indicating successful completion.
+        /// </summary>
         private const int STATUS_SUCCESS = 0;
 
         //
@@ -329,6 +628,10 @@ namespace Eagle._Components.Private
         //       stack (256K) and without this extra check, scripts could not be
         //       evaluated on those threads.
         //
+        /// <summary>
+        /// The minimum number of memory pages required for a thread before the
+        /// margin pages value will actually be used.
+        /// </summary>
         private const uint StackMinimumPages = 128; /* 512K on x86, 1024K on x64 */
 
         //
@@ -339,6 +642,10 @@ namespace Eagle._Components.Private
         //       This value may need fine tuning and is subject to change for
         //       every new release of the .NET Framework.
         //
+        /// <summary>
+        /// The number of memory pages reserved by the script engine for its
+        /// stack overflow safety margin (i.e. "buffer zone").
+        /// </summary>
         private const uint StackMarginPages = 96; /* 384K on x86, 768K on x64 */
 
         //
@@ -347,6 +654,11 @@ namespace Eagle._Components.Private
         //       in the PE file header.  This value must be kept in sync with the
         //       "EagleDefaultStackSize" value in the "Eagle.Settings.targets" file.
         //
+        /// <summary>
+        /// The fallback native stack reserve size, in bytes, used for all
+        /// threads created via the engine when a larger stack reserve is not
+        /// specified in the PE file header.
+        /// </summary>
         private const ulong DefaultStackSize = 0x1000000; // 16MB
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -362,12 +674,32 @@ namespace Eagle._Components.Private
         //          dt ntdll!_TEB TebAddr StackLimit
         //          dt ntdll!_TEB TebAddr DeallocationStack
         //
+        /// <summary>
+        /// The byte offset of the StackBase field within the 32-bit TEB.
+        /// </summary>
         private const uint TebStackBaseOffset32Bit = 0x04;     /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the StackLimit field within the 32-bit TEB.
+        /// </summary>
         private const uint TebStackLimitOffset32Bit = 0x08;    /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the DeallocationStack field within the 32-bit
+        /// TEB.
+        /// </summary>
         private const uint TebDeallocationStack32Bit = 0xE0C;  /* VERIFIED */
 
+        /// <summary>
+        /// The byte offset of the StackBase field within the 64-bit TEB.
+        /// </summary>
         private const uint TebStackBaseOffset64Bit = 0x08;     /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the StackLimit field within the 64-bit TEB.
+        /// </summary>
         private const uint TebStackLimitOffset64Bit = 0x10;    /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the DeallocationStack field within the 64-bit
+        /// TEB.
+        /// </summary>
         private const uint TebDeallocationStack64Bit = 0x1478; /* VERIFIED */
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -376,16 +708,49 @@ namespace Eagle._Components.Private
         // NOTE: These constants are from the Platform SDK header file "WinNT.h" and
         //       are for use with the Win32 GetThreadContext API.
         //
+        /// <summary>
+        /// The native CONTEXT flag base value for the x86 (i386) architecture.
+        /// </summary>
         private const uint CONTEXT_i386 = 0x00010000;
+        /// <summary>
+        /// The native CONTEXT flag base value for the IA64 architecture.
+        /// </summary>
         private const uint CONTEXT_IA64 = 0x00080000;
+        /// <summary>
+        /// The native CONTEXT flag base value for the AMD64 (x64) architecture.
+        /// </summary>
         private const uint CONTEXT_AMD64 = 0x00100000;
+        /// <summary>
+        /// The native CONTEXT flag base value for the ARM architecture.
+        /// </summary>
         private const uint CONTEXT_ARM = 0x00200000;
+        /// <summary>
+        /// The native CONTEXT flag base value for the ARM64 architecture.
+        /// </summary>
         private const uint CONTEXT_ARM64 = 0x00400000;
 
+        /// <summary>
+        /// The native CONTEXT control-registers flag for the x86 (i386)
+        /// architecture.
+        /// </summary>
         private const uint CONTEXT_CONTROL_i386 = (CONTEXT_i386 | 0x00000001);
+        /// <summary>
+        /// The native CONTEXT control-registers flag for the IA64 architecture.
+        /// </summary>
         private const uint CONTEXT_CONTROL_IA64 = (CONTEXT_IA64 | 0x00000001);
+        /// <summary>
+        /// The native CONTEXT control-registers flag for the AMD64 (x64)
+        /// architecture.
+        /// </summary>
         private const uint CONTEXT_CONTROL_AMD64 = (CONTEXT_AMD64 | 0x00000001);
+        /// <summary>
+        /// The native CONTEXT control-registers flag for the ARM architecture.
+        /// </summary>
         private const uint CONTEXT_CONTROL_ARM = (CONTEXT_ARM | 0x00000001);
+        /// <summary>
+        /// The native CONTEXT control-registers flag for the ARM64
+        /// architecture.
+        /// </summary>
         private const uint CONTEXT_CONTROL_ARM64 = (CONTEXT_ARM64 | 0x00000001);
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -396,32 +761,86 @@ namespace Eagle._Components.Private
         //       indicates that the calculation has been double-checked on an actual
         //       running system via WinDbg.
         //
+        /// <summary>
+        /// The byte offset of the flags field within the x86 (i386) CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_FLAGS_OFFSET_i386 = 0;      /* VERIFIED */
+        /// <summary>
+        /// The size, in bytes, of the x86 (i386) CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_SIZE_i386 = 716;            /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the stack pointer (ESP) field within the x86
+        /// (i386) CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_ESP_OFFSET_i386 = 196;      /* VERIFIED */
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte offset of the flags field within the IA64 CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_FLAGS_OFFSET_IA64 = 0;      /* VERIFIED */
+        /// <summary>
+        /// The size, in bytes, of the IA64 CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_SIZE_IA64 = 2672;           /* ???????? */
+        /// <summary>
+        /// The byte offset of the stack pointer field within the IA64 CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_ESP_OFFSET_IA64 = 2248;     /* ???????? */
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte offset of the flags field within the AMD64 (x64) CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_FLAGS_OFFSET_AMD64 = 48;    /* VERIFIED */
+        /// <summary>
+        /// The size, in bytes, of the AMD64 (x64) CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_SIZE_AMD64 = 1232;          /* VERIFIED */
+        /// <summary>
+        /// The byte offset of the stack pointer (RSP) field within the AMD64
+        /// (x64) CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_ESP_OFFSET_AMD64 = 152;     /* VERIFIED */
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte offset of the flags field within the ARM CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_FLAGS_OFFSET_ARM = 0;       /* VERIFIED */
+        /// <summary>
+        /// The size, in bytes, of the ARM CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_SIZE_ARM = 228;             /* ???????? */
+        /// <summary>
+        /// The byte offset of the stack pointer field within the ARM CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_ESP_OFFSET_ARM = 56;        /* ???????? */
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The byte offset of the flags field within the ARM64 CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_FLAGS_OFFSET_ARM64 = 0;     /* ???????? */
+        /// <summary>
+        /// The size, in bytes, of the ARM64 CONTEXT structure.
+        /// </summary>
         private const uint CONTEXT_SIZE_ARM64 = 912;           /* ???????? */
+        /// <summary>
+        /// The byte offset of the stack pointer field within the ARM64 CONTEXT
+        /// structure.
+        /// </summary>
         private const uint CONTEXT_ESP_OFFSET_ARM64 = 256;     /* ???????? */
 #endif
         #endregion
@@ -435,6 +854,11 @@ namespace Eagle._Components.Private
         //       be set to non-zero if native stack checking is available
         //       on the platform.
         //
+        /// <summary>
+        /// When null, the availability of native stack checking support is
+        /// unknown; otherwise, indicates whether native stack checking is
+        /// available on the current platform.
+        /// </summary>
         private static bool? IsAvailable;
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -446,15 +870,35 @@ namespace Eagle._Components.Private
         //       current platform.
         //
 #if WINDOWS || UNIX || UNSAFE
+        /// <summary>
+        /// The delegate used to determine whether the current thread is the
+        /// main thread.
+        /// </summary>
         private static NativeIsMainThreadCallback isMainThreadCallback;
+        /// <summary>
+        /// The delegate used to query the current native stack pointer for the
+        /// current platform.
+        /// </summary>
         private static NativeStackCallback getNativeStackPointerCallback;
+        /// <summary>
+        /// The delegate used to query the amount of native stack currently
+        /// allocated for the current platform.
+        /// </summary>
         private static NativeStackCallback getNativeStackAllocatedCallback;
+        /// <summary>
+        /// The delegate used to query the maximum native stack size for the
+        /// current platform.
+        /// </summary>
         private static NativeStackCallback getNativeStackMaximumCallback;
 #endif
 
         /////////////////////////////////////////////////////////////////////////////////
 
 #if UNIX
+        /// <summary>
+        /// The delegate used to query the maximum native stack size via the
+        /// selected Unix-specific mechanism.
+        /// </summary>
         private static NativeStackCallback unixGetNativeStackMaximumCallback;
 #endif
         #endregion
@@ -463,6 +907,10 @@ namespace Eagle._Components.Private
 
         #region "Unsafe" Stack Data
 #if UNSAFE
+        /// <summary>
+        /// The cached outer (initial) native stack pointer address for the
+        /// current thread, used by the "unsafe" stack querying code.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static UIntPtr outerStackAddress;
 #endif
@@ -476,6 +924,10 @@ namespace Eagle._Components.Private
         // NOTE: This is used to synchronize access to the
         //       ThreadContextBuffer static field.
         //
+        /// <summary>
+        /// The object used to synchronize access to the thread context buffer
+        /// and the associated TEB and CONTEXT metadata fields.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         /////////////////////////////////////////////////////////////////////////////////
@@ -487,32 +939,87 @@ namespace Eagle._Components.Private
         //       AppDomain.DomainUnload -OR- AppDomain.ProcessExit event,
         //       depending on whether or not this is the default AppDomain.
         //
+        /// <summary>
+        /// When not zero, points to the unmanaged thread context buffer that
+        /// must be freed via the <c>Marshal.FreeCoTaskMem</c> method.
+        /// </summary>
         private static IntPtr ThreadContextBuffer = IntPtr.Zero;
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The selected byte offset of the StackBase field within the TEB for
+        /// the current architecture.
+        /// </summary>
         private static uint TebStackBaseOffset;
+        /// <summary>
+        /// The selected byte offset of the StackLimit field within the TEB for
+        /// the current architecture.
+        /// </summary>
         private static uint TebStackLimitOffset;
+        /// <summary>
+        /// The selected byte offset of the DeallocationStack field within the
+        /// TEB for the current architecture.
+        /// </summary>
         private static uint TebDeallocationStack;
 
+        /// <summary>
+        /// The selected byte offset of the flags field within the CONTEXT
+        /// structure for the current architecture.
+        /// </summary>
         private static uint CONTEXT_FLAGS_OFFSET;
+        /// <summary>
+        /// The selected CONTEXT control-registers flag for the current
+        /// architecture.
+        /// </summary>
         private static uint CONTEXT_CONTROL;
+        /// <summary>
+        /// The selected size, in bytes, of the CONTEXT structure for the
+        /// current architecture.
+        /// </summary>
         private static uint CONTEXT_SIZE;
+        /// <summary>
+        /// The selected byte offset of the stack pointer field within the
+        /// CONTEXT structure for the current architecture.
+        /// </summary>
         private static uint CONTEXT_ESP_OFFSET;
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times querying the thread context was not possible.
+        /// </summary>
         private static int CannotQueryThread;
+        /// <summary>
+        /// The number of times an invalid Thread Environment Block (TEB) was
+        /// encountered.
+        /// </summary>
         private static int InvalidTeb;
+        /// <summary>
+        /// The number of times an exception was caught while reading the Thread
+        /// Environment Block (TEB).
+        /// </summary>
         private static int TebException;
+        /// <summary>
+        /// The number of times an exception was caught while reading the thread
+        /// context.
+        /// </summary>
         private static int ContextException;
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When greater than zero, indicates that the thread context can be
+        /// queried on the current platform.
+        /// </summary>
         private static int CanQueryThread;
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The delegate used to obtain the address of the Thread Environment
+        /// Block (TEB); when null, the direct (fast) NTDLL method is used.
+        /// </summary>
         private static NtCurrentTeb NtCurrentTeb = null; /* delegate */
 #endif
         #endregion
@@ -521,13 +1028,30 @@ namespace Eagle._Components.Private
 
         #region Unix Stack Data
 #if UNIX
+        /// <summary>
+        /// The number of times querying the native stack was not possible.
+        /// </summary>
         private static int CannotQueryStack;
+        /// <summary>
+        /// The number of times an invalid native stack pointer was encountered.
+        /// </summary>
         private static int InvalidStackPointer;
+        /// <summary>
+        /// The number of times querying the native stack size via the resource
+        /// limit failed.
+        /// </summary>
         private static int InvalidStackRlimit;
+        /// <summary>
+        /// The number of times an invalid native stack size was encountered.
+        /// </summary>
         private static int InvalidStackSize;
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When greater than zero, indicates that the native stack can be
+        /// queried on the current platform.
+        /// </summary>
         private static int CanQueryStack;
 #endif
         #endregion
@@ -540,6 +1064,10 @@ namespace Eagle._Components.Private
         //       overload for Interlocked.Increment method that accepts
         //       a "ulong".
         //
+        /// <summary>
+        /// The cached native stack reserve size, in bytes, to use when creating
+        /// new engine threads.
+        /// </summary>
         private static long NewThreadStackSize;
         #endregion
         #endregion
@@ -547,6 +1075,10 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region Static Constructor
+        /// <summary>
+        /// Initializes the static state of this class, including the
+        /// platform-specific native stack querying support.
+        /// </summary>
         static NativeStack()
         {
             MaybeInitialize();
@@ -556,6 +1088,12 @@ namespace Eagle._Components.Private
         /////////////////////////////////////////////////////////////////////////////////
 
         #region AppDomain Initialization
+        /// <summary>
+        /// This method performs one-time initialization of the native stack
+        /// querying support for the current platform, determining whether it is
+        /// available and setting up the associated metadata.  It has no effect
+        /// if the availability has already been determined.
+        /// </summary>
         public static void MaybeInitialize()
         {
             if (IsAvailable == null)
@@ -600,6 +1138,12 @@ namespace Eagle._Components.Private
 
         #region AppDomain EventHandler (ProcessExit / DomainUnload)
 #if WINDOWS
+        /// <summary>
+        /// This method registers the handler used to release the unmanaged
+        /// thread context buffer when the current AppDomain is unloaded or the
+        /// process exits, unless that behavior has been disabled via
+        /// configuration.
+        /// </summary>
         private static void AddExitedEventHandler()
         {
             if (!GlobalConfiguration.DoesValueExist(
@@ -626,6 +1170,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unregisters the handler used to release the unmanaged
+        /// thread context buffer upon AppDomain unload or process exit.
+        /// </summary>
         private static void RemoveExitedEventHandler()
         {
             AppDomain appDomain = AppDomainOps.GetCurrent();
@@ -641,6 +1189,17 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method handles the AppDomain unload or process exit event by
+        /// releasing the unmanaged thread context buffer (if any) and
+        /// unregistering itself.
+        /// </summary>
+        /// <param name="sender">
+        /// The object that raised the event.
+        /// </param>
+        /// <param name="e">
+        /// The data associated with the event.
+        /// </param>
         private static void NativeStack_Exited(
             object sender,
             EventArgs e
@@ -664,6 +1223,12 @@ namespace Eagle._Components.Private
 
         #region Windows Thread Context Support Methods (DO NOT CALL)
 #if WINDOWS
+        /// <summary>
+        /// This method selects and sets up the TEB and CONTEXT metadata
+        /// (offsets, sizes, flags, and the TEB query delegate) appropriate for
+        /// the current operating system and processor architecture, enabling
+        /// native stack querying when the architecture is recognized.
+        /// </summary>
         private static void WindowsSetupTebAndContextMetadata()
         {
             OperatingSystemId operatingSystemId = PlatformOps.GetOperatingSystemId();
@@ -875,6 +1440,16 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the address of the Thread Environment Block
+        /// (TEB) for the current thread using the slower
+        /// <c>NtQueryInformationThread</c> based method, for use when the direct
+        /// NTDLL export is not available.
+        /// </summary>
+        /// <returns>
+        /// The address of the Thread Environment Block (TEB) for the current
+        /// thread, or zero if it could not be obtained.
+        /// </returns>
         private static IntPtr NtCurrentTebSlow()
         {
             UnsafeNativeMethods.THREAD_BASIC_INFORMATION threadInformation =
@@ -901,6 +1476,15 @@ namespace Eagle._Components.Private
 
         #region Windows Native Stack Support Methods (DO NOT CALL)
 #if WINDOWS
+        /// <summary>
+        /// This method queries the amount of native stack currently allocated
+        /// for the current thread on Windows, by reading the StackBase and
+        /// StackLimit fields of the Thread Environment Block (TEB).
+        /// </summary>
+        /// <returns>
+        /// The amount of native stack space, in bytes, currently allocated, or
+        /// zero if it could not be determined.
+        /// </returns>
         private static UIntPtr WindowsGetNativeStackAllocated()
         {
             UIntPtr result = UIntPtr.Zero;
@@ -984,6 +1568,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the maximum native stack size for the current
+        /// thread on Windows, by reading the StackBase and DeallocationStack
+        /// fields of the Thread Environment Block (TEB).
+        /// </summary>
+        /// <returns>
+        /// The maximum amount of native stack space, in bytes, or zero if it
+        /// could not be determined.
+        /// </returns>
         private static UIntPtr WindowsGetNativeStackMaximum()
         {
             UIntPtr result = UIntPtr.Zero;
@@ -1071,6 +1664,14 @@ namespace Eagle._Components.Private
 
         #region Private "Unsafe" Specific Methods (DO NOT CALL)
 #if UNSAFE
+        /// <summary>
+        /// This method returns the current native stack pointer address for the
+        /// current thread, caching the outer (initial) stack pointer address
+        /// the first time it is called.
+        /// </summary>
+        /// <returns>
+        /// The current native stack pointer address for the current thread.
+        /// </returns>
         private static UIntPtr GetStackPointer()
         {
             int result = 0; /* stack */
@@ -1102,6 +1703,17 @@ namespace Eagle._Components.Private
         //       is compiled into the assembly, it is assumed that it
         //       will return the actual native stack pointer.
         //
+        /// <summary>
+        /// This method returns the current native stack pointer address by
+        /// taking the address of a local stack variable.
+        /// </summary>
+        /// <param name="parameter">
+        /// A stack-allocated variable whose address is used to determine the
+        /// current native stack pointer.
+        /// </param>
+        /// <returns>
+        /// The current native stack pointer address.
+        /// </returns>
         private unsafe static UIntPtr GetStackPointer(
             ref int parameter
             )
@@ -1114,6 +1726,13 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the native stack grows downward (i.e.
+        /// toward lower addresses) as it is used.
+        /// </summary>
+        /// <returns>
+        /// True if the native stack grows downward; otherwise, false.
+        /// </returns>
         private static bool StackGrowsDown()
         {
             int parent = 0; /* stack */
@@ -1130,6 +1749,18 @@ namespace Eagle._Components.Private
         //       will return non-zero only if the stack really grows
         //       downward as it is being used.
         //
+        /// <summary>
+        /// This method determines whether the native stack grows downward by
+        /// comparing the address of a local stack variable to the address of a
+        /// variable in the caller's stack frame.
+        /// </summary>
+        /// <param name="parent">
+        /// A stack-allocated variable in the caller's frame whose address is
+        /// compared against a local stack variable's address.
+        /// </param>
+        /// <returns>
+        /// True if the native stack grows downward; otherwise, false.
+        /// </returns>
         private unsafe static bool StackGrowsDown(
             ref int parent
             )
@@ -1148,6 +1779,14 @@ namespace Eagle._Components.Private
 
         #region Private Unix Specific Methods (DO NOT CALL)
 #if UNIX
+        /// <summary>
+        /// This method queries the current native stack pointer address for the
+        /// current thread on Unix.
+        /// </summary>
+        /// <returns>
+        /// The current native stack pointer address, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackPointer()
         {
             if (Interlocked.CompareExchange(
@@ -1188,6 +1827,14 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native stack size on Unix using the
+        /// <c>getrlimit</c> API with the stack resource limit.
+        /// </summary>
+        /// <returns>
+        /// The native stack size, in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackSizeViaRlimit()
         {
             try
@@ -1210,6 +1857,14 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the base address of the native stack on Unix
+        /// (Darwin) using the <c>pthread_get_stackaddr_np</c> API.
+        /// </summary>
+        /// <returns>
+        /// The base address of the native stack, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackAddressViaPthread() /* NOT USED */
         {
             try
@@ -1227,6 +1882,14 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native stack size on Unix (Darwin) using the
+        /// <c>pthread_get_stacksize_np</c> API.
+        /// </summary>
+        /// <returns>
+        /// The native stack size, in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackSizeViaPthread()
         {
             try
@@ -1244,6 +1907,14 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native stack size on Unix (Linux) using the
+        /// <c>pthread_getattr_np</c> and <c>pthread_attr_getstacksize</c> APIs.
+        /// </summary>
+        /// <returns>
+        /// The native stack size, in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackSizeViaPthreadAttr1()
         {
             UnsafeNativeMethods.pthread_attr_t attr =
@@ -1288,6 +1959,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the native stack size on Unix (FreeBSD) using
+        /// the <c>pthread_attr_get_np</c> and <c>pthread_attr_getstacksize</c>
+        /// APIs.
+        /// </summary>
+        /// <returns>
+        /// The native stack size, in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackSizeViaPthreadAttr2()
         {
             UnsafeNativeMethods.pthread_attr_t attr =
@@ -1332,6 +2012,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the maximum native stack size on Unix, selecting
+        /// and caching the appropriate query mechanism (resource limit for the
+        /// main thread, or one of the pthread-based methods otherwise).
+        /// </summary>
+        /// <returns>
+        /// The maximum native stack size, in bytes, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr UnixGetStackSize()
         {
             if (Interlocked.CompareExchange(
@@ -1469,6 +2158,15 @@ namespace Eagle._Components.Private
 
         #region Private Windows Specific Methods (DO NOT CALL)
 #if WINDOWS
+        /// <summary>
+        /// This method queries the current native stack pointer for the current
+        /// thread on Windows by reading the stack pointer register from the
+        /// thread context.
+        /// </summary>
+        /// <returns>
+        /// The current native stack pointer address, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr WindowsGetNativeStackPointer()
         {
             uint flags;
@@ -1487,6 +2185,28 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads a single register value from the context of the
+        /// specified thread on Windows, using the <c>GetThreadContext</c> Win32
+        /// API.
+        /// </summary>
+        /// <param name="thread">
+        /// The native handle of the thread whose context is to be queried.
+        /// </param>
+        /// <param name="flags">
+        /// The context flags that select which fields of the thread context are
+        /// to be populated.
+        /// </param>
+        /// <param name="offset">
+        /// The byte offset of the desired register within the thread context.
+        /// </param>
+        /// <param name="size">
+        /// The size, in bytes, of the register value to read.
+        /// </param>
+        /// <returns>
+        /// The value of the requested register, or zero if it could not be
+        /// determined.
+        /// </returns>
         private static UIntPtr WindowsGetNativeRegister(
             IntPtr thread,
             uint flags,
@@ -1662,6 +2382,14 @@ namespace Eagle._Components.Private
 
         #region Private Platform Abstraction Methods (DO NOT CALL)
         #region PE File Stack Size Support Methods
+        /// <summary>
+        /// This method computes the native stack reserve size, in bytes, to use
+        /// when creating a new engine thread, based on the PE file stack reserve
+        /// and falling back to the default stack size when it is smaller.
+        /// </summary>
+        /// <returns>
+        /// The native stack reserve size, in bytes, to use for a new thread.
+        /// </returns>
         private static ulong QueryNewThreadNativeStackSize()
         {
             ulong result = FileOps.GetPeFileStackReserve();
@@ -1681,6 +2409,14 @@ namespace Eagle._Components.Private
         //
         // NOTE: For use by the Engine.GetNewThreadStackSize method only.
         //
+        /// <summary>
+        /// This method returns the native stack reserve size, in bytes, to use
+        /// when creating a new engine thread, computing and caching it on the
+        /// first call.
+        /// </summary>
+        /// <returns>
+        /// The native stack reserve size, in bytes, to use for a new thread.
+        /// </returns>
         public static ulong GetNewThreadNativeStackSize()
         {
             long oldValue = Interlocked.CompareExchange(
@@ -1708,6 +2444,25 @@ namespace Eagle._Components.Private
 
         #region Native Stack Support Methods
 #if WINDOWS || UNIX || UNSAFE
+        /// <summary>
+        /// This method atomically replaces the native stack callback delegate
+        /// of the specified type with the supplied delegate, returning the
+        /// previous delegate.
+        /// </summary>
+        /// <param name="callbackType">
+        /// The type of native stack callback to be changed.
+        /// </param>
+        /// <param name="delegate">
+        /// Upon input, the new delegate to install; upon successful return,
+        /// receives the previously installed delegate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ChangeCallback(
             NativeCallbackType callbackType, /* in */
             ref Delegate @delegate,          /* in, out */
@@ -1842,6 +2597,13 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the minimum native stack size, in bytes,
+        /// required for a thread before the stack margin is applied.
+        /// </summary>
+        /// <returns>
+        /// The minimum native stack size, in bytes.
+        /// </returns>
         public static UIntPtr GetNativeStackMinimum()
         {
             return new UIntPtr(
@@ -1850,6 +2612,14 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the native stack safety margin size, in bytes
+        /// (i.e. the "buffer zone" reserved to trigger stack overflow detection
+        /// before the .NET Framework does).
+        /// </summary>
+        /// <returns>
+        /// The native stack safety margin size, in bytes.
+        /// </returns>
         public static UIntPtr GetNativeStackMargin()
         {
             return new UIntPtr(
@@ -1858,6 +2628,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the current native stack pointer for the current
+        /// thread, selecting and caching the appropriate platform-specific
+        /// query mechanism on the first call.
+        /// </summary>
+        /// <returns>
+        /// The current native stack pointer address, or zero if it could not be
+        /// determined or is unavailable.
+        /// </returns>
         public static UIntPtr GetNativeStackPointer()
         {
 #if WINDOWS || UNIX || UNSAFE
@@ -1916,6 +2695,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the amount of native stack currently allocated
+        /// for the current thread, selecting and caching the appropriate
+        /// platform-specific query mechanism on the first call.
+        /// </summary>
+        /// <returns>
+        /// The amount of native stack space, in bytes, currently allocated, or
+        /// zero if it could not be determined or is unavailable.
+        /// </returns>
         public static UIntPtr GetNativeStackAllocated()
         {
 #if WINDOWS || UNIX || UNSAFE
@@ -1947,6 +2735,15 @@ namespace Eagle._Components.Private
 
         /////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the maximum native stack size for the current
+        /// thread, selecting and caching the appropriate platform-specific query
+        /// mechanism on the first call.
+        /// </summary>
+        /// <returns>
+        /// The maximum amount of native stack space, in bytes, or zero if it
+        /// could not be determined or is unavailable.
+        /// </returns>
         public static UIntPtr GetNativeStackMaximum()
         {
 #if WINDOWS || UNIX || UNSAFE
@@ -1995,6 +2792,19 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds the diagnostic information for the native stack
+        /// support (e.g. availability, the installed callbacks, the metadata,
+        /// and the various counters) to the specified list, subject to the
+        /// specified detail flags.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the native stack information is added.  This
+        /// parameter may be null, in which case this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */

@@ -24,11 +24,25 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>base64</c> command, which encodes a
+    /// string to its Base64 representation and decodes a Base64 string back to
+    /// its original value via the <c>encode</c> and <c>decode</c>
+    /// sub-commands.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("b2cf12bb-e35a-4039-9736-3da91e590777")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("string")]
     internal sealed class Base64 : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>base64</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Base64(
             ICommandData commandData
             )
@@ -38,10 +52,18 @@ namespace Eagle._Commands
         }
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-commands supported by this command, namely
+        /// <c>decode</c> and <c>encode</c>.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
             "decode", "encode"
         });
 
+        /// <summary>
+        /// Gets the dictionary of sub-commands supported by this command,
+        /// used by the engine to dispatch and validate ensemble invocations.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -49,11 +71,43 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>base64</c> command.  It dispatches to
+        /// the <c>encode</c> or <c>decode</c> sub-command, optionally honoring
+        /// an <c>-encoding</c> option, to convert between a string and its
+        /// Base64 representation.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name (<c>encode</c> or
+        /// <c>decode</c>); the remaining elements supply any options and the
+        /// string to convert.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the encoded or decoded string.  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the converted value
+        /// placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an option is invalid, the conversion fails, the
+        /// interpreter is null, or the argument list is null, with details
+        /// placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

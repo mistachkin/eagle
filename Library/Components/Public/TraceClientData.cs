@@ -19,16 +19,28 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class encapsulates the client data used to configure the tracing
+    /// subsystem, including the trace listeners, logging options, and category
+    /// filters.
+    /// </summary>
     [ObjectId("6fc17841-7678-43d9-8ffe-ed34a204464e")]
     public sealed class TraceClientData : AnyClientData
     {
         #region Private Data
+        /// <summary>
+        /// Stores the object used to synchronize access to the state of this
+        /// instance.
+        /// </summary>
         private readonly object syncRoot = new object();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a new instance of this class.
+        /// </summary>
         public TraceClientData()
             : base()
         {
@@ -37,6 +49,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of this class.
+        /// </summary>
+        /// <param name="data">
+        /// The data to be associated with this instance.
+        /// </param>
         public TraceClientData(
             object data /* in */
             )
@@ -47,6 +65,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a new instance of this class.
+        /// </summary>
+        /// <param name="data">
+        /// The data to be associated with this instance.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the associated data should be read-only.
+        /// </param>
         public TraceClientData(
             object data,  /* in */
             bool readOnly /* in */
@@ -60,7 +87,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the collection of trace listeners.
+        /// </summary>
         private TraceListenerCollection listeners;
+        /// <summary>
+        /// Gets or sets the collection of trace listeners.
+        /// </summary>
         public TraceListenerCollection Listeners
         {
             get { CheckDisposed(); lock (syncRoot) { return listeners; } }
@@ -69,7 +102,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the name of the log.
+        /// </summary>
         private string logName;
+        /// <summary>
+        /// Gets or sets the name of the log.
+        /// </summary>
         public string LogName
         {
             get { CheckDisposed(); lock (syncRoot) { return logName; } }
@@ -78,7 +117,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the file name of the log.
+        /// </summary>
         private string logFileName;
+        /// <summary>
+        /// Gets or sets the file name of the log.
+        /// </summary>
         public string LogFileName
         {
             get { CheckDisposed(); lock (syncRoot) { return logFileName; } }
@@ -87,7 +132,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the encoding used for the log.
+        /// </summary>
         private Encoding logEncoding;
+        /// <summary>
+        /// Gets or sets the encoding used for the log.
+        /// </summary>
         public Encoding LogEncoding
         {
             get { CheckDisposed(); lock (syncRoot) { return logEncoding; } }
@@ -96,7 +147,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags used for the log.
+        /// </summary>
         private LogFlags? logFlags;
+        /// <summary>
+        /// Gets or sets the flags used for the log.
+        /// </summary>
         public LogFlags? LogFlags
         {
             get { CheckDisposed(); lock (syncRoot) { return logFlags; } }
@@ -105,7 +162,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace categories that are enabled.
+        /// </summary>
         private IEnumerable<string> enabledCategories;
+        /// <summary>
+        /// Gets or sets the trace categories that are enabled.
+        /// </summary>
         public IEnumerable<string> EnabledCategories
         {
             get { CheckDisposed(); lock (syncRoot) { return enabledCategories; } }
@@ -114,7 +177,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace categories that are disabled.
+        /// </summary>
         private IEnumerable<string> disabledCategories;
+        /// <summary>
+        /// Gets or sets the trace categories that are disabled.
+        /// </summary>
         public IEnumerable<string> DisabledCategories
         {
             get { CheckDisposed(); lock (syncRoot) { return disabledCategories; } }
@@ -123,7 +192,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace categories that incur a priority penalty.
+        /// </summary>
         private IEnumerable<string> penaltyCategories;
+        /// <summary>
+        /// Gets or sets the trace categories that incur a priority penalty.
+        /// </summary>
         public IEnumerable<string> PenaltyCategories
         {
             get { CheckDisposed(); lock (syncRoot) { return penaltyCategories; } }
@@ -132,7 +207,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace categories that receive a priority bonus.
+        /// </summary>
         private IEnumerable<string> bonusCategories;
+        /// <summary>
+        /// Gets or sets the trace categories that receive a priority bonus.
+        /// </summary>
         public IEnumerable<string> BonusCategories
         {
             get { CheckDisposed(); lock (syncRoot) { return bonusCategories; } }
@@ -141,7 +222,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace state type.
+        /// </summary>
         private TraceStateType stateType;
+        /// <summary>
+        /// Gets or sets the trace state type.
+        /// </summary>
         public TraceStateType StateType
         {
             get { CheckDisposed(); lock (syncRoot) { return stateType; } }
@@ -150,7 +237,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the trace priority flags.
+        /// </summary>
         private TracePriority? priorities;
+        /// <summary>
+        /// Gets or sets the trace priority flags.
+        /// </summary>
         public TracePriority? Priorities
         {
             get { CheckDisposed(); lock (syncRoot) { return priorities; } }
@@ -159,7 +252,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the format string used for trace output.
+        /// </summary>
         private string formatString;
+        /// <summary>
+        /// Gets or sets the format string used for trace output.
+        /// </summary>
         public string FormatString
         {
             get { CheckDisposed(); lock (syncRoot) { return formatString; } }
@@ -168,7 +267,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the index of the format string used for trace output.
+        /// </summary>
         private int? formatIndex;
+        /// <summary>
+        /// Gets or sets the index of the format string used for trace output.
+        /// </summary>
         public int? FormatIndex
         {
             get { CheckDisposed(); lock (syncRoot) { return formatIndex; } }
@@ -177,7 +282,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether tracing is forcibly enabled.
+        /// </summary>
         private bool? forceEnabled;
+        /// <summary>
+        /// Gets or sets a value indicating whether tracing is forcibly enabled.
+        /// </summary>
         public bool? ForceEnabled
         {
             get { CheckDisposed(); lock (syncRoot) { return forceEnabled; } }
@@ -186,7 +297,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the tracing system should be reset.
+        /// </summary>
         private bool resetSystem;
+        /// <summary>
+        /// Gets or sets a value indicating whether the tracing system should be
+        /// reset.
+        /// </summary>
         public bool ResetSystem
         {
             get { CheckDisposed(); lock (syncRoot) { return resetSystem; } }
@@ -195,7 +313,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the trace listeners should be
+        /// reset.
+        /// </summary>
         private bool resetListeners;
+        /// <summary>
+        /// Gets or sets a value indicating whether the trace listeners should be
+        /// reset.
+        /// </summary>
         public bool ResetListeners
         {
             get { CheckDisposed(); lock (syncRoot) { return resetListeners; } }
@@ -204,7 +330,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether tracing is enabled.
+        /// </summary>
         private bool trace;
+        /// <summary>
+        /// Gets or sets a value indicating whether tracing is enabled.
+        /// </summary>
         public bool Trace
         {
             get { CheckDisposed(); lock (syncRoot) { return trace; } }
@@ -213,7 +345,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether debugging is enabled.
+        /// </summary>
         private bool debug;
+        /// <summary>
+        /// Gets or sets a value indicating whether debugging is enabled.
+        /// </summary>
         public bool Debug
         {
             get { CheckDisposed(); lock (syncRoot) { return debug; } }
@@ -222,7 +360,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether verbose output is enabled.
+        /// </summary>
         private bool verbose;
+        /// <summary>
+        /// Gets or sets a value indicating whether verbose output is enabled.
+        /// </summary>
         public bool Verbose
         {
             get { CheckDisposed(); lock (syncRoot) { return verbose; } }
@@ -231,7 +375,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the default trace listener should
+        /// be used.
+        /// </summary>
         private bool useDefault;
+        /// <summary>
+        /// Gets or sets a value indicating whether the default trace listener
+        /// should be used.
+        /// </summary>
         public bool UseDefault
         {
             get { CheckDisposed(); lock (syncRoot) { return useDefault; } }
@@ -240,7 +392,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the console should be used for
+        /// trace output.
+        /// </summary>
         private bool useConsole;
+        /// <summary>
+        /// Gets or sets a value indicating whether the console should be used
+        /// for trace output.
+        /// </summary>
         public bool UseConsole
         {
             get { CheckDisposed(); lock (syncRoot) { return useConsole; } }
@@ -249,7 +409,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether native output should be used for
+        /// tracing.
+        /// </summary>
         private bool useNative;
+        /// <summary>
+        /// Gets or sets a value indicating whether native output should be used
+        /// for tracing.
+        /// </summary>
         public bool UseNative
         {
             get { CheckDisposed(); lock (syncRoot) { return useNative; } }
@@ -258,7 +426,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the log file should be written
+        /// using raw output.
+        /// </summary>
         private bool rawLogFile;
+        /// <summary>
+        /// Gets or sets a value indicating whether the log file should be
+        /// written using raw output.
+        /// </summary>
         public bool RawLogFile
         {
             get { CheckDisposed(); lock (syncRoot) { return rawLogFile; } }
@@ -267,7 +443,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the status form should be used.
+        /// </summary>
         private bool useStatusForm;
+        /// <summary>
+        /// Gets or sets a value indicating whether the status form should be
+        /// used.
+        /// </summary>
         public bool UseStatusForm
         {
             get { CheckDisposed(); lock (syncRoot) { return useStatusForm; } }
@@ -276,7 +459,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether status indicators should be used.
+        /// </summary>
         private bool? useIndicators;
+        /// <summary>
+        /// Gets or sets a value indicating whether status indicators should be
+        /// used.
+        /// </summary>
         public bool? UseIndicators
         {
             get { CheckDisposed(); lock (syncRoot) { return useIndicators; } }
@@ -285,7 +475,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether status indicators should be written
+        /// using raw output.
+        /// </summary>
         private bool rawIndicators;
+        /// <summary>
+        /// Gets or sets a value indicating whether status indicators should be
+        /// written using raw output.
+        /// </summary>
         public bool RawIndicators
         {
             get { CheckDisposed(); lock (syncRoot) { return rawIndicators; } }
@@ -294,7 +492,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores a value indicating whether the trace listeners should be
+        /// reported.
+        /// </summary>
         private bool seeListeners;
+        /// <summary>
+        /// Gets or sets a value indicating whether the trace listeners should be
+        /// reported.
+        /// </summary>
         public bool SeeListeners
         {
             get { CheckDisposed(); lock (syncRoot) { return seeListeners; } }
@@ -303,7 +509,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the list of results accumulated by this instance.
+        /// </summary>
         private ResultList results;
+        /// <summary>
+        /// Gets or sets the list of results accumulated by this instance.
+        /// </summary>
         public ResultList Results
         {
             get { CheckDisposed(); lock (syncRoot) { return results; } }
@@ -314,6 +526,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method populates the collection of trace listeners with the
+        /// default set of listeners, if it has not already been populated.
+        /// </summary>
         public void PopulateListeners()
         {
             CheckDisposed();
@@ -327,6 +543,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a result to the list of results accumulated by this
+        /// instance, creating the list if necessary.
+        /// </summary>
+        /// <param name="result">
+        /// The result to be added.  If this value is null, no result is added.
+        /// </param>
         public void AddResult(
             Result result
             )
@@ -347,7 +570,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this instance has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this instance has already been
+        /// disposed.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -358,6 +588,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases all resources used by this instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the IDisposable.Dispose
+        /// method; zero if being called from the finalizer.
+        /// </param>
         protected override void Dispose(
             bool disposing /* in */
             )

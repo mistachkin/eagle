@@ -37,6 +37,13 @@ using DescendantTriplet = Eagle._Components.Public.MutableAnyTriplet<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class is the default implementation of the
+    /// <see cref="INamespace" /> interface.  It represents a single Tcl-style
+    /// namespace, tracking its name, parent, child namespaces, imported
+    /// commands (as aliases), and exported command name patterns, as well as
+    /// the reference count used by the namespace enter/exit mechanism.
+    /// </summary>
     [ObjectId("5f2b9883-f5da-4d3c-85b8-cddb6b0de9f8")]
     internal sealed class Namespace :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -45,13 +52,27 @@ namespace Eagle._Components.Private
         IIdentifier, IMaybeDisposed, INamespace, IDisposable
     {
         #region Private Data
+        /// <summary>
+        /// The child namespaces of this namespace, keyed by their simple
+        /// (unqualified) name.
+        /// </summary>
         private Dictionary<string, INamespace> children;
+
+        /// <summary>
+        /// The commands imported into this namespace, keyed by their qualified
+        /// import name; each value is the alias that implements the import.
+        /// </summary>
         private ObjectDictionary imports;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a new instance of this class, initializing its identifier
+        /// kind and identifier and creating its empty child, import, and export
+        /// collections.
+        /// </summary>
         private Namespace()
         {
             kind = IdentifierKind.Namespace;
@@ -65,6 +86,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a new instance of this class from the specified namespace
+        /// data, copying its name, client data, interpreter, parent, resolver,
+        /// variable frame, and unknown handler.
+        /// </summary>
+        /// <param name="namespaceData">
+        /// The namespace data used to initialize this namespace, or null to
+        /// leave the corresponding fields at their default values.
+        /// </param>
         public Namespace(
             INamespaceData namespaceData
             )
@@ -86,7 +116,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// The simple (unqualified) name of this namespace.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets or sets the simple (unqualified) name of this namespace.
+        /// Changing the name recomputes the qualified names of this namespace
+        /// and its children and notifies the parent namespace.
+        /// </summary>
         public string Name
         {
             get { CheckDisposed(); return name; }
@@ -109,7 +147,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// The kind of identifier represented by this object.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets or sets the kind of identifier represented by this namespace.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { CheckDisposed(); return kind; }
@@ -118,7 +162,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The unique identifier associated with this namespace.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets or sets the unique identifier associated with this namespace.
+        /// </summary>
         public Guid Id
         {
             get { CheckDisposed(); return id; }
@@ -129,7 +179,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this namespace.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets or sets the client data associated with this namespace.
+        /// </summary>
         public IClientData ClientData
         {
             get { CheckDisposed(); return clientData; }
@@ -140,7 +196,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// The group associated with this namespace.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets or sets the group associated with this namespace.
+        /// </summary>
         public string Group
         {
             get { CheckDisposed(); return group; }
@@ -149,7 +211,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The human-readable description of this namespace.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets or sets the human-readable description of this namespace.
+        /// </summary>
         public string Description
         {
             get { CheckDisposed(); return description; }
@@ -160,6 +228,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this namespace has been disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -172,6 +243,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this namespace is in the process of
+        /// being disposed.  This implementation always returns false.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -186,7 +261,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The interpreter that this namespace belongs to.
+        /// </summary>
         private Interpreter interpreter;
+        /// <summary>
+        /// Gets the interpreter that this namespace belongs to; Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
         public Interpreter Interpreter /* READ-ONLY */
         {
             get { CheckDisposed(); return interpreter; }
@@ -197,7 +280,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region INamespaceData Members
+        /// <summary>
+        /// The parent namespace of this namespace, or null if this is the
+        /// global namespace.
+        /// </summary>
         private INamespace parent;
+        /// <summary>
+        /// Gets or sets the parent namespace of this namespace.  Changing the
+        /// parent recomputes the qualified names of this namespace and its
+        /// children and notifies the (former and new) parent namespaces.
+        /// </summary>
         public INamespace Parent
         {
             get { CheckDisposed(); return parent; }
@@ -218,7 +310,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The resolver associated with this namespace, if any.
+        /// </summary>
         private IResolve resolve;
+        /// <summary>
+        /// Gets the resolver associated with this namespace; Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
         public IResolve Resolve /* READ-ONLY */
         {
             get { CheckDisposed(); return resolve; }
@@ -227,7 +327,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The call frame that holds the variables belonging to this namespace.
+        /// </summary>
         private ICallFrame variableFrame;
+        /// <summary>
+        /// Gets the call frame that holds the variables belonging to this
+        /// namespace; Setting this property is not supported and always throws
+        /// <see cref="NotSupportedException" />.
+        /// </summary>
         public ICallFrame VariableFrame /* READ-ONLY */
         {
             get { CheckDisposed(); return variableFrame; }
@@ -236,7 +344,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the command used to handle unknown commands within this
+        /// namespace.
+        /// </summary>
         private string unknown;
+        /// <summary>
+        /// Gets or sets the name of the command used to handle unknown commands
+        /// within this namespace.
+        /// </summary>
         public string Unknown
         {
             get { CheckDisposed(); return unknown; }
@@ -247,7 +363,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region INamespace Members
+        /// <summary>
+        /// The cached fully-qualified name of this namespace, or null if it has
+        /// not yet been computed.
+        /// </summary>
         private string qualifiedName;
+        /// <summary>
+        /// Gets the fully-qualified name of this namespace, computing and
+        /// caching it on first access.
+        /// </summary>
         public string QualifiedName
         {
             get
@@ -260,7 +384,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times this namespace has been entered without a
+        /// matching exit.
+        /// </summary>
         private int referenceCount;
+        /// <summary>
+        /// Gets the number of times this namespace has been entered without a
+        /// matching exit.
+        /// </summary>
         public int ReferenceCount
         {
             get { CheckDisposed(); return referenceCount; }
@@ -268,7 +400,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, this namespace has been marked as deleted.
+        /// </summary>
         private bool deleted;
+        /// <summary>
+        /// Gets a value indicating whether this namespace has been marked as
+        /// deleted.
+        /// </summary>
         public bool Deleted
         {
             get { CheckDisposed(); return deleted; }
@@ -276,6 +415,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an imported command by its qualified import
+        /// name and returns the qualified name of the command it was exported
+        /// from.
+        /// </summary>
+        /// <param name="qualifiedImportName">
+        /// The qualified name of the import to look up.
+        /// </param>
+        /// <param name="qualifiedExportName">
+        /// Upon success, receives the qualified name of the exported command
+        /// that the import refers to.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode GetImport(
             string qualifiedImportName,
             ref string qualifiedExportName,
@@ -335,6 +492,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method imports a command into this namespace by creating an
+        /// alias from the qualified import name to the qualified export name.
+        /// </summary>
+        /// <param name="targetNamespace">
+        /// The namespace that the imported command is being exported from.
+        /// </param>
+        /// <param name="qualifiedImportName">
+        /// The qualified name under which the command is imported into this
+        /// namespace.
+        /// </param>
+        /// <param name="qualifiedExportName">
+        /// The qualified name of the exported command being imported.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode AddImport(
             INamespace targetNamespace,
             string qualifiedImportName,
@@ -429,6 +606,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method renames an imported command (alias) from one qualified
+        /// name to another.
+        /// </summary>
+        /// <param name="oldQualifiedName">
+        /// The current qualified name of the import to rename.
+        /// </param>
+        /// <param name="newQualifiedName">
+        /// The new qualified name for the import.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a non-matching or missing import as an error;
+        /// otherwise, such cases are tolerated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RenameImport(
             string oldQualifiedName,
             string newQualifiedName,
@@ -509,6 +706,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a single imported command (alias) from this
+        /// namespace by its qualified import name.
+        /// </summary>
+        /// <param name="qualifiedImportName">
+        /// The qualified name of the import to remove.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat a missing import as an error; otherwise, a missing
+        /// import is tolerated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RemoveImport(
             string qualifiedImportName,
             bool strict,
@@ -589,6 +803,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all imported commands (aliases) from this
+        /// namespace whose names match the specified pattern.
+        /// </summary>
+        /// <param name="qualifiedPattern">
+        /// The qualified name pattern used to match imports to remove, or null
+        /// to match all imports.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the case where no imports match as an error;
+        /// otherwise, that case is tolerated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RemoveImports(
             string qualifiedPattern,
             bool strict,
@@ -668,6 +900,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes every imported command (alias) from this
+        /// namespace.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to treat the case where no imports were removed as an
+        /// error; otherwise, that case is tolerated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RemoveAllImports(
             bool strict,
             ref Result error
@@ -725,6 +971,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the names of the commands imported into this
+        /// namespace, optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to filter the names, or null to return all
+        /// names.
+        /// </param>
+        /// <param name="keys">
+        /// Non-zero to return the qualified import names (the keys); zero to
+        /// return the names of the exported commands the imports refer to.
+        /// </param>
+        /// <param name="tailOnly">
+        /// Non-zero to return only the simple (tail) portion of each name; zero
+        /// to return the full name.
+        /// </param>
+        /// <returns>
+        /// A list of import names, which is never null but may be empty.
+        /// </returns>
         public StringList GetImportNames(
             string pattern,
             bool keys,
@@ -783,7 +1048,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of command name patterns that this namespace exports.
+        /// </summary>
         private StringDictionary exportNames;
+        /// <summary>
+        /// Gets the set of command name patterns that this namespace exports.
+        /// </summary>
         public StringDictionary ExportNames
         {
             get { CheckDisposed(); return exportNames; }
@@ -791,6 +1062,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the command name patterns exported by this
+        /// namespace, optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to filter the export names, or null to return
+        /// all of them.
+        /// </param>
+        /// <returns>
+        /// A list of exported command name patterns, which is never null but
+        /// may be empty.
+        /// </returns>
         public StringList GetExportNames(
             string pattern
             )
@@ -804,6 +1087,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method increments the reference count of this namespace,
+        /// optionally also entering all of its ancestor namespaces.
+        /// </summary>
+        /// <param name="all">
+        /// Non-zero to also enter every ancestor namespace; zero to enter only
+        /// this namespace.
+        /// </param>
+        /// <returns>
+        /// The sum of the reference counts affected by this operation.
+        /// </returns>
         public int Enter(
             bool all
             )
@@ -829,6 +1123,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements the reference count of this namespace,
+        /// optionally also exiting all of its ancestor namespaces.
+        /// </summary>
+        /// <param name="all">
+        /// Non-zero to also exit every ancestor namespace; zero to exit only
+        /// this namespace.
+        /// </param>
+        /// <returns>
+        /// The sum of the reference counts affected by this operation.
+        /// </returns>
         public int Exit(
             bool all
             )
@@ -854,6 +1159,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a snapshot of all immediate child namespaces of
+        /// this namespace.
+        /// </summary>
+        /// <returns>
+        /// A list of the immediate child namespaces, or null if children are
+        /// not available.
+        /// </returns>
         public IEnumerable<INamespace> GetAllChildren()
         {
             CheckDisposed();
@@ -864,6 +1177,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all immediate child namespaces from this
+        /// namespace.
+        /// </summary>
         public void ClearAllChildren()
         {
             CheckDisposed();
@@ -876,6 +1193,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method moves all child namespaces from the specified source
+        /// namespace into this namespace, reparenting them.  This namespace
+        /// cannot become a child of itself, so it is re-added to the source if
+        /// necessary.
+        /// </summary>
+        /// <param name="namespace">
+        /// The source namespace whose children are to be moved into this
+        /// namespace.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode MoveAllChildren(
             INamespace @namespace,
             ref Result error
@@ -970,6 +1303,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the variable frame of this namespace and clears
+        /// the stored reference to it in a single operation.
+        /// </summary>
+        /// <returns>
+        /// The variable frame that was associated with this namespace, or null
+        /// if there was none.
+        /// </returns>
         public ICallFrame GetAndClearVariableFrame()
         {
             CheckDisposed();
@@ -986,6 +1327,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this namespace as deleted.
+        /// </summary>
         public void MarkDeleted()
         {
             CheckDisposed();
@@ -995,6 +1339,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an immediate child namespace by its simple
+        /// name.
+        /// </summary>
+        /// <param name="name">
+        /// The simple name of the child namespace to look up.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The matching child namespace, or null if it could not be found.
+        /// </returns>
         public INamespace GetChild(
             string name,
             ref Result error
@@ -1032,6 +1389,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an immediate child namespace to this namespace.
+        /// </summary>
+        /// <param name="namespace">
+        /// The child namespace to add.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode AddChild(
             INamespace @namespace,
             ref Result error
@@ -1077,6 +1446,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method renames an immediate child namespace within this
+        /// namespace's child collection.
+        /// </summary>
+        /// <param name="oldName">
+        /// The current simple name of the child namespace.
+        /// </param>
+        /// <param name="newName">
+        /// The new simple name for the child namespace.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RenameChild(
             string oldName,
             string newName,
@@ -1134,6 +1519,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes an immediate child namespace from this namespace
+        /// by its simple name.
+        /// </summary>
+        /// <param name="name">
+        /// The simple name of the child namespace to remove.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode RemoveChild(
             string name,
             ref Result error
@@ -1170,6 +1568,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes a callback for this namespace and then,
+        /// recursively, for every descendant namespace, stopping early if the
+        /// callback returns a non-success code.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback to invoke for this namespace and each descendant.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the callback, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if every callback succeeded; otherwise,
+        /// the first non-success code returned by the callback.
+        /// </returns>
         public ReturnCode Traverse(
             NamespaceCallback callback,
             IClientData clientData,
@@ -1215,6 +1631,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the immediate child namespaces of this namespace
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to match child namespaces, or null to match
+        /// all of them.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include children that have been marked as deleted; zero
+        /// to exclude them.
+        /// </param>
+        /// <returns>
+        /// A list of matching child namespaces, which is never null but may be
+        /// empty.
+        /// </returns>
         public IEnumerable<INamespace> GetChildren(
             string pattern,
             bool deleted
@@ -1228,6 +1660,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns all descendant namespaces of this namespace
+        /// (children, grandchildren, and so on) that match the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to match descendant namespaces, or null to
+        /// match all of them.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include descendants that have been marked as deleted;
+        /// zero to exclude them.
+        /// </param>
+        /// <returns>
+        /// A list of matching descendant namespaces.
+        /// </returns>
         public IEnumerable<INamespace> GetDescendants(
             string pattern,
             bool deleted
@@ -1243,6 +1691,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether this namespace is the global
+        /// namespace (i.e. it has no parent).
+        /// </summary>
+        /// <returns>
+        /// True if this is the global namespace; otherwise, false.
+        /// </returns>
         private bool IsGlobal()
         {
             return (parent == null);
@@ -1250,6 +1705,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the fully-qualified name of this namespace,
+        /// computing and caching it on first access.
+        /// </summary>
+        /// <returns>
+        /// The fully-qualified name of this namespace.
+        /// </returns>
         private string GetQualifiedName()
         {
             if (qualifiedName == null)
@@ -1260,6 +1722,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the cached fully-qualified name so that it will
+        /// be recomputed on next access.
+        /// </summary>
         private void ResetQualifiedName()
         {
             qualifiedName = null;
@@ -1267,6 +1733,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a name suitable for displaying this namespace in
+        /// diagnostic and error messages.
+        /// </summary>
+        /// <returns>
+        /// The display name of this namespace.
+        /// </returns>
         private string GetDisplayName()
         {
             return GetQualifiedName();
@@ -1274,6 +1747,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the origin command name for the specified alias
+        /// name within this namespace.
+        /// </summary>
+        /// <param name="aliasName">
+        /// The alias name whose origin is to be resolved.
+        /// </param>
+        /// <returns>
+        /// The origin command name, or null if it could not be resolved.
+        /// </returns>
         private string GetOriginName(
             string aliasName
             )
@@ -1295,6 +1778,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method captures the state needed before the name or parent of
+        /// this namespace is changed, saving the original name and forcing the
+        /// qualified name to be computed for the global namespace.
+        /// </summary>
+        /// <param name="oldName">
+        /// Upon return, receives the original simple name of this namespace.
+        /// </param>
+        /// <param name="global">
+        /// Upon return, indicates whether this is the global namespace.
+        /// </param>
         private void BeforeNameChange(
             out string oldName,
             out bool global
@@ -1321,6 +1815,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the bookkeeping needed after the name or parent
+        /// of this namespace has changed, recomputing qualified names and
+        /// notifying the parent namespace of the rename.  The global namespace's
+        /// qualified name cannot be changed.
+        /// </summary>
+        /// <param name="oldName">
+        /// The original simple name of this namespace, as captured by
+        /// <see cref="BeforeNameChange" />.
+        /// </param>
+        /// <param name="global">
+        /// Non-zero if this is the global namespace, as captured by
+        /// <see cref="BeforeNameChange" />.
+        /// </param>
         private void AfterNameChange(
             string oldName,
             bool global
@@ -1371,6 +1879,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a dictionary of the immediate child namespaces of
+        /// this namespace that match the specified pattern.  When the pattern is
+        /// qualified, matching is performed against qualified names; otherwise,
+        /// it is performed against simple names.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to match child namespaces, or null to match
+        /// all of them.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include children that have been marked as deleted; zero
+        /// to exclude them.
+        /// </param>
+        /// <returns>
+        /// A dictionary of matching child namespaces, which is never null but
+        /// may be empty.
+        /// </returns>
         private NamespaceDictionary PrivateGetChildren(
             string pattern,
             bool deleted
@@ -1438,6 +1964,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a dictionary of all descendant namespaces of this
+        /// namespace that match the specified pattern, by traversing the
+        /// namespace tree.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to match descendant namespaces, or null to
+        /// match all of them.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include descendants that have been marked as deleted;
+        /// zero to exclude them.
+        /// </param>
+        /// <returns>
+        /// A dictionary of matching descendant namespaces, which is never null
+        /// but may be empty.
+        /// </returns>
         private NamespaceDictionary PrivateGetDescendants(
             string pattern,
             bool deleted
@@ -1465,6 +2008,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* Eagle._Components.Public.Delegates.NamespaceCallback */
+        /// <summary>
+        /// This method is the traversal callback used by
+        /// <see cref="PrivateGetDescendants" /> to accumulate matching
+        /// descendant namespaces into a dictionary carried in the client data.
+        /// </summary>
+        /// <param name="namespace">
+        /// The namespace currently being visited by the traversal.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data carrying the descendant triplet (the accumulator
+        /// dictionary, the match pattern, and the deleted flag).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private ReturnCode GetDescendantsCallback(
             INamespace @namespace,
             IClientData clientData,
@@ -1536,6 +2097,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forces the qualified names of the matching child
+        /// namespaces to be recomputed, which in turn cascades to their own
+        /// children.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to match child namespaces, or null to match
+        /// all of them.
+        /// </param>
+        /// <param name="deleted">
+        /// Non-zero to include children that have been marked as deleted; zero
+        /// to exclude them.
+        /// </param>
         private void ResetChildNames(
             string pattern,
             bool deleted
@@ -1558,6 +2132,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether an imported command matches the
+        /// specified pattern, checking the import name, the alias name, and the
+        /// origin command name in turn.
+        /// </summary>
+        /// <param name="qualifiedPattern">
+        /// The qualified glob pattern to match against, or null to match any
+        /// import.
+        /// </param>
+        /// <param name="importName">
+        /// The qualified import name to test.
+        /// </param>
+        /// <param name="alias">
+        /// The alias that implements the import.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the import matches the pattern; otherwise, false.
+        /// </returns>
         private bool MatchImportName(
             string qualifiedPattern,
             string importName,
@@ -1619,6 +2214,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string that represents this namespace.
+        /// </summary>
+        /// <returns>
+        /// The simple (unqualified) name of this namespace.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -1630,7 +2231,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this namespace has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this namespace has already been
+        /// disposed and the engine is configured to throw on use of a disposed
+        /// object.
+        /// </summary>
+        /// <exception cref="InterpreterDisposedException">
+        /// Thrown when this namespace has been disposed and the engine is
+        /// configured to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -1641,6 +2254,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this namespace.  It
+        /// implements the standard dispose pattern, disposing child namespaces,
+        /// clearing the export names, removing all imports, freeing the variable
+        /// frame, and clearing the remaining state.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from
+        /// <see cref="Dispose()" /> (i.e. deterministically); zero if it is
+        /// being called from the finalizer.  When non-zero, managed resources
+        /// are released.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing
             )
@@ -1751,6 +2376,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources held by this namespace and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -1761,6 +2390,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this namespace, releasing any resources that were not
+        /// released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~Namespace()
         {
             Dispose(false);

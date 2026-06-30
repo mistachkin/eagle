@@ -76,6 +76,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used by the Eagle core
+    /// to perform network operations via the <see cref="WebClient" /> class,
+    /// including downloading data and files, uploading data, values, and files
+    /// (synchronously and asynchronously), opening script streams over the
+    /// network, managing offline mode and request retry behavior, and
+    /// configuring request timeouts and the HTTPS security protocol.
+    /// </summary>
     [ObjectId("47133ca0-868a-4403-8788-530721d2f302")]
     internal static class WebOps
     {
@@ -87,6 +95,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, any attempt to create a <see cref="WebClient" /> via
+        /// this class will fail, preventing any network access using the
+        /// <see cref="WebClient" /> class.
+        /// </summary>
         private static int offlineLevels = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -99,6 +112,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, any request may be retried up to this number of
+        /// times.  By default, this is zero, because there may be significant
+        /// unintended consequences to this aggressive retry behavior.
+        /// </summary>
         private static int maximumRetries = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -110,6 +128,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default timeout for a request, in milliseconds.  When this
+        /// value is null, there is no explicit timeout; it will be up to the
+        /// .NET Framework and/or the operating system.
+        /// </summary>
         private static int? DefaultTimeout = null; /* COMPAT: Eagle beta. */
 
         ///////////////////////////////////////////////////////////////////////
@@ -120,6 +143,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default timeout for a sleep, in milliseconds, which is normally
+        /// used only between retrying a specific request.
+        /// </summary>
         private static int? DefaultSleepTime = null; /* milliseconds */
 
         ///////////////////////////////////////////////////////////////////////
@@ -127,6 +154,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, web transfer operations are performed via a
+        /// <see cref="WebClient" /> by default, even when a transfer callback
+        /// has been configured.
+        /// </summary>
         private static bool DefaultViaClient = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -134,6 +166,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the HTTPS security protocol is not configured by
+        /// default prior to making a request.
+        /// </summary>
         private static bool DefaultNoProtocol = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -142,6 +178,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The name of the script-based <see cref="WebClient" /> object used
+        /// for testing purposes.
+        /// </summary>
         private static string ScriptWebClientText = "::scriptWebClient";
 #endif
         #endregion
@@ -149,10 +189,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region TagAndTimeoutWebClient Helper Class
+        /// <summary>
+        /// This class represents a <see cref="WebClient" /> that adds custom
+        /// request headers (a tag, the engine version, and a user-agent
+        /// suffix) to each outgoing request and optionally applies a request
+        /// timeout.
+        /// </summary>
         [ObjectId("c0cfe212-92b3-47f9-a1b6-fa0f69f6ff04")]
         private sealed class TagAndTimeoutWebClient : WebClient
         {
             #region Public Constructors
+            /// <summary>
+            /// Constructs a new instance of this class.
+            /// </summary>
+            /// <param name="tag">
+            /// The tag to add to each outgoing request, via custom request
+            /// headers, or null to add no tag.
+            /// </param>
+            /// <param name="timeout">
+            /// The timeout, in milliseconds, to apply to each outgoing
+            /// request, or null to apply no explicit timeout.
+            /// </param>
             public TagAndTimeoutWebClient(
                 string tag,  /* in */
                 int? timeout /* in */
@@ -167,7 +224,15 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Public Properties
+            /// <summary>
+            /// The tag to add to each outgoing request, via custom request
+            /// headers, or null if there is no tag.
+            /// </summary>
             private string tag;
+            /// <summary>
+            /// Gets the tag added to each outgoing request, via custom request
+            /// headers, or null if there is no tag.
+            /// </summary>
             public string Tag
             {
                 get { return tag; }
@@ -175,7 +240,15 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// The timeout, in milliseconds, applied to each outgoing request,
+            /// or null if there is no explicit timeout.
+            /// </summary>
             private int? timeout;
+            /// <summary>
+            /// Gets the timeout, in milliseconds, applied to each outgoing
+            /// request, or null if there is no explicit timeout.
+            /// </summary>
             public int? Timeout
             {
                 get { return timeout; }
@@ -185,6 +258,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region Private Methods
+            /// <summary>
+            /// Adds the specified tag to the request headers of the specified
+            /// web request, unless the tag or web request is invalid.
+            /// </summary>
+            /// <param name="webRequest">
+            /// The web request to modify.  When null, no action is taken.
+            /// </param>
+            /// <param name="tag">
+            /// The tag to add to the request headers.  When null or empty, no
+            /// action is taken.
+            /// </param>
             private static void MaybeSetTagHeader(
                 WebRequest webRequest, /* in */
                 string tag             /* in */
@@ -206,6 +290,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Adds the engine version to the request headers of the specified
+            /// web request, unless the version is unavailable or the web
+            /// request is invalid.
+            /// </summary>
+            /// <param name="webRequest">
+            /// The web request to modify.  When null, no action is taken.
+            /// </param>
             private static void MaybeSetVersionHeader(
                 WebRequest webRequest /* in */
                 )
@@ -229,6 +321,19 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Appends the specified tag to the user-agent of the specified
+            /// web request, when it is an <see cref="HttpWebRequest" />, unless
+            /// the tag is invalid.
+            /// </summary>
+            /// <param name="webRequest">
+            /// The web request to modify.  When this is not an
+            /// <see cref="HttpWebRequest" />, no action is taken.
+            /// </param>
+            /// <param name="tag">
+            /// The tag to append to the user-agent.  When null or empty, no
+            /// action is taken.
+            /// </param>
             private static void MaybeSetUserAgent(
                 WebRequest webRequest, /* in */
                 string tag             /* in */
@@ -263,6 +368,17 @@ namespace Eagle._Components.Private
             ///////////////////////////////////////////////////////////////////
 
             #region System.Net.WebClient Overrides
+            /// <summary>
+            /// Creates and returns the <see cref="WebRequest" /> for the
+            /// specified <see cref="Uri" />, adding the configured custom
+            /// request headers and applying the configured request timeout.
+            /// </summary>
+            /// <param name="address">
+            /// The <see cref="Uri" /> of the resource being requested.
+            /// </param>
+            /// <returns>
+            /// The created <see cref="WebRequest" />.
+            /// </returns>
             protected override WebRequest GetWebRequest(
                 Uri address /* in */
                 )
@@ -288,6 +404,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds rows describing the current web-related state of
+        /// this class to the specified list.  It is used when building the list
+        /// of engine information.
+        /// </summary>
+        /// <param name="list">
+        /// The list to add the web information to.  When null, no action is
+        /// taken.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -329,6 +457,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Error Helper Methods
+        /// <summary>
+        /// This method adds the specified error to the specified error list,
+        /// creating the list if necessary and avoiding the addition of an exact
+        /// duplicate.
+        /// </summary>
+        /// <param name="errors">
+        /// The error list to add the error to.  When null, a new list is
+        /// created.
+        /// </param>
+        /// <param name="error">
+        /// The error to add.  When null, no action is taken.
+        /// </param>
         private static void MaybeAddError(
             ref ResultList errors, /* in, out */
             Result error           /* in: OPTIONAL */
@@ -351,6 +491,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method inserts a summary message describing the number of
+        /// retries at the start of the specified error list.
+        /// </summary>
+        /// <param name="errors">
+        /// The error list to modify.  When null, no action is taken.
+        /// </param>
+        /// <param name="retries">
+        /// The number of times the web request was retried.
+        /// </param>
+        /// <returns>
+        /// The error list, as a result, or null if there were no errors.
+        /// </returns>
         private static Result PrepareErrors(
             ResultList errors, /* in */
             int retries        /* in */
@@ -373,6 +526,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Event Helper Methods
+        /// <summary>
+        /// This method builds the list of name/value arguments that describe a
+        /// completed asynchronous web operation, for use when firing an event
+        /// handler or invoking a callback.
+        /// </summary>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> associated with the operation, or null if it
+        /// is not applicable.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method associated with the operation, or null if it is not
+        /// applicable.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data associated with the operation, or null if it is not
+        /// applicable.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection associated with the operation, or null if
+        /// it is not applicable.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name associated with the operation, or null if it is not
+        /// applicable.
+        /// </param>
+        /// <param name="eventArgs">
+        /// The event arguments describing the completed operation, or null if
+        /// they are not applicable.
+        /// </param>
+        /// <returns>
+        /// The list of name/value arguments describing the completed operation.
+        /// </returns>
         private static StringList GetAsyncCompletedArguments(
             Uri uri,                          /* in: OPTIONAL */
             string method,                    /* in: OPTIONAL */
@@ -441,6 +626,21 @@ namespace Eagle._Components.Private
 
         #region HTTPS Security Protocol Helper Methods
 #if TEST
+        /// <summary>
+        /// This method probes for the best available HTTPS security protocol
+        /// and adds the result to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// Upon success, receives the name/value pairs describing the probed
+        /// security protocol.  When null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ProbeSecurityProtocol(
             ref StringList list, /* out */
             ref Result error     /* out */
@@ -463,6 +663,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the currently configured HTTPS security
+        /// protocol, together with the best available protocol, and adds the
+        /// results to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// Upon success, receives the name/value pairs describing the current
+        /// and best security protocols.  When null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetSecurityProtocol(
             ref StringList list, /* out */
             ref Result error     /* out */
@@ -505,6 +721,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method configures the HTTPS security protocol for use by
+        /// subsequent web requests.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force the security protocol to be reconfigured even if
+        /// it appears to have already been set up.
+        /// </param>
+        /// <param name="obsolete">
+        /// Non-zero to permit obsolete security protocols to be included.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetSecurityProtocol(
             bool force,      /* in */
             bool obsolete,   /* in */
@@ -541,6 +775,35 @@ namespace Eagle._Components.Private
         //
         // WARNING: This method is called directly by the engine.
         //
+        /// <summary>
+        /// This method opens a stream for reading a script from the specified
+        /// <see cref="Uri" />, retrying the request and consulting any
+        /// configured web error callback as necessary.  It is called directly
+        /// by the engine.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the script to open.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The opened stream upon success, or null upon failure.
+        /// </returns>
         public static Stream OpenScriptStream(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in */
@@ -661,6 +924,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to open a stream for reading a
+        /// script from the specified <see cref="Uri" />, first consulting any
+        /// configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the script to open.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The opened stream upon success, or null upon failure.
+        /// </returns>
         private static Stream OpenScriptStreamOnce(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -708,6 +995,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens a stream for reading a script from the specified
+        /// <see cref="Uri" /> using a <see cref="WebClient" />.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the script to open.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The opened stream upon success, or null upon failure.
+        /// </returns>
         private static Stream OpenScriptStreamViaClient(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -755,6 +1065,30 @@ namespace Eagle._Components.Private
 
         #region Private Web Download / Upload Helper Methods
         #region WebClient Support Methods
+        /// <summary>
+        /// This method creates a new <see cref="WebClient" />, optionally one
+        /// that adds a tag and applies a timeout, unless this class is
+        /// currently in offline mode.
+        /// </summary>
+        /// <param name="argument">
+        /// A description of the operation requesting the web client, used for
+        /// diagnostic purposes.
+        /// </param>
+        /// <param name="tag">
+        /// The tag to add to each outgoing request, via custom request headers,
+        /// or null to add no tag.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, to apply to each outgoing request, or
+        /// null to apply no explicit timeout.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The created <see cref="WebClient" /> upon success, or null upon
+        /// failure.
+        /// </returns>
         private static WebClient CreateClient(
             string argument, /* in */
             string tag,      /* in */
@@ -793,6 +1127,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the web transfer callback configured for the
+        /// specified interpreter, if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <returns>
+        /// The configured web transfer callback, or null if there is none.
+        /// </returns>
         private static WebTransferCallback GetTransferCallback(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -803,6 +1147,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the specified web transfer callback, trapping
+        /// and reporting any exception it raises.
+        /// </summary>
+        /// <param name="callback">
+        /// The web transfer callback to invoke.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="webFlags">
+        /// The flags describing the web operation being performed.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode InvokeTransferCallback(
             WebTransferCallback callback, /* in */
             Interpreter interpreter,      /* in: OPTIONAL */
@@ -841,6 +1208,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the web error callback configured for the
+        /// specified interpreter, if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <returns>
+        /// The configured web error callback, or null if there is none.
+        /// </returns>
         private static WebErrorCallback GetErrorCallback(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -851,6 +1228,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the specified web error callback, trapping and
+        /// reporting any exception it raises.
+        /// </summary>
+        /// <param name="callback">
+        /// The web error callback to invoke.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> associated with the failed request.
+        /// </param>
+        /// <param name="webFlags">
+        /// The flags describing the web operation being performed.
+        /// </param>
+        /// <param name="retries">
+        /// The number of times the request has been retried so far.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null if there is none.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, may receive the result produced by the callback.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors encountered so far, which may be added to by the
+        /// callback.  When null, a new list is created as needed.
+        /// </param>
+        /// <returns>
+        /// The return code produced by the callback, which controls how the
+        /// caller proceeds.
+        /// </returns>
         private static ReturnCode InvokeErrorCallback(
             WebErrorCallback callback, /* in */
             Interpreter interpreter,   /* in */
@@ -905,6 +1322,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the timeout, in milliseconds, associated with
+        /// the specified web client, when it is a tag-and-timeout web client.
+        /// </summary>
+        /// <param name="webClient">
+        /// The web client to query.  When null, or not a tag-and-timeout web
+        /// client, null is returned.
+        /// </param>
+        /// <returns>
+        /// The timeout, in milliseconds, or null if there is none.
+        /// </returns>
         private static int? GetTimeout(
             WebClient webClient /* in: OPTIONAL */
             )
@@ -923,6 +1351,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the number of milliseconds to sleep before the
+        /// specified retry attempt, scaling with the retry count and clamping
+        /// to the specified maximum.
+        /// </summary>
+        /// <param name="retries">
+        /// The current retry attempt number, used to scale the sleep time.
+        /// </param>
+        /// <param name="maximumMilliseconds">
+        /// The maximum number of milliseconds to sleep.
+        /// </param>
+        /// <returns>
+        /// The number of milliseconds to sleep before the retry.
+        /// </returns>
         private static int GetMillisecondsForRetry(
             int retries,            /* in */
             int maximumMilliseconds /* in */
@@ -945,6 +1387,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the name of the environment variable used to
+        /// store the web client tag for the specified context identifier type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="type">
+        /// The context identifier type that selects which identifier (e.g.
+        /// process, thread, interpreter, etc.) is used to form the variable
+        /// name.
+        /// </param>
+        /// <returns>
+        /// The environment variable name, or null if one cannot be determined.
+        /// </returns>
         private static string GetTagEnvVarName(
             Interpreter interpreter, /* in: OPTIONAL */
             ContextIdType type       /* in */
@@ -1022,6 +1479,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unsets the environment variable used to store the web
+        /// client tag for the specified context identifier type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="type">
+        /// The context identifier type that selects which environment variable
+        /// to unset.
+        /// </param>
+        /// <returns>
+        /// True if the environment variable was unset; otherwise, false.
+        /// </returns>
         private static bool UnsetTagEnvVarValue(
             Interpreter interpreter, /* in: OPTIONAL */
             ContextIdType type       /* in */
@@ -1035,6 +1506,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Web Download / Upload Helper Methods
+        /// <summary>
+        /// This method returns the web client tag value by checking the
+        /// thread, process, parent process, and global context environment
+        /// variables, in that order, returning the first non-empty value
+        /// found.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <returns>
+        /// The first non-empty web client tag value found, or null if none was
+        /// found.
+        /// </returns>
         public static string GetTagEnvVarValue(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -1064,6 +1548,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the web client tag value stored in the
+        /// environment variable for the specified context identifier type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="type">
+        /// The context identifier type that selects which environment variable
+        /// to query.
+        /// </param>
+        /// <returns>
+        /// The web client tag value, or null if there is none.
+        /// </returns>
         public static string GetTagEnvVarValue(
             Interpreter interpreter, /* in: OPTIONAL */
             ContextIdType type       /* in */
@@ -1075,6 +1573,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the environment variable used to store the web
+        /// client tag for the specified context identifier type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="type">
+        /// The context identifier type that selects which environment variable
+        /// to set.
+        /// </param>
+        /// <param name="tag">
+        /// The web client tag value to store, or null to clear it.
+        /// </param>
+        /// <returns>
+        /// True if the environment variable was set; otherwise, false.
+        /// </returns>
         public static bool SetTagEnvVarValue(
             Interpreter interpreter, /* in: OPTIONAL */
             ContextIdType type,      /* in */
@@ -1088,6 +1603,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if WEB
+        /// <summary>
+        /// This method attempts to set the web client tag environment variable
+        /// for the specified context identifier type from the tag request
+        /// header of the specified HTTP request, optionally unsetting it when
+        /// no tag is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="request">
+        /// The HTTP request whose tag header is used.  When null, the variable
+        /// may be unset.
+        /// </param>
+        /// <param name="type">
+        /// The context identifier type that selects which environment variable
+        /// to set or unset.
+        /// </param>
+        /// <returns>
+        /// True if the environment variable was set or unset; otherwise, false.
+        /// </returns>
         public static bool TrySetTagEnvVarValue(
             Interpreter interpreter, /* in: OPTIONAL */
             HttpRequest request,     /* in */
@@ -1135,6 +1670,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sleeps for the amount of time appropriate to the
+        /// specified retry attempt, using the interpreter event subsystem when
+        /// an interpreter is available, or a plain thread sleep otherwise.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null to use a plain thread sleep.
+        /// </param>
+        /// <param name="event">
+        /// The event that, when signaled, can interrupt the wait, or null for
+        /// none.
+        /// </param>
+        /// <param name="retries">
+        /// The current retry attempt number, used to scale the sleep time.
+        /// </param>
         public static void SleepForRetry(
             Interpreter interpreter, /* in: OPTIONAL */
             EventWaitHandle @event,  /* in: OPTIONAL */
@@ -1178,6 +1728,17 @@ namespace Eagle._Components.Private
 
         #region Private Download Event Handlers
         #region Download Data Event Handlers
+        /// <summary>
+        /// This method handles completion of an asynchronous data download,
+        /// disposing the associated web client and firing the configured
+        /// callback event handler with the completion arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the completed data download.
+        /// </param>
         private static void DownloadDataAsyncCompleted(
             object sender,                   /* in */
             DownloadDataCompletedEventArgs e /* in */
@@ -1232,6 +1793,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Download File Event Handlers
+        /// <summary>
+        /// This method handles completion of an asynchronous file download,
+        /// disposing the associated web client and invoking the configured
+        /// callback with the completion arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the completed file download.
+        /// </param>
         private static void DownloadFileAsyncCompleted(
             object sender,            /* in */
             AsyncCompletedEventArgs e /* in */
@@ -1297,6 +1869,32 @@ namespace Eagle._Components.Private
 
         #region Public Web Download Methods
         #region WebClient Support Methods
+        /// <summary>
+        /// This method creates a new <see cref="WebClient" /> for the specified
+        /// interpreter, using the configured web client tag environment
+        /// variable value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="argument">
+        /// A description of the operation requesting the web client, used for
+        /// diagnostic purposes.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, to apply to each outgoing request, or
+        /// null to apply no explicit timeout.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The created <see cref="WebClient" /> upon success, or null upon
+        /// failure.
+        /// </returns>
         public static WebClient CreateClient(
             Interpreter interpreter, /* in: OPTIONAL */
             string argument,         /* in: OPTIONAL */
@@ -1313,6 +1911,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new <see cref="WebClient" /> for the specified
+        /// interpreter, consulting any pre-create and new-client callbacks and
+        /// honoring offline mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="argument">
+        /// A description of the operation requesting the web client, used for
+        /// diagnostic purposes.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="tag">
+        /// The tag to add to each outgoing request, via custom request headers,
+        /// or null to add no tag.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, to apply to each outgoing request, or
+        /// null to apply no explicit timeout.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The created <see cref="WebClient" /> upon success, or null upon
+        /// failure.
+        /// </returns>
         public static WebClient CreateClient(
             Interpreter interpreter, /* in: OPTIONAL */
             string argument,         /* in: OPTIONAL */
@@ -1379,6 +2007,42 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Download Data Methods
+        /// <summary>
+        /// This method downloads the data at the specified <see cref="Uri" />,
+        /// retrying the request and consulting any configured web error
+        /// callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the downloaded data.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode DownloadData(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -1503,6 +2167,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous download of the data at the
+        /// specified <see cref="Uri" />, retrying the request and consulting
+        /// any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode DownloadDataAsync(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -1627,6 +2327,42 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Download File Methods
+        /// <summary>
+        /// This method downloads the resource at the specified
+        /// <see cref="Uri" /> to a local file, retrying the request and
+        /// consulting any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode DownloadFile(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -1749,6 +2485,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous download of the resource at the
+        /// specified <see cref="Uri" /> to a local file, retrying the request
+        /// and consulting any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode DownloadFileAsync(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -1876,6 +2651,38 @@ namespace Eagle._Components.Private
 
         #region Private Web Download Methods
         #region Download Data Via Client Methods
+        /// <summary>
+        /// This method attempts, exactly once, to download the data at the
+        /// specified <see cref="Uri" />, first consulting any configured web
+        /// transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the downloaded data.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadDataOnce(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -1929,6 +2736,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to begin an asynchronous
+        /// download of the data at the specified <see cref="Uri" />, first
+        /// consulting any configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadDataAsyncOnce(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -1982,6 +2821,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method downloads the data at the specified <see cref="Uri" />
+        /// using a <see cref="WebClient" />, optionally adjusting the update
+        /// trust setting for the duration of the download.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the downloaded data.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadDataViaClient(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -2075,6 +2946,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous download of the data at the
+        /// specified <see cref="Uri" /> using a <see cref="WebClient" />,
+        /// wiring up the completion event handler and callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the data to download.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadDataAsyncViaClient(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -2163,6 +3066,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Download File Via Client Methods
+        /// <summary>
+        /// This method attempts, exactly once, to download the resource at the
+        /// specified <see cref="Uri" /> to a local file, first consulting any
+        /// configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadFileOnce(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -2216,6 +3151,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to begin an asynchronous
+        /// download of the resource at the specified <see cref="Uri" /> to a
+        /// local file, first consulting any configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadFileAsyncOnce(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -2272,6 +3242,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method downloads the resource at the specified
+        /// <see cref="Uri" /> to a local file using a <see cref="WebClient" />,
+        /// optionally adjusting the update trust setting for the duration of
+        /// the download.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the download with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadFileViaClient(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -2368,6 +3371,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous download of the resource at the
+        /// specified <see cref="Uri" /> to a local file using a
+        /// <see cref="WebClient" />, wiring up the completion event handler and
+        /// callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the download finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the resource to download.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to write the downloaded resource to.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode DownloadFileAsyncViaClient(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -2462,6 +3501,17 @@ namespace Eagle._Components.Private
 
         #region Private Upload Event Handlers
         #region Upload Data Event Handlers
+        /// <summary>
+        /// This method handles completion of an asynchronous data upload,
+        /// disposing the associated web client and firing the configured
+        /// callback event handler with the completion arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the completed data upload.
+        /// </param>
         private static void UploadDataAsyncCompleted(
             object sender,                 /* in */
             UploadDataCompletedEventArgs e /* in */
@@ -2526,6 +3576,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload Values Event Handlers
+        /// <summary>
+        /// This method handles completion of an asynchronous values upload,
+        /// disposing the associated web client and firing the configured
+        /// callback event handler with the completion arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the completed values upload.
+        /// </param>
         private static void UploadValuesAsyncCompleted(
             object sender,                   /* in */
             UploadValuesCompletedEventArgs e /* in */
@@ -2590,6 +3651,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload File Event Handlers
+        /// <summary>
+        /// This method handles completion of an asynchronous file upload,
+        /// disposing the associated web client and invoking the configured
+        /// callback with the completion arguments.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments describing the completed file upload.
+        /// </param>
         private static void UploadFileAsyncCompleted(
             object sender,                 /* in */
             UploadFileCompletedEventArgs e /* in */
@@ -2662,6 +3734,48 @@ namespace Eagle._Components.Private
 
         #region Public Web Upload Methods
         #region Upload Data Methods
+        /// <summary>
+        /// This method uploads the specified raw data to the specified
+        /// <see cref="Uri" />, retrying the request and consulting any
+        /// configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadData(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -2788,6 +3902,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified raw data
+        /// to the specified <see cref="Uri" />, retrying the request and
+        /// consulting any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadDataAsync(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -2914,6 +4070,48 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload Values Methods
+        /// <summary>
+        /// This method uploads the specified name/value collection to the
+        /// specified <see cref="Uri" />, retrying the request and consulting
+        /// any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadValues(
             Interpreter interpreter,  /* in: OPTIONAL */
             IClientData clientData,   /* in: OPTIONAL */
@@ -3040,6 +4238,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified
+        /// name/value collection to the specified <see cref="Uri" />, retrying
+        /// the request and consulting any configured web error callback as
+        /// necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadValuesAsync(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -3166,6 +4407,48 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload File Methods
+        /// <summary>
+        /// This method uploads the specified local file to the specified
+        /// <see cref="Uri" />, retrying the request and consulting any
+        /// configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadFile(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -3292,6 +4575,48 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified local
+        /// file to the specified <see cref="Uri" />, retrying the request and
+        /// consulting any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UploadFileAsync(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -3420,6 +4745,44 @@ namespace Eagle._Components.Private
 
         #region Private Web Upload Methods
         #region Upload Data Via Client Methods
+        /// <summary>
+        /// This method attempts, exactly once, to upload the specified raw data
+        /// to the specified <see cref="Uri" />, first consulting any configured
+        /// web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadDataOnce(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -3478,6 +4841,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to begin an asynchronous upload
+        /// of the specified raw data to the specified <see cref="Uri" />, first
+        /// consulting any configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadDataAsyncOnce(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -3536,6 +4937,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method uploads the specified raw data to the specified
+        /// <see cref="Uri" /> using a <see cref="WebClient" />, optionally
+        /// adjusting the update trust setting for the duration of the upload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadDataViaClient(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -3635,6 +5074,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified raw data
+        /// to the specified <see cref="Uri" /> using a <see cref="WebClient" />,
+        /// wiring up the completion event handler and callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the data to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="rawData">
+        /// The raw data to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadDataAsyncViaClient(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -3729,6 +5206,44 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload Values Via Client Methods
+        /// <summary>
+        /// This method attempts, exactly once, to upload the specified
+        /// name/value collection to the specified <see cref="Uri" />, first
+        /// consulting any configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadValuesOnce(
             Interpreter interpreter,  /* in: OPTIONAL */
             IClientData clientData,   /* in: OPTIONAL */
@@ -3787,6 +5302,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to begin an asynchronous upload
+        /// of the specified name/value collection to the specified
+        /// <see cref="Uri" />, first consulting any configured web transfer
+        /// callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadValuesAsyncOnce(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -3845,6 +5399,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method uploads the specified name/value collection to the
+        /// specified <see cref="Uri" /> using a <see cref="WebClient" />,
+        /// optionally adjusting the update trust setting for the duration of
+        /// the upload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadValuesViaClient(
             Interpreter interpreter,  /* in: OPTIONAL */
             IClientData clientData,   /* in: OPTIONAL */
@@ -3943,6 +5536,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified
+        /// name/value collection to the specified <see cref="Uri" /> using a
+        /// <see cref="WebClient" />, wiring up the completion event handler and
+        /// callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the values to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadValuesAsyncViaClient(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -4037,6 +5669,44 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Upload File Via Client Methods
+        /// <summary>
+        /// This method attempts, exactly once, to upload the specified local
+        /// file to the specified <see cref="Uri" />, first consulting any
+        /// configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadFileOnce(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -4095,6 +5765,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts, exactly once, to begin an asynchronous upload
+        /// of the specified local file to the specified <see cref="Uri" />,
+        /// first consulting any configured web transfer callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadFileAsyncOnce(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -4153,6 +5861,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method uploads the specified local file to the specified
+        /// <see cref="Uri" /> using a <see cref="WebClient" />, optionally
+        /// adjusting the update trust setting for the duration of the upload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to perform the upload with the update trust setting
+        /// temporarily changed, or null to leave it unchanged.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the response data returned by the server.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadFileViaClient(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -4251,6 +5997,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method begins an asynchronous upload of the specified local
+        /// file to the specified <see cref="Uri" /> using a
+        /// <see cref="WebClient" />, wiring up the completion event handler and
+        /// callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data associated with this request, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments used to construct the completion callback that is
+        /// invoked when the upload finishes.
+        /// </param>
+        /// <param name="callbackFlags">
+        /// The flags used when constructing the completion callback.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> to upload the file to.
+        /// </param>
+        /// <param name="method">
+        /// The HTTP method to use for the upload.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the local file to upload.
+        /// </param>
+        /// <param name="timeout">
+        /// The request timeout, in milliseconds, or null to use the configured
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode UploadFileAsyncViaClient(
             Interpreter interpreter,     /* in: OPTIONAL */
             IClientData clientData,      /* in: OPTIONAL */
@@ -4345,6 +6130,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Metadata Support Methods
+        /// <summary>
+        /// This method determines whether the specified timeout value is a
+        /// valid, usable request timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The timeout value, in milliseconds, to check.
+        /// </param>
+        /// <param name="allowNone">
+        /// Non-zero to treat the "none" timeout sentinel as valid.
+        /// </param>
+        /// <returns>
+        /// True if the timeout value is valid; otherwise, false.
+        /// </returns>
         private static bool IsGoodTimeout(
             int timeout,   /* in */
             bool allowNone /* in */
@@ -4371,6 +6169,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Metadata Support Methods
+        /// <summary>
+        /// This method determines whether this class is currently in offline
+        /// mode, in which case the creation of web clients is prevented.
+        /// </summary>
+        /// <returns>
+        /// True if this class is in offline mode; otherwise, false.
+        /// </returns>
         public static bool InOfflineMode()
         {
             return Interlocked.CompareExchange(ref offlineLevels, 0, 0) > 0;
@@ -4378,6 +6183,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default value indicating whether the HTTPS
+        /// security protocol should be left unconfigured prior to making a
+        /// request.
+        /// </summary>
+        /// <returns>
+        /// True if the security protocol should not be configured by default;
+        /// otherwise, false.
+        /// </returns>
         public static bool GetDefaultNoProtocol()
         {
             return DefaultNoProtocol;
@@ -4385,6 +6199,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured default maximum number of times a
+        /// web request may be retried.
+        /// </summary>
+        /// <returns>
+        /// The configured maximum number of retries.
+        /// </returns>
         public static int GetMaximumRetries()
         {
             return Interlocked.CompareExchange(ref maximumRetries, 0, 0);
@@ -4392,6 +6213,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the configured default maximum number of times a
+        /// web request may be retried.
+        /// </summary>
+        /// <param name="retries">
+        /// The new maximum number of retries.
+        /// </param>
+        /// <returns>
+        /// The previous maximum number of retries.
+        /// </returns>
         public static int SetMaximumRetries(
             int retries /* in */
             )
@@ -4401,6 +6232,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables offline mode by incrementing or
+        /// decrementing the offline level count.
+        /// </summary>
+        /// <param name="offline">
+        /// Non-zero to enter offline mode (increment the level); zero to leave
+        /// offline mode (decrement the level).
+        /// </param>
         public static void SetOfflineMode(
             bool offline /* in */
             )
@@ -4413,6 +6252,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the request timeout to use, preferring the
+        /// specified timeout when it is valid and otherwise falling back to the
+        /// configured timeout for the specified timeout type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of timeout to obtain when no valid explicit timeout is
+        /// provided.
+        /// </param>
+        /// <param name="timeout">
+        /// An explicit timeout, in milliseconds, to prefer when valid, or null
+        /// for none.
+        /// </param>
+        /// <returns>
+        /// The timeout to use, in milliseconds, or null if there is none.
+        /// </returns>
         public static int? GetTimeout(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType, /* in */
@@ -4432,6 +6290,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured request timeout for the specified
+        /// timeout type, checking the interpreter, the global configuration,
+        /// and finally the configured default.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of timeout to obtain.
+        /// </param>
+        /// <returns>
+        /// The timeout to use, in milliseconds, or null if there is none.
+        /// </returns>
         public static int? GetTimeout(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType  /* in */
@@ -4478,6 +6350,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the configured request timeout for the specified
+        /// timeout type, falling back to a non-null default value derived from
+        /// the thread subsystem when no valid configured timeout is available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="timeoutType">
+        /// The type of timeout to obtain.
+        /// </param>
+        /// <returns>
+        /// The timeout to use, in milliseconds.
+        /// </returns>
         public static int GetTimeoutOrDefault(
             Interpreter interpreter, /* in: OPTIONAL */
             TimeoutType timeoutType  /* in */
@@ -4501,6 +6387,43 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Wrapper Methods
+        /// <summary>
+        /// This method performs a web request using the specified
+        /// <see cref="WebClient" />, either uploading values, downloading raw
+        /// data, or downloading a string, retrying the request and consulting
+        /// any configured web error callback as necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, or null for none.
+        /// </param>
+        /// <param name="webClient">
+        /// The web client to use to perform the request.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the request.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// configured default.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.  When non-null, the request is
+        /// a values upload; otherwise, it is a download.
+        /// </param>
+        /// <param name="profiler">
+        /// The profiler used to time the request, or null for none.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to download raw data; zero to download a string.  Only used
+        /// when no values are being uploaded.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The response from the request -- a byte array or a string -- upon
+        /// success, or null upon failure.
+        /// </returns>
         public static object MakeRequest(
             Interpreter interpreter,  /* in: OPTIONAL */
             WebClient webClient,      /* in */
@@ -4636,6 +6559,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Wrapper Methods
+        /// <summary>
+        /// This method performs a web request exactly once using the specified
+        /// <see cref="WebClient" />, optionally timing it with a profiler.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter is not used.
+        /// </param>
+        /// <param name="webClient">
+        /// The web client to use to perform the request.
+        /// </param>
+        /// <param name="uri">
+        /// The <see cref="Uri" /> of the request.
+        /// </param>
+        /// <param name="data">
+        /// The name/value collection to upload.  When non-null, the request is
+        /// a values upload; otherwise, it is a download.
+        /// </param>
+        /// <param name="profiler">
+        /// The profiler used to time the request, or null for none.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to download raw data; zero to download a string.  Only used
+        /// when no values are being uploaded.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The response from the request -- a byte array or a string -- upon
+        /// success, or null upon failure.
+        /// </returns>
         private static object MakeRequestOnce(
             Interpreter interpreter,  /* in: NOT USED */
             WebClient webClient,      /* in */

@@ -26,15 +26,46 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods and shared state that
+    /// implement Eagle's test harness, including test result matching, test
+    /// data output (to the host, log, and debugger), test statistics and
+    /// constraint tracking, the test suite runner, and the support for
+    /// running individual tests in an isolated child process.  It is used by
+    /// the test-related commands and by the interactive "#test" command.
+    /// </summary>
     [ObjectId("c2335b96-f944-44c5-97dc-abdb6dd08525")]
     internal static class TestOps
     {
         #region Private Constants
+        /// <summary>
+        /// The name of the test constraint indicating that a test exercises a
+        /// known bug.
+        /// </summary>
         private static readonly string KnownBugConstraint = "knownBug";
+
+        /// <summary>
+        /// The name of the test constraint indicating that a test does not
+        /// exercise a known bug.
+        /// </summary>
         private static readonly string NotKnownBugConstraint = "!knownBug";
+
+        /// <summary>
+        /// The prefix used by the special "fail.false" and "fail.true"
+        /// pseudo-constraints that control the value of the failure flag.
+        /// </summary>
         private static readonly string FailConstraintPrefix = "fail.";
 
+        /// <summary>
+        /// The string matching mode used when comparing test names against the
+        /// match and skip name patterns.
+        /// </summary>
         private static readonly MatchMode NameMatchMode = StringOps.DefaultMatchMode;
+
+        /// <summary>
+        /// The regular expression options used when matching test results
+        /// using regular expressions.
+        /// </summary>
         internal static readonly RegexOptions RegExOptions = StringOps.DefaultRegExTestOptions;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -43,6 +74,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// The name of the command used to assign a variable when building the
+        /// command line for an isolated test process.
+        /// </summary>
         private static string SetCommandName = "::set";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -50,6 +85,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// The placeholder token used to represent the current test within
+        /// isolated test command lines.
+        /// </summary>
         internal static string TestToken = "%test%";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -57,9 +96,28 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* These are purposely not marked as read-only.
         //
+        /// <summary>
+        /// The command line option prefix used to identify test options that
+        /// apply only to test isolation.
+        /// </summary>
         private static string IsolationPrefix = "-isolation";
+
+        /// <summary>
+        /// The minimum number of required arguments for an isolated test
+        /// command (i.e. the test name, description, and body).
+        /// </summary>
         private static int MinimumArgumentCount = 3;
+
+        /// <summary>
+        /// The file name of the Mono runtime executable used to launch an
+        /// isolated test process under Mono.
+        /// </summary>
         private static string MonoExecutableName = "mono";
+
+        /// <summary>
+        /// The command line option used to specify the log file name for the
+        /// "test.eagle" package within an isolated test process.
+        /// </summary>
         private static string LogFileOption = "-logFile"; /* NOTE: For "test.eagle" package. */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -67,8 +125,22 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* These are purposely not marked as read-only.
         //
+        /// <summary>
+        /// The .NET Core executable argument used to execute a managed
+        /// assembly when launching an isolated test process.
+        /// </summary>
         private static string DotNetCoreExecutableArgument = "exec"; // TODO: Not official?
+
+        /// <summary>
+        /// The .NET Core command line option used to enable roll-forward
+        /// behavior when launching an isolated test process.
+        /// </summary>
         private static string DotNetCoreRollForwardMajor = "--roll-forward"; // TODO: Not official?
+
+        /// <summary>
+        /// The .NET Core roll-forward policy value used when launching an
+        /// isolated test process.
+        /// </summary>
         private static string DotNetCoreMajor = "Major"; // TODO: Not official?
 #endif
 
@@ -78,14 +150,36 @@ namespace Eagle._Components.Private
         // NOTE: These file names are skipped by the interactive "#test" command
         //       prior to any other pattern matching.
         //
+        /// <summary>
+        /// The string matching mode used when comparing test file names
+        /// against the list of file names to skip.
+        /// </summary>
         private static readonly MatchMode skipFileNameMatchMode = MatchMode.Exact;
 
+        /// <summary>
+        /// The file names that are always skipped by the interactive "#test"
+        /// command prior to any other pattern matching.
+        /// </summary>
         private static readonly StringList skipFileNames = new StringList(new string[] {
             "epilogue.eagle", "prologue.eagle"
         });
 
+        /// <summary>
+        /// The variable name index used to detect whether the warning about
+        /// running individual test files (instead of the full suite) has been
+        /// suppressed.
+        /// </summary>
         private const string fileNameWarningVarIndex = "warningForAllEagle";
+
+        /// <summary>
+        /// The variable name index used to detect whether the warning about
+        /// running test files from a non-test directory has been suppressed.
+        /// </summary>
         private const string directoryWarningVarIndex = "warningForTestsPath";
+
+        /// <summary>
+        /// The default file name of the master test suite script.
+        /// </summary>
         private const string suiteFileName = "all.eagle";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,6 +187,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// When non-zero, test suite warnings are emitted even when the
+        /// interpreter is in "quiet" mode.
+        /// </summary>
         private static bool IgnoreQuietForWarning = false;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -100,6 +198,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// The line terminator string appended when emitting test data.
+        /// </summary>
         private static string NewLine = Environment.NewLine; /* COMPAT: StringBuilder */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -107,13 +208,40 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* These are purposely not marked as read-only.
         //
+        /// <summary>
+        /// The name of the normal command used to write test data to the log
+        /// file.
+        /// </summary>
         private static string logNormalCommand = "::tlog";
+
+        /// <summary>
+        /// The name of the fallback command used to write test data to the log
+        /// file when the normal command is not available.
+        /// </summary>
         private static string logFallbackCommand = "::tqlog";
 
+        /// <summary>
+        /// The name of the normal command used to write test data to the test
+        /// output channel.
+        /// </summary>
         internal static string putsNormalCommand = "::tputs";
+
+        /// <summary>
+        /// The name of the fallback command used to write test data to the
+        /// test output channel when the normal command is not available.
+        /// </summary>
         internal static string putsFallbackCommand = "::tqputs";
 
+        /// <summary>
+        /// The name of the variable that holds the name of the channel used
+        /// for normal test output.
+        /// </summary>
         private static string putsNormalChannelVarName = "::test_channel";
+
+        /// <summary>
+        /// The name of the fallback channel used for test output when the
+        /// normal test output channel is not available.
+        /// </summary>
         private static string putsFallbackChannel = Channel.StdOut;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -121,7 +249,15 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* These are purposely not marked as read-only.
         //
+        /// <summary>
+        /// The delay, in milliseconds, used when queuing test-related host
+        /// work items.
+        /// </summary>
         internal static int hostWorkItemDelay = 10000; /* in milliseconds */
+
+        /// <summary>
+        /// When non-zero, test-related host work items are forced to run.
+        /// </summary>
         internal static bool hostWorkItemForce = true;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -129,6 +265,9 @@ namespace Eagle._Components.Private
         //
         // NOTE: *TUNING* This is purposely not marked as read-only.
         //
+        /// <summary>
+        /// The default number of times an individual test is repeated.
+        /// </summary>
         internal static int DefaultRepeatCount = 1;
         #endregion
 
@@ -137,6 +276,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildTestInfoList method.
         //
+        /// <summary>
+        /// This method adds the test suite tuning settings to the specified
+        /// list of name/value pairs, for diagnostic display purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list of name/value pairs to add the settings to.  If this
+        /// parameter is null, nothing is done.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included in the output.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -208,6 +358,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Result Matching Methods
+        /// <summary>
+        /// This method returns a copy of the specified string with its white
+        /// space characters replaced by visible representations, for use when
+        /// displaying test results.
+        /// </summary>
+        /// <param name="value">
+        /// The string to process.  If this parameter is null or empty, it is
+        /// returned unchanged.
+        /// </param>
+        /// <returns>
+        /// The string with its white space made visible.
+        /// </returns>
         public static string MakeWhiteSpaceVisible(
             string value
             )
@@ -224,6 +386,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the specified string builder in place,
+        /// replacing its white space characters with visible representations,
+        /// for use when displaying test results.
+        /// </summary>
+        /// <param name="builder">
+        /// The string builder whose contents will be modified.
+        /// </param>
         public static void MakeWhiteSpaceVisible(
             StringBuilder builder
             )
@@ -234,6 +404,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a test result mismatch should be
+        /// ignored, based on whether the result text matches any of the
+        /// specified patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when matching, or null if none is
+        /// available.
+        /// </param>
+        /// <param name="mode">
+        /// The string matching mode to use.
+        /// </param>
+        /// <param name="text">
+        /// The test result text to be matched against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of patterns to match against.  If this parameter is null,
+        /// the result is false.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="comparer">
+        /// The comparer to use for matching, or null to use the default.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching using regular
+        /// expressions.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to emit diagnostic trace output during matching.
+        /// </param>
+        /// <returns>
+        /// True if any of the patterns matched and the mismatch should be
+        /// ignored; otherwise, false.
+        /// </returns>
         public static bool ShouldIgnoreMismatch(
             Interpreter interpreter,
             MatchMode mode,
@@ -297,6 +503,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a test failure should be ignored,
+        /// based on the failure flag and the various per-aspect ignore flags.
+        /// </summary>
+        /// <param name="fail">
+        /// Non-zero if the test is expected to be able to fail; if zero, the
+        /// failure is always ignored.
+        /// </param>
+        /// <param name="outputIgnore">
+        /// Non-zero if a mismatch in the test output should be ignored.
+        /// </param>
+        /// <param name="errorIgnore">
+        /// Non-zero if a mismatch in the test error result should be ignored.
+        /// </param>
+        /// <param name="scriptIgnore">
+        /// Non-zero if a mismatch produced by the test result script should be
+        /// ignored.
+        /// </param>
+        /// <returns>
+        /// True if the failure should be ignored; otherwise, false.
+        /// </returns>
         public static bool ShouldIgnoreFailure(
             bool fail,
             bool outputIgnore,
@@ -315,6 +542,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method matches the specified text against a single pattern,
+        /// optionally evaluating the pattern as an expression, for use when
+        /// comparing test results.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when matching.  If this parameter is
+        /// null, an error is returned.
+        /// </param>
+        /// <param name="mode">
+        /// The string matching mode to use.  When this is
+        /// <see cref="MatchMode.Expression" />, the pattern is evaluated as an
+        /// expression and its boolean result is used.
+        /// </param>
+        /// <param name="text">
+        /// The text to be matched against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern to match against, or the expression to evaluate.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="comparer">
+        /// The comparer to use for matching, or null to use the default.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching using regular
+        /// expressions.
+        /// </param>
+        /// <param name="debug">
+        /// Non-zero to emit diagnostic trace output during matching.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, set to non-zero if the text matched the pattern;
+        /// otherwise, set to zero.
+        /// </param>
+        /// <param name="result">
+        /// Upon failure, receives an appropriate error message; may also
+        /// receive the expression evaluation result.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode Match(
             Interpreter interpreter,
             MatchMode mode,
@@ -384,6 +656,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Data Support Methods
+        /// <summary>
+        /// This method returns the string representation of the specified
+        /// object value, using the standard object-to-string conversion.
+        /// </summary>
+        /// <param name="value">
+        /// The object value to convert to a string.
+        /// </param>
+        /// <returns>
+        /// The string representation of the value.
+        /// </returns>
         private static string StringFromObject(
             object value
             )
@@ -393,6 +675,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the string representation of the specified
+        /// object value to the test data, writing it to the host and/or log as
+        /// appropriate based on the current test output settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when emitting the test data.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being emitted.
+        /// </param>
+        /// <param name="value">
+        /// The object value to append.
+        /// </param>
         public static void Append(
             Interpreter interpreter,
             StringBuilder testData,
@@ -443,6 +743,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a line terminator to the test data, writing it
+        /// to the host and/or log as appropriate based on the current test
+        /// output settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when emitting the test data.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being emitted.
+        /// </param>
         public static void AppendLine(
             Interpreter interpreter,
             StringBuilder testData,
@@ -476,6 +791,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified string value followed by a line
+        /// terminator to the test data, writing it to the host and/or log as
+        /// appropriate based on the current test output settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when emitting the test data.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being emitted.
+        /// </param>
+        /// <param name="value">
+        /// The string value to append.
+        /// </param>
         public static void AppendLine(
             Interpreter interpreter,
             StringBuilder testData,
@@ -526,6 +859,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified format string and arguments and
+        /// appends the result to the test data, writing it to the host and/or
+        /// log as appropriate based on the current test output settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when emitting the test data.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being emitted.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string.
+        /// </param>
+        /// <param name="args">
+        /// The array of objects to format using the format string.
+        /// </param>
         public static void AppendFormat(
             Interpreter interpreter,
             StringBuilder testData,
@@ -579,6 +933,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Statistics Support Methods
+        /// <summary>
+        /// This method determines whether the specified repeat count indicates
+        /// that a test is being repeated more than once.
+        /// </summary>
+        /// <param name="repeatCount">
+        /// The number of times the test is to be run.
+        /// </param>
+        /// <returns>
+        /// True if the repeat count is greater than one; otherwise, false.
+        /// </returns>
         private static bool IsRepeating(
             int repeatCount
             )
@@ -588,6 +952,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a display suffix indicating the current
+        /// iteration of a repeated test, or an empty string when the test is
+        /// not being repeated.
+        /// </summary>
+        /// <param name="iterationCount">
+        /// The number of the current iteration.
+        /// </param>
+        /// <param name="repeatCount">
+        /// The total number of times the test is to be run.
+        /// </param>
+        /// <returns>
+        /// The iteration suffix string, or an empty string when not repeating.
+        /// </returns>
         public static string GetRepeatSuffix(
             int iterationCount,
             int repeatCount
@@ -604,6 +982,17 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by the TraceOps class only.
         //
+        /// <summary>
+        /// This method returns the name of the test currently being run by the
+        /// specified interpreter (or by the test it is following), if any.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  If this parameter is null, null is
+        /// returned.
+        /// </param>
+        /// <returns>
+        /// The name of the current test, or null if there is none.
+        /// </returns>
         public static string GetCurrentName(
             Interpreter interpreter
             )
@@ -642,6 +1031,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the specified piece of test information into the
+        /// interpreter, discarding any error message that may be produced.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter into which the information will be recorded.
+        /// </param>
+        /// <param name="type">
+        /// The category of test information being recorded.
+        /// </param>
+        /// <param name="name">
+        /// The test name (or other key) associated with the information, when
+        /// applicable.  Empty names are permitted.
+        /// </param>
+        /// <param name="value">
+        /// The value to record, when applicable.
+        /// </param>
+        /// <param name="add">
+        /// Non-zero to add (or increment) the information; zero to remove (or
+        /// decrement) it.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode RecordInformation(
             Interpreter interpreter,
             TestInformationType type,
@@ -657,6 +1071,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the specified piece of test information into the
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter into which the information will be recorded.
+        /// </param>
+        /// <param name="type">
+        /// The category of test information being recorded.
+        /// </param>
+        /// <param name="name">
+        /// The test name (or other key) associated with the information, when
+        /// applicable.  Empty names are permitted.
+        /// </param>
+        /// <param name="value">
+        /// The value to record, when applicable.
+        /// </param>
+        /// <param name="add">
+        /// Non-zero to add (or increment) the information; zero to remove (or
+        /// decrement) it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode RecordInformation(
             Interpreter interpreter,
             TestInformationType type,
@@ -673,6 +1115,41 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the specified piece of test information into the
+        /// interpreter, dispatching to the appropriate handling based on the
+        /// information type.  This is the most general overload; the other
+        /// overloads delegate to it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter into which the information will be recorded.  If
+        /// this parameter is null, an error is returned.
+        /// </param>
+        /// <param name="type">
+        /// The category of test information being recorded.
+        /// </param>
+        /// <param name="name">
+        /// The test name (or other key) associated with the information, when
+        /// applicable.  Empty names are permitted.
+        /// </param>
+        /// <param name="value">
+        /// The value to record, when applicable.
+        /// </param>
+        /// <param name="add">
+        /// Non-zero to add (or increment) the information; zero to remove (or
+        /// decrement) it.
+        /// </param>
+        /// <param name="level">
+        /// When recording the test level, receives the resulting test nesting
+        /// level after entering or exiting a level.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode RecordInformation(
             Interpreter interpreter,
             TestInformationType type,
@@ -1147,6 +1624,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Constraint Checking Methods
+        /// <summary>
+        /// This method retrieves the number of times the named test has been
+        /// run so far, as tracked by the interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  If this parameter is null, an error is
+        /// returned.
+        /// </param>
+        /// <param name="name">
+        /// The name of the test.  Empty names are permitted; a null name is an
+        /// error.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, receives the number of times the test has been run.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode CheckCount(
             Interpreter interpreter,
             string name,
@@ -1190,6 +1689,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the specified test name against the interpreter's
+        /// configured match and skip name patterns.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  If this parameter is null, an error is
+        /// returned.
+        /// </param>
+        /// <param name="name">
+        /// The name of the test.  Empty names are permitted; a null name is an
+        /// error.
+        /// </param>
+        /// <param name="matchName">
+        /// Upon success, set to non-zero if the test name matches the
+        /// configured match patterns.
+        /// </param>
+        /// <param name="skipName">
+        /// Upon success, set to non-zero if the test name matches the
+        /// configured skip patterns.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode CheckNames(
             Interpreter interpreter,
             string name,
@@ -1236,6 +1762,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a formatted "SKIPPED" notice for the named test
+        /// to the test data, listing the reasons the test was skipped.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when emitting the test data.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="name">
+        /// The name of the test that was skipped.
+        /// </param>
+        /// <param name="list">
+        /// The list of reasons (e.g. unsatisfied constraints) the test was
+        /// skipped.
+        /// </param>
         public static void AddSkippedTestData(
             Interpreter interpreter,
             StringBuilder testData,
@@ -1254,6 +1798,49 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates a constraint expression for the named test
+        /// and, if the expression is not satisfied, records the test as skipped
+        /// and indicates that it should not be run.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, an error
+        /// is returned.
+        /// </param>
+        /// <param name="testLevels">
+        /// The current test nesting level; statistics are only recorded at the
+        /// outermost level (one).
+        /// </param>
+        /// <param name="name">
+        /// The name of the test.  Empty names are permitted; a null name is an
+        /// error.
+        /// </param>
+        /// <param name="constraintExpression">
+        /// The constraint expression to evaluate.  If this is null or empty,
+        /// the test is allowed to run.
+        /// </param>
+        /// <param name="noStatistics">
+        /// Non-zero to suppress recording skip statistics in the interpreter.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="knownBug">
+        /// Non-zero if the test exercises a known bug, in which case the
+        /// "skipped bug" statistic is also recorded.
+        /// </param>
+        /// <param name="skip">
+        /// Set to non-zero if the test should be skipped because the constraint
+        /// expression was not satisfied.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode CheckConstraintExpression(
             Interpreter interpreter,
             int testLevels, /* NOTE: Use this instead of member variable, no need for lock. */
@@ -1410,6 +1997,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the named test against the interpreter's match
+        /// and skip name patterns, its run-once policy, and its list of
+        /// constraints, and determines whether the test should be skipped.  It
+        /// also processes the special "fail.false", "fail.true", "knownBug",
+        /// and "!knownBug" pseudo-constraints.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, an error
+        /// is returned.
+        /// </param>
+        /// <param name="testLevels">
+        /// The current test nesting level; statistics are only recorded at the
+        /// outermost level (one).
+        /// </param>
+        /// <param name="name">
+        /// The name of the test.  Empty names are permitted; a null name is an
+        /// error.
+        /// </param>
+        /// <param name="constraints">
+        /// The list of constraints (as a string list) required for the test to
+        /// run, or null if there are none.
+        /// </param>
+        /// <param name="once">
+        /// Non-zero if the test should only be run once; if it has already been
+        /// run, it will be skipped.
+        /// </param>
+        /// <param name="noStatistics">
+        /// Non-zero to suppress recording skip statistics in the interpreter.
+        /// </param>
+        /// <param name="testData">
+        /// The string builder accumulating the returned test data, or null if
+        /// none.
+        /// </param>
+        /// <param name="skip">
+        /// Set to non-zero if the test should be skipped.
+        /// </param>
+        /// <param name="fail">
+        /// Set based on the "fail.false" and "fail.true" pseudo-constraints,
+        /// controlling whether the test is permitted to fail.
+        /// </param>
+        /// <param name="whatIf">
+        /// Set to non-zero if the interpreter is in script "what-if" mode.
+        /// </param>
+        /// <param name="knownBug">
+        /// Set based on the "knownBug" and "!knownBug" pseudo-constraints,
+        /// indicating whether the test exercises a known bug.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode CheckConstraints(
             Interpreter interpreter,
             int testLevels, /* NOTE: Use this instead of member variable, no need for lock. */
@@ -1728,6 +2370,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Test Suite Support Methods
+        /// <summary>
+        /// This method writes the specified value to the attached debugger as
+        /// test tracking output, when test data tracking is enabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being tracked.
+        /// </param>
+        /// <returns>
+        /// True if the value was written to the debugger; otherwise, false.
+        /// </returns>
         public static bool Track(
             Interpreter interpreter,
             string value,
@@ -1742,6 +2400,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to write the specified value to any attached
+        /// debugger (and, on Windows, to the native debug output).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when reporting a complaint on failure.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting a complaint when the write fails.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully written to a debugger; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryWriteViaDebug(
             Interpreter interpreter,
             string value,
@@ -1790,6 +2465,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to write the specified value to the
+        /// interpreter's interactive host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host will be written to.  If this
+        /// parameter is null, the write fails.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting a complaint when the write fails.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully written to the host; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryWriteViaHost(
             Interpreter interpreter,
             string value,
@@ -1845,6 +2538,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the available test output command,
+        /// preferring the normal command and optionally falling back to the
+        /// fallback command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the command.  If this parameter is
+        /// null, null is returned.
+        /// </param>
+        /// <param name="useFallback">
+        /// Non-zero to allow returning the fallback command when the normal
+        /// command does not exist.
+        /// </param>
+        /// <returns>
+        /// The name of an available test output command, or null if none is
+        /// available.
+        /// </returns>
         private static string GetPutsCommand(
             Interpreter interpreter,
             bool useFallback
@@ -1873,6 +2583,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the specified channel name if a channel with
+        /// that name exists in the interpreter; otherwise, it returns null.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the channel.  If this parameter is
+        /// null, null is returned.
+        /// </param>
+        /// <param name="name">
+        /// The name of the channel to check for.
+        /// </param>
+        /// <returns>
+        /// The channel name if the channel exists; otherwise, null.
+        /// </returns>
         private static string ChannelOrNull(
             Interpreter interpreter,
             string name
@@ -1889,6 +2613,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the channel to use for test output,
+        /// preferring the channel named by the configured variable and
+        /// optionally falling back to the fallback channel.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.  If this parameter is null, null is
+        /// returned.
+        /// </param>
+        /// <param name="useFallback">
+        /// Non-zero to allow returning the fallback channel when the normal
+        /// channel is not available.
+        /// </param>
+        /// <returns>
+        /// The name of an available test output channel, or null if none is
+        /// available.
+        /// </returns>
         private static string GetPutsChannel(
             Interpreter interpreter,
             bool useFallback
@@ -1914,6 +2655,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether it may be possible to write test
+        /// output via the test output command and channel, i.e. whether both
+        /// are available.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <returns>
+        /// True if both a test output command and channel are available;
+        /// otherwise, false.
+        /// </returns>
         public static bool CanMaybeTryWriteViaPuts(
             Interpreter interpreter
             )
@@ -1929,6 +2682,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to write the specified value to the test
+        /// output channel by evaluating the test output command (i.e.
+        /// "::tputs" or "::tqputs"), honoring the interpreter's "quiet" mode
+        /// unless instructed otherwise.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// write fails.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="ignoreQuiet">
+        /// Non-zero to write the value even when the interpreter is in "quiet"
+        /// mode.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting a complaint when the write fails.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully written (or suppressed due to
+        /// quiet mode); otherwise, false.
+        /// </returns>
         public static bool TryWriteViaPuts( /* NOTE: Really via "::tputs" / "::tqputs"... */
             Interpreter interpreter,
             string value,
@@ -1998,6 +2775,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the available test log command,
+        /// preferring the normal command and optionally falling back to the
+        /// fallback command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the command.  If this parameter is
+        /// null, null is returned.
+        /// </param>
+        /// <param name="useFallback">
+        /// Non-zero to allow returning the fallback command when the normal
+        /// command does not exist.
+        /// </param>
+        /// <returns>
+        /// The name of an available test log command, or null if none is
+        /// available.
+        /// </returns>
         private static string GetLogCommand(
             Interpreter interpreter,
             bool useFallback
@@ -2026,6 +2820,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to write the specified value to the test log
+        /// file by evaluating the test log command (i.e. "::tlog" or
+        /// "::tqlog").
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// write fails.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting a complaint when the write fails.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully written to the log; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryWriteViaLog( /* NOTE: Really via "::tlog" / "::tqlog"... */
             Interpreter interpreter,
             string value,
@@ -2073,6 +2886,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified test output type should
+        /// be written automatically when test output is in "automatic" mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context (currently unused).
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered.
+        /// </param>
+        /// <returns>
+        /// True if the output should be written automatically (i.e. it marks
+        /// the start of a test); otherwise, false.
+        /// </returns>
         private static bool IsAutomaticWriteTestData(
             Interpreter interpreter, /* NOT USED */
             TestOutputType outputType
@@ -2087,6 +2914,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified test output should be
+        /// returned automatically when test output is in "automatic" mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context (currently unused).
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered (currently unused).
+        /// </param>
+        /// <param name="wrote">
+        /// Non-zero if the data was already written out during the test.
+        /// </param>
+        /// <returns>
+        /// True if the output should be returned automatically (i.e. it was not
+        /// already written); otherwise, false.
+        /// </returns>
         private static bool IsAutomaticReturnTestData(
             Interpreter interpreter, /* NOT USED */
             TestOutputType outputType, /* NOT USED */
@@ -2106,6 +2950,23 @@ namespace Eagle._Components.Private
         // WARNING: For use by the test package only.
         //          Do not modify or remove this method.
         //
+        /// <summary>
+        /// This method determines whether test data should be written to the
+        /// host, based on the specified return code (mapped to a pass or fail
+        /// output type).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="code">
+        /// The return code of the test;
+        /// <see cref="ReturnCode.Ok" /> maps to pass output and any other value
+        /// maps to fail output.
+        /// </param>
+        /// <returns>
+        /// True if the test data should be written to the host; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldWriteTestData(
             Interpreter interpreter,
             ReturnCode code
@@ -2118,6 +2979,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether test data of the specified output
+        /// type should be written to the host, based on the interpreter's test
+        /// flags and verbosity settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// result is false.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered.
+        /// </param>
+        /// <returns>
+        /// True if the test data should be written to the host; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldWriteTestData(
             Interpreter interpreter,
             TestOutputType outputType
@@ -2152,6 +3029,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether test data of the specified output
+        /// type should be returned to the caller, based on the interpreter's
+        /// test flags and verbosity settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// result is false.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered.
+        /// </param>
+        /// <param name="wrote">
+        /// Non-zero if the data was already written out during the test.
+        /// </param>
+        /// <returns>
+        /// True if the test data should be returned; otherwise, false.
+        /// </returns>
         private static bool ShouldReturnTestData(
             Interpreter interpreter,
             TestOutputType outputType,
@@ -2187,6 +3082,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether test data of the specified output
+        /// type should be written to the log file, based on the interpreter's
+        /// test flags and verbosity settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// result is false.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered.
+        /// </param>
+        /// <returns>
+        /// True if the test data should be logged; otherwise, false.
+        /// </returns>
         private static bool ShouldLogTestData(
             Interpreter interpreter,
             TestOutputType outputType
@@ -2217,6 +3127,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether test data of the specified output
+        /// type should be tracked (i.e. written to the debugger), based on the
+        /// interpreter's test flags and verbosity settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  If this parameter is null, the
+        /// result is false.
+        /// </param>
+        /// <param name="outputType">
+        /// The category of test output being considered.
+        /// </param>
+        /// <returns>
+        /// True if the test data should be tracked; otherwise, false.
+        /// </returns>
         private static bool ShouldTrackTestData(
             Interpreter interpreter,
             TestOutputType outputType
@@ -2243,6 +3168,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method determines whether a particular detail level should be
+        /// shown for an isolated test based on its pass or fail status.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context (currently unused).
+        /// </param>
+        /// <param name="passFlags">
+        /// The detail level flags to use when the test passed.
+        /// </param>
+        /// <param name="failFlags">
+        /// The detail level flags to use when the test failed.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The specific detail level flags being checked for.
+        /// </param>
+        /// <param name="pass">
+        /// Non-zero if the test passed; zero if it failed.
+        /// </param>
+        /// <returns>
+        /// True if the requested detail level should be shown; otherwise,
+        /// false.
+        /// </returns>
         public static bool ShouldShowTestDetail(
             Interpreter interpreter, /* NOT USED */
             IsolationDetail passFlags,
@@ -2272,6 +3220,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a dictionary mapping the relevant return codes
+        /// to their human-readable descriptions, for use when reporting test
+        /// outcomes.
+        /// </summary>
+        /// <returns>
+        /// A dictionary of return code to message mappings.
+        /// </returns>
         public static ReturnCodeDictionary GetReturnCodeMessages()
         {
             ReturnCodeDictionary result = new ReturnCodeDictionary();
@@ -2304,6 +3260,24 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines the script location associated with the
+        /// specified argument, complaining if it cannot be determined.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when determining the script location.
+        /// </param>
+        /// <param name="argument">
+        /// The argument used as the source of location information and as the
+        /// fallback location.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, the location must be determined precisely rather than
+        /// falling back to the argument.
+        /// </param>
+        /// <param name="location">
+        /// Upon return, receives the determined script location.
+        /// </param>
         public static void GetTestScriptLocation(
             Interpreter interpreter,
             Argument argument,
@@ -2329,6 +3303,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the script location associated with the
+        /// specified argument.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when determining the script location.
+        /// </param>
+        /// <param name="argument">
+        /// The argument used as the source of location information and as the
+        /// fallback location.
+        /// </param>
+        /// <param name="strict">
+        /// When non-zero, the location must be determined precisely rather than
+        /// falling back to the argument.
+        /// </param>
+        /// <param name="location">
+        /// Upon success, receives the determined script location.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetTestScriptLocation(
             Interpreter interpreter,
             Argument argument,
@@ -2371,6 +3370,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the base path where the test suite files are
+        /// located, preferring the interpreter's configured test path and
+        /// otherwise deriving it from the global base path and the requested
+        /// path type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for its configured test path, or null if
+        /// none.
+        /// </param>
+        /// <param name="pathType">
+        /// The category of test path to derive when no configured test path is
+        /// available.
+        /// </param>
+        /// <returns>
+        /// The test suite path, or null if it cannot be determined.
+        /// </returns>
         public static string GetPath(
             Interpreter interpreter,
             TestPathType pathType
@@ -2428,6 +3444,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if SHELL && !ENTERPRISE_LOCKDOWN
+        /// <summary>
+        /// This method, when running on the .NET Core runtime, prepends the
+        /// command line arguments needed to execute the entry assembly via the
+        /// host executable when launching an isolated test process.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when comparing file names.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the executable that will be launched.
+        /// </param>
+        /// <param name="firstArguments">
+        /// The list of arguments that must precede the rest of the command
+        /// line; this list is created if needed and appended to.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Set to non-zero if the fully qualified path to the entry assembly
+        /// must be added to the final argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetIsolatedExecutableFirstArguments(
             Interpreter interpreter,       /* in */
             string fileName,               /* in */
@@ -2472,6 +3514,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the file name of the executable to launch in
+        /// order to run an isolated test process, accounting for the Mono and
+        /// .NET Core runtimes, and any required leading arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to obtain the fully qualified executable file name.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the file name of the executable to launch.
+        /// </param>
+        /// <param name="firstArguments">
+        /// The list of arguments that must precede the rest of the command
+        /// line; this list may be created and appended to.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Set to non-zero if the entry assembly path must be added to the
+        /// final argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetIsolatedExecutableName(
             Interpreter interpreter,       /* in */
             bool full,                     /* in */
@@ -2521,6 +3592,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a uniquely named temporary script file located
+        /// within the test suite directory, for use as the script file of an
+        /// isolated test process.  The temporary file is cleaned up on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="pathType">
+        /// The category of test path under which the file should be created.
+        /// </param>
+        /// <param name="fileName">
+        /// Upon success, receives the resulting script file name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetIsolatedFileName(
             Interpreter interpreter, /* in */
             TestPathType pathType,   /* in */
@@ -2636,6 +3728,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the command line arguments needed to pre-initialize
+        /// a test-related variable, with the value of the specified test
+        /// information, in an isolated test process.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the test information.  If this
+        /// parameter is null, an error is returned.
+        /// </param>
+        /// <param name="type">
+        /// The category of test information to retrieve and assign.
+        /// </param>
+        /// <param name="list">
+        /// The argument list to which the assignment arguments will be added.
+        /// If this parameter is null, an error is returned.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode AddIsolatedVariableAssignment(
             Interpreter interpreter,  /* in */
             TestInformationType type, /* in */
@@ -2673,6 +3788,61 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the complete, properly quoted command line used
+        /// to launch an isolated test process, including the entry assembly,
+        /// the safe and security options, the previous and current test name
+        /// assignments, the optional pre-initialize script, the test and log
+        /// file options, and any caller-supplied leading, other, and trailing
+        /// arguments.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.
+        /// </param>
+        /// <param name="fileName">
+        /// The test script file name to pass on the command line, or null if
+        /// none.
+        /// </param>
+        /// <param name="logFile">
+        /// The log file name to pass on the command line, or null if none.
+        /// </param>
+        /// <param name="firstArguments">
+        /// The arguments that must precede the rest of the command line, or
+        /// null if none.
+        /// </param>
+        /// <param name="otherArguments">
+        /// The arguments that must occur before the test file on the command
+        /// line, or null if none.
+        /// </param>
+        /// <param name="lastArguments">
+        /// The arguments that must occur after the rest of the command line, or
+        /// null if none.
+        /// </param>
+        /// <param name="text">
+        /// The pre-initialize script to pass on the command line, or null if
+        /// none.
+        /// </param>
+        /// <param name="useEntryAssembly">
+        /// Non-zero if the entry assembly file name must be inserted into the
+        /// command line.
+        /// </param>
+        /// <param name="safe">
+        /// Non-zero to force the interpreter in the child process to be "safe".
+        /// </param>
+        /// <param name="security">
+        /// Non-zero to enable security for the interpreter in the child
+        /// process.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon success, receives the built command line string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetIsolatedExecutableArguments(
             Interpreter interpreter,   /* in */
             string fileName,           /* in */
@@ -2847,6 +4017,30 @@ namespace Eagle._Components.Private
         //
         // NOTE: Syntax is "test name description ?options?".
         //
+        /// <summary>
+        /// This method copies the arguments of a test command, omitting the
+        /// options that apply only to test isolation, so that the resulting
+        /// argument list can be run normally within the isolated process.  The
+        /// command syntax is "test name description ?options?".
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context (currently unused for matching).
+        /// </param>
+        /// <param name="oldArguments">
+        /// The original test command argument list.  If this parameter is null,
+        /// the new argument list is set to null.
+        /// </param>
+        /// <param name="newArguments">
+        /// The argument list to receive the copied, filtered arguments; it is
+        /// created if needed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetIsolatedCommandArguments(
             Interpreter interpreter,       /* in */
             ArgumentList oldArguments,     /* in */
@@ -2939,6 +4133,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a warning should be issued about
+        /// running individual test files (instead of the full test suite),
+        /// based on whether the corresponding warning suppression variable has
+        /// been set.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the suppression variable.
+        /// </param>
+        /// <returns>
+        /// True if the warning should be issued; otherwise, false.
+        /// </returns>
         private static bool ShouldWarnSuiteFileName(
             Interpreter interpreter
             )
@@ -2955,6 +4161,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a warning should be issued about
+        /// running test files located in a non-test directory, based on whether
+        /// the corresponding warning suppression variable has been set.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query for the suppression variable.
+        /// </param>
+        /// <returns>
+        /// True if the warning should be issued; otherwise, false.
+        /// </returns>
         private static bool ShouldWarnSuiteDirectory(
             Interpreter interpreter
             )
@@ -2971,6 +4188,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the name of the immediate parent directory of
+        /// the specified file, without any further directory information.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name whose parent directory name is desired.  If this
+        /// parameter is null or empty, null is returned.
+        /// </param>
+        /// <returns>
+        /// The name of the parent directory, or null if it cannot be
+        /// determined.
+        /// </returns>
         private static string GetDirectoryNameOnly(
             string fileName
             )
@@ -2983,6 +4212,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates and evaluates the test suite script file(s)
+        /// matching the specified pattern beneath the test suite path,
+        /// optionally evaluating all matching files, while skipping the
+        /// well-known prologue and epilogue files and issuing warnings about
+        /// running individual files or files located in non-test directories.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the test files will be evaluated.
+        /// </param>
+        /// <param name="pattern">
+        /// The file name or glob pattern of the test files to run, or null to
+        /// run the master test suite file.
+        /// </param>
+        /// <param name="extraPath">
+        /// An optional additional path fragment appended to the base test
+        /// path, or null if none.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use when evaluating the test files.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use when evaluating the test files.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags to use when evaluating the test files.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags to use when evaluating the test files.
+        /// </param>
+        /// <param name="pathType">
+        /// The category of test path to search beneath.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to evaluate all matching test files; zero to evaluate only
+        /// the first one.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the result of the last test file evaluated;
+        /// upon failure, receives an appropriate error message.
+        /// </param>
+        /// <param name="errorLine">
+        /// Upon failure during evaluation, receives the line number where the
+        /// error occurred.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ShellMain(
             Interpreter interpreter,
             string pattern,
@@ -3287,6 +4565,16 @@ namespace Eagle._Components.Private
 
         #region Thread Start Callbacks
 #if SHELL && INTERACTIVE_COMMANDS
+        /// <summary>
+        /// This method is a thread start callback that, after a short delay,
+        /// cancels the active interpreter's host (closing the standard input
+        /// channel), for use in testing host cancellation behavior.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread start argument, expected to be a pair whose first value
+        /// is the delay in milliseconds and whose second value indicates
+        /// whether to force the cancel.
+        /// </param>
         public static void HostCancelThreadStart(
             object obj
             )
@@ -3378,6 +4666,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is a thread start callback that, after a short delay,
+        /// exits the active interpreter's host (closing the standard input
+        /// channel), for use in testing host exit behavior.
+        /// </summary>
+        /// <param name="obj">
+        /// The thread start argument, expected to be a pair whose first value
+        /// is the delay in milliseconds and whose second value indicates
+        /// whether to force the exit.
+        /// </param>
         public static void HostExitThreadStart(
             object obj
             )

@@ -23,6 +23,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Functions
 {
+    /// <summary>
+    /// This class implements the Eagle <c>bool</c> expression function, which
+    /// converts its single argument to a boolean value.  Numeric and date/time
+    /// arguments are reduced to <c>true</c> or <c>false</c>, while an existing
+    /// boolean argument is passed through unchanged.  See
+    /// <c>core_language.md</c> for expression and function semantics.
+    /// </summary>
     [ObjectId("11e36c1b-be45-42de-ba3c-e173047e722c")]
     [FunctionFlags(FunctionFlags.Safe | FunctionFlags.Standard)]
     [Arguments(Arity.Unary)]
@@ -31,6 +38,13 @@ namespace Eagle._Functions
     internal sealed class Bool : Arguments
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>bool</c> expression function.
+        /// </summary>
+        /// <param name="functionData">
+        /// The data used to create and identify this function, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Bool(
             IFunctionData functionData /* in */
             )
@@ -43,6 +57,40 @@ namespace Eagle._Functions
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecuteArgument Members
+        /// <summary>
+        /// This method evaluates the <c>bool</c> function.  It validates the
+        /// arguments using the base implementation, obtains the single
+        /// argument as a variant, and converts it to a boolean value based on
+        /// its underlying type.  Date/time, floating-point, decimal, big
+        /// integer, wide integer, and integer values are converted (possibly
+        /// lossily) to a boolean; an existing boolean value is used as-is.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this function is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, function-specific data supplied when this function was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// function name; element one is the value to be converted to a
+        /// boolean.  This parameter should not be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this is set to the resulting boolean value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the result placed in
+        /// <paramref name="value" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the argument is missing, cannot
+        /// be interpreted as a boolean, or a math exception occurs, with
+        /// details placed in <paramref name="error" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter, /* in */
             IClientData clientData,  /* in */

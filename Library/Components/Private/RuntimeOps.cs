@@ -86,10 +86,23 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of miscellaneous, low-level runtime
+    /// operations used throughout the Eagle core.  These helpers cover such
+    /// areas as native stack checking, hashing and trust/signature
+    /// verification, resource and version handling, the population of
+    /// plugins, commands, operators, and functions, and the generation of
+    /// random data.  It is an internal, static utility class and is not
+    /// intended for direct use by application code.
+    /// </summary>
     [ObjectId("52155f4f-322b-4389-aacd-166fe334d164")]
     internal static class RuntimeOps
     {
         #region Synchronization Objects
+        /// <summary>
+        /// The object used to synchronize access to the static state of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
         #endregion
 
@@ -97,6 +110,10 @@ namespace Eagle._Components.Private
 
         #region Private Constants
         #region Property Value Defaults
+        /// <summary>
+        /// When non-zero, an exception is thrown when a requested feature is
+        /// not supported by the current runtime.
+        /// </summary>
         private static readonly bool ThrowOnFeatureNotSupported = true;
         #endregion
 
@@ -107,6 +124,10 @@ namespace Eagle._Components.Private
         // WARNING: Do not change this as it must be a pass-through one-byte
         //          per character encoding.
         //
+        /// <summary>
+        /// The encoding used to read and write raw bytes; this must be a
+        /// pass-through, one-byte-per-character encoding.
+        /// </summary>
         private static readonly Encoding RawEncoding = OneByteEncoding.OneByte;
         #endregion
 
@@ -118,51 +139,99 @@ namespace Eagle._Components.Private
         //       they are used before the cultureInfo and resourceManager
         //       objects are available to resolve runtime string resources.
         //
+        /// <summary>
+        /// The error message format used when a value cannot be interpreted as
+        /// a culture name or identifier.
+        /// </summary>
         private const string CultureInfoError =
             "could not interpret {0} as a culture name or identifier";
 
+        /// <summary>
+        /// The error message used when a culture is invalid.
+        /// </summary>
         private const string InvalidCultureInfoError =
             "invalid culture";
 
+        /// <summary>
+        /// The error message used when a base resource name is invalid.
+        /// </summary>
         private const string InvalidBaseResourceName =
             "invalid base resource name";
 
+        /// <summary>
+        /// The error message used when a resource assembly is invalid.
+        /// </summary>
         private const string InvalidResourceAssembly =
             "invalid resource assembly";
 
+        /// <summary>
+        /// The error message format used when a resource manager cannot be
+        /// created.
+        /// </summary>
         private const string ResourceManagerError =
             "could not create resource manager {0}";
 
+        /// <summary>
+        /// The error message used when an interpreter resource manager is
+        /// invalid.
+        /// </summary>
         private const string InvalidInterpreterResourceManager =
             "invalid interpreter resource manager";
 
+        /// <summary>
+        /// The error message used when a plugin resource manager is invalid.
+        /// </summary>
         private const string InvalidPluginResourceManager =
             "invalid plugin resource manager";
 
+        /// <summary>
+        /// The error message used when an assembly resource manager is
+        /// invalid.
+        /// </summary>
         private const string InvalidAssemblyResourceManager =
             "invalid assembly resource manager";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to construct the name of the symbols
+        /// resource associated with a given base resource name.
+        /// </summary>
         private static readonly string SymbolsFormat = "{0}_Symbols";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Native Pointer Handling
+        /// <summary>
+        /// The native pointer value used to represent an invalid handle.
+        /// </summary>
         private static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Compile Options Constants
+        /// <summary>
+        /// The name of the compile-time option that indicates threading
+        /// support is enabled.
+        /// </summary>
         private const string ThreadingDefineName = "THREADING";
+
+        /// <summary>
+        /// The name of the compile-time option that indicates native code
+        /// support is enabled.
+        /// </summary>
         private const string NativeDefineName = "NATIVE";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Integer Range List Constants
+        /// <summary>
+        /// The regular expression used to validate and parse a string
+        /// containing a comma-separated list of integer ranges.
+        /// </summary>
         private static readonly Regex indexRangesRegEx = RegExOps.Create(
             "^(?:[ ]*\\d+(?:[ ]*-[ ]*\\d+)?" +
             "(?:[ ]*,[ ]*\\d+(?:[ ]*-[ ]*\\d+)?)*)?[ ]*$",
@@ -182,6 +251,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the environment variable used to disable native
+        /// stack checking has already been checked.
+        /// </summary>
         private static int checkedNoNativeStack = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -192,11 +265,23 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, all native stack checking will be disabled.
+        /// </summary>
         private static int noNativeStack = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The thread-specific data slot used to store the base pointer of the
+        /// native stack for the current thread.
+        /// </summary>
         private static LocalDataStoreSlot stackPtrSlot; /* ThreadSpecificData */
+
+        /// <summary>
+        /// The thread-specific data slot used to store the size of the native
+        /// stack for the current thread.
+        /// </summary>
         private static LocalDataStoreSlot stackSizeSlot; /* ThreadSpecificData */
 
         //
@@ -208,8 +293,22 @@ namespace Eagle._Components.Private
         //
         // HACK: These are no longer read-only.
         //
+        /// <summary>
+        /// The number of nesting levels permitted before native stack space is
+        /// checked during general evaluation.
+        /// </summary>
         private static int NoStackLevels = 100;
+
+        /// <summary>
+        /// The number of nesting levels permitted before native stack space is
+        /// checked during parsing.
+        /// </summary>
         private static int NoStackParserLevels = 100;
+
+        /// <summary>
+        /// The number of nesting levels permitted before native stack space is
+        /// checked during expression evaluation.
+        /// </summary>
         private static int NoStackExpressionLevels = 100;
 #endif
         #endregion
@@ -221,6 +320,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, interpreters are checked for disposal when the exit
+        /// lock is taken.
+        /// </summary>
         private static bool CheckDisposedOnExitLock = false;
 #endif
         #endregion
@@ -234,6 +337,10 @@ namespace Eagle._Components.Private
         //       allow this static field to be preset to bypass the runtime
         //       check.
         //
+        /// <summary>
+        /// When non-zero, the runtime check that would otherwise bypass a
+        /// Mono-specific code path is skipped, forcing Mono behavior.
+        /// </summary>
         private static bool forceMono = false;
 #endif
         #endregion
@@ -244,6 +351,10 @@ namespace Eagle._Components.Private
         //
         // NOTE: Cached instance of cryptographic random number generator.
         //
+        /// <summary>
+        /// The cached instance of the cryptographic random number generator
+        /// used to produce random data.
+        /// </summary>
         private static RandomNumberGenerator randomNumberGenerator;
         #endregion
 
@@ -254,6 +365,10 @@ namespace Eagle._Components.Private
         // HACK: When this is non-zero, any loader related exceptions that
         //       are encountered by this class will be reported in detail.
         //
+        /// <summary>
+        /// When non-zero, any loader-related exceptions encountered by this
+        /// class will be reported in detail.
+        /// </summary>
         private static bool VerboseExceptions = true;
         #endregion
         #endregion
@@ -262,6 +377,11 @@ namespace Eagle._Components.Private
 
 #if NATIVE
         #region Static Constructor
+        /// <summary>
+        /// Initializes static state for the <see cref="RuntimeOps" /> class.
+        /// This constructor performs any one-time initialization required
+        /// before the native stack checking subsystem can be used.
+        /// </summary>
         static RuntimeOps()
         {
             MaybeInitialize();
@@ -271,6 +391,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region AppDomain Initialization
+        /// <summary>
+        /// This method performs one-time initialization of the native stack
+        /// checking state, disabling native stack checking if the associated
+        /// environment variable is present.  It has no effect after the first
+        /// call.
+        /// </summary>
         public static void MaybeInitialize()
         {
             if (Interlocked.CompareExchange(
@@ -287,6 +413,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether native stack checking is currently
+        /// enabled.
+        /// </summary>
+        /// <returns>
+        /// True if native stack checking is enabled; otherwise, false.
+        /// </returns>
         private static bool IsNativeStackEnabled()
         {
             return Interlocked.CompareExchange(ref noNativeStack, 0, 0) <= 0;
@@ -294,6 +427,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables or disables native stack checking, maintaining a
+        /// nesting count so that paired enable and disable calls balance.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable native stack checking; zero to disable it.
+        /// </param>
+        /// <returns>
+        /// True if native stack checking is enabled after this call; otherwise,
+        /// false.
+        /// </returns>
         private static bool EnableNativeStack(
             bool enable
             )
@@ -309,6 +453,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Object Support Methods
+        /// <summary>
+        /// This method computes the runtime hash code for the specified object,
+        /// based on its identity rather than any overridden hash code.
+        /// </summary>
+        /// <param name="value">
+        /// The object for which to compute the runtime hash code.
+        /// </param>
+        /// <returns>
+        /// The identity-based hash code for the specified object.
+        /// </returns>
         public static int GetHashCode(object value)
         {
             return RuntimeHelpers.GetHashCode(value);
@@ -316,6 +470,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the runtime hash code for the value wrapped by
+        /// the specified opaque object, based on its identity.
+        /// </summary>
+        /// <param name="object">
+        /// The opaque object whose wrapped value is used to compute the runtime
+        /// hash code.  This value may be null.
+        /// </param>
+        /// <returns>
+        /// The identity-based hash code for the wrapped value, or
+        /// <see cref="HashCode.Invalid" /> if the specified object is null.
+        /// </returns>
         public static int GetHashCode(IObject @object)
         {
             if (@object == null)
@@ -328,6 +494,52 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Process Support Methods
+        /// <summary>
+        /// This method causes the current process to exit, optionally giving
+        /// the interpreter host an opportunity to prevent or customize the
+        /// shutdown.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the exit request, if any.  This
+        /// value may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// Optional, opaque, caller-specific data associated with the exit
+        /// request.  This value may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments associated with the exit request, if any.
+        /// This value may be null.
+        /// </param>
+        /// <param name="message">
+        /// An optional message describing the reason for the exit.  This value
+        /// may be null.
+        /// </param>
+        /// <param name="exitCode">
+        /// The exit code to report to the operating system upon exit.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the process to exit even if the interpreter host
+        /// would otherwise prevent it.
+        /// </param>
+        /// <param name="fail">
+        /// Non-zero to terminate the process abruptly instead of performing a
+        /// graceful exit.
+        /// </param>
+        /// <param name="noDispose">
+        /// Non-zero to skip disposing of the interpreter prior to exiting.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress error reporting that would otherwise occur
+        /// during the exit.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Exit(
             Interpreter interpreter, /* in: OPTIONAL */
             IClientData clientData,  /* in: OPTIONAL */
@@ -547,6 +759,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Native Stack Checking Support Methods
+        /// <summary>
+        /// This method retrieves the native stack size information that is
+        /// currently cached for the calling thread.
+        /// </summary>
+        /// <param name="used">
+        /// Upon success, this contains the approximate amount of native stack
+        /// space used by the calling thread.
+        /// </param>
+        /// <param name="allocated">
+        /// Upon success, this contains the approximate amount of native stack
+        /// space allocated for the calling thread.
+        /// </param>
+        /// <param name="extra">
+        /// Upon success, this contains the amount of extra native stack space
+        /// required by the calling thread.
+        /// </param>
+        /// <param name="margin">
+        /// Upon success, this contains the safety margin (overhead) of native
+        /// stack space reserved for use by the runtime.
+        /// </param>
+        /// <param name="maximum">
+        /// Upon success, this contains the maximum amount of native stack
+        /// space available to the calling thread.
+        /// </param>
+        /// <param name="reserve">
+        /// Upon success, this contains the amount of native stack space
+        /// reserved according to the executable (PE) file for this process.
+        /// </param>
+        /// <param name="commit">
+        /// Upon success, this contains the amount of native stack space
+        /// committed according to the executable (PE) file for this process.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why the
+        /// native stack size information could not be retrieved.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetStackSize(
             ref UIntPtr used,
             ref UIntPtr allocated,
@@ -606,6 +858,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE
+        /// <summary>
+        /// This method initializes the per-thread data slots used by the
+        /// native stack checking subsystem, if they have not already been
+        /// allocated.  It must be called prior to evaluating scripts in order
+        /// for runtime stack checking to function properly.
+        /// </summary>
         public static void MaybeInitializeStackChecking()
         {
             #region Native Stack Checking Thread Local Storage
@@ -646,6 +904,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the cached native stack pointer and stack
+        /// size information for the calling thread, clearing the associated
+        /// per-thread data slots.  The data is automatically re-created later
+        /// if it is still required.
+        /// </summary>
         public static void MaybeFinalizeStackChecking()
         {
             #region Native Stack Checking Thread Local Storage
@@ -739,6 +1003,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the approximate amount of native stack space
+        /// that has been used between two stack pointers, automatically
+        /// detecting the direction in which the stack is growing.
+        /// </summary>
+        /// <param name="outerStackPtr">
+        /// The native stack pointer captured nearer to the start (outermost
+        /// level) of script execution.
+        /// </param>
+        /// <param name="innerStackPtr">
+        /// The native stack pointer captured nearer to the current (innermost
+        /// level) of script execution.
+        /// </param>
+        /// <returns>
+        /// The approximate amount of native stack space used between the two
+        /// specified stack pointers.
+        /// </returns>
         private static UIntPtr CalculateUsedStackSpace(
             UIntPtr outerStackPtr,
             UIntPtr innerStackPtr
@@ -763,6 +1044,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates the approximate amount of native stack space
+        /// that is needed in order to safely continue script execution,
+        /// combining the used space, the requested extra space, and the safety
+        /// margin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose configured extra stack space should be
+        /// included in the calculation, or null if there is no associated
+        /// interpreter.
+        /// </param>
+        /// <param name="extraSpace">
+        /// The additional amount of native stack space requested by the
+        /// caller.
+        /// </param>
+        /// <param name="usedSpace">
+        /// The approximate amount of native stack space that has already been
+        /// used.
+        /// </param>
+        /// <param name="stackMargin">
+        /// The safety margin (overhead) of native stack space that should be
+        /// kept in reserve.
+        /// </param>
+        /// <returns>
+        /// The approximate total amount of native stack space needed.
+        /// </returns>
         private static UIntPtr CalculateNeededStackSpace(
             Interpreter interpreter,
             ulong extraSpace,
@@ -780,6 +1087,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the native stack space should be
+        /// checked, based on the specified ready flags and the various nesting
+        /// levels that have been reached thus far.
+        /// </summary>
+        /// <param name="flags">
+        /// The ready flags that control whether and how native stack checking
+        /// is performed.
+        /// </param>
+        /// <param name="levels">
+        /// The current number of script execution levels.
+        /// </param>
+        /// <param name="maximumLevels">
+        /// The maximum number of script execution levels reached thus far.
+        /// </param>
+        /// <param name="parserLevels">
+        /// The current number of script parser levels.
+        /// </param>
+        /// <param name="maximumParserLevels">
+        /// The maximum number of script parser levels reached thus far.
+        /// </param>
+        /// <param name="expressionLevels">
+        /// The current number of expression evaluation levels.
+        /// </param>
+        /// <param name="maximumExpressionLevels">
+        /// The maximum number of expression evaluation levels reached thus
+        /// far.
+        /// </param>
+        /// <returns>
+        /// True if the native stack space should be checked; otherwise, false.
+        /// </returns>
         public static bool ShouldCheckForStackSpace(
             ReadyFlags flags,
             int levels,
@@ -867,6 +1205,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the cached native stack pointers for the
+        /// calling thread, optionally initializing the native stack checking
+        /// subsystem beforehand.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the native stack checking data slots prior
+        /// to refreshing the stack pointers.
+        /// </param>
         public static void RefreshNativeStackPointers(
             bool initialize
             )
@@ -888,6 +1235,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method refreshes the cached native stack pointers for the
+        /// calling thread, optionally initializing the native stack checking
+        /// subsystem beforehand, and returns the resulting inner and outer
+        /// stack pointers to the caller.
+        /// </summary>
+        /// <param name="initialize">
+        /// Non-zero to initialize the native stack checking data slots prior
+        /// to refreshing the stack pointers.
+        /// </param>
+        /// <param name="innerStackPtr">
+        /// Upon return, this contains the current (innermost) native stack
+        /// pointer for the calling thread.
+        /// </param>
+        /// <param name="outerStackPtr">
+        /// Upon return, this contains the saved (outermost) native stack
+        /// pointer for the calling thread.
+        /// </param>
         private static void RefreshNativeStackPointers(
             bool initialize,
             ref UIntPtr innerStackPtr,
@@ -967,6 +1332,23 @@ namespace Eagle._Components.Private
         //
         // NOTE: This method assumes the associated lock is held.
         //
+        /// <summary>
+        /// This method creates or updates the cached native stack size
+        /// information for the calling thread, refreshing the used, allocated,
+        /// maximum, and margin values as appropriate.  The associated lock
+        /// must already be held by the caller.
+        /// </summary>
+        /// <param name="extraSpace">
+        /// The amount of extra native stack space requested by the caller.
+        /// </param>
+        /// <param name="usedSpace">
+        /// The approximate amount of native stack space that has already been
+        /// used by the calling thread.
+        /// </param>
+        /// <returns>
+        /// The created or updated native stack size object for the calling
+        /// thread, which may be null.
+        /// </returns>
         private static NativeStack.StackSize CreateOrUpdateStackSize(
             ulong extraSpace,
             UIntPtr usedSpace
@@ -1098,6 +1480,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the stack reserve and commit values of the
+        /// specified stack size object from the executable (PE) file that
+        /// started this process, if they have not already been set.
+        /// </summary>
+        /// <param name="stackSize">
+        /// The native stack size object whose reserve and commit values should
+        /// be set, which may be null.
+        /// </param>
         private static void MaybeSetStackReserveAndCommit(
             NativeStack.StackSize stackSize
             )
@@ -1119,6 +1510,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine the maximum amount of native
+        /// stack space available, preferring the maximum value from the stack
+        /// size object and falling back on the stack reserve from the
+        /// executable (PE) file for this process.
+        /// </summary>
+        /// <param name="stackSize">
+        /// The native stack size object from which to obtain the maximum stack
+        /// space, which may be null.
+        /// </param>
+        /// <param name="maximumSpace">
+        /// Upon success, this contains the maximum amount of native stack
+        /// space available.
+        /// </param>
+        /// <returns>
+        /// True if the maximum native stack space was determined; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryGetMaximumStackSpace(
             NativeStack.StackSize stackSize,
             ref UIntPtr maximumSpace
@@ -1162,6 +1571,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks the available native stack space for the
+        /// specified interpreter, but only when the number of parser levels
+        /// exceeds the threshold that requires no native stack check.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the native stack space should be checked,
+        /// which may be null.
+        /// </param>
+        /// <param name="parserLevels">
+        /// The current number of script parser levels.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if sufficient native stack space is
+        /// available (or the check was skipped); otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode MaybeCheckForParserStackSpace(
             Interpreter interpreter,
             int parserLevels
@@ -1175,6 +1601,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether sufficient native stack space is
+        /// available for the specified interpreter, using the default amount
+        /// of extra stack space.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the native stack space should be checked,
+        /// which may be null.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if sufficient native stack space is
+        /// available; otherwise, an appropriate error code.
+        /// </returns>
         public static ReturnCode CheckForStackSpace(
             Interpreter interpreter
             ) /* THREAD-SAFE */
@@ -1185,6 +1624,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether sufficient native stack space is
+        /// available for the specified interpreter, using the specified amount
+        /// of extra stack space.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the native stack space should be checked,
+        /// which may be null.
+        /// </param>
+        /// <param name="extraSpace">
+        /// The additional amount of native stack space that should be
+        /// available beyond what is currently in use.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if sufficient native stack space is
+        /// available; otherwise, an appropriate error code.
+        /// </returns>
         private static ReturnCode CheckForStackSpace(
             Interpreter interpreter,
             ulong extraSpace
@@ -1429,6 +1885,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Hash Algorithm Support Methods
+        /// <summary>
+        /// This method computes the hash of the string value of an argument
+        /// using the specified hash algorithm.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use, or null to use the default
+        /// hash algorithm.
+        /// </param>
+        /// <param name="argument">
+        /// The argument whose string value should be hashed.  This value may
+        /// be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the string value into bytes prior to
+        /// hashing, or null to use the raw encoding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The computed hash as an array of bytes, or null upon failure.
+        /// </returns>
         public static byte[] HashArgument(
             string hashAlgorithmName,
             Argument argument,
@@ -1443,6 +1922,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the hash of the text of a script using the
+        /// specified hash algorithm.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use, or null to use the default
+        /// hash algorithm.
+        /// </param>
+        /// <param name="script">
+        /// The script whose text should be hashed.  This value may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the script text into bytes prior to
+        /// hashing, or null to use the raw encoding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The computed hash as an array of bytes, or null upon failure.
+        /// </returns>
         public static byte[] HashScript(
             string hashAlgorithmName,
             IScript script,
@@ -1480,6 +1981,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the hash of the contents of a file using the
+        /// specified hash algorithm.  Remote URI file names are not supported.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use, or null to use the default
+        /// hash algorithm.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose contents should be hashed.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to read the file and convert its contents into
+        /// bytes prior to hashing, or null to read the raw bytes of the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The computed hash as an array of bytes, or null upon failure.
+        /// </returns>
         public static byte[] HashFile(
             string hashAlgorithmName,
             string fileName,
@@ -1536,6 +2059,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads (or otherwise obtains) the contents of a script
+        /// file and computes the hash of its original text using the default
+        /// hash algorithm.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to read the script file and to obtain
+        /// the flags that control how it is read.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the script file whose original text should be hashed.
+        /// </param>
+        /// <param name="noRemote">
+        /// Non-zero to prevent the script file from being read from a remote
+        /// location.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The computed hash as an array of bytes, or null upon failure.
+        /// </returns>
         public static byte[] HashScriptFile(
             Interpreter interpreter,
             string fileName,
@@ -1610,6 +2156,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the hash of a string value using the specified
+        /// hash algorithm.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use, or null to use the default
+        /// hash algorithm.
+        /// </param>
+        /// <param name="value">
+        /// The string value to be hashed.  This value may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to convert the string value into bytes prior to
+        /// hashing, or null to use the raw encoding.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The computed hash as an array of bytes, or null upon failure.
+        /// </returns>
         public static byte[] HashString(
             string hashAlgorithmName,
             string value,
@@ -1644,6 +2212,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Security Support Methods
+        /// <summary>
+        /// This method finds the <see cref="KeySizes" /> instance that has the
+        /// smallest minimum size from an array of candidates.
+        /// </summary>
+        /// <param name="allKeySizes">
+        /// The array of <see cref="KeySizes" /> instances to examine.  This
+        /// value may be null and individual elements may be null.
+        /// </param>
+        /// <returns>
+        /// The <see cref="KeySizes" /> instance with the smallest minimum size,
+        /// or null if there are no suitable candidates.
+        /// </returns>
         private static KeySizes GetLeastMinSize(
             KeySizes[] allKeySizes /* in */
             )
@@ -1677,6 +2257,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the <see cref="KeySizes" /> instance that has the
+        /// largest maximum size from an array of candidates.
+        /// </summary>
+        /// <param name="allKeySizes">
+        /// The array of <see cref="KeySizes" /> instances to examine.  This
+        /// value may be null and individual elements may be null.
+        /// </param>
+        /// <returns>
+        /// The <see cref="KeySizes" /> instance with the largest maximum size,
+        /// or null if there are no suitable candidates.
+        /// </returns>
         private static KeySizes GetGreatestMaxSize(
             KeySizes[] allKeySizes /* in */
             )
@@ -1710,6 +2302,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the greatest legal key size and the least
+        /// legal block size supported by the specified symmetric algorithm.
+        /// </summary>
+        /// <param name="algorithm">
+        /// The symmetric algorithm to query.  This value may be null.
+        /// </param>
+        /// <param name="keySize">
+        /// Upon success, this parameter will contain the greatest legal key
+        /// size, in bits, supported by the algorithm.
+        /// </param>
+        /// <param name="blockSize">
+        /// Upon success, this parameter will contain the least legal block
+        /// size, in bits, supported by the algorithm.
+        /// </param>
+        /// <returns>
+        /// An array of two boolean values; the first element is true if the
+        /// key size was determined and the second element is true if the block
+        /// size was determined.
+        /// </returns>
         public static bool[] GetGreatestMaxKeySizeAndLeastMinBlockSize(
             SymmetricAlgorithm algorithm, /* in */
             ref int keySize,              /* in, out */
@@ -1745,6 +2357,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NATIVE && !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges.
+        /// </summary>
+        /// <param name="administrator">
+        /// Upon success, this parameter will be true if the current process is
+        /// running with administrative privileges; otherwise, it will be false.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode IsAdministrator(
             ref bool administrator,
             ref Result error
@@ -1778,6 +2406,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the current process is running with
+        /// administrative privileges.
+        /// </summary>
+        /// <returns>
+        /// True if the current process is running with administrative
+        /// privileges; otherwise, false.
+        /// </returns>
         public static bool IsAdministrator()
         {
 #if NATIVE
@@ -1807,6 +2443,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether strong name verification checks
+        /// should be performed, based on the presence of an environment
+        /// variable.
+        /// </summary>
+        /// <returns>
+        /// True if strong name verification checks should be performed;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldCheckStrongNameVerified()
         {
             return !CommonOps.Environment.DoesVariableExist(
@@ -1815,6 +2460,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the strong name signature of an
+        /// assembly, provided as an array of bytes, is verified.  The bytes are
+        /// written to a temporary file, which is held open while the native CLR
+        /// API verifies the strong name signature, and then deleted.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to obtain the temporary file name.
+        /// This value is optional and may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The bytes of the assembly whose strong name signature should be
+        /// verified.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the strong name signature to be verified even if
+        /// verification has been previously disabled for the assembly.
+        /// </param>
+        /// <returns>
+        /// True if the strong name signature is verified; otherwise, false.
+        /// </returns>
         public static bool IsStrongNameVerified(
             Interpreter interpreter, /* in: OPTIONAL */
             byte[] bytes,            /* in */
@@ -1919,6 +2585,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the strong name signature of the
+        /// assembly file with the specified name is verified.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the assembly file whose strong name signature should be
+        /// verified.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the strong name signature to be verified even if
+        /// verification has been previously disabled for the assembly.
+        /// </param>
+        /// <returns>
+        /// True if the strong name signature is verified; otherwise, false.
+        /// </returns>
         public static bool IsStrongNameVerified(
             string fileName,
             bool force
@@ -2050,6 +2731,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the application should check for
+        /// updates, based on the presence of an environment variable.  Checking
+        /// for updates is disabled by default when running on Mono.
+        /// </summary>
+        /// <returns>
+        /// True if the application should check for updates; otherwise, false.
+        /// </returns>
         public static bool ShouldCheckForUpdates()
         {
 #if MONO || MONO_HACKS
@@ -2076,6 +2765,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether trusted hashes should be used, based
+        /// on the presence of an environment variable.
+        /// </summary>
+        /// <returns>
+        /// True if trusted hashes should be used; otherwise, false.
+        /// </returns>
         public static bool ShouldUseTrustedHashes()
         {
             return !CommonOps.Environment.DoesVariableExist(
@@ -2084,6 +2780,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the use of trusted hashes should be
+        /// forced, based on the presence of an environment variable.
+        /// </summary>
+        /// <returns>
+        /// True if the use of trusted hashes should be forced; otherwise,
+        /// false.
+        /// </returns>
         public static bool ShouldForceTrustedHashes()
         {
             return CommonOps.Environment.DoesVariableExist(
@@ -2092,6 +2796,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether files should be checked for trust,
+        /// based on the presence of an environment variable.
+        /// </summary>
+        /// <returns>
+        /// True if files should be checked for trust; otherwise, false.
+        /// </returns>
         public static bool ShouldCheckFileTrusted()
         {
             return !CommonOps.Environment.DoesVariableExist(
@@ -2100,6 +2811,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether files belonging to the Eagle Core
+        /// Library should be checked for trust.
+        /// </summary>
+        /// <returns>
+        /// True if core library files should be checked for trust; otherwise,
+        /// false.
+        /// </returns>
         public static bool ShouldCheckCoreFileTrusted()
         {
             if (!ShouldCheckFileTrusted())
@@ -2121,6 +2840,23 @@ namespace Eagle._Components.Private
         //          the NativeUtility class in order to verify that the Eagle
         //          Native Utility Library (Spilornis) is trusted.
         //
+        /// <summary>
+        /// This method determines whether the Eagle Native Utility Library
+        /// (Spilornis), provided as a file name, should be trusted and allowed
+        /// to load.  For the purposes of this check, the native utility library
+        /// is considered to be part of the Eagle Core Library.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when checking whether the relevant
+        /// files are trusted.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the native library file whose trust should be checked.
+        /// </param>
+        /// <returns>
+        /// True if the native library should be trusted and allowed to load;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldTrustNativeLibrary(
             Interpreter interpreter,
             string fileName
@@ -2160,6 +2896,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the trust of the specified block of
+        /// bytes can be verified.  The bytes are written to a temporary file,
+        /// which is checked for trust and then deleted prior to returning.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The optional list of pre-approved file hashes that should be treated
+        /// as trusted.  This parameter may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The block of bytes to check for trust.  This parameter may not be
+        /// null or empty.
+        /// </param>
+        /// <returns>
+        /// True if the trust of the bytes could be verified; otherwise, false.
+        /// </returns>
         public static bool IsFileTrusted(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -2231,6 +2986,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the trust of the specified file can
+        /// be verified, using the default trust checking options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The optional list of pre-approved file hashes that should be treated
+        /// as trusted.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to check for trust.
+        /// </param>
+        /// <param name="fileHandle">
+        /// The native handle of the open file to check for trust, if available;
+        /// otherwise, <see cref="IntPtr.Zero" />.
+        /// </param>
+        /// <returns>
+        /// True if the trust of the file could be verified; otherwise, false.
+        /// </returns>
         public static bool IsFileTrusted(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -2245,6 +3021,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the trust of the specified file can
+        /// be verified, dispatching to the appropriate platform-specific or
+        /// managed trust checking implementation based on the runtime in use.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The optional list of pre-approved file hashes that should be treated
+        /// as trusted.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to check for trust.
+        /// </param>
+        /// <param name="fileHandle">
+        /// The native handle of the open file to check for trust, if available;
+        /// otherwise, <see cref="IntPtr.Zero" />.
+        /// </param>
+        /// <param name="userInterface">
+        /// Non-zero to permit a user interface to be displayed during trust
+        /// checking.
+        /// </param>
+        /// <param name="userPrompt">
+        /// Non-zero to permit the user to be prompted during trust checking.
+        /// </param>
+        /// <param name="revocation">
+        /// Non-zero to enable certificate revocation checking during trust
+        /// checking.
+        /// </param>
+        /// <param name="install">
+        /// Non-zero if the trust check is being performed in the context of an
+        /// installation.
+        /// </param>
+        /// <returns>
+        /// True if the trust of the file could be verified; otherwise, false.
+        /// </returns>
         private static bool IsFileTrusted(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -2397,6 +3210,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the vendor name associated with this assembly, as
+        /// derived from the subject of its trusted code-signing certificate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass any cached certificate information and re-read it
+        /// from the underlying assembly file.
+        /// </param>
+        /// <returns>
+        /// The vendor name, or null if it could not be determined.
+        /// </returns>
         public static string GetVendor(
             Interpreter interpreter,
             bool noCache
@@ -2409,6 +3236,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the simple-name subject of the code-signing
+        /// certificate for the specified file, optionally requiring that the
+        /// file be trusted.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose certificate subject is wanted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="prefix">
+        /// The optional prefix string to prepend to the returned subject.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="trusted">
+        /// Non-zero to require that the file be trusted before its certificate
+        /// subject is returned.
+        /// </param>
+        /// <param name="noParenthesis">
+        /// Non-zero to strip any trailing parenthesized portion from the
+        /// certificate simple-name.
+        /// </param>
+        /// <param name="noCache">
+        /// Non-zero to bypass any cached certificate information and re-read it
+        /// from the file.
+        /// </param>
+        /// <returns>
+        /// The certificate subject simple-name, or null if it could not be
+        /// determined.
+        /// </returns>
         public static string GetCertificateSubject(
             Interpreter interpreter,
             string fileName,
@@ -2461,6 +3320,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of name/value pairs describing the
+        /// specified certificate.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate to describe.  This parameter may be null.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional details (e.g. issuer, serial number,
+        /// hash, validity dates, and key algorithm) in the resulting list.
+        /// </param>
+        /// <returns>
+        /// A list of name/value pairs describing the certificate, or null if
+        /// <paramref name="certificate" /> is null.
+        /// </returns>
         public static StringList CertificateToList(
             X509Certificate certificate,
             bool verbose
@@ -2504,6 +3378,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Plugin Support Methods
+        /// <summary>
+        /// This method gets the package name to use for the specified plugin.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to query.  This parameter may be null.
+        /// </param>
+        /// <param name="simple">
+        /// Non-zero to construct the package name from the plugin simple-name
+        /// and type name; otherwise, the full type name is used.
+        /// </param>
+        /// <returns>
+        /// The plugin package name, or null if it could not be determined.
+        /// </returns>
         public static string GetPluginPackageName(
             IPluginData pluginData,
             bool simple
@@ -2538,6 +3425,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the simple-name for the specified plugin, derived
+        /// from its file name when available, or from its assembly name
+        /// otherwise.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to query.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The plugin simple-name, or null if it could not be determined.
+        /// </returns>
         public static string GetPluginSimpleName(
             IPluginData pluginData
             )
@@ -2576,6 +3474,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a short, bracketed prefix string of single-letter
+        /// codes representing the notable flags set on a plugin.
+        /// </summary>
+        /// <param name="flags">
+        /// The plugin flags to translate into a prefix string.
+        /// </param>
+        /// <returns>
+        /// The bracketed prefix string, or an empty string if none of the
+        /// notable flags are set.
+        /// </returns>
         public static string PluginFlagsToPrefix(
             PluginFlags flags
             )
@@ -2638,6 +3547,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified plugin satisfies the
+        /// constraints expressed by the specified lookup flags (e.g. that it
+        /// provides commands, functions, policies, or traces).
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data to check.  This parameter may be null.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The lookup flags expressing the constraints the plugin must satisfy.
+        /// </param>
+        /// <returns>
+        /// True if the plugin satisfies all of the specified constraints;
+        /// otherwise, false.
+        /// </returns>
         public static bool CheckPluginVersusLookupFlags(
             IPluginData pluginData,
             LookupFlags lookupFlags
@@ -2701,6 +3625,32 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Command Line Support Methods
+        /// <summary>
+        /// This method parses a single index range of the form
+        /// <c>&lt;start&gt;[-&lt;stop&gt;]</c>, where both indexes must be
+        /// non-negative and, when a count is supplied, less than that count.
+        /// </summary>
+        /// <param name="value">
+        /// The string value containing the index range to parse.
+        /// </param>
+        /// <param name="count">
+        /// The number of available elements, used to bounds-check the parsed
+        /// indexes; a negative value disables this check.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the integer index values.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="range">
+        /// Upon success, this contains the parsed index range.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode ParseIndexRange(
             string value,            /* in */
             int count,               /* in */
@@ -2800,6 +3750,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a list of index ranges from the specified string
+        /// value, appending the results to the specified list.
+        /// </summary>
+        /// <param name="value">
+        /// The string value containing the comma-separated list of index ranges
+        /// to parse.
+        /// </param>
+        /// <param name="count">
+        /// The number of available elements, used to bounds-check the parsed
+        /// indexes; a negative value disables this check.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the integer index values.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ranges">
+        /// On input, an optional existing list to append to; on output, this
+        /// contains the parsed index ranges.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value.
+        /// </returns>
         public static ReturnCode ParseIndexRanges(
             string value,             /* in */
             int count,                /* in */
@@ -2833,6 +3806,35 @@ namespace Eagle._Components.Private
         //       Spaces are the only legal whitespace and they will be
         //       ignored.
         //
+        /// <summary>
+        /// This method parses a list of index ranges of the form
+        /// <c>&lt;start0&gt;[-&lt;end0&gt;] ... [,&lt;startN&gt;[-&lt;endN&gt;]]</c>
+        /// from the specified string value, appending the results to the
+        /// specified list.
+        /// </summary>
+        /// <param name="value">
+        /// The string value containing the comma-separated list of index ranges
+        /// to parse.  This parameter may not be null.
+        /// </param>
+        /// <param name="count">
+        /// The number of available elements, used to bounds-check the parsed
+        /// indexes; a negative value disables this check.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the integer index values.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="ranges">
+        /// On input, an optional existing list to append to; on output, this
+        /// contains the parsed index ranges.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in <paramref name="error" />.
+        /// </returns>
         private static ReturnCode ParseIndexRanges(
             string value,              /* in */
             int count,                 /* in */
@@ -2898,6 +3900,36 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method invokes the specified callback once for each unique
+        /// index covered by the specified list of index ranges, stopping early
+        /// when the callback requests cancellation.
+        /// </summary>
+        /// <param name="count">
+        /// The expected number of indexes, used to size the internal tracking
+        /// of already-visited indexes.
+        /// </param>
+        /// <param name="ranges">
+        /// The list of index ranges to process.  This parameter may not be
+        /// null.
+        /// </param>
+        /// <param name="callback">
+        /// The callback to invoke for each unique index.  This parameter may
+        /// not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional client data to pass to the callback; this value may be
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if all indexes were processed (or the
+        /// callback requested a successful early stop); otherwise, an
+        /// appropriate error code.
+        /// </returns>
         private static ReturnCode ProcessIndexRanges(
             int count,                   /* in */
             IndexRangeList ranges,       /* in */
@@ -2990,6 +4022,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally evaluates a configured script command in order
+        /// to escape (or otherwise transform) a portion of a command-line
+        /// argument value.  When no command is configured, no evaluation is
+        /// performed and the default handling is requested by the caller.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to evaluate the configured command, if
+        /// any.  This value cannot be null when a command is configured.
+        /// </param>
+        /// <param name="command">
+        /// The script command, as a list of words, to be evaluated.  When this
+        /// value is null, no evaluation is performed.
+        /// </param>
+        /// <param name="value">
+        /// The argument value containing the substring being processed.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first character of the substring being processed.
+        /// </param>
+        /// <param name="stopIndex">
+        /// The index of the last character of the substring being processed.
+        /// </param>
+        /// <param name="mode">
+        /// The escaping mode flags that govern how the substring should be
+        /// processed.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of evaluating the configured
+        /// command.  Upon failure, this contains an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> upon success,
+        /// <see cref="ReturnCode.Continue" /> when no command is configured, or
+        /// another <see cref="ReturnCode" /> value to indicate failure or to
+        /// alter the default handling.
+        /// </returns>
         private static ReturnCode MaybeEscapeSubString(
             Interpreter interpreter, /* in */
             StringList command,      /* in */
@@ -3024,6 +4093,54 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a single command-line string from the specified
+        /// list of arguments, optionally restricting processing to the subset of
+        /// arguments identified by a range specification.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating any configured escaping
+        /// command, if any.
+        /// </param>
+        /// <param name="args">
+        /// The list of arguments to be included in the resulting command line.
+        /// </param>
+        /// <param name="rangeValue">
+        /// The index range specification identifying which arguments should be
+        /// quoted and escaped; arguments outside of these ranges are appended
+        /// verbatim.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the index range specification.
+        /// </param>
+        /// <param name="command">
+        /// The optional script command, as a list of words, used to escape
+        /// portions of the arguments being processed.
+        /// </param>
+        /// <param name="quoteAll">
+        /// Non-zero to force every processed argument to be quoted.
+        /// </param>
+        /// <param name="forProcessor">
+        /// Non-zero if the resulting command line is destined for a command
+        /// processor (e.g. <c>cmd.exe</c>) and therefore requires additional
+        /// escaping.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors raised while evaluating any configured
+        /// escaping command.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, this is set to non-zero if processing was stopped early
+        /// before all arguments were appended.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message or list of error
+        /// messages.
+        /// </param>
+        /// <returns>
+        /// The constructed command-line string, or null if an error was
+        /// encountered.
+        /// </returns>
         public static string BuildCommandLine(
             Interpreter interpreter, /* in */
             IList<string> args,      /* in */
@@ -3064,6 +4181,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates a dictionary that marks each argument index
+        /// falling within any of the specified index ranges.
+        /// </summary>
+        /// <param name="ranges">
+        /// The list of index ranges identifying the argument indexes to be
+        /// marked.  This value cannot be null.
+        /// </param>
+        /// <param name="marks">
+        /// The dictionary that, upon return, contains an entry for each index
+        /// covered by the specified ranges.  This value cannot be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode MarkIndexRanges(
             IndexRangeList ranges, /* in */
             IndexDictionary marks, /* in */
@@ -3127,6 +4263,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the specified list of arguments to a string
+        /// builder, forming a command line.  Arguments identified by the index
+        /// range specification are quoted and escaped, while all other arguments
+        /// are appended verbatim.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating any configured escaping
+        /// command, if any.
+        /// </param>
+        /// <param name="args">
+        /// The list of arguments to be appended to the command line.
+        /// </param>
+        /// <param name="rangeValue">
+        /// The index range specification identifying which arguments should be
+        /// quoted and escaped.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the index range specification.
+        /// </param>
+        /// <param name="command">
+        /// The optional script command, as a list of words, used to escape
+        /// portions of the arguments being processed.
+        /// </param>
+        /// <param name="quoteAll">
+        /// Non-zero to force every processed argument to be quoted.
+        /// </param>
+        /// <param name="forProcessor">
+        /// Non-zero if the resulting command line is destined for a command
+        /// processor and therefore requires additional escaping.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors raised while evaluating any configured
+        /// escaping command.
+        /// </param>
+        /// <param name="builder">
+        /// The string builder to which the command line is appended.  If this
+        /// value is null, a new string builder is created.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, this is set to non-zero if processing was stopped early
+        /// before all arguments were appended.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains the list of error messages encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode AppendCommandLine(
             Interpreter interpreter,   /* in */
             IList<string> args,        /* in */
@@ -3213,6 +4399,46 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a single argument to a string builder, applying
+        /// the quoting and escaping rules necessary to round-trip the argument
+        /// through a command-line parser, optionally consulting a configured
+        /// script command to escape individual characters.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating any configured escaping
+        /// command, if any.
+        /// </param>
+        /// <param name="builder">
+        /// The string builder to which the escaped argument is appended.  This
+        /// value cannot be null.
+        /// </param>
+        /// <param name="command">
+        /// The optional script command, as a list of words, used to escape
+        /// portions of the argument being processed.
+        /// </param>
+        /// <param name="arg">
+        /// The argument value to be appended.  This value cannot be null.
+        /// </param>
+        /// <param name="quoteAll">
+        /// Non-zero to force the argument to be quoted even when it contains no
+        /// special characters.
+        /// </param>
+        /// <param name="forProcessor">
+        /// Non-zero if the resulting command line is destined for a command
+        /// processor and therefore requires additional escaping.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors raised while evaluating any configured
+        /// escaping command.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, this is set to non-zero if processing should be stopped
+        /// early and no further arguments should be appended.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains the list of error messages encountered.
+        /// </param>
         private static void AppendCommandLineArgument(
             Interpreter interpreter, /* in */
             StringBuilder builder,   /* in, out */
@@ -3596,6 +4822,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a single command-line string from the specified
+        /// sequence of arguments, quoting and escaping each argument as
+        /// necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when evaluating any configured escaping
+        /// command, if any.
+        /// </param>
+        /// <param name="args">
+        /// The sequence of arguments to be included in the resulting command
+        /// line.
+        /// </param>
+        /// <param name="command">
+        /// The optional script command, as a list of words, used to escape
+        /// portions of the arguments being processed.
+        /// </param>
+        /// <param name="quoteAll">
+        /// Non-zero to force every argument to be quoted.
+        /// </param>
+        /// <param name="forProcessor">
+        /// Non-zero if the resulting command line is destined for a command
+        /// processor and therefore requires additional escaping.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress errors raised while evaluating any configured
+        /// escaping command.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, this is set to non-zero if processing was stopped early
+        /// before all arguments were appended.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message or list of error
+        /// messages.
+        /// </param>
+        /// <returns>
+        /// The constructed command-line string.
+        /// </returns>
         public static string BuildCommandLine(
             Interpreter interpreter,  /* in */
             IEnumerable<string> args, /* in */
@@ -3637,6 +4902,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Alias Support Methods
+        /// <summary>
+        /// This method builds the list of arguments used to create an alias that
+        /// forwards to the nested interpreter evaluation command.
+        /// </summary>
+        /// <param name="interpreterName">
+        /// The name of the target interpreter, if any, to be appended to the
+        /// resulting argument list.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type associated with the alias.  This parameter is
+        /// not used by this method.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon return, this contains the constructed argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message.  This parameter is not
+        /// used by this method.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetInterpreterAliasArguments(
             string interpreterName,            /* in */
             ObjectOptionType objectOptionType, /* in: NOT USED */
@@ -3658,6 +4946,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT && NATIVE && LIBRARY
+        /// <summary>
+        /// This method builds the list of arguments used to create an alias that
+        /// forwards to the native library delegate invocation command.
+        /// </summary>
+        /// <param name="delegateName">
+        /// The name of the target delegate, if any, to be appended to the
+        /// resulting argument list.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type associated with the alias.  This parameter is
+        /// not used by this method.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon return, this contains the constructed argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message.  This parameter is not
+        /// used by this method.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetLibraryAliasArguments(
             string delegateName,               /* in */
             ObjectOptionType objectOptionType, /* in: NOT USED */
@@ -3679,6 +4990,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines the sub-command name corresponding to the
+        /// object invocation option encoded within the specified object option
+        /// type.
+        /// </summary>
+        /// <param name="objectOptionType">
+        /// The object option type whose object invocation sub-command is to be
+        /// determined.
+        /// </param>
+        /// <returns>
+        /// The name of the corresponding sub-command, or null if the object
+        /// option type does not specify a supported invocation option.
+        /// </returns>
         private static string GetObjectAliasSubCommand(
             ObjectOptionType objectOptionType /* in */
             )
@@ -3701,6 +5025,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the list of arguments used to create an alias that
+        /// forwards to the appropriate object invocation command, as determined
+        /// by the specified object option type.
+        /// </summary>
+        /// <param name="objectName">
+        /// The name of the target object, if any, to be appended to the
+        /// resulting argument list.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type used to select the object invocation
+        /// sub-command.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon return, this contains the constructed argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetObjectAliasArguments(
             string objectName,                 /* in */
             ObjectOptionType objectOptionType, /* in */
@@ -3730,6 +5077,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// This method builds the list of arguments used to create an alias that
+        /// forwards to the native Tcl interpreter evaluation command.
+        /// </summary>
+        /// <param name="interpName">
+        /// The name of the target Tcl interpreter, if any, to be appended to the
+        /// resulting argument list.
+        /// </param>
+        /// <param name="objectOptionType">
+        /// The object option type associated with the alias.  This parameter is
+        /// not used by this method.
+        /// </param>
+        /// <param name="arguments">
+        /// Upon return, this contains the constructed argument list.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message.  This parameter is not
+        /// used by this method.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetTclAliasArguments(
             string interpName,                 /* in */
             ObjectOptionType objectOptionType, /* in: NOT USED */
@@ -3756,6 +5126,59 @@ namespace Eagle._Components.Private
         //       longer be true.  In that case, it will need to move back to
         //       the Interpreter class.
         //
+        /// <summary>
+        /// This method creates a new alias command that, when executed in the
+        /// source interpreter, forwards to the specified target along with the
+        /// configured arguments and options.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the alias command being created.
+        /// </param>
+        /// <param name="flags">
+        /// The command flags to associate with the new alias command.
+        /// </param>
+        /// <param name="aliasFlags">
+        /// The alias-specific flags to associate with the new alias.
+        /// </param>
+        /// <param name="clientData">
+        /// The client-specific data to associate with the new alias command, if
+        /// any.
+        /// </param>
+        /// <param name="nameToken">
+        /// The name token used to identify the alias within the target
+        /// interpreter.
+        /// </param>
+        /// <param name="sourceInterpreter">
+        /// The interpreter in which the alias command is defined.
+        /// </param>
+        /// <param name="targetInterpreter">
+        /// The interpreter in which the alias target is executed.
+        /// </param>
+        /// <param name="sourceNamespace">
+        /// The namespace, if any, associated with the alias in the source
+        /// interpreter.
+        /// </param>
+        /// <param name="targetNamespace">
+        /// The namespace, if any, associated with the alias target in the target
+        /// interpreter.
+        /// </param>
+        /// <param name="target">
+        /// The execution target to which the alias forwards.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments to be prepended when the alias forwards to its
+        /// target, if any.
+        /// </param>
+        /// <param name="options">
+        /// The options to associate with the alias, if any.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first argument, supplied by the caller of the alias,
+        /// that should be forwarded to the target.
+        /// </param>
+        /// <returns>
+        /// The newly created alias.
+        /// </returns>
         public static IAlias NewAlias(
             string name,                   /* in */
             CommandFlags flags,            /* in */
@@ -3791,6 +5214,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Notification Support Methods
+        /// <summary>
+        /// This method creates a new script event arguments object suitable for
+        /// use when raising a notification.
+        /// </summary>
+        /// <param name="type">
+        /// The type of notification being raised.
+        /// </param>
+        /// <param name="flags">
+        /// The flags associated with the notification being raised.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the notification, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client-specific data associated with the notification, if any.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments associated with the notification, if any.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the notification, if any.
+        /// </param>
+        /// <param name="exception">
+        /// The script exception associated with the notification, if any.
+        /// </param>
+        /// <param name="interruptType">
+        /// The type of interrupt associated with the notification, if any.
+        /// </param>
+        /// <returns>
+        /// The newly created script event arguments object.
+        /// </returns>
         public static IScriptEventArgs GetEventArgs(
             NotifyType type,
             NotifyFlags flags,
@@ -3810,6 +5264,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new script event arguments object suitable for
+        /// use when raising a notification about an interpreter interrupt.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the interrupt, if any.
+        /// </param>
+        /// <param name="interruptType">
+        /// The type of interrupt that has occurred.
+        /// </param>
+        /// <param name="clientData">
+        /// The client-specific data associated with the interrupt, if any.
+        /// </param>
+        /// <returns>
+        /// The newly created script event arguments object.
+        /// </returns>
         public static IScriptEventArgs GetInterruptEventArgs(
             Interpreter interpreter,
             InterruptType interruptType,
@@ -3834,6 +5304,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Channel Support Methods
+        /// <summary>
+        /// This method returns the effective channel name for the specified
+        /// channel type, falling back to the appropriate standard channel name
+        /// when an explicit name is not provided.
+        /// </summary>
+        /// <param name="name">
+        /// The explicit channel name to use, if any.
+        /// </param>
+        /// <param name="channelType">
+        /// The type of channel for which a name is being determined.
+        /// </param>
+        /// <returns>
+        /// The effective channel name, which may be the provided name or one of
+        /// the standard channel names.
+        /// </returns>
         public static string ChannelTypeToName(
             string name,
             ChannelType channelType
@@ -3855,6 +5340,16 @@ namespace Eagle._Components.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method determines whether the specified name refers to one of
+        /// the standard channels (input, output, or error).
+        /// </summary>
+        /// <param name="name">
+        /// The channel name to check; this value may be null.
+        /// </param>
+        /// <returns>
+        /// True if the name refers to a standard channel; otherwise, false.
+        /// </returns>
         private static bool IsStandardChannelName( /* NOT USED */
             string name
             )
@@ -3886,6 +5381,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Resource Support Methods
+        /// <summary>
+        /// This method attempts to open a manifest resource stream with the
+        /// specified name from the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly from which the manifest resource stream should be
+        /// opened.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource stream to open.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// The opened stream, or null if the stream could not be opened.
+        /// </returns>
         public static Stream GetStream(
             Assembly assembly,
             string name,
@@ -3913,6 +5426,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches all assemblies currently loaded into the
+        /// application domain for one that contains a manifest resource stream
+        /// with the specified name.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the manifest resource stream to search for.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero if errors encountered while searching individual assemblies
+        /// should be accumulated into the error list.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this contains the list of error messages that describe
+        /// the problems encountered.
+        /// </param>
+        /// <returns>
+        /// The assembly that contains the named manifest resource stream, or
+        /// null if no such assembly was found.
+        /// </returns>
         private static Assembly FindStream(
             string name,
             bool verbose,
@@ -3962,6 +5495,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches for a manifest resource stream with the
+        /// specified name, first within the specified assembly and then within
+        /// all assemblies currently loaded into the application domain.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to search first, if any.
+        /// </param>
+        /// <param name="name">
+        /// The name of the manifest resource stream to search for.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero if errors encountered while searching individual assemblies
+        /// should be accumulated into the error message.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// The assembly that contains the named manifest resource stream, or
+        /// null if no such assembly was found.
+        /// </returns>
         public static Assembly FindStream(
             Assembly assembly,
             string name,
@@ -4019,6 +5575,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to open a stream for the resource with the
+        /// specified name using the specified resource manager and culture.
+        /// </summary>
+        /// <param name="resourceManager">
+        /// The resource manager from which the stream should be opened.
+        /// </param>
+        /// <param name="name">
+        /// The name of the resource to open.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource should be opened, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// The opened stream, or null if the stream could not be opened.
+        /// </returns>
         public static Stream GetStream(
             ResourceManager resourceManager,
             string name,
@@ -4047,6 +5623,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the string value of the resource
+        /// with the specified name using the specified resource manager and
+        /// culture.
+        /// </summary>
+        /// <param name="resourceManager">
+        /// The resource manager from which the string value should be
+        /// retrieved.
+        /// </param>
+        /// <param name="name">
+        /// The name of the resource to retrieve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource should be retrieved, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// The string value of the resource, or null if it could not be
+        /// retrieved.
+        /// </returns>
         public static string GetString(
             ResourceManager resourceManager,
             string name,
@@ -4075,6 +5674,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the string value of the resource
+        /// with the specified name, first using the specified resource manager
+        /// and then using the manifest resources of the specified plugin
+        /// assembly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context associated with the request, if any.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose assembly manifest resources should be queried.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager from which the string value should first be
+        /// retrieved.
+        /// </param>
+        /// <param name="name">
+        /// The name of the resource to retrieve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource should be retrieved, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains the list of error messages that describe
+        /// the problems encountered.
+        /// </param>
+        /// <returns>
+        /// The string value of the resource, or null if it could not be
+        /// retrieved.
+        /// </returns>
         public static string GetAnyString(
             Interpreter interpreter,         /* in: NOT USED */
             IPlugin plugin,                  /* in */
@@ -4143,6 +5772,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the names of all resources available via the
+        /// specified resource manager and the resource manager associated with
+        /// the specified plugin.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin whose associated resource manager should be queried, if
+        /// any.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager that should be queried, if any.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource names should be retrieved, if any.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, the retrieved resource names are added to this list,
+        /// which is created if necessary.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetResourceNames(
             IPluginData pluginData,          /* in */
             ResourceManager resourceManager, /* in */
@@ -4190,6 +5846,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to retrieve the string value of the resource
+        /// with the specified name, using the resource manager associated with
+        /// the specified plugin when available and otherwise using the
+        /// specified resource manager.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin whose associated resource manager should be preferred, if
+        /// any.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager to use when the plugin resource manager is not
+        /// available.
+        /// </param>
+        /// <param name="name">
+        /// The name of the resource to retrieve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource should be retrieved, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// The string value of the resource, or null if it could not be
+        /// retrieved.
+        /// </returns>
         public static string GetString(
             IPluginData pluginData,
             ResourceManager resourceManager,
@@ -4243,6 +5927,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new resource manager for the assembly
+        /// identified by the specified assembly name, loading the assembly if
+        /// necessary.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The name of the assembly for which a resource manager should be
+        /// created.
+        /// </param>
+        /// <returns>
+        /// The newly created resource manager, or null if it could not be
+        /// created.
+        /// </returns>
         public static ResourceManager NewResourceManager(
             AssemblyName assemblyName
             )
@@ -4265,6 +5962,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new resource manager for the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly for which a resource manager should be created.
+        /// </param>
+        /// <returns>
+        /// The newly created resource manager, or null if it could not be
+        /// created.
+        /// </returns>
         public static ResourceManager NewResourceManager(
             Assembly assembly
             )
@@ -4287,6 +5995,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new resource manager using the base name from
+        /// the specified assembly name and the specified assembly.
+        /// </summary>
+        /// <param name="assemblyName">
+        /// The assembly name whose base name should be used by the resource
+        /// manager.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly from which the resources should be loaded.
+        /// </param>
+        /// <returns>
+        /// The newly created resource manager, or null if it could not be
+        /// created.
+        /// </returns>
         public static ResourceManager NewResourceManager(
             AssemblyName assemblyName,
             Assembly assembly
@@ -4309,6 +6032,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string representation of an
+        /// unsigned wide integer into the corresponding public key token byte
+        /// array.
+        /// </summary>
+        /// <param name="value">
+        /// The string representation of the public key token to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the value, if any.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, this contains the public key token bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetPublicKeyToken(
             string value,
             CultureInfo cultureInfo,
@@ -4337,6 +6082,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the assembly contained in the specified
+        /// file has the specified public key token.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name of the assembly whose public key token should be
+        /// checked.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token that the assembly is expected to have.
+        /// </param>
+        /// <returns>
+        /// True if the assembly has the specified public key token; otherwise,
+        /// false.
+        /// </returns>
         public static bool CheckPublicKeyToken(
             string fileName,
             byte[] publicKeyToken
@@ -4350,6 +6110,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method checks whether the assembly contained in the specified
+        /// file has the specified public key token, returning detailed error
+        /// information on failure.
+        /// </summary>
+        /// <param name="fileName">
+        /// The file name of the assembly whose public key token should be
+        /// checked.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token that the assembly is expected to have.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// True if the assembly has the specified public key token; otherwise,
+        /// false.
+        /// </returns>
         public static bool CheckPublicKeyToken(
             string fileName,
             byte[] publicKeyToken,
@@ -4408,6 +6188,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads a plugin from the assembly bytes obtained from the
+        /// specified resource via the interpreter host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context into which the plugin should be loaded.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to constrain the loading of the plugin, if any.
+        /// </param>
+        /// <param name="resourceName">
+        /// The name of the resource from which the assembly bytes should be
+        /// obtained.
+        /// </param>
+        /// <param name="evidence">
+        /// The evidence used when loading the plugin assembly, if any.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to load, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The client-specific data to associate with the plugin, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control how the plugin is loaded.
+        /// </param>
+        /// <param name="plugin">
+        /// Upon success, this contains the loaded plugin.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of loading the plugin; upon
+        /// failure, this contains an error message that describes the problem
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode LoadPlugin(
             Interpreter interpreter, /* in */
             IRuleSet ruleSet,        /* in */
@@ -4501,6 +6319,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Stream Support Methods
+        /// <summary>
+        /// This method attempts to open a stream for the specified path by
+        /// querying the manifest resources of the entry and/or executing
+        /// assemblies, as indicated by the specified host stream flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when resolving the path, if any.
+        /// </param>
+        /// <param name="path">
+        /// The path of the stream to open.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// Flags that control which assemblies are queried and how the stream is
+        /// located.  Upon return, the flags indicating how the stream was found
+        /// are updated.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, this contains the fully resolved path of the opened
+        /// stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode NewStreamFromAssembly(
             Interpreter interpreter,
             string path,
@@ -4584,6 +6433,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to open a stream for the specified path by
+        /// querying the plugins currently loaded into the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose loaded plugins should be queried.
+        /// </param>
+        /// <param name="path">
+        /// The path of the stream to open.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// Flags that control how the stream is located and opened.  Upon
+        /// return, the flags indicating how the stream was found are updated.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, this contains the fully resolved path of the opened
+        /// stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode NewStreamFromPlugins(
             Interpreter interpreter,
             string path,
@@ -4651,6 +6530,36 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to open a stream for the specified path using
+        /// the default flags, share mode, buffer size, and options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when resolving the path and locating
+        /// the stream.
+        /// </param>
+        /// <param name="path">
+        /// The path of the stream to open.
+        /// </param>
+        /// <param name="mode">
+        /// The <see cref="FileMode" /> value that controls how the stream is
+        /// opened or created.
+        /// </param>
+        /// <param name="access">
+        /// The <see cref="FileAccess" /> value that controls the access
+        /// permitted on the stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode NewStream(
             Interpreter interpreter,
             string path,
@@ -4672,6 +6581,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to open a stream for the specified path using
+        /// the specified flags and the default share mode, buffer size, and
+        /// options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when resolving the path and locating
+        /// the stream.
+        /// </param>
+        /// <param name="path">
+        /// The path of the stream to open.
+        /// </param>
+        /// <param name="mode">
+        /// The <see cref="FileMode" /> value that controls how the stream is
+        /// opened or created.
+        /// </param>
+        /// <param name="access">
+        /// The <see cref="FileAccess" /> value that controls the access
+        /// permitted on the stream.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// Flags that control how the stream is located and opened.  Upon
+        /// return, the flags indicating how the stream was found are updated.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, this contains the fully resolved path of the opened
+        /// stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode NewStream(
             Interpreter interpreter,
             string path,
@@ -4692,6 +6640,58 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to open a stream for the specified path,
+        /// optionally searching loaded plugins and assemblies in addition to
+        /// the file system, according to the specified flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when resolving the path and locating
+        /// the stream.  This value may be null.
+        /// </param>
+        /// <param name="path">
+        /// The path of the stream to open.
+        /// </param>
+        /// <param name="mode">
+        /// The <see cref="FileMode" /> value that controls how the stream is
+        /// opened or created.
+        /// </param>
+        /// <param name="access">
+        /// The <see cref="FileAccess" /> value that controls the access
+        /// permitted on the stream.
+        /// </param>
+        /// <param name="share">
+        /// The <see cref="FileShare" /> value that controls the access other
+        /// streams may have to the same file.
+        /// </param>
+        /// <param name="bufferSize">
+        /// The size, in bytes, of the buffer to use for the stream.
+        /// </param>
+        /// <param name="options">
+        /// The <see cref="FileOptions" /> value that specifies additional
+        /// options for creating the stream.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// Flags that control how the stream is located and opened, including
+        /// whether plugins, assemblies, and the file system are searched and
+        /// in what order.  Upon return, the flags indicating how the stream
+        /// was found are updated.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, this contains the fully resolved path of the opened
+        /// stream.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, this contains the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode NewStream(
             Interpreter interpreter,             /* in, OPTIONAL: May be null. */
             string path,                         /* in */
@@ -4891,6 +6891,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the entire contents of the specified stream as an
+        /// array of bytes.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to read from.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, this contains the bytes read from the stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ReadStream(
             Stream stream,
             ref byte[] bytes,
@@ -4917,6 +6935,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the entire contents of the specified stream as a
+        /// string, using the default encoding detection of the underlying
+        /// stream reader.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to read from.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, this contains the text read from the stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ReadStream(
             Stream stream,
             ref string text,
@@ -4942,6 +6979,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the entire contents of the specified stream as a
+        /// string, using the specified character encoding.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to read from.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding to use when reading the stream.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, this contains the text read from the stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes the
+        /// problem encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode ReadStream(
             Stream stream,
             Encoding encoding,
@@ -4971,6 +7029,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Version Information Methods
+        /// <summary>
+        /// This method determines whether the embedded source license appears
+        /// to be genuine by comparing its stored hash against a freshly
+        /// computed hash of its summary and text.
+        /// </summary>
+        /// <returns>
+        /// True if the source license is genuine; otherwise, false.
+        /// </returns>
         private static bool IsGenuine()
         {
             return ArrayOps.Equals(
@@ -4981,6 +7047,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the value used to indicate that the runtime is
+        /// genuine, if and only if the embedded source license is genuine.
+        /// </summary>
+        /// <returns>
+        /// The genuine indicator value if the source license is genuine;
+        /// otherwise, null.
+        /// </returns>
         private static string GetGenuine()
         {
             return IsGenuine() ? Vars.Version.GenuineValue : null;
@@ -4988,6 +7062,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the value used to indicate that the specified
+        /// file is trusted, if and only if it carries a valid certificate
+        /// subject.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when checking the certificate.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose trust status should be checked.
+        /// </param>
+        /// <returns>
+        /// The trusted indicator value if the file is trusted; otherwise,
+        /// null.
+        /// </returns>
         public static string GetFileTrusted(
             Interpreter interpreter,
             string fileName
@@ -5005,6 +7094,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this build is an official build, as
+        /// determined by the <c>OFFICIAL</c> compile-time option.
+        /// </summary>
+        /// <returns>
+        /// True if this is an official build; otherwise, false.
+        /// </returns>
         public static bool IsOfficial()
         {
 #if OFFICIAL
@@ -5016,6 +7112,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this build is an official binary
+        /// build, as determined by the <c>OFFICIAL_BINARY</c> compile-time
+        /// option.
+        /// </summary>
+        /// <returns>
+        /// True if this is an official binary build; otherwise, false.
+        /// </returns>
         public static bool IsOfficialBinary()
         {
 #if OFFICIAL_BINARY
@@ -5027,6 +7131,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this build is a stable build, as
+        /// determined by the <c>STABLE</c> compile-time option.
+        /// </summary>
+        /// <returns>
+        /// True if this is a stable build; otherwise, false.
+        /// </returns>
         public static bool IsStable()
         {
 #if STABLE
@@ -5038,6 +7149,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the path and query string portion of the URI
+        /// used to check for updates, based on the specified version, stability
+        /// preference, and suffix.
+        /// </summary>
+        /// <param name="version">
+        /// The version string to include in the update path and query, or null
+        /// if no version should be included.
+        /// </param>
+        /// <param name="stable">
+        /// Non-null to select the stable or unstable update format based on its
+        /// value; null to use the default update format and include the calling
+        /// method name.
+        /// </param>
+        /// <param name="suffix">
+        /// The suffix string to include in the update path and query, or null
+        /// if no suffix should be included.
+        /// </param>
+        /// <returns>
+        /// The formatted path and query string to use when checking for
+        /// updates.
+        /// </returns>
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static string GetUpdatePathAndQuery(
             string version,
@@ -5078,6 +7211,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the descriptive text or base suffix associated
+        /// with the assembly containing the Eagle core library.
+        /// </summary>
+        /// <returns>
+        /// The assembly text if available; otherwise, the base suffix of the
+        /// assembly.
+        /// </returns>
         private static string GetAssemblyTextOrSuffix()
         {
             return GetAssemblyTextOrSuffix(GlobalState.GetAssembly());
@@ -5085,6 +7226,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the descriptive text or base suffix associated
+        /// with the specified assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose text or base suffix should be returned.
+        /// </param>
+        /// <returns>
+        /// The assembly text if available; otherwise, the base suffix of the
+        /// assembly.
+        /// </returns>
         public static string GetAssemblyTextOrSuffix( /* e.g. "NetFx20", etc */
             Assembly assembly
             )
@@ -5099,6 +7251,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the specified value, appending the assembly text
+        /// or suffix (preceded by an underscore) when one is available.
+        /// </summary>
+        /// <param name="value">
+        /// The composite format string into which the underscore separator and
+        /// lower-cased assembly text or suffix are substituted.
+        /// </param>
+        /// <returns>
+        /// The formatted value; the unchanged value if it is null or empty; or
+        /// null if an exception is encountered during formatting.
+        /// </returns>
         public static string MaybeAppendTextOrSuffix(
             string value
             )
@@ -5134,6 +7298,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string that describes the Tcl package name and
+        /// patch level supported by this runtime.
+        /// </summary>
+        /// <returns>
+        /// A string containing the Tcl package name and patch level.
+        /// </returns>
         private static string GetTclVersionString()
         {
             return String.Format("{0} {1}", TclVars.Package.Name,
@@ -5142,6 +7313,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the version information elements describing the
+        /// Eagle core library to the specified list, optionally redacting
+        /// sensitive elements when running in safe mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when determining trust and other
+        /// version information.  This value may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly whose version information should be added.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file whose trust status should be included.
+        /// </param>
+        /// <param name="safe">
+        /// Non-zero to redact potentially sensitive version information,
+        /// suitable for use within a safe interpreter.
+        /// </param>
+        /// <param name="allowNull">
+        /// Non-zero to add null elements for information that is not available;
+        /// otherwise, such elements are omitted.
+        /// </param>
+        /// <param name="list">
+        /// The list to which the version information elements are added.  If
+        /// null, a new list is created.
+        /// </param>
         private static void AddCoreVersionInformation(
             Interpreter interpreter, /* in: OPTIONAL */
             Assembly assembly,       /* in */
@@ -5251,6 +7449,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the status of the specified plugin and, when
+        /// successful, appends the resulting status information to the specified
+        /// list.  If the plugin is null or its status cannot be obtained, no
+        /// changes are made to the list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when querying the plugin status.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose status should be queried and added.
+        /// </param>
+        /// <param name="list">
+        /// The list to which the plugin status information is added.
+        /// </param>
         private static void MaybeAddPluginStatus(
             Interpreter interpreter, /* in */
             IPlugin plugin,          /* in */
@@ -5297,6 +7510,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends status information for all plugins loaded into
+        /// the specified interpreter to the specified list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose loaded plugins should be queried for status
+        /// information.
+        /// </param>
+        /// <param name="list">
+        /// Upon return, the list to which the combined plugin status
+        /// information is appended.  If necessary, a new list is created.
+        /// </param>
         private static void MaybeAddAllPluginStatus(
             Interpreter interpreter, /* in */
             ref StringList list      /* in, out */
@@ -5337,6 +7562,16 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by the Utility class only.
         //
+        /// <summary>
+        /// This method determines whether this build of the runtime was
+        /// compiled with threading support enabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// True if threading support is available; otherwise, false.
+        /// </returns>
         public static bool HaveThreading(
             Interpreter interpreter /* in: NOT USED */
             )
@@ -5349,6 +7584,16 @@ namespace Eagle._Components.Private
         //
         // WARNING: For use by the Utility class only.
         //
+        /// <summary>
+        /// This method determines whether this build of the runtime was
+        /// compiled with native code support enabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// True if native code support is available; otherwise, false.
+        /// </returns>
         public static bool HaveNative(
             Interpreter interpreter /* in: NOT USED */
             )
@@ -5358,6 +7603,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified define constant was
+        /// present when this build of the runtime was compiled.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the define constant to check for.
+        /// </param>
+        /// <returns>
+        /// True if the specified define constant is present; otherwise, false.
+        /// </returns>
         public static bool HaveDefineConstant(
             string name /* in */
             )
@@ -5376,6 +7631,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string describing the version of the runtime,
+        /// subject to the specified flags.
+        /// </summary>
+        /// <param name="versionFlags">
+        /// The flags used to control which pieces of version information are
+        /// included in the resulting string.
+        /// </param>
+        /// <returns>
+        /// The version string, or null if it could not be built.
+        /// </returns>
         public static string GetVersion(
             VersionFlags versionFlags /* in */
             )
@@ -5393,6 +7659,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string describing the version of the runtime,
+        /// subject to the specified flags, using the specified interpreter for
+        /// context.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use for context.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <param name="versionFlags">
+        /// The flags used to control which pieces of version information are
+        /// included in the resulting string.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the version string.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetVersion(
             Interpreter interpreter,   /* in: OPTIONAL */
             VersionFlags versionFlags, /* in */
@@ -5437,6 +7724,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Class Factory Methods
+        /// <summary>
+        /// This method parses a list of formal argument specifiers into a list
+        /// of argument name and default value pairs.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when splitting the argument specifiers.
+        /// </param>
+        /// <param name="list1">
+        /// The list of formal argument specifiers to parse.  Each element may
+        /// contain an argument name and an optional default value.
+        /// </param>
+        /// <param name="list2">
+        /// Upon return, the list to which the parsed argument name and default
+        /// value pairs are added.  If necessary, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetFormalArgumentNamesAndDefaults(
             Interpreter interpreter,  /* in */
             StringList list1,         /* in */
@@ -5520,6 +7829,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the formal argument list and the named argument
+        /// dictionary for a procedure from a list of argument name and default
+        /// value pairs.
+        /// </summary>
+        /// <param name="procedureName">
+        /// The name of the procedure, used when formatting error messages.
+        /// </param>
+        /// <param name="list2">
+        /// The list of argument name and default value pairs from which the
+        /// formal and named arguments are built.
+        /// </param>
+        /// <param name="formalArguments">
+        /// Upon success, this contains the resulting list of formal arguments.
+        /// </param>
+        /// <param name="namedArguments">
+        /// Upon success, this contains the resulting dictionary of named
+        /// arguments, keyed by argument name.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetFormalAndNamedArguments(
             string procedureName,                  /* in */
             StringPairList list2,                  /* in */
@@ -5567,6 +7902,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new core procedure instance of the appropriate
+        /// type based on the flags contained in the specified procedure data.
+        /// </summary>
+        /// <param name="procedureData">
+        /// The data describing the procedure to create, including its flags.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created procedure, or null if it could not be created.
+        /// </returns>
         public static IProcedure NewCoreProcedure(
             IProcedureData procedureData,
             ref Result error
@@ -5604,6 +7952,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new procedure instance, using the procedure
+        /// creation callback associated with the specified interpreter, if any,
+        /// and falling back to the core procedure factory otherwise.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that the procedure will belong to.  This parameter
+        /// is optional and may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name of the procedure to create.
+        /// </param>
+        /// <param name="group">
+        /// The group that the procedure belongs to, if any.
+        /// </param>
+        /// <param name="description">
+        /// The description of the procedure, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to configure the procedure.
+        /// </param>
+        /// <param name="arguments">
+        /// The formal arguments of the procedure.
+        /// </param>
+        /// <param name="namedArguments">
+        /// The named arguments of the procedure, if any.
+        /// </param>
+        /// <param name="overwriteArguments">
+        /// The arguments that should be overwritten when the procedure is
+        /// invoked, if any.
+        /// </param>
+        /// <param name="cleanArguments">
+        /// The arguments that should be cleaned up when the procedure is
+        /// invoked, if any.
+        /// </param>
+        /// <param name="body">
+        /// The script body of the procedure.
+        /// </param>
+        /// <param name="location">
+        /// The script location associated with the procedure, if any.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data to associate with the procedure, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created procedure, or null if it could not be created.
+        /// </returns>
         public static IProcedure NewProcedure(
             Interpreter interpreter,
             string name,
@@ -5673,6 +8071,22 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Culture Support Methods
+        /// <summary>
+        /// This method resolves the specified culture name or identifier into a
+        /// <see cref="CultureInfo" /> instance.
+        /// </summary>
+        /// <param name="culture">
+        /// The culture name or integer identifier to resolve.  An empty string
+        /// selects the current culture and null selects the default culture.
+        /// </param>
+        /// <param name="specific">
+        /// Non-zero to resolve the culture as a specific culture; zero to
+        /// resolve it as either a neutral or specific culture.
+        /// </param>
+        /// <returns>
+        /// The resolved <see cref="CultureInfo" />, or null if the culture
+        /// could not be resolved.
+        /// </returns>
         public static CultureInfo GetCultureInfo(
             string culture, /* in */
             bool specific   /* in */
@@ -5685,6 +8099,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified culture name or identifier into a
+        /// <see cref="CultureInfo" /> instance, returning an error message on
+        /// failure.
+        /// </summary>
+        /// <param name="culture">
+        /// The culture name or integer identifier to resolve.  An empty string
+        /// selects the current culture and null selects the default culture.
+        /// </param>
+        /// <param name="specific">
+        /// Non-zero to resolve the culture as a specific culture; zero to
+        /// resolve it as either a neutral or specific culture.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The resolved <see cref="CultureInfo" />, or null if the culture
+        /// could not be resolved.
+        /// </returns>
         public static CultureInfo GetCultureInfo(
             string culture,  /* in */
             bool specific,   /* in */
@@ -5762,6 +8196,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a <see cref="ResourceManager" /> for the runtime
+        /// resources associated with the specified culture.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture for which the resource manager is being created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created <see cref="ResourceManager" />, or null if it
+        /// could not be created.
+        /// </returns>
         public static ResourceManager GetResourceManager(
             CultureInfo cultureInfo, /* in */
             ref Result error         /* out */
@@ -5816,6 +8264,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Resolver Support Methods
+        /// <summary>
+        /// This method determines whether hidden commands should be resolved,
+        /// based on the specified engine flags.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags that govern command resolution.
+        /// </param>
+        /// <param name="match">
+        /// Non-zero if the resolution is being performed as part of a matching
+        /// operation; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if hidden commands should be resolved; otherwise, false.
+        /// </returns>
         public static bool ShouldResolveHidden(
             EngineFlags engineFlags,
             bool match
@@ -5829,6 +8291,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether namespace support is enabled, based on
+        /// the specified creation flags.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The creation flags that govern interpreter behavior.
+        /// </param>
+        /// <returns>
+        /// True if namespace support is enabled; otherwise, false.
+        /// </returns>
         public static bool AreNamespacesEnabled(
             CreateFlags createFlags
             )
@@ -5839,6 +8311,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new command resolver of the appropriate type,
+        /// based on whether namespace support is enabled.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that the resolver will belong to.
+        /// </param>
+        /// <param name="frame">
+        /// The call frame associated with the resolver, if any.
+        /// </param>
+        /// <param name="namespace">
+        /// The namespace associated with the resolver, if any.
+        /// </param>
+        /// <param name="createFlags">
+        /// The creation flags used to determine whether namespace support is
+        /// enabled.
+        /// </param>
+        /// <returns>
+        /// The newly created command resolver.
+        /// </returns>
         public static IResolve NewResolver(
             Interpreter interpreter,
             ICallFrame frame,
@@ -5864,6 +8356,38 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Reflection Support Methods
+        /// <summary>
+        /// This method computes a <see cref="TracePriority" /> value by parsing
+        /// the specified new value, optionally combining it with the current
+        /// value of the specified field.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when parsing the trace priority flags.
+        /// </param>
+        /// <param name="fieldInfo">
+        /// The field whose current value is used as the basis for parsing the
+        /// new value, if any.
+        /// </param>
+        /// <param name="object">
+        /// The object instance from which to read the field value, or null for
+        /// a static field.
+        /// </param>
+        /// <param name="newValue">
+        /// The string representation of the trace priority flags to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing the trace priority flags.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this contains the resulting trace priority value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetTracePriorityValue(
             Interpreter interpreter,
             FieldInfo fieldInfo,
@@ -5906,6 +8430,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified argument list consists
+        /// of exactly the specified request name and no other arguments.
+        /// </summary>
+        /// <param name="arguments">
+        /// The argument list to examine.
+        /// </param>
+        /// <param name="name">
+        /// The request name to match against the first argument.
+        /// </param>
+        /// <returns>
+        /// True if the argument list contains only the specified request name;
+        /// otherwise, false.
+        /// </returns>
         public static bool MatchFieldNameOnly(
             ArgumentList arguments,
             string name
@@ -5921,6 +8459,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the first element of the specified
+        /// argument list matches the specified request name.
+        /// </summary>
+        /// <param name="arguments">
+        /// The argument list to examine.
+        /// </param>
+        /// <param name="name">
+        /// The request name to match against the first argument.
+        /// </param>
+        /// <param name="count">
+        /// Upon return, this contains the number of arguments in the list, or
+        /// an invalid count if the list is null.
+        /// </param>
+        /// <returns>
+        /// True if the first argument matches the specified request name;
+        /// otherwise, false.
+        /// </returns>
         public static bool MatchRequestName(
             ArgumentList arguments,
             string name,
@@ -5943,6 +8499,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets or sets the value of a named field, based on the
+        /// specified arguments, if the field is present in the specified
+        /// dictionary of supported fields.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when converting the field value.
+        /// </param>
+        /// <param name="fields">
+        /// The dictionary of supported fields, keyed by name.
+        /// </param>
+        /// <param name="object">
+        /// The object instance on which to get or set the field value, or null
+        /// for a static field.
+        /// </param>
+        /// <param name="arguments">
+        /// The arguments specifying the field name and, optionally, the new
+        /// value to set.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when converting the field value.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the field value that was read or set.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, non-zero if the field request was handled; otherwise,
+        /// zero, indicating that the request was not supported.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode MaybeGetOrSetFieldValue(
             Interpreter interpreter,
             FieldInfoDictionary fields,
@@ -6159,6 +8751,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects, from a list of types, the one whose full name
+        /// most closely resembles the specified text.
+        /// </summary>
+        /// <param name="types">
+        /// The list of types to consider.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The text to compare each type name against.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The <see cref="StringComparison" /> value used when comparing type
+        /// names.
+        /// </param>
+        /// <returns>
+        /// The type with the most similar name, or null if there are no types
+        /// or none is sufficiently similar.
+        /// </returns>
         public static Type GetTypeWithMostSimilarName(
             TypeList types,
             string text,
@@ -6202,6 +8812,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects, from a list of types, the one that exposes the
+        /// greatest number of members matching the specified binding flags.
+        /// </summary>
+        /// <param name="types">
+        /// The list of types to consider.  This parameter may be null.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The <see cref="BindingFlags" /> used to enumerate the members of
+        /// each type.  When this is <see cref="BindingFlags.Default" />, the
+        /// default member enumeration is used.
+        /// </param>
+        /// <returns>
+        /// The type with the most members, or null if there are no types to
+        /// consider.
+        /// </returns>
         public static Type GetTypeWithMostMembers(
             TypeList types,
             BindingFlags bindingFlags
@@ -6248,6 +8874,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a class type implements a particular
+        /// interface type.
+        /// </summary>
+        /// <param name="type">
+        /// The class type to check.  This parameter may be null.
+        /// </param>
+        /// <param name="matchType">
+        /// The interface type to check for.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="type" /> is a class that implements the
+        /// interface <paramref name="matchType" />; otherwise, false.
+        /// </returns>
         public static bool DoesClassTypeSupportInterface(
             Type type,
             Type matchType
@@ -6268,6 +8908,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a class type is equal to, or
+        /// optionally a sub-class of, another type.
+        /// </summary>
+        /// <param name="type">
+        /// The class type to check.  This parameter may be null.
+        /// </param>
+        /// <param name="matchType">
+        /// The type to compare against.  This parameter may be null and must
+        /// not be an interface type.
+        /// </param>
+        /// <param name="subClass">
+        /// Non-zero if <paramref name="type" /> being a sub-class of
+        /// <paramref name="matchType" /> should be considered a match.
+        /// </param>
+        /// <returns>
+        /// True if <paramref name="type" /> is a class that is equal to (or,
+        /// when permitted, a sub-class of) <paramref name="matchType" />;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsClassTypeEqualOrSubClass(
             Type type,
             Type matchType,
@@ -6291,6 +8951,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a type matches another type, handling
+        /// both interface implementation and class equality or inheritance.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.  This parameter may be null.
+        /// </param>
+        /// <param name="matchType">
+        /// The type to match against.  This parameter may be null.  When it is
+        /// an interface, the check is whether <paramref name="type" />
+        /// implements it; otherwise, the check is for equality or, optionally,
+        /// inheritance.
+        /// </param>
+        /// <param name="subClass">
+        /// Non-zero if <paramref name="type" /> being a sub-class of
+        /// <paramref name="matchType" /> should be considered a match.
+        /// </param>
+        /// <returns>
+        /// True if the types match; otherwise, false.  When both
+        /// <paramref name="type" /> and <paramref name="matchType" /> are null,
+        /// this is considered a match.
+        /// </returns>
         public static bool DoesClassTypeMatch(
             Type type,
             Type matchType,
@@ -6337,6 +9019,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the set of plugin flags indicating which security
+        /// checks (StrongName verification and file trust) should be skipped,
+        /// based on the current configuration.
+        /// </summary>
+        /// <returns>
+        /// The combined <see cref="PluginFlags" /> value describing the checks
+        /// to skip.
+        /// </returns>
         private static PluginFlags GetSkipCheckPluginFlags()
         {
             PluginFlags result = PluginFlags.None;
@@ -6352,6 +9043,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the assembly associated with the
+        /// specified plugin data is licensed for use.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="pluginData">
+        /// The plugin data whose assembly should be checked.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the plugin assembly is licensed; otherwise, false.
+        /// </returns>
         public static bool IsLicensed(
             Interpreter interpreter,
             IPluginData pluginData,
@@ -6387,6 +9096,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly is licensed
+        /// for use, emitting a diagnostic trace when it is not (unless tracing
+        /// is suppressed internally).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the assembly is licensed; otherwise, false.
+        /// </returns>
         private static bool IsLicensed(
             Interpreter interpreter,
             Assembly assembly
@@ -6420,6 +9143,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly is licensed
+        /// for use, performing the underlying genuineness and security
+        /// certificate checks.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to check.  This parameter may be null.
+        /// </param>
+        /// <param name="noTrace">
+        /// Upon return, non-zero indicates that the failure does not warrant a
+        /// diagnostic trace by the caller.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// True if the assembly is licensed; otherwise, false.
+        /// </returns>
         public static bool IsLicensed(
             Interpreter interpreter,
             Assembly assembly,
@@ -6463,6 +9208,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the plugin flags describing the security
+        /// characteristics (e.g. StrongName, verification, Authenticode, and
+        /// trust) of an assembly given its raw bytes, skipping any checks
+        /// indicated by the current configuration.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted hashes used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to evaluate.  This parameter may be null.
+        /// </param>
+        /// <param name="assemblyBytes">
+        /// The raw bytes of the assembly to evaluate.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The combined <see cref="PluginFlags" /> value describing the
+        /// assembly.
+        /// </returns>
         public static PluginFlags GetAssemblyPluginFlags(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -6477,6 +9246,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the plugin flags describing the security
+        /// characteristics (e.g. StrongName, verification, Authenticode, and
+        /// trust) of an assembly given its raw bytes, honoring the specified
+        /// flags that indicate which checks should be skipped.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted hashes used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to evaluate.  This parameter may be null.
+        /// </param>
+        /// <param name="assemblyBytes">
+        /// The raw bytes of the assembly to evaluate.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags indicating which security checks should be skipped.
+        /// </param>
+        /// <returns>
+        /// The combined <see cref="PluginFlags" /> value describing the
+        /// assembly.
+        /// </returns>
         private static PluginFlags GetAssemblyPluginFlags(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -6575,6 +9371,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the plugin flags describing the security
+        /// characteristics (e.g. StrongName, verification, Authenticode, and
+        /// trust) of an assembly given the assembly itself, skipping any checks
+        /// indicated by the current configuration.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted hashes used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to evaluate.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The combined <see cref="PluginFlags" /> value describing the
+        /// assembly.
+        /// </returns>
         public static PluginFlags GetAssemblyPluginFlags(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -6587,6 +9403,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the plugin flags describing the security
+        /// characteristics (e.g. StrongName, verification, Authenticode, and
+        /// trust) of an assembly given the assembly itself, honoring the
+        /// specified flags that indicate which checks should be skipped.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="trustedHashes">
+        /// The list of trusted hashes used when evaluating file trust.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to evaluate.  This parameter may be null.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags indicating which security checks should be skipped.
+        /// </param>
+        /// <returns>
+        /// The combined <see cref="PluginFlags" /> value describing the
+        /// assembly, or <see cref="PluginFlags.None" /> if
+        /// <paramref name="assembly" /> is null.
+        /// </returns>
         private static PluginFlags GetAssemblyPluginFlags(
             Interpreter interpreter,
             StringList trustedHashes,
@@ -6696,6 +9536,22 @@ namespace Eagle._Components.Private
         //       own internal locking; this is done to prevent a possible
         //       deadlock.
         //
+        /// <summary>
+        /// This method copies the trusted hashes from the specified
+        /// interpreter, using a lock to coordinate access to interpreter state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted hashes should be copied.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the trusted hashes from the interpreter after they
+        /// have been copied.
+        /// </param>
+        /// <returns>
+        /// A new list containing the copied trusted hashes, or null if there
+        /// is no interpreter or the interpreter lock could not be obtained.
+        /// </returns>
         private static StringList CopyTrustedHashes(
             Interpreter interpreter, /* in */
             bool clear               /* in */
@@ -6738,6 +9594,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the trusted hashes from the specified
+        /// interpreter and the global state into a single list, copying from
+        /// either or both sources as requested.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose trusted hashes should be included.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="noInterpreter">
+        /// Non-zero to exclude the trusted hashes from the interpreter.
+        /// </param>
+        /// <param name="noGlobal">
+        /// Non-zero to exclude the trusted hashes from the global state.
+        /// </param>
+        /// <param name="clear">
+        /// Non-zero to clear the trusted hashes from each source after they
+        /// have been copied.
+        /// </param>
+        /// <returns>
+        /// A new list containing the combined trusted hashes, or null if no
+        /// trusted hashes were available from either source.
+        /// </returns>
         public static StringList CombineOrCopyTrustedHashes(
             Interpreter interpreter, /* in: OPTIONAL */
             bool noInterpreter,      /* in */
@@ -6769,6 +9648,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is a managed
+        /// assembly by inspecting its PE file headers for a CLR header.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file to inspect.  This parameter may be null or
+        /// empty.
+        /// </param>
+        /// <returns>
+        /// True if the file appears to be a managed assembly; otherwise, false.
+        /// </returns>
         public static bool IsManagedAssembly(
             string fileName /* in */
             )
@@ -6797,6 +9687,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if APPDOMAINS || ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
+        /// <summary>
+        /// This method previews the plugin data for a plugin contained in the
+        /// specified file by loading it into a temporary, isolated application
+        /// domain so that its metadata can be inspected without committing to
+        /// loading it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file containing the plugin to preview.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to preview, if known.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags controlling how the plugin is loaded and previewed.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output during the preview.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The previewed plugin data, or null if the plugin data could not be
+        /// obtained.
+        /// </returns>
         private static IPluginData PreviewPluginData(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -6876,6 +9797,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method previews the plugin metadata for an in-memory assembly
+        /// by loading it into an isolated application domain, extracting its
+        /// plugin data, and then unloading that application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when creating the temporary
+        /// application domain and reflection helper.
+        /// </param>
+        /// <param name="assemblyBytes">
+        /// The raw bytes of the assembly to be previewed.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to look for, or null to use the
+        /// primary plugin type.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags that control how the assembly is loaded and
+        /// verified.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the plugin data could not be previewed.
+        /// </param>
+        /// <returns>
+        /// The extracted plugin data, or null if it could not be obtained.
+        /// </returns>
         private static IPluginData PreviewPluginData(
             Interpreter interpreter, /* in */
             byte[] assemblyBytes,    /* in */
@@ -6950,6 +9902,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method previews the plugin flags and update URI for a plugin
+        /// assembly that is identified by its file name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when previewing the plugin data.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the assembly to be previewed.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to look for, or null to use the
+        /// primary plugin type.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// Upon entry, the plugin flags that control how the assembly is
+        /// loaded and verified.  Upon success, this contains the plugin
+        /// flags reported by the previewed plugin.
+        /// </param>
+        /// <param name="pluginData">
+        /// Upon success, this contains the plugin data that was extracted
+        /// from the previewed assembly.
+        /// </param>
+        /// <param name="updateUri">
+        /// Upon success, this contains the update URI reported by the
+        /// previewed plugin.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the plugin flags and update URI could not be previewed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode PreviewPluginFlagsAndUpdateUri(
             Interpreter interpreter,     /* in */
             string fileName,             /* in */
@@ -6976,6 +9967,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method previews the plugin flags and update URI for a plugin
+        /// assembly that is provided as an in-memory array of bytes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when previewing the plugin data.
+        /// </param>
+        /// <param name="assemblyBytes">
+        /// The raw bytes of the assembly to be previewed.
+        /// </param>
+        /// <param name="typeName">
+        /// The name of the plugin type to look for, or null to use the
+        /// primary plugin type.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// Upon entry, the plugin flags that control how the assembly is
+        /// loaded and verified.  Upon success, this contains the plugin
+        /// flags reported by the previewed plugin.
+        /// </param>
+        /// <param name="pluginData">
+        /// Upon success, this contains the plugin data that was extracted
+        /// from the previewed assembly.
+        /// </param>
+        /// <param name="updateUri">
+        /// Upon success, this contains the update URI reported by the
+        /// previewed plugin.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the plugin flags and update URI could not be previewed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode PreviewPluginFlagsAndUpdateUri(
             Interpreter interpreter,     /* in */
             byte[] assemblyBytes,        /* in */
@@ -7002,6 +10032,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method previews the resources contained within a plugin
+        /// assembly that is identified by its file name by loading it into
+        /// an isolated application domain, extracting its resource data, and
+        /// then unloading that application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when creating the temporary
+        /// application domain and reflection helper.
+        /// </param>
+        /// <param name="fileName">
+        /// The file name of the assembly to be previewed.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of patterns used to match the resource names to be
+        /// returned, or null to match all resources.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags that control how the assembly is loaded and
+        /// verified.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="resources">
+        /// Upon success, this contains the dictionary of resources that were
+        /// extracted from the previewed assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the plugin resources could not be previewed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode PreviewPluginResources(
             Interpreter interpreter,                /* in */
             string fileName,                        /* in */
@@ -7083,6 +10150,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method previews the resources contained within a plugin
+        /// assembly that is provided as an in-memory array of bytes by
+        /// loading it into an isolated application domain, extracting its
+        /// resource data, and then unloading that application domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when creating the temporary
+        /// application domain and reflection helper.
+        /// </param>
+        /// <param name="assemblyBytes">
+        /// The raw bytes of the assembly to be previewed.
+        /// </param>
+        /// <param name="patterns">
+        /// The list of patterns used to match the resource names to be
+        /// returned, or null to match all resources.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags that control how the assembly is loaded and
+        /// verified.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="resources">
+        /// Upon success, this contains the dictionary of resources that were
+        /// extracted from the previewed assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the plugin resources could not be previewed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode PreviewPluginResources(
             Interpreter interpreter,                /* in */
             byte[] assemblyBytes,                   /* in */
@@ -7160,6 +10264,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method walks the chain of inner exceptions for the specified
+        /// exception, adding each one to the specified list of errors.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception whose inner exceptions should be collected.  If this
+        /// is null, no action is taken.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.  If
+        /// it is null and there are inner exceptions to add, a new list is
+        /// created.  Upon return, this contains any collected inner
+        /// exceptions.
+        /// </param>
+        /// <returns>
+        /// True if the specified exception was non-null; otherwise, false.
+        /// </returns>
         private static bool MaybeGrabInnerExceptions(
             Exception exception,  /* in */
             ref ResultList errors /* in, out */
@@ -7190,6 +10311,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the loader exceptions associated with the
+        /// specified exception when it is a
+        /// <see cref="ReflectionTypeLoadException" />, adding each one and its
+        /// inner exceptions to the specified list of errors.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception whose loader exceptions should be collected.  If this
+        /// is null or is not a <see cref="ReflectionTypeLoadException" />, no
+        /// action is taken.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.  If
+        /// it is null and there are loader exceptions to add, a new list is
+        /// created.  Upon return, this contains any collected loader
+        /// exceptions.
+        /// </param>
+        /// <returns>
+        /// True if loader exceptions were available to be collected;
+        /// otherwise, false.
+        /// </returns>
         private static bool MaybeGrabLoaderExceptions(
             Exception exception,  /* in */
             ref ResultList errors /* in, out */
@@ -7235,6 +10377,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the specified exception, and optionally its
+        /// inner and loader exceptions, adding each one to the specified list
+        /// of errors.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to collect.  If this is null, no action is taken.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to also collect the inner and loader exceptions
+        /// associated with the specified exception.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.  If
+        /// it is null, a new list is created.  Upon return, this contains
+        /// the collected exceptions.
+        /// </param>
+        /// <returns>
+        /// True if the specified exception was non-null; otherwise, false.
+        /// </returns>
         public static bool MaybeGrabExceptions(
             Exception exception,  /* in */
             bool verbose,         /* in */
@@ -7268,6 +10430,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the specified exception, and optionally its
+        /// inner and loader exceptions, and reports them via the diagnostic
+        /// tracing subsystem.
+        /// </summary>
+        /// <param name="exception">
+        /// The exception to collect and report.  If this is null, no
+        /// exception is traced; however, any collected errors are still
+        /// reported.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to also collect the inner and loader exceptions
+        /// associated with the specified exception.
+        /// </param>
+        /// <returns>
+        /// True if at least one exception or error was reported; otherwise,
+        /// false.
+        /// </returns>
         public static bool MaybeGrabAndReportExceptions(
             Exception exception, /* in */
             bool verbose         /* in */
@@ -7310,6 +10490,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of types defined by the core library
+        /// assembly.
+        /// </summary>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="types">
+        /// Upon entry, the list of types to add to, which may be null.  If
+        /// it is null, a new list is created.  Upon success, this contains
+        /// the types defined by the core library assembly.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.
+        /// Upon failure, this contains one or more error messages that
+        /// describe why the types could not be obtained.
+        /// </param>
+        /// <returns>
+        /// True if the types were obtained successfully; otherwise, false.
+        /// </returns>
         public static bool GetTypes(
             bool verbose,         /* in */
             ref TypeList types,   /* in, out */
@@ -7322,6 +10523,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the list of types defined by the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose types should be obtained.  If this is null, an
+        /// error is reported.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="types">
+        /// Upon entry, the list of types to add to, which may be null.  If
+        /// it is null, a new list is created.  Upon success, this contains
+        /// the types defined by the specified assembly.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.
+        /// Upon failure, this contains one or more error messages that
+        /// describe why the types could not be obtained.
+        /// </param>
+        /// <returns>
+        /// True if the types were obtained successfully; otherwise, false.
+        /// </returns>
         private static bool GetTypes(
             Assembly assembly,    /* in */
             bool verbose,         /* in */
@@ -7380,6 +10606,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified assembly for the type name of
+        /// its primary plugin, which is the plugin type marked with the
+        /// <see cref="PluginFlags.Primary" /> flag.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to search for the primary plugin.  If this is null,
+        /// an error is reported.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="typeName">
+        /// Upon success, this contains the full name of the primary plugin
+        /// type found in the specified assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an error message that describes why
+        /// the primary plugin could not be found.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode FindPrimaryPlugin(
             Assembly assembly,
             bool verbose,
@@ -7454,6 +10705,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the object identifier associated
+        /// with the specified type matches the specified identifier.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose object identifier should be compared.  If this is
+        /// null, no match is possible.
+        /// </param>
+        /// <param name="matchId">
+        /// The object identifier to compare against the object identifier of
+        /// the specified type.
+        /// </param>
+        /// <returns>
+        /// True if the specified type has a defined object identifier that
+        /// matches the specified identifier; otherwise, false.
+        /// </returns>
         public static bool DoesTypeMatchId(
             Type type,
             Guid matchId
@@ -7475,6 +10742,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the specified assembly for the type whose
+        /// object identifier matches the specified identifier.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to search for the matching type.
+        /// </param>
+        /// <param name="id">
+        /// The object identifier to match.  If this is
+        /// <see cref="Guid.Empty" />, the <see cref="Type" /> type itself is
+        /// returned.
+        /// </param>
+        /// <param name="nonPublic">
+        /// Non-zero to also consider non-public types when searching;
+        /// otherwise, only public types are considered.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include additional diagnostic information when an
+        /// error is encountered.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, this contains the type whose object identifier
+        /// matches the specified identifier.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, the list of errors to add to, which may be null.
+        /// Upon failure, this contains one or more error messages that
+        /// describe why the matching type could not be found.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         private static ReturnCode FindTypeById(
             Assembly assembly,
             Guid id,
@@ -7536,6 +10836,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets framework version information for the specified
+        /// assembly and/or type, according to the specified framework flags.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to query for framework information.  If this is null,
+        /// an error is reported.
+        /// </param>
+        /// <param name="id">
+        /// The optional object identifier of the type within the assembly to
+        /// query, or null to query the assembly itself.
+        /// </param>
+        /// <param name="flags">
+        /// The framework flags that control which sources of framework
+        /// information are consulted and how the result is formatted.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the framework information; upon
+        /// failure, this contains an error message that describes why the
+        /// framework information could not be obtained.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an
+        /// appropriate error code.
+        /// </returns>
         public static ReturnCode GetFramework(
             Assembly assembly,
             Guid? id,
@@ -7742,6 +11067,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method filters a collection of types, selecting those class or
+        /// value types that match a required type and do not match an excluded
+        /// type.
+        /// </summary>
+        /// <param name="types">
+        /// The collection of types to examine.  If this parameter is null, the
+        /// method fails.
+        /// </param>
+        /// <param name="matchType">
+        /// The type that a candidate type must match in order to be selected.
+        /// This parameter may be null, in which case no positive matching is
+        /// performed.
+        /// </param>
+        /// <param name="nonMatchType">
+        /// The type that a candidate type must not match in order to be
+        /// selected.  This parameter may be null, in which case no negative
+        /// matching is performed.
+        /// </param>
+        /// <param name="subClass">
+        /// Non-zero to also consider sub-classes when matching against
+        /// <paramref name="matchType" /> and <paramref name="nonMatchType" />.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include verbose exception information in the
+        /// <paramref name="errors" /> collection.
+        /// </param>
+        /// <param name="matchingTypes">
+        /// Upon success, this receives the list of matching types.  If this
+        /// parameter is null, a new list is created.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this receives one or more error messages.  If this
+        /// parameter is null, a new list is created when an error is recorded.
+        /// </param>
+        /// <returns>
+        /// True if the types were examined successfully; otherwise, false.
+        /// </returns>
         private static bool GetMatchingClassTypes(
             IEnumerable<Type> types,
             Type matchType,    // must match this type
@@ -7804,6 +11167,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans a collection of types for methods that can be
+        /// converted into delegates of an expected type and whose associated
+        /// method flags satisfy the specified inclusion and exclusion criteria.
+        /// </summary>
+        /// <param name="types">
+        /// The collection of types whose methods are examined.
+        /// </param>
+        /// <param name="matchType">
+        /// The delegate type that each candidate method must be convertible to.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The method flags that a candidate method must have in order to be
+        /// included.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The method flags that a candidate method must not have in order to
+        /// be included.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require all of the <paramref name="hasFlags" /> to be
+        /// present; zero to require any of them.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require all of the <paramref name="notHasFlags" /> to be
+        /// present before excluding a method; zero to exclude when any of them
+        /// are present.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to include verbose exception information in the
+        /// <paramref name="errors" /> collection.
+        /// </param>
+        /// <param name="delegates">
+        /// Upon success, this receives the created delegates mapped to their
+        /// associated method flags.  If this parameter is null, a new
+        /// dictionary is created.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this receives one or more error messages.  If this
+        /// parameter is null, a new list is created when an error is recorded.
+        /// </param>
+        /// <returns>
+        /// True if the types were examined successfully; otherwise, false.
+        /// </returns>
         private static bool GetMatchingDelegates(
             IEnumerable<Type> types,
             Type matchType,          // the delegate type we are expecting
@@ -7896,6 +11303,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if EMIT
+        /// <summary>
+        /// This method collects the methods of a type that are eligible to be
+        /// turned into delegates, honoring the visibility and binding criteria
+        /// expressed by the specified delegate flags.
+        /// </summary>
+        /// <param name="type">
+        /// The type whose methods are collected.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The flags controlling which methods are collected (e.g. public,
+        /// non-public, instance, and/or static) and how failures are reported.
+        /// </param>
+        /// <param name="methodInfoList">
+        /// Upon success, this receives the collected methods.  If this
+        /// parameter is null, a new list is created; otherwise, the collected
+        /// methods are appended.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this receives one or more error messages.  If this
+        /// parameter is null, a new list is created when an error is recorded.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode GetDelegateMethods(
             Type type,
             DelegateFlags delegateFlags,
@@ -8000,6 +11432,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a method cannot be used as the basis
+        /// for a delegate because it has open generic parameters or is not CLS
+        /// compliant.
+        /// </summary>
+        /// <param name="methodInfo">
+        /// The method to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the method is unsupported; otherwise, false.
+        /// </returns>
         private static bool IsUnsupportedMethod(
             MethodInfo methodInfo
             )
@@ -8021,6 +11464,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether any of the specified parameters have
+        /// a type that cannot be supported, such as a parameter array or a
+        /// pointer type.
+        /// </summary>
+        /// <param name="parameterInfos">
+        /// The array of parameters to examine.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if any parameter has an unsupported type; otherwise, false.
+        /// </returns>
         private static bool HasUnsupportedParameterType(
             ParameterInfo[] parameterInfos
             )
@@ -8050,6 +11504,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the name to use for a delegate created from the
+        /// specified method, appending the parameter count when the method name
+        /// is overloaded within the existing delegate collection.
+        /// </summary>
+        /// <param name="delegates">
+        /// The existing collection of delegates, used to detect overloaded
+        /// method names.  This parameter may be null.
+        /// </param>
+        /// <param name="methodInfo">
+        /// The method for which a delegate name is being computed.  If this
+        /// parameter is null, a null name is returned.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The parameters of the method, used to disambiguate overloaded
+        /// names.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The computed delegate name, or null if <paramref name="methodInfo" />
+        /// is null.
+        /// </returns>
         private static string GetDelegateName(
             DelegateDictionary delegates,
             MethodInfo methodInfo,
@@ -8078,6 +11553,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the name to use for a delegate created from the
+        /// specified method, delegating to the supplied callback when one is
+        /// provided and falling back to the default naming scheme otherwise.
+        /// </summary>
+        /// <param name="nameCallback">
+        /// The optional callback used to compute the delegate name.  This
+        /// parameter may be null, in which case the default naming scheme is
+        /// used.
+        /// </param>
+        /// <param name="delegates">
+        /// The existing collection of delegates, used to detect overloaded
+        /// method names.  This parameter may be null.
+        /// </param>
+        /// <param name="methodInfo">
+        /// The method for which a delegate name is being computed.
+        /// </param>
+        /// <param name="parameterInfo">
+        /// The parameters of the method, used to disambiguate overloaded
+        /// names.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional caller-specific data passed to the callback.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The computed delegate name, or null if the method is null.
+        /// </returns>
         private static string GetDelegateName(
             NewDelegateNameCallback nameCallback,
             DelegateDictionary delegates,
@@ -8108,6 +11611,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates delegates for the eligible methods in the
+        /// specified list, binding each to the supplied target object and
+        /// adding the resulting delegates to the delegate collection.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when constructing managed delegate
+        /// types.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type that declares the methods being bound.  If this parameter
+        /// is null, the method fails.
+        /// </param>
+        /// <param name="object">
+        /// The target object to bind instance methods to, or null for static
+        /// methods.
+        /// </param>
+        /// <param name="methodInfoList">
+        /// The list of methods to convert into delegates.  If this parameter
+        /// is null, the method fails.
+        /// </param>
+        /// <param name="nameCallback">
+        /// The optional callback used to compute each delegate name.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The optional caller-specific data passed to the name callback.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="delegateFlags">
+        /// The flags controlling delegate creation, including how duplicates
+        /// are handled and how failures are reported.
+        /// </param>
+        /// <param name="delegates">
+        /// Upon success, this receives the created delegates keyed by name.  If
+        /// this parameter is null, a new dictionary is created.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, this receives one or more error messages.  If this
+        /// parameter is null, a new list is created when an error is recorded.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if no errors were encountered;
+        /// otherwise, an appropriate error code.
+        /// </returns>
         public static ReturnCode CreateDelegates(
             Interpreter interpreter,
             Type type,
@@ -8304,6 +11852,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches the commands of a plugin for the command data
+        /// whose type name matches the full name of the specified type.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin data whose commands are searched.  If this parameter is
+        /// null, a null reference is returned.
+        /// </param>
+        /// <param name="type">
+        /// The type whose full name is used to match the command data.
+        /// </param>
+        /// <returns>
+        /// The matching <see cref="ICommandData" />, or null if no match is
+        /// found.
+        /// </returns>
         public static ICommandData FindCommandData(
             IPluginData pluginData,
             Type type
@@ -8334,6 +11897,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type represents one of
+        /// the special internal command implementations that are not treated as
+        /// ordinary commands.
+        /// </summary>
+        /// <param name="type">
+        /// The type to examine.
+        /// </param>
+        /// <returns>
+        /// True if the type is one of the special internal command types;
+        /// otherwise, false.
+        /// </returns>
         private static bool IsReallyNonCommand(
             Type type
             )
@@ -8359,6 +11934,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type name matches the
+        /// full name of one of the special internal command implementations
+        /// that are not treated as ordinary commands.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name to examine.
+        /// </param>
+        /// <returns>
+        /// True if the type name matches one of the special internal command
+        /// types; otherwise, false.
+        /// </returns>
         public static bool IsReallyNonCommandName(
             string typeName
             )
@@ -8392,6 +11979,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the command data list of the specified plugin
+        /// with the built-in commands, optionally filtered by command flags and
+        /// constrained by a rule set.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for which the built-in commands are being
+        /// populated.  This parameter may be null.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The optional rule set used to further constrain which built-in
+        /// commands are included.  This parameter may be null.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin whose command data list is populated.  If this parameter
+        /// is null, the method fails.
+        /// </param>
+        /// <param name="commandFlags">
+        /// The optional command flags that a built-in command must have in
+        /// order to be included.  This parameter may be null.
+        /// </param>
+        /// <param name="notCommandFlags">
+        /// The optional command flags that a built-in command must not have in
+        /// order to be included.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode PopulateBuiltInCommands(
             Interpreter interpreter,
             IRuleSet ruleSet,
@@ -8530,6 +12149,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers all the types provided by the assembly that
+        /// is associated with the specified plugin.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin whose assembly types are to be discovered.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce more detailed error information.
+        /// </param>
+        /// <param name="types">
+        /// Upon success, receives the list of discovered types.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode PopulatePluginTypes(
             IPlugin plugin,
             bool verbose,
@@ -8565,6 +12204,42 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers the command types provided by the specified
+        /// plugin and adds the corresponding command metadata to that plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when applying any rule set, if
+        /// any.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to filter (and optionally hide or show) the
+        /// discovered commands; may be null.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to receive the discovered command metadata.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider; if null, the types are
+        /// queried from the specified plugin.
+        /// </param>
+        /// <param name="commandFlags">
+        /// If not null, only commands with all of these flags set are
+        /// included.
+        /// </param>
+        /// <param name="notCommandFlags">
+        /// If not null, commands with any of these flags set are excluded.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce more detailed error information.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode PopulatePluginCommands(
             Interpreter interpreter,
             IRuleSet ruleSet,
@@ -8703,6 +12378,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers the policy delegates provided by the
+        /// specified types and adds the corresponding policy metadata to the
+        /// specified plugin.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when applying any rule set, if
+        /// any.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to filter the discovered policies; may be null.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to receive the discovered policy metadata.
+        /// </param>
+        /// <param name="types">
+        /// The types to examine for matching policy delegates.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode PopulatePluginPolicies(
             Interpreter interpreter,
             IRuleSet ruleSet,
@@ -8801,6 +12501,51 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the command and policy metadata for the
+        /// specified plugin, optionally using the built-in command data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when applying any rule set, if
+        /// any.
+        /// </param>
+        /// <param name="plugin">
+        /// The plugin to receive the discovered command and policy metadata.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider; if null, the types are
+        /// queried from the specified plugin when necessary.
+        /// </param>
+        /// <param name="ruleSet">
+        /// The rule set used to filter the discovered entities; may be null.
+        /// </param>
+        /// <param name="commandFlags">
+        /// If not null, only commands with all of these flags set are
+        /// included.
+        /// </param>
+        /// <param name="notCommandFlags">
+        /// If not null, commands with any of these flags set are excluded.
+        /// </param>
+        /// <param name="useBuiltIn">
+        /// Non-zero to populate commands from the built-in command data
+        /// instead of discovering them from the plugin.
+        /// </param>
+        /// <param name="noCommands">
+        /// Non-zero to skip populating command metadata.
+        /// </param>
+        /// <param name="noPolicies">
+        /// Non-zero to skip populating policy metadata.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce more detailed error information.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode PopulatePluginEntities(
             Interpreter interpreter,
             IPlugin plugin,
@@ -8881,6 +12626,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method throws a <see cref="ScriptException" /> indicating that
+        /// the specified feature is not supported by the specified plugin,
+        /// subject to the active interpreter (or global) configuration.
+        /// </summary>
+        /// <param name="pluginData">
+        /// The plugin that does not support the feature.
+        /// </param>
+        /// <param name="name">
+        /// The name of the feature that is not supported.
+        /// </param>
         public static void ThrowFeatureNotSupported( /* EXTERNAL USE ONLY */
             IPluginData pluginData,
             string name
@@ -8904,6 +12660,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Expression Operator Support Methods
+        /// <summary>
+        /// This method builds the list of metadata for the built-in
+        /// expression operators.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin to associate with the discovered operator metadata; may
+        /// be null.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison type to associate with the discovered
+        /// operator metadata.
+        /// </param>
+        /// <param name="standardOnly">
+        /// Non-zero to include only those operators flagged as standard;
+        /// otherwise, all matching operators are included.
+        /// </param>
+        /// <param name="operators">
+        /// Upon success, receives the list of discovered operator metadata;
+        /// if null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetBuiltInOperators(
             IPlugin plugin,
             StringComparison comparisonType,
@@ -9002,6 +12785,39 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers the operator types provided by the specified
+        /// plugin and builds the corresponding list of operator metadata.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin whose operator types are to be discovered.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider; if null, the types are
+        /// queried from the specified plugin.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison type to associate with the discovered
+        /// operator metadata.
+        /// </param>
+        /// <param name="standardOnly">
+        /// Non-zero to include only those operators flagged as standard;
+        /// otherwise, all matching operators are included.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce more detailed error information.
+        /// </param>
+        /// <param name="operators">
+        /// Upon success, receives the list of discovered operator metadata;
+        /// if null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetPluginOperators(
             IPlugin plugin,
             TypeList types,
@@ -9096,6 +12912,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates an operator instance from the specified
+        /// operator metadata.
+        /// </summary>
+        /// <param name="operatorData">
+        /// The metadata describing the operator to create.
+        /// </param>
+        /// <param name="operator">
+        /// Upon success, receives the newly created operator instance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode CreateOperator(
             IOperatorData operatorData,
             ref IOperator @operator,
@@ -9149,6 +12982,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Expression Function Support Methods
+        /// <summary>
+        /// This method builds the list of metadata for the built-in
+        /// expression functions.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin to associate with the discovered function metadata; may
+        /// be null.
+        /// </param>
+        /// <param name="standardOnly">
+        /// Non-zero to include only those functions flagged as standard;
+        /// otherwise, all matching functions are included.
+        /// </param>
+        /// <param name="functions">
+        /// Upon success, receives the list of discovered function metadata;
+        /// if null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetBuiltInFunctions(
             IPlugin plugin,
             bool standardOnly,
@@ -9246,6 +13102,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method discovers the function types provided by the specified
+        /// plugin and builds the corresponding list of function metadata.
+        /// </summary>
+        /// <param name="plugin">
+        /// The plugin whose function types are to be discovered.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider; if null, the types are
+        /// queried from the specified plugin.
+        /// </param>
+        /// <param name="standardOnly">
+        /// Non-zero to include only those functions flagged as standard;
+        /// otherwise, all matching functions are included.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce more detailed error information.
+        /// </param>
+        /// <param name="functions">
+        /// Upon success, receives the list of discovered function metadata;
+        /// if null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetPluginFunctions(
             IPlugin plugin,
             TypeList types,
@@ -9341,6 +13226,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a function instance from the specified function
+        /// metadata.
+        /// </summary>
+        /// <param name="functionData">
+        /// The metadata describing the function to be created, including its
+        /// type information.
+        /// </param>
+        /// <param name="function">
+        /// Upon success, receives the newly created function instance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode CreateFunction(
             IFunctionData functionData,
             ref IFunction function,
@@ -9396,6 +13299,16 @@ namespace Eagle._Components.Private
 
         #region Native Delegate Support Methods
 #if NATIVE && (NATIVE_UTILITY || TCL)
+        /// <summary>
+        /// This method clears the specified collections of native delegates
+        /// and their associated optional flags.
+        /// </summary>
+        /// <param name="delegates">
+        /// The collection of native delegates to clear; if null, it is ignored.
+        /// </param>
+        /// <param name="optional">
+        /// The collection of optional flags to clear; if null, it is ignored.
+        /// </param>
         public static void UnsetNativeDelegates(
             TypeDelegateDictionary delegates,
             TypeBoolDictionary optional
@@ -9410,6 +13323,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified collection of native delegates
+        /// from a collection of native function addresses.
+        /// </summary>
+        /// <param name="description">
+        /// A short description of the native delegates being populated, used
+        /// when formatting error messages.
+        /// </param>
+        /// <param name="addresses">
+        /// The collection that maps each delegate type to its native function
+        /// address.
+        /// </param>
+        /// <param name="delegates">
+        /// The collection of delegate types to populate; upon success, each
+        /// entry is set to the delegate created for its native function.
+        /// </param>
+        /// <param name="optional">
+        /// The collection indicating which delegate types are optional; an
+        /// optional delegate with no available address is set to null instead
+        /// of causing a failure.  This value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SetNativeDelegates(
             string description,
             TypeIntPtrDictionary addresses,
@@ -9484,6 +13425,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified collection of native delegates
+        /// by resolving each delegate type to a native function exported by the
+        /// specified loaded module.
+        /// </summary>
+        /// <param name="description">
+        /// A short description of the native delegates being populated, used
+        /// when formatting error messages.
+        /// </param>
+        /// <param name="module">
+        /// The native handle of the loaded module from which the native
+        /// functions are resolved.
+        /// </param>
+        /// <param name="delegates">
+        /// The collection of delegate types to populate; upon success, each
+        /// entry is set to the delegate created for its native function.
+        /// </param>
+        /// <param name="optional">
+        /// The collection indicating which delegate types are optional; an
+        /// optional delegate that cannot be resolved is set to null instead of
+        /// causing a failure.  This value may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SetNativeDelegates(
             string description,
             IntPtr module,
@@ -9579,6 +13549,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Random Number Support Methods
+        /// <summary>
+        /// This method ensures that the shared random number generator has been
+        /// created, optionally forcing it to be recreated.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force a new random number generator to be created even if
+        /// one already exists.
+        /// </param>
+        /// <returns>
+        /// The shared random number generator instance.
+        /// </returns>
         private static RandomNumberGenerator InitializeRandomness(
             bool force
             )
@@ -9594,6 +13575,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the shared random number generator, creating it
+        /// first if necessary.
+        /// </summary>
+        /// <returns>
+        /// The shared random number generator instance.
+        /// </returns>
         public static RandomNumberGenerator GetRandomness()
         {
             return InitializeRandomness(false);
@@ -9601,6 +13589,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of and clears the shared random number
+        /// generator, releasing any associated resources.
+        /// </summary>
+        /// <returns>
+        /// The number of internal operations performed while clearing the
+        /// cached state.
+        /// </returns>
         public static int ClearCache()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -9625,6 +13621,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fills the specified byte array with random data obtained
+        /// from the shared random number generator.
+        /// </summary>
+        /// <param name="bytes">
+        /// The byte array to fill with random data; its length determines the
+        /// number of random bytes produced.
+        /// </param>
         public static void GetRandomBytes( /* throw */
             ref byte[] bytes /* in, out */
             )
@@ -9642,6 +13646,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fills the specified byte array with random data obtained
+        /// from the first available entropy source among those provided, falling
+        /// back to the global entropy source when none is supplied.
+        /// </summary>
+        /// <param name="provideEntropy">
+        /// The entropy provider to use; this value may be null.
+        /// </param>
+        /// <param name="randomNumberGenerator">
+        /// The random number generator to use when no entropy provider is
+        /// supplied; this value may be null.
+        /// </param>
+        /// <param name="random">
+        /// The pseudo-random number generator to use when neither an entropy
+        /// provider nor a random number generator is supplied; this value may be
+        /// null.
+        /// </param>
+        /// <param name="bytes">
+        /// The byte array to fill with random data; its length determines the
+        /// number of random bytes produced.
+        /// </param>
         public static void GetRandomBytes( /* throw */
             IProvideEntropy provideEntropy,              /* in: may be NULL. */
             RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
@@ -9679,6 +13704,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method fills the specified byte array with random data, using
+        /// the specified interpreter as the entropy source when one is provided.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose entropy source is used; if null, the shared
+        /// random number generator is used instead.  This value is optional.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the random data; its length determines the
+        /// number of random bytes produced.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode GetRandomBytes(
             Interpreter interpreter, /* in: OPTIONAL */
             ref byte[] bytes,        /* out */
@@ -9719,6 +13763,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a signed random number obtained from the shared
+        /// random number generator.
+        /// </summary>
+        /// <returns>
+        /// A randomly generated signed integer value.
+        /// </returns>
         public static long GetSignedRandomNumber() /* throw */
         {
             /* NO RESULT */
@@ -9733,6 +13784,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a signed random number obtained from the first
+        /// available entropy source among those provided.
+        /// </summary>
+        /// <param name="provideEntropy">
+        /// The entropy provider to use; this value may be null.
+        /// </param>
+        /// <param name="randomNumberGenerator">
+        /// The random number generator to use when no entropy provider is
+        /// supplied; this value may be null.
+        /// </param>
+        /// <param name="random">
+        /// The pseudo-random number generator to use when neither an entropy
+        /// provider nor a random number generator is supplied; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A randomly generated signed integer value.
+        /// </returns>
         private static long GetSignedRandomNumber( /* throw */
             IProvideEntropy provideEntropy,              /* in: may be NULL. */
             RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
@@ -9745,6 +13815,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns an unsigned random number obtained from the
+        /// shared random number generator.
+        /// </summary>
+        /// <returns>
+        /// A randomly generated unsigned integer value.
+        /// </returns>
         public static ulong GetRandomNumber() /* throw */
         {
             /* NO RESULT */
@@ -9759,6 +13836,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns an unsigned random number obtained from the first
+        /// available entropy source among those provided.
+        /// </summary>
+        /// <param name="provideEntropy">
+        /// The entropy provider to use; this value may be null.
+        /// </param>
+        /// <param name="randomNumberGenerator">
+        /// The random number generator to use when no entropy provider is
+        /// supplied; this value may be null.
+        /// </param>
+        /// <param name="random">
+        /// The pseudo-random number generator to use when neither an entropy
+        /// provider nor a random number generator is supplied; this value may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// A randomly generated unsigned integer value.
+        /// </returns>
         public static ulong GetRandomNumber( /* throw */
             IProvideEntropy provideEntropy,              /* in: may be NULL. */
             RandomNumberGenerator randomNumberGenerator, /* in: may be NULL. */
@@ -9782,6 +13878,17 @@ namespace Eagle._Components.Private
         //
         // TODO: Make this method configurable via some runtime mechanism?
         //
+        /// <summary>
+        /// This method determines whether the disposed state of the parent
+        /// object should be checked prior to exiting a lock via the
+        /// <see cref="ISynchronize.ExitLock" /> method.
+        /// </summary>
+        /// <param name="locked">
+        /// Non-zero if the lock is actually held; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the disposed state should be checked; otherwise, false.
+        /// </returns>
         public static bool ShouldCheckDisposedOnExitLock(
             bool locked
             )
@@ -9813,6 +13920,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Native Pointer Support Methods
+        /// <summary>
+        /// This method determines whether the specified native handle appears
+        /// to be valid (i.e. neither a null handle nor the well-known invalid
+        /// handle value).
+        /// </summary>
+        /// <param name="handle">
+        /// The native handle value to check.
+        /// </param>
+        /// <returns>
+        /// True if the handle appears to be valid; otherwise, false.
+        /// </returns>
         public static bool IsValidHandle(
             IntPtr handle
             )
@@ -9823,6 +13941,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified native handle appears
+        /// to be valid (i.e. neither a null handle nor the well-known invalid
+        /// handle value), also reporting whether an invalid handle was the
+        /// well-known invalid handle value.
+        /// </summary>
+        /// <param name="handle">
+        /// The native handle value to check.
+        /// </param>
+        /// <param name="invalid">
+        /// Upon return, this is set to true if the handle is the well-known
+        /// invalid handle value, or false if it is a null handle.  This value
+        /// is only meaningful when this method returns false.
+        /// </param>
+        /// <returns>
+        /// True if the handle appears to be valid; otherwise, false.
+        /// </returns>
         public static bool IsValidHandle(
             IntPtr handle,
             ref bool invalid
@@ -9847,7 +13982,46 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Native Module Support Methods
+        /// <summary>
+        /// This method returns the file extension typically used for native
+        /// shared libraries on the current operating system.
+        /// </summary>
+        /// <returns>
+        /// The file extension appropriate for native shared libraries on the
+        /// current operating system, including the leading period.
+        /// </returns>
+        public static string GetSharedLibraryExtension()
+        {
+            if (PlatformOps.IsWindowsOperatingSystem())
+                return FileExtension.Library;
+            else if (PlatformOps.IsMacintoshOperatingSystem())
+                return FileExtension.DynamicLibrary;
+            else
+                return FileExtension.SharedObject;
+        }
+
+        ///////////////////////////////////////////////////////////////////////
+
 #if EMIT && NATIVE && LIBRARY
+        /// <summary>
+        /// This method attempts to unload the native shared library associated
+        /// with the specified native module.
+        /// </summary>
+        /// <param name="module">
+        /// The module whose underlying native shared library should be
+        /// unloaded.  This module must be a native module.
+        /// </param>
+        /// <param name="loaded">
+        /// Upon return, this contains the updated reference count for the
+        /// native shared library after the unload attempt.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode UnloadNativeModule(
             IModule module,
             ref int loaded,
@@ -9881,6 +14055,35 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Script Cancellation Support Methods
+        /// <summary>
+        /// This method builds the set of cancel flags used to cancel script
+        /// evaluation based on the specified options.
+        /// </summary>
+        /// <param name="global">
+        /// Non-zero to set the global cancellation state; otherwise, the local
+        /// cancellation state is set.
+        /// </param>
+        /// <param name="interactive">
+        /// Non-zero if the cancellation is being performed on behalf of an
+        /// interactive user.
+        /// </param>
+        /// <param name="unwind">
+        /// Non-zero to unwind the active call stack as part of the
+        /// cancellation.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to stop on error during the cancellation.
+        /// </param>
+        /// <param name="noLock">
+        /// Non-zero to skip acquiring the associated lock during the
+        /// cancellation.
+        /// </param>
+        /// <param name="interrupt">
+        /// Non-zero to use thread interruption as part of the cancellation.
+        /// </param>
+        /// <returns>
+        /// The set of cancel flags corresponding to the specified options.
+        /// </returns>
         public static CancelFlags GetCancelEvaluateFlags(
             bool global,
             bool interactive,
@@ -9924,6 +14127,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queues a background thread that will cancel script
+        /// evaluation in the specified interpreter after the specified timeout
+        /// has elapsed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose script evaluation should be canceled when the
+        /// timeout elapses.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// The optional set of cancel flags to use when canceling script
+        /// evaluation, or null to use a reasonable set of default flags.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout, in milliseconds, to wait before canceling script
+        /// evaluation.  This value must be greater than or equal to zero.
+        /// </param>
+        /// <param name="thread">
+        /// Upon success, this contains the thread that was created and started
+        /// to handle the script timeout.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this will contain an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode QueueScriptTimeout(
             Interpreter interpreter,
             CancelFlags? cancelFlags,
@@ -9965,6 +14196,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         /* System.Threading.ParameterizedThreadStart */
+        /// <summary>
+        /// This method is the thread start routine used to implement script
+        /// timeouts.  It waits for the configured timeout to elapse and then
+        /// cancels script evaluation in the associated interpreter if it is
+        /// still busy.
+        /// </summary>
+        /// <param name="state">
+        /// The thread start state, which is expected to be a
+        /// <see cref="ScriptTimeoutClientData" /> instance describing the
+        /// interpreter, timeout, and cancel flags to use.
+        /// </param>
         private static void ScriptTimeoutThreadStart(
             object state
             )
@@ -10075,6 +14317,30 @@ namespace Eagle._Components.Private
 
         #region Cache Support Methods
 #if CACHE_STATISTICS
+        /// <summary>
+        /// This method saves the cache counts from the specified cache counts
+        /// object into the supplied dictionary, optionally clearing them from
+        /// the cache counts object afterward.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the saved cache counts
+        /// are stored.
+        /// </param>
+        /// <param name="cacheCounts">
+        /// The object whose cache counts should be saved.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to clear the cache counts from the
+        /// <paramref name="cacheCounts" /> object after saving them.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// Upon return, this dictionary contains the saved cache counts keyed
+        /// by the specified cache flags.  If it is null, a new dictionary will
+        /// be created.
+        /// </param>
+        /// <returns>
+        /// True if the cache counts were saved; otherwise, false.
+        /// </returns>
         public static bool MaybeSaveCacheCounts(
             CacheFlags flags,                                   /* in */
             ICacheCounts cacheCounts,                           /* in */
@@ -10106,6 +14372,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores previously saved cache counts from the supplied
+        /// dictionary into the specified cache counts object, optionally merging
+        /// them and optionally removing them from the dictionary afterward.
+        /// </summary>
+        /// <param name="flags">
+        /// The cache flags used as the key under which the saved cache counts
+        /// were stored.
+        /// </param>
+        /// <param name="cacheCounts">
+        /// The object whose cache counts should be restored.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the saved cache counts with the existing cache
+        /// counts; otherwise, the existing cache counts are replaced.
+        /// </param>
+        /// <param name="move">
+        /// Non-zero to remove the saved cache counts from the
+        /// <paramref name="savedCacheCounts" /> dictionary after restoring
+        /// them.
+        /// </param>
+        /// <param name="savedCacheCounts">
+        /// The dictionary containing the previously saved cache counts keyed by
+        /// the specified cache flags.
+        /// </param>
+        /// <returns>
+        /// True if the cache counts were restored; otherwise, false.
+        /// </returns>
         public static bool MaybeRestoreCacheCounts(
             CacheFlags flags,                                   /* in */
             ICacheCounts cacheCounts,                           /* in, out */
@@ -10147,6 +14441,32 @@ namespace Eagle._Components.Private
 
         #region Trusted Update Support Methods
 #if NETWORK
+        /// <summary>
+        /// This method queries the current trusted and exclusive status of the
+        /// software update certificate, recording any errors and optionally
+        /// adding a human-readable status message to the result list.
+        /// </summary>
+        /// <param name="needResult">
+        /// Non-zero to add a human-readable status message describing the
+        /// trusted and exclusive status to the result list.
+        /// </param>
+        /// <param name="wasTrusted">
+        /// Upon return, this contains the current trusted status of the
+        /// software update certificate, or null if it is unknown.
+        /// </param>
+        /// <param name="wasExclusive">
+        /// Upon return, this contains the current exclusive mode status of the
+        /// software update certificate, or null if it is unknown.
+        /// </param>
+        /// <param name="errorCount">
+        /// Upon return, this is incremented by the number of errors that were
+        /// encountered while querying the status.
+        /// </param>
+        /// <param name="results">
+        /// Upon return, this contains any status or error messages that were
+        /// produced.  If it is null, a new result list will be created as
+        /// needed.
+        /// </param>
         private static void RefreshTrustedUpdateStatus(
             bool needResult,        /* in */
             out bool? wasTrusted,   /* out */
@@ -10195,6 +14515,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries and optionally updates the trusted and exclusive
+        /// status of the software update certificate.
+        /// </summary>
+        /// <param name="trusted">
+        /// The desired trusted status of the software update certificate, or
+        /// null to leave the trusted status unchanged.
+        /// </param>
+        /// <param name="exclusive">
+        /// The desired exclusive mode status of the software update
+        /// certificate, or null to leave the exclusive mode status unchanged.
+        /// </param>
+        /// <param name="results">
+        /// Upon return, this contains any status or error messages that were
+        /// produced.  If it is null, a new result list will be created as
+        /// needed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetOrSetTrustedUpdateStatus(
             bool? trusted,         /* in */
             bool? exclusive,       /* in */

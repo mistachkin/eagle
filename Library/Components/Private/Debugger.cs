@@ -20,6 +20,18 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the script debugging facilities for an Eagle
+    /// interpreter -- it tracks the debugger state (such as whether debugging
+    /// is enabled, the active breakpoint types, the single-step and break-on
+    /// conditions, and the pending command queue), optionally hosts an isolated
+    /// out-of-band interpreter used to evaluate debugger commands, and manages
+    /// breakpoints and interrupt callbacks for the interpreter being debugged.
+    /// Most of its state is held in paired slots so that the current values can
+    /// be saved and restored across suspend and resume operations.  It
+    /// implements <see cref="IDebugger" /> and is disposable; disposing it
+    /// releases the isolated debugger interpreter, if any.
+    /// </summary>
     [ObjectId("9be2b241-bee5-428f-9df8-df354ef63ea2")]
     internal sealed class Debugger :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -31,19 +43,44 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value used to indicate whether debugging is enabled for
+        /// a newly created or freshly initialized debugger.
+        /// </summary>
         private static bool DefaultEnabled = true;
+        /// <summary>
+        /// The default set of breakpoint types enabled for a newly created or
+        /// freshly initialized debugger.
+        /// </summary>
         private static BreakpointType DefaultTypes = BreakpointType.Default;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Enumerations
+        /// <summary>
+        /// This enumeration identifies which slot of a paired debugger property
+        /// value is being accessed -- the current value or the value saved
+        /// across a suspend operation.
+        /// </summary>
         [ObjectId("b53c003a-bb94-4c10-900c-7403dc36c2a8")]
         private enum Context
         {
+            /// <summary>
+            /// The context for the current value of a property.
+            /// </summary>
             Current = 0,     // context for current value of property.
+            /// <summary>
+            /// The context for the saved value of a property.
+            /// </summary>
             Saved = 1,       // context for saved value of property.
+            /// <summary>
+            /// The first context slot for a property value.
+            /// </summary>
             First = Current, // first context slot for property value.
+            /// <summary>
+            /// The last context slot for a property value.
+            /// </summary>
             Last = Saved     // last context slot for property value.
         }
         #endregion
@@ -51,12 +88,65 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The interrupt callback delegate currently installed on the
+        /// interpreter being debugged, or null if no callback is installed.
+        /// </summary>
         private InterruptCallback interruptCallback;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a debugger, optionally creating an isolated out-of-band
+        /// interpreter to evaluate debugger commands, and then initializes the
+        /// debugger state.
+        /// </summary>
+        /// <param name="isolated">
+        /// Non-zero to create an isolated debugger interpreter using the
+        /// remaining parameters; zero to omit the debugger interpreter.
+        /// </param>
+        /// <param name="culture">
+        /// The culture to use for the isolated debugger interpreter.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="createFlags">
+        /// The flags used to create the isolated debugger interpreter.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The flags used to create the host for the isolated debugger
+        /// interpreter.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The flags used to initialize the isolated debugger interpreter.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The flags used when evaluating the initialization scripts for the
+        /// isolated debugger interpreter.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter flags for the isolated debugger interpreter.
+        /// </param>
+        /// <param name="pluginFlags">
+        /// The plugin flags for the isolated debugger interpreter.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which to create the isolated debugger
+        /// interpreter.  This parameter may be null.
+        /// </param>
+        /// <param name="host">
+        /// The host to use for the isolated debugger interpreter.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path for the isolated debugger interpreter.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="autoPathList">
+        /// The list of automatic package search paths for the isolated debugger
+        /// interpreter.  This parameter may be null.
+        /// </param>
         public Debugger(
             bool isolated,
             string culture,
@@ -90,6 +180,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Callback Methods
+        /// <summary>
+        /// This method is invoked by the interpreter being debugged when an
+        /// interrupt occurs; it dispatches the configured callback arguments
+        /// as a command in the debugger interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The parent interpreter (i.e. the one being debugged) that raised the
+        /// interrupt.
+        /// </param>
+        /// <param name="interruptType">
+        /// The type of interrupt that occurred.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the interrupt, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode InterruptCallback(
             Interpreter interpreter, /* NOTE: Parent interpreter. */
             InterruptType interruptType,
@@ -149,6 +262,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method returns the default set of breakpoint types, honoring
+        /// the supplied enabled state.
+        /// </summary>
+        /// <param name="enabled">
+        /// Non-zero (or null) to return the default breakpoint types; zero to
+        /// return no breakpoint types.
+        /// </param>
+        /// <param name="tokens">
+        /// Non-zero to include token breakpoints in the returned set of
+        /// breakpoint types.
+        /// </param>
+        /// <returns>
+        /// The default set of breakpoint types, or
+        /// <see cref="BreakpointType.None" /> when <paramref name="enabled" />
+        /// is zero.
+        /// </returns>
         public static BreakpointType GetDefaultTypes(
             bool? enabled,
             bool tokens
@@ -162,6 +292,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default set of breakpoint types.
+        /// </summary>
+        /// <param name="tokens">
+        /// Non-zero to include token breakpoints in the returned set of
+        /// breakpoint types.
+        /// </param>
+        /// <returns>
+        /// The default set of breakpoint types.
+        /// </returns>
         public static BreakpointType GetDefaultTypes(
             bool tokens
             )
@@ -178,6 +318,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method allocates and initializes the paired state arrays that
+        /// back the debugger properties, resetting them to their default
+        /// values.
+        /// </summary>
         private void Initialize()
         {
             enabled = new bool[] { DefaultEnabled, false };
@@ -221,6 +366,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the debugger state stored in the specified
+        /// context slot to its default values.
+        /// </summary>
+        /// <param name="target">
+        /// The context slot whose stored state is to be reset.
+        /// </param>
         private void Reset(Context target)
         {
             enabled[(int)target] = false;
@@ -258,6 +410,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the debugger state stored in one context slot
+        /// into another context slot.
+        /// </summary>
+        /// <param name="source">
+        /// The context slot from which the stored state is to be copied.
+        /// </param>
+        /// <param name="target">
+        /// The context slot into which the stored state is to be copied.
+        /// </param>
         private void Copy(Context source, Context target)
         {
             enabled[(int)target] = enabled[(int)source];
@@ -295,6 +457,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forcibly resumes the debugger by resetting its suspend
+        /// count to zero.
+        /// </summary>
         private void ForceResume()
         {
             suspendCount = 0;
@@ -302,6 +468,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method increments and returns the debugger suspend count.
+        /// </summary>
+        /// <returns>
+        /// The new suspend count after incrementing.
+        /// </returns>
         private int EnterSuspend()
         {
             return ++suspendCount;
@@ -309,6 +481,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements and returns the debugger suspend count.
+        /// </summary>
+        /// <returns>
+        /// The new suspend count after decrementing.
+        /// </returns>
         private int ExitSuspend()
         {
             return --suspendCount;
@@ -316,6 +494,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the debugger command queue, creating and storing
+        /// a new empty queue if one does not already exist.
+        /// </summary>
+        /// <returns>
+        /// The debugger command queue.
+        /// </returns>
         private QueueList<string, string> GetQueue()
         {
             QueueList<string, string> queue = Queue;
@@ -331,6 +516,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a unique key suitable for adding an entry to the
+        /// debugger command queue.
+        /// </summary>
+        /// <returns>
+        /// A unique queue key.
+        /// </returns>
         private static string GetQueueKey()
         {
             //
@@ -343,6 +535,9 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this debugger has been disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -358,6 +553,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this debugger is currently in the
+        /// process of being disposed; this property always returns zero for
+        /// this debugger.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -375,7 +575,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The isolated, out-of-band interpreter used to evaluate debugger
+        /// commands, or null if no debugger interpreter is in use.
+        /// </summary>
         private Interpreter interpreter; /* out-of-band debug interpreter */
+        /// <summary>
+        /// Gets or sets the isolated, out-of-band interpreter used to evaluate
+        /// debugger commands.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { CheckDisposed(); return interpreter; }
@@ -386,7 +594,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDebuggerData Members
+        /// <summary>
+        /// The number of times the debugger has been suspended without a
+        /// corresponding resume; zero indicates the debugger is not suspended.
+        /// </summary>
         private int suspendCount;
+        /// <summary>
+        /// Gets or sets the number of times the debugger has been suspended
+        /// without a corresponding resume.
+        /// </summary>
         public int SuspendCount
         {
             get { CheckDisposed(); return suspendCount; }
@@ -395,7 +611,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether debugging is enabled.
+        /// </summary>
         private bool[] enabled;
+        /// <summary>
+        /// Gets or sets a value indicating whether debugging is enabled.
+        /// </summary>
         public bool Enabled
         {
             get { CheckDisposed(); return enabled[(int)Context.Current]; }
@@ -408,7 +630,14 @@ namespace Eagle._Components.Private
         // NOTE: Special flag for to detect how many integeractive loops are
         //       in use by the debugger.
         //
+        /// <summary>
+        /// The paired state slots tracking how many interactive loops are in
+        /// use by the debugger.
+        /// </summary>
         private int[] loops;
+        /// <summary>
+        /// Gets or sets the number of interactive loops in use by the debugger.
+        /// </summary>
         public int Loops
         {
             get { CheckDisposed(); return loops[(int)Context.Current]; }
@@ -421,7 +650,15 @@ namespace Eagle._Components.Private
         // NOTE: Special flag for scripts to use to detect they are being
         //       executed while in the interactive debugger.
         //
+        /// <summary>
+        /// The paired state slots used by scripts to detect that they are being
+        /// executed while in the interactive debugger.
+        /// </summary>
         private int[] active;
+        /// <summary>
+        /// Gets or sets the value used by scripts to detect that they are being
+        /// executed while in the interactive debugger.
+        /// </summary>
         public int Active
         {
             get { CheckDisposed(); return active[(int)Context.Current]; }
@@ -430,7 +667,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether single-step mode is
+        /// enabled.
+        /// </summary>
         private bool[] singleStep;
+        /// <summary>
+        /// Gets or sets a value indicating whether single-step mode is enabled.
+        /// </summary>
         public bool SingleStep
         {
             get { CheckDisposed(); return singleStep[(int)Context.Current]; }
@@ -440,7 +684,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// each token.
+        /// </summary>
         private bool[] breakOnToken;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on
+        /// each token.
+        /// </summary>
         public bool BreakOnToken
         {
             get
@@ -460,7 +712,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break
+        /// before executing a command.
+        /// </summary>
         private bool[] breakOnExecute;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break
+        /// before executing a command.
+        /// </summary>
         public bool BreakOnExecute
         {
             get
@@ -479,7 +739,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// script cancellation.
+        /// </summary>
         private bool[] breakOnCancel;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on
+        /// script cancellation.
+        /// </summary>
         public bool BreakOnCancel
         {
             get
@@ -498,7 +766,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// an error.
+        /// </summary>
         private bool[] breakOnError;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on an
+        /// error.
+        /// </summary>
         public bool BreakOnError
         {
             get
@@ -517,7 +793,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// a return.
+        /// </summary>
         private bool[] breakOnReturn;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on a
+        /// return.
+        /// </summary>
         public bool BreakOnReturn
         {
             get
@@ -536,7 +820,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// a test.
+        /// </summary>
         private bool[] breakOnTest;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on a
+        /// test.
+        /// </summary>
         public bool BreakOnTest
         {
             get
@@ -555,7 +847,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots indicating whether execution should break on
+        /// an exit.
+        /// </summary>
         private bool[] breakOnExit;
+        /// <summary>
+        /// Gets or sets a value indicating whether execution should break on an
+        /// exit.
+        /// </summary>
         public bool BreakOnExit
         {
             get
@@ -574,7 +874,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the number of execution steps
+        /// remaining before the debugger breaks.
+        /// </summary>
         private long[] steps;
+        /// <summary>
+        /// Gets or sets the number of execution steps remaining before the
+        /// debugger breaks.
+        /// </summary>
         public long Steps
         {
             get { CheckDisposed(); return steps[(int)Context.Current]; }
@@ -583,7 +891,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the set of breakpoint types that are
+        /// currently active.
+        /// </summary>
         private BreakpointType[] types;
+        /// <summary>
+        /// Gets or sets the set of breakpoint types that are currently active.
+        /// </summary>
         public BreakpointType Types
         {
             get { CheckDisposed(); return types[(int)Context.Current]; }
@@ -593,7 +908,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// The paired state slots holding the collection of configured
+        /// breakpoints.
+        /// </summary>
         private BreakpointDictionary[] breakpoints;
+        /// <summary>
+        /// Gets or sets the collection of configured breakpoints.
+        /// </summary>
         public BreakpointDictionary Breakpoints
         {
             get
@@ -614,7 +936,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER_ARGUMENTS
+        /// <summary>
+        /// The paired state slots holding the argument list passed to the
+        /// debugger when execution breaks.
+        /// </summary>
         private ArgumentList[] executeArguments;
+        /// <summary>
+        /// Gets or sets the argument list passed to the debugger when execution
+        /// breaks.
+        /// </summary>
         public ArgumentList ExecuteArguments
         {
             get
@@ -634,7 +964,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the most recent debugger command
+        /// text.
+        /// </summary>
         private string[] command;
+        /// <summary>
+        /// Gets or sets the most recent debugger command text.
+        /// </summary>
         public string Command
         {
             get { CheckDisposed(); return command[(int)Context.Current]; }
@@ -643,7 +980,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the most recent debugger command
+        /// result.
+        /// </summary>
         private Result[] result;
+        /// <summary>
+        /// Gets or sets the most recent debugger command result.
+        /// </summary>
         public Result Result
         {
             get { CheckDisposed(); return result[(int)Context.Current]; }
@@ -652,7 +996,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the queue of pending debugger
+        /// commands.
+        /// </summary>
         private QueueList<string, string>[] queue;
+        /// <summary>
+        /// Gets or sets the queue of pending debugger commands.
+        /// </summary>
         public QueueList<string, string> Queue
         {
             get { CheckDisposed(); return queue[(int)Context.Current]; }
@@ -661,7 +1012,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The paired state slots holding the argument list used when firing
+        /// the debugger interrupt callback; a null value disables the callback.
+        /// </summary>
         private StringList[] callbackArguments;
+        /// <summary>
+        /// Gets or sets the argument list used when firing the debugger
+        /// interrupt callback.
+        /// </summary>
         public StringList CallbackArguments
         {
             get
@@ -682,6 +1041,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDebugger Members
+        /// <summary>
+        /// This method appends name/value pairs describing the current debugger
+        /// state to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the descriptive name/value pairs are added.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling how much detail is included in the added
+        /// information.
+        /// </param>
         public void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -792,6 +1162,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs or removes the debugger interrupt callback on
+        /// the interpreter being debugged, based on whether callback arguments
+        /// are currently configured.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The parent interpreter (i.e. the one being debugged) on which the
+        /// interrupt callback is to be installed or removed.  This parameter may
+        /// be null.
+        /// </param>
         public void CheckCallbacks(
             Interpreter interpreter /* NOTE: Parent interpreter. */
             )
@@ -837,6 +1217,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method increments and returns the count of interactive loops in
+        /// use by the debugger.
+        /// </summary>
+        /// <returns>
+        /// The new interactive loop count after incrementing.
+        /// </returns>
         public int EnterLoop()
         {
             CheckDisposed();
@@ -846,6 +1233,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements and returns the count of interactive loops in
+        /// use by the debugger.
+        /// </summary>
+        /// <returns>
+        /// The new interactive loop count after decrementing.
+        /// </returns>
         public int ExitLoop()
         {
             CheckDisposed();
@@ -855,6 +1249,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method increments or decrements the count used by scripts to
+        /// detect that they are being executed while in the interactive
+        /// debugger.
+        /// </summary>
+        /// <param name="active">
+        /// Non-zero to increment the active count; zero to decrement it (but not
+        /// below zero).
+        /// </param>
+        /// <returns>
+        /// The new active count.
+        /// </returns>
         public int SetActive(
             bool active
             )
@@ -871,6 +1277,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements the number of execution steps remaining
+        /// before the debugger breaks, without dropping below zero.
+        /// </summary>
+        /// <returns>
+        /// The number of execution steps remaining after decrementing.
+        /// </returns>
         public long NextStep()
         {
             CheckDisposed();
@@ -883,6 +1296,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decrements the number of execution steps remaining
+        /// before the debugger breaks and indicates whether the count has just
+        /// reached zero.
+        /// </summary>
+        /// <returns>
+        /// True if the step count was non-zero and has now reached zero;
+        /// otherwise, false.
+        /// </returns>
         public bool MaybeNextStep()
         {
             CheckDisposed();
@@ -901,6 +1323,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUGGER_BREAKPOINTS
+        /// <summary>
+        /// This method retrieves the list of configured breakpoints, optionally
+        /// filtered by a pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the breakpoints are being listed.
+        /// </param>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the breakpoints.  This parameter
+        /// may be null to list all breakpoints.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this contains the list of matching breakpoints.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode GetBreakpointList(
             Interpreter interpreter,
             string pattern,
@@ -928,6 +1374,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a breakpoint is configured at the
+        /// specified script location.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the breakpoint is being matched.
+        /// </param>
+        /// <param name="location">
+        /// The script location to test against the configured breakpoints.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this is non-zero if a breakpoint is configured at the
+        /// specified location; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode MatchBreakpoint(
             Interpreter interpreter,
             IScriptLocation location,
@@ -944,6 +1408,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a breakpoint is configured at the
+        /// specified script location, returning an error message on failure.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the breakpoint is being matched.
+        /// </param>
+        /// <param name="location">
+        /// The script location to test against the configured breakpoints.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this is non-zero if a breakpoint is configured at the
+        /// specified location; otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode MatchBreakpoint(
             Interpreter interpreter,
             IScriptLocation location,
@@ -1019,6 +1504,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears any breakpoint configured at the specified script
+        /// location.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the breakpoint is being cleared.
+        /// </param>
+        /// <param name="location">
+        /// The script location whose breakpoint is to be cleared.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this is non-zero if a breakpoint was present at the
+        /// specified location and has been cleared; otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode ClearBreakpoint(
             Interpreter interpreter,
             IScriptLocation location,
@@ -1094,6 +1600,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets a breakpoint at the specified script location.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the breakpoint is being set.
+        /// </param>
+        /// <param name="location">
+        /// The script location at which the breakpoint is to be set.
+        /// </param>
+        /// <param name="match">
+        /// Upon success, this is non-zero if a breakpoint was already present at
+        /// the specified location; otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode SetBreakpoint(
             Interpreter interpreter,
             IScriptLocation location,
@@ -1174,6 +1700,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the debugger state and forcibly resumes the
+        /// debugger.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.  This
+        /// parameter is not currently used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Initialize(
             ref Result error /* NOT USED */
             )
@@ -1188,6 +1726,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the debugger state in every context slot and
+        /// forcibly resumes the debugger.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.  This
+        /// parameter is not currently used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Reset(
             ref Result error /* NOT USED */
             )
@@ -1207,6 +1757,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method suspends the debugger, saving the current state and
+        /// resetting it the first time the suspend count reaches one.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.  This
+        /// parameter is not currently used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Suspend(
             ref Result error /* NOT USED */
             )
@@ -1224,6 +1786,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resumes the debugger, restoring the previously saved
+        /// state when the suspend count reaches zero.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.  This
+        /// parameter is not currently used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Resume(
             ref Result error /* NOT USED */
             )
@@ -1241,6 +1815,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the contents of the debugger command queue.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the list of queued debugger commands;
+        /// upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode DumpCommands(
             ref Result result
             )
@@ -1261,6 +1846,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes all commands from the debugger command queue.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode ClearCommands(
             ref Result error
             )
@@ -1281,6 +1876,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a single command to the debugger command queue.
+        /// </summary>
+        /// <param name="text">
+        /// The command text to add to the queue.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode EnqueueCommand(
             string text,
             ref Result error
@@ -1302,6 +1910,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the contents of a multi-line buffer to the debugger
+        /// command queue, one queue entry per line.
+        /// </summary>
+        /// <param name="text">
+        /// The buffer text to split into lines and add to the queue.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode EnqueueBuffer(
             string text,
             ref Result error
@@ -1333,6 +1955,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enters the debugger as a result of a watchpoint being
+        /// triggered, running the interactive debugger loop.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the watchpoint was triggered.
+        /// </param>
+        /// <param name="loopData">
+        /// The data describing the interactive loop to run.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the interactive loop; upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Watchpoint(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -1347,6 +1987,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enters the debugger as a result of a breakpoint being
+        /// hit, running the interactive debugger loop.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter in which the breakpoint was hit.
+        /// </param>
+        /// <param name="loopData">
+        /// The data describing the interactive loop to run.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the interactive loop; upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public ReturnCode Breakpoint(
             Interpreter interpreter,
             IInteractiveLoopData loopData,
@@ -1363,7 +2021,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this debugger has been disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this debugger has already been
+        /// disposed.  It is called at the start of most members to guard against
+        /// use after disposal.
+        /// </summary>
+        /// <exception cref="InterpreterDisposedException">
+        /// Thrown when this debugger has been disposed and the engine is
+        /// configured to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -1374,6 +2044,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this debugger.  It
+        /// implements the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from
+        /// <see cref="Dispose()" /> (i.e. deterministically); zero if it is
+        /// being called from the finalizer.  When non-zero, managed resources
+        /// are released.
+        /// </param>
         private /* protected virtual */ void Dispose(bool disposing)
         {
             if (!disposed)
@@ -1410,6 +2090,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources held by this debugger and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -1420,6 +2104,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this debugger, releasing any resources that were not
+        /// released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~Debugger()
         {
             Dispose(false);

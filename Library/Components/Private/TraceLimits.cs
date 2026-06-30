@@ -33,6 +33,14 @@ using TrippedDictionary = System.Collections.Generic.Dictionary<string, int>;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class implements the rate-limiting (throttling) subsystem used by
+    /// the tracing facility.  It keeps track of how often individual trace
+    /// messages, trace categories, and trace priorities have been seen and
+    /// determines when a given trace message should be suppressed because it
+    /// has exceeded its configured limit.  All of its state is process-wide
+    /// (static) and access to that state is synchronized.
+    /// </summary>
     [ObjectId("81cd7f89-92cd-41cb-a030-e6e6d676124a")]
     internal static class TraceLimits
     {
@@ -43,6 +51,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default set of trace priority flags that are subject to limit
+        /// checking when no explicit priority limit configuration is present.
+        /// </summary>
         private static TracePriority DefaultPriorityMask =
             TracePriority.DefaultLimitMask;
 
@@ -51,7 +63,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of trace messages permitted for any single trace
+        /// category within the rolling time window before that category is
+        /// considered tripped (i.e. rate-limited).
+        /// </summary>
         private static int MaximumPerCategoryCount = 10;
+        /// <summary>
+        /// The length of the rolling time window over which per-category trace
+        /// message counts are evaluated.
+        /// </summary>
         private static TimeSpan MaximumPerCategoryTime = new TimeSpan(0, 1, 0);
 
         ///////////////////////////////////////////////////////////////////////
@@ -59,6 +80,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The maximum age, in seconds, that the tracked category data is
+        /// allowed to reach before it is automatically cleared; a negative
+        /// value disables this periodic clearing.
+        /// </summary>
         private static int MaximumCategorySeconds = Count.Invalid;
 
         ///////////////////////////////////////////////////////////////////////
@@ -67,6 +93,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The maximum number of distinct trace messages to retain in the
+        /// message cache before older entries are trimmed.
+        /// </summary>
         private static int MaximumMessageCount = 100;
 #endif
         #endregion
@@ -74,6 +104,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to all of the static state
+        /// maintained by this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -82,6 +116,10 @@ namespace Eagle._Components.Private
         // NOTE: If this is greater than zero, the public entry points into
         //       this subsystem are disabled (i.e. they are no-ops).
         //
+        /// <summary>
+        /// When greater than zero, the public entry points into this subsystem
+        /// are disabled (i.e. they behave as no-ops).
+        /// </summary>
         private static int disableCount = 0;
 
         ///////////////////////////////////////////////////////////////////////
@@ -91,52 +129,129 @@ namespace Eagle._Components.Private
         //       methods that are active on this thread.  This number should
         //       always be zero or one.
         //
+        /// <summary>
+        /// The current number of active (possibly nested) calls to the
+        /// <see cref="IsTripped" /> method on this thread; this should always
+        /// be zero or one.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static int isTrippedLevels = 0;
 
+        /// <summary>
+        /// The current number of active (possibly nested) calls to the
+        /// <see cref="KeepTrack" /> method on this thread; this should always
+        /// be zero or one.
+        /// </summary>
         [ThreadStatic()] /* ThreadSpecificData */
         private static int keepTrackLevels = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of times an <see cref="IsTripped" /> check was skipped
+        /// because the subsystem was already busy on the current thread.
+        /// </summary>
         private static int skippedIsTripped = 0;
+        /// <summary>
+        /// The number of times a <see cref="KeepTrack" /> update was skipped
+        /// because the subsystem was already busy on the current thread.
+        /// </summary>
         private static int skippedKeepTrack = 0;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Maps each tracked trace message to the number of times it has been
+        /// seen; used to detect and suppress repeated messages.
+        /// </summary>
         private static MessageDictionary messages;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Maps each tracked trace category to the timestamps at which it has
+        /// been seen; used to enforce the per-category rate limit.
+        /// </summary>
         private static CategoryDictionary categories;
+        /// <summary>
+        /// Maps each trace category that has tripped its limit to the number
+        /// of times it has done so.
+        /// </summary>
         private static TrippedDictionary trippedCategories;
+        /// <summary>
+        /// The time at which the tracked category data was last cleared.
+        /// </summary>
         private static DateTime clearedCategories;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Maps each tracked trace priority to the number of times it has been
+        /// seen; used to detect and suppress messages of a limited priority.
+        /// </summary>
         private static TracePriorityDictionary priorities;
+        /// <summary>
+        /// Maps each trace priority that has tripped its limit to the number
+        /// of times it has done so.
+        /// </summary>
         private static TrippedDictionary trippedPriorities;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the original (unmasked) trace priority is also
+        /// recorded in the tripped priorities, which is useful for debugging.
+        /// </summary>
         private static bool trackRawPriority = false; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the per-message limit is consulted when determining
+        /// whether a trace message has tripped.
+        /// </summary>
         private static bool checkMessage = true; // TODO: Good default?
+        /// <summary>
+        /// When non-zero, the per-category limit is consulted when determining
+        /// whether a trace message has tripped.
+        /// </summary>
         private static bool checkCategory = true; // TODO: Good default?
+        /// <summary>
+        /// When non-zero, the per-priority limit is consulted when determining
+        /// whether a trace message has tripped.
+        /// </summary>
         private static bool checkPriority = true; // TODO: Good default?
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the occurrence of each trace message is recorded for
+        /// rate-limiting purposes.
+        /// </summary>
         private static bool trackMessage = true; // TODO: Good default?
+        /// <summary>
+        /// When non-zero, the occurrence of each trace category is recorded for
+        /// rate-limiting purposes.
+        /// </summary>
         private static bool trackCategory = true; // TODO: Good default?
+        /// <summary>
+        /// When non-zero, the occurrence of each trace priority is recorded for
+        /// rate-limiting purposes.
+        /// </summary>
         private static bool trackPriority = true; // TODO: Good default?
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method ensures that all of the internal tracking data
+        /// structures used by this subsystem have been created.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to recreate every tracking data structure even if it has
+        /// already been created.
+        /// </param>
         private static void Initialize(
             bool force /* in */
             )
@@ -169,6 +284,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the trace priority tracking dictionary from the
+        /// supplied priority limit configuration string, falling back to the
+        /// default priority mask when it is null or cannot be parsed.
+        /// </summary>
+        /// <param name="value">
+        /// The textual list of trace priority flags to limit, or null to use
+        /// the default priority mask.
+        /// </param>
         private static void InitializePriorities(
             string value /* in */
             )
@@ -208,6 +332,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the tracked category data (and, optionally, the
+        /// tripped category data) if the configured maximum age has been
+        /// exceeded since it was last cleared.
+        /// </summary>
+        /// <param name="tripped">
+        /// Non-zero to also clear the tripped category data when clearing the
+        /// tracked category data.
+        /// </param>
+        /// <returns>
+        /// The total number of category entries that were cleared.
+        /// </returns>
         private static int MaybeClearCategories(
             bool tripped /* in */
             )
@@ -246,6 +382,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified trace message has
+        /// already tripped its limit.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message to check.
+        /// </param>
+        /// <returns>
+        /// True if the message has tripped its limit; otherwise, false.
+        /// </returns>
         private static bool IsTrippedMessage(
             string message /* in */
             )
@@ -264,6 +410,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records an occurrence of the specified trace message,
+        /// incrementing its tracked count.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message to record.
+        /// </param>
+        /// <returns>
+        /// True if the message was recorded; otherwise, false.
+        /// </returns>
         private static bool TrackMessage(
             string message /* in */
             )
@@ -296,6 +452,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified trace category has
+        /// exceeded its per-category limit within the rolling time window,
+        /// recording it as tripped when it has.
+        /// </summary>
+        /// <param name="category">
+        /// The trace category to check.
+        /// </param>
+        /// <returns>
+        /// True if the category has tripped its limit; otherwise, false.
+        /// </returns>
         private static bool IsTrippedCategory(
             string category /* in */
             )
@@ -321,6 +488,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records an occurrence of the specified trace category
+        /// at the current time, after first clearing any stale category data.
+        /// </summary>
+        /// <param name="category">
+        /// The trace category to record.
+        /// </param>
+        /// <returns>
+        /// True if the category was recorded; otherwise, false.
+        /// </returns>
         private static bool TrackCategory(
             string category /* in */
             )
@@ -348,6 +525,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the specified trace category has tripped
+        /// its limit, incrementing its tripped count.
+        /// </summary>
+        /// <param name="category">
+        /// The trace category that has tripped its limit.
+        /// </param>
+        /// <returns>
+        /// True if the tripped category was recorded; otherwise, false.
+        /// </returns>
         private static bool TrackTrippedCategory(
             string category /* in */
             )
@@ -376,6 +563,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reduces the specified trace priority to the masked
+        /// priority value used for limit tracking.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to mask.
+        /// </param>
+        /// <returns>
+        /// The masked trace priority value.
+        /// </returns>
         private static TracePriority MaskPriority(
             TracePriority priority /* in */
             )
@@ -385,6 +582,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified trace priority is
+        /// subject to limiting, recording it as tripped when it is.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to check.
+        /// </param>
+        /// <returns>
+        /// True if the priority is being limited; otherwise, false.
+        /// </returns>
         private static bool IsTrippedPriority(
             TracePriority priority /* in */
             )
@@ -420,6 +627,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records an occurrence of the specified trace priority,
+        /// incrementing the tracked count for its masked value.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority to record.
+        /// </param>
+        /// <returns>
+        /// True if the priority was recorded; otherwise, false.
+        /// </returns>
         private static bool TrackPriority(
             TracePriority priority /* in */
             )
@@ -443,6 +660,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records that the specified trace priority has tripped
+        /// its limit, incrementing its tripped count.
+        /// </summary>
+        /// <param name="priority">
+        /// The trace priority that has tripped its limit, or null to do
+        /// nothing.
+        /// </param>
+        /// <returns>
+        /// True if the tripped priority was recorded; otherwise, false.
+        /// </returns>
         private static bool TrackTrippedPriority(
             TracePriority? priority /* in */
             )
@@ -472,6 +700,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and releases the tracked message data.
+        /// </summary>
+        /// <returns>
+        /// The number of message entries that were cleared.
+        /// </returns>
         private static int CleanupMessages()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -492,6 +726,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and releases both the tracked category data and
+        /// the tripped category data.
+        /// </summary>
+        /// <returns>
+        /// The number of category entries that were cleared.
+        /// </returns>
         private static int CleanupCategories()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -520,6 +761,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and releases both the tracked priority data and
+        /// the tripped priority data.
+        /// </summary>
+        /// <returns>
+        /// The number of priority entries that were cleared.
+        /// </returns>
         private static int CleanupPriorities()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -553,6 +801,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method appends a human-readable summary of the current state
+        /// of this subsystem to the specified list, for introspection
+        /// purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the summary information is appended.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control the level of detail included in the summary.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -721,6 +980,21 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal State Debugging Methods
+        /// <summary>
+        /// This method produces a textual dump of the tracked messages, the
+        /// tripped categories, and the tripped priorities, for debugging
+        /// purposes.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use when hashing entry keys, or
+        /// null to emit the keys verbatim.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to emit the raw (unformatted) entry values.
+        /// </param>
+        /// <returns>
+        /// The formatted dump of the internal state.
+        /// </returns>
         private static string DumpState(
             string hashAlgorithmName,
             bool raw
@@ -764,6 +1038,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a textual dump of the tracked messages, for
+        /// debugging purposes.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use when hashing entry keys, or
+        /// null to emit the keys verbatim.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to emit the raw (unformatted) entry values.
+        /// </param>
+        /// <returns>
+        /// The formatted dump of the tracked messages.
+        /// </returns>
         private static string DumpMessages(
             string hashAlgorithmName,
             bool raw
@@ -782,6 +1070,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a textual dump of the tripped categories, for
+        /// debugging purposes.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use when hashing entry keys, or
+        /// null to emit the keys verbatim.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to emit the raw (unformatted) entry values.
+        /// </param>
+        /// <returns>
+        /// The formatted dump of the tripped categories.
+        /// </returns>
         private static string DumpTrippedCategories(
             string hashAlgorithmName,
             bool raw
@@ -800,6 +1102,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a textual dump of the tripped priorities, for
+        /// debugging purposes.
+        /// </summary>
+        /// <param name="hashAlgorithmName">
+        /// The name of the hash algorithm to use when hashing entry keys, or
+        /// null to emit the keys verbatim.
+        /// </param>
+        /// <param name="raw">
+        /// Non-zero to emit the raw (unformatted) entry values.
+        /// </param>
+        /// <returns>
+        /// The formatted dump of the tripped priorities.
+        /// </returns>
         private static string DumpTrippedPriorities(
             string hashAlgorithmName,
             bool raw
@@ -820,6 +1136,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method determines whether the trace limiting subsystem is
+        /// currently enabled, taking into account the disable count, the
+        /// relevant environment variable, and the active interpreter.
+        /// </summary>
+        /// <returns>
+        /// True if the subsystem is enabled; otherwise, false.
+        /// </returns>
         public static bool IsEnabled()
         {
             if (Interlocked.CompareExchange(
@@ -847,6 +1171,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method optionally enables or disables the subsystem by
+        /// adjusting the disable count, or simply queries it when no
+        /// adjustment is requested.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable the subsystem (decrement the disable count),
+        /// zero to disable it (increment the disable count), or null to leave
+        /// it unchanged and only query the current state.
+        /// </param>
+        /// <returns>
+        /// True if the subsystem is disabled after the adjustment (i.e. the
+        /// disable count is greater than zero); otherwise, false.
+        /// </returns>
         public static bool MaybeAdjustEnabled(
             bool? enable /* in */
             )
@@ -873,6 +1211,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method forcibly resets the subsystem to its enabled state by
+        /// clearing the disable count and, optionally, removing the associated
+        /// environment variable.
+        /// </summary>
+        /// <param name="environment">
+        /// Non-zero to also remove the environment variable that disables the
+        /// subsystem.
+        /// </param>
+        /// <returns>
+        /// The number of disabling conditions that were reset.
+        /// </returns>
         public static int ForceResetEnabled(
             bool environment /* in */
             )
@@ -900,6 +1250,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a trace message with the specified
+        /// message text, category, and priority should be suppressed because
+        /// it has exceeded one of its configured limits.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message text to check.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to check.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority to check.
+        /// </param>
+        /// <returns>
+        /// True if the trace message should be suppressed; otherwise, false.
+        /// </returns>
         public static bool IsTripped(
             string message,        /* in */
             string category,       /* in */
@@ -956,6 +1323,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records an occurrence of a trace message with the
+        /// specified message text, category, and priority, so that subsequent
+        /// limit checks can take it into account.
+        /// </summary>
+        /// <param name="message">
+        /// The trace message text to record.
+        /// </param>
+        /// <param name="category">
+        /// The trace category to record.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority to record.
+        /// </param>
+        /// <returns>
+        /// True if at least one aspect of the trace message was recorded;
+        /// otherwise, false.
+        /// </returns>
         public static bool KeepTrack(
             string message,        /* in */
             string category,       /* in */
@@ -1012,6 +1397,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and releases all of the tracking data maintained
+        /// by this subsystem.
+        /// </summary>
+        /// <returns>
+        /// The total number of tracked entries that were cleared.
+        /// </returns>
         public static int Cleanup()
         {
             lock (syncRoot) /* TRANSACTIONAL */

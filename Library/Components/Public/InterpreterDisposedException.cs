@@ -25,6 +25,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents the exception thrown when an operation is
+    /// attempted on an interpreter that has already been disposed.  It derives
+    /// from <see cref="ObjectDisposedException" /> and implements
+    /// <see cref="IGetInterpreter" /> so that the disposed interpreter, if
+    /// known, can be retrieved.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -33,16 +40,26 @@ namespace Eagle._Components.Public
             ObjectDisposedException, IGetInterpreter
     {
         #region Private Static Data
+        /// <summary>
+        /// The total number of these exceptions that have been assigned an
+        /// identifier since the process started.
+        /// </summary>
         private static long count;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The unique identifier of this exception instance.
+        /// </summary>
         private long id;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The disposed interpreter associated with this exception, if any.
+        /// </summary>
 #if SERIALIZATION
         [NonSerialized()]
 #endif
@@ -52,6 +69,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an interpreter disposed exception with no associated
+        /// object name.
+        /// </summary>
         public InterpreterDisposedException()
             : this((string)null)
         {
@@ -60,6 +81,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// object name.
+        /// </summary>
+        /// <param name="objectName">
+        /// The name of the disposed object.
+        /// </param>
         public InterpreterDisposedException(
             string objectName
             )
@@ -70,6 +98,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// object name with a custom message.
+        /// </summary>
+        /// <param name="objectName">
+        /// The name of the disposed object.
+        /// </param>
+        /// <param name="message">
+        /// The message that describes the error.
+        /// </param>
         public InterpreterDisposedException(
             string objectName,
             string message
@@ -81,6 +119,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception with a custom message
+        /// and an inner exception.
+        /// </summary>
+        /// <param name="message">
+        /// The message that describes the error.
+        /// </param>
+        /// <param name="innerException">
+        /// The exception that is the cause of this exception, if any.
+        /// </param>
         public InterpreterDisposedException(
             string message,
             Exception innerException
@@ -92,6 +140,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// interpreter and object name with a custom message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The disposed interpreter associated with this exception, if any.
+        /// </param>
+        /// <param name="objectName">
+        /// The name of the disposed object.
+        /// </param>
+        /// <param name="message">
+        /// The message that describes the error.
+        /// </param>
         public InterpreterDisposedException(
             Interpreter interpreter,
             string objectName,
@@ -105,6 +166,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// interpreter with a custom message and an inner exception.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The disposed interpreter associated with this exception, if any.
+        /// </param>
+        /// <param name="message">
+        /// The message that describes the error.
+        /// </param>
+        /// <param name="innerException">
+        /// The exception that is the cause of this exception, if any.
+        /// </param>
         public InterpreterDisposedException(
             Interpreter interpreter,
             string message,
@@ -118,6 +192,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception, using the specified
+        /// type to derive the disposed object name.
+        /// </summary>
+        /// <param name="type">
+        /// The type of the disposed object; its name is used as the object
+        /// name.  This parameter may be null.
+        /// </param>
         public InterpreterDisposedException(
             Type type
             )
@@ -128,6 +210,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// interpreter, using the specified type to derive the disposed object
+        /// name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The disposed interpreter associated with this exception, if any.
+        /// </param>
+        /// <param name="type">
+        /// The type of the disposed object; its name is used as the object
+        /// name.  This parameter may be null.
+        /// </param>
         public InterpreterDisposedException(
             Interpreter interpreter,
             Type type
@@ -139,6 +233,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an interpreter disposed exception for the specified
+        /// interpreter, using the specified type to derive the disposed object
+        /// name, with a custom message.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The disposed interpreter associated with this exception, if any.
+        /// </param>
+        /// <param name="type">
+        /// The type of the disposed object; its name is used as the object
+        /// name.  This parameter may be null.
+        /// </param>
+        /// <param name="message">
+        /// The message that describes the error.
+        /// </param>
         public InterpreterDisposedException(
             Interpreter interpreter,
             Type type,
@@ -153,6 +262,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method provides a convenient, debug-only location at which to
+        /// set a debugger breakpoint when one of these exceptions is created.
+        /// </summary>
         [Conditional("DEBUG")]
         private void Breakpoint()
         {
@@ -167,6 +280,18 @@ namespace Eagle._Components.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an interpreter disposed exception from previously
+        /// serialized data.  This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The serialization information that holds the serialized object
+        /// data.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source and destination of
+        /// the serialized stream.
+        /// </param>
         protected InterpreterDisposedException(
             SerializationInfo info,
             StreamingContext context
@@ -183,6 +308,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Methods
+        /// <summary>
+        /// This method assigns a unique identifier to this exception if one
+        /// has not already been assigned, incrementing the total count of
+        /// these exceptions when it does so.
+        /// </summary>
+        /// <returns>
+        /// True if an identifier was assigned by this call; otherwise, false.
+        /// </returns>
         protected bool MaybeSetIdAndIncrementCount()
         {
             if (Interlocked.CompareExchange(
@@ -198,6 +331,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method associates a disposed interpreter with this exception.
+        /// If the specified interpreter has been disposed, it is used;
+        /// otherwise, the active interpreter is used if it has been disposed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The candidate interpreter to associate with this exception, if it
+        /// has been disposed.  This parameter may be null.
+        /// </param>
         protected void SetInterpreter(
             Interpreter interpreter
             )
@@ -228,6 +370,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// Gets the disposed interpreter associated with this exception, if
+        /// any.
+        /// </summary>
         public virtual Interpreter Interpreter
         {
             get { return interpreter; }
@@ -237,6 +383,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Gets the unique identifier of this exception instance.
+        /// </summary>
         public virtual long Id
         {
             get { return Interlocked.CompareExchange(ref id, 0, 0); }
@@ -247,6 +396,18 @@ namespace Eagle._Components.Public
 
         #region System.Runtime.Serialization.ISerializable Members
 #if SERIALIZATION
+        /// <summary>
+        /// This method populates the specified serialization information with
+        /// the data needed to serialize this exception.
+        /// </summary>
+        /// <param name="info">
+        /// The serialization information to populate with serialized object
+        /// data.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source and destination of
+        /// the serialized stream.
+        /// </param>
         [SecurityPermission(
             SecurityAction.LinkDemand,
             Flags = SecurityPermissionFlag.SerializationFormatter)]
@@ -265,6 +426,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Support Methods
+        /// <summary>
+        /// This method adds diagnostic information about these exceptions (for
+        /// example, the total number created) to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// Upon return, the list to which the diagnostic information has been
+        /// added.  This parameter may be null, in which case nothing is added.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags that control how much detail is included.
+        /// </param>
         //
         // NOTE: Used by the _Hosts.Default.BuildInterpreterInfoList method.
         //

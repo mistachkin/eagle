@@ -22,6 +22,10 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a list of runtime type codes
+    /// (<see cref="TypeCode" />).
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -29,6 +33,9 @@ namespace Eagle._Containers.Public
     public sealed class TypeCodeList : List<TypeCode>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty list of type codes.
+        /// </summary>
         public TypeCodeList()
             : base()
         {
@@ -37,6 +44,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a list of type codes that contains the type codes copied
+        /// from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of type codes whose elements are copied into the new
+        /// list.
+        /// </param>
         public TypeCodeList(
             IEnumerable<TypeCode> collection /* in */
             )
@@ -49,6 +64,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this list, with the
+        /// type codes separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this list.
+        /// </returns>
         public override string ToString()
         {
             return ParserOps<TypeCode>.ListToString(this,

@@ -35,6 +35,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class represents a unit of script text together with the metadata
+    /// needed to evaluate it, such as its name, type, source location, engine
+    /// and substitution flags, and (optionally) cryptographic and bundle
+    /// information.  It implements <see cref="IScript" /> and supports both
+    /// enumeration of its parts and cloning.  Instances may be made read-only
+    /// or immutable, in which case attempts to modify them are rejected.
+    /// </summary>
     [ObjectId("b2975958-ed3b-4d1d-8540-0ff4c297110d")]
     public sealed class Script :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -44,6 +52,10 @@ namespace Eagle._Components.Public
         ICloneable
     {
         #region Public Static Data
+        /// <summary>
+        /// A shared, pre-built empty script instance carrying no text and no
+        /// security restrictions.
+        /// </summary>
         public static readonly IScript Empty = new Script(new BundleData(
             null, 0, null, null, null, null, null, IsolationLevel.None,
             SecurityLevel.None, ScriptSecurityFlags.AnyMask, null));
@@ -52,6 +64,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// A shared, pre-built bundle data instance carrying no security
+        /// restrictions, used as the template when creating new scripts.
+        /// </summary>
         private static readonly IBundleData EmptyBundleData = new BundleData(
             null, 0, null, null, null, null, null, IsolationLevel.None,
             SecurityLevel.None, ScriptSecurityFlags.None, null);
@@ -62,9 +78,17 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The set of XML attributes considered when reading script metadata
+        /// from, or writing it to, an XML node.
+        /// </summary>
         private static XmlAttributeListType xmlAttributeListType =
             XmlAttributeListType.All;
 
+        /// <summary>
+        /// When non-zero, extra (unrecognized) XML attributes are overwritten
+        /// when transferring script metadata to or from an XML node.
+        /// </summary>
         private static bool overwriteExtraXmlAttributes = true;
 #endif
         #endregion
@@ -73,8 +97,22 @@ namespace Eagle._Components.Public
 
         #region Private Code Access Security Constants
 #if CAS_POLICY
+        /// <summary>
+        /// The default Code Access Security evidence associated with a newly
+        /// created script (a null reference).
+        /// </summary>
         private static readonly Evidence DefaultEvidence = null;
+
+        /// <summary>
+        /// The default hash value associated with a newly created script (a
+        /// null reference).
+        /// </summary>
         private static readonly byte[] DefaultHashValue = null;
+
+        /// <summary>
+        /// The default hash algorithm associated with a newly created script (a
+        /// null reference).
+        /// </summary>
         private static readonly HashAlgorithm DefaultHashAlgorithm = null;
 #endif
         #endregion
@@ -82,6 +120,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs a script associated only with the specified bundle data,
+        /// leaving all other metadata unset.
+        /// </summary>
+        /// <param name="bundleData">
+        /// The bundle data, including any security restrictions, to associate
+        /// with this script.  This parameter may be null.
+        /// </param>
         private Script(
             IBundleData bundleData
             )
@@ -92,6 +138,97 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a fully populated script from the specified metadata,
+        /// text, source location, and flags.
+        /// </summary>
+        /// <param name="id">
+        /// The globally unique identifier for this script.
+        /// </param>
+        /// <param name="name">
+        /// The name of this script.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of this script.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of this script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of this script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text itself.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file this script originated from, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="startLine">
+        /// The line number where this script begins, or an invalid line number
+        /// if it is unknown.
+        /// </param>
+        /// <param name="endLine">
+        /// The line number where this script ends, or an invalid line number
+        /// if it is unknown.
+        /// </param>
+        /// <param name="viaSource">
+        /// Non-zero if this script was obtained via the [source] command.
+        /// </param>
+        /// <param name="blockType">
+        /// The type of XML block this script was extracted from.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp associated with this script.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token associated with this script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="signature">
+        /// The cryptographic signature associated with this script.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="evidence">
+        /// The Code Access Security evidence associated with this script.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="hashValue">
+        /// The hash value associated with this script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="hashAlgorithm">
+        /// The hash algorithm associated with this script.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating this script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating this script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating this script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating this
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating this script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating this
+        /// script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with this script.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="bundleData">
+        /// The bundle data, including any security restrictions, to associate
+        /// with this script.  This parameter may be null.
+        /// </param>
         private Script(
             Guid id,
             string name,
@@ -163,6 +300,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method determines whether this script is immutable, based on
+        /// its associated bundle data security flags.
+        /// </summary>
+        /// <returns>
+        /// True if this script is immutable; otherwise, false.
+        /// </returns>
         private bool IsImmutable()
         {
             if (bundleData == null)
@@ -174,6 +318,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this script has any security
+        /// restrictions, based on its associated bundle data security flags.
+        /// </summary>
+        /// <returns>
+        /// True if this script has any security restrictions; otherwise, false.
+        /// </returns>
         private bool HasAnyRestrictions()
         {
             if (bundleData == null)
@@ -185,6 +336,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method throws an exception if this script is immutable;
+        /// otherwise, it does nothing.
+        /// </summary>
         private void CheckIsImmutable()
         {
             if (!IsImmutable())
@@ -196,6 +351,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method throws an exception if this script has any security
+        /// restrictions; otherwise, it does nothing.
+        /// </summary>
         private void CheckHasAnyRestrictions()
         {
             if (!HasAnyRestrictions())
@@ -207,6 +366,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the dictionary of extra attributes associated
+        /// with this script, by unwrapping it from the client data.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of extra attributes, or null if there are none.
+        /// </returns>
         private ObjectDictionary PrivateGetExtra()
         {
             object data = null;
@@ -219,6 +385,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the dictionary of extra attributes associated
+        /// with this script, returning a defensive copy when this script has
+        /// any security restrictions.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of extra attributes (possibly a copy), or null if
+        /// there are none.
+        /// </returns>
         private ObjectDictionary PrivateGetOrCopyExtra()
         {
             //
@@ -240,6 +415,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// This method creates a script from the text and metadata of the
+        /// specified snippet.
+        /// </summary>
+        /// <param name="snippet">
+        /// The snippet whose text and metadata are used to create the script.
+        /// This parameter may not be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The newly created script, or null if it could not be created.
+        /// </returns>
         public static IScript Create(
             ISnippet snippet,
             ref Result error
@@ -288,6 +478,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         public static IScript Create(
             string text
             )
@@ -297,6 +496,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script from the specified text and client
+        /// data.
+        /// </summary>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         public static IScript Create(
             string text,
             IClientData clientData
@@ -309,6 +522,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script of the specified type from the
+        /// specified text, time stamp, and client data.
+        /// </summary>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp to associate with the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         public static IScript Create(
             string type,
             string text,
@@ -326,6 +559,54 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script from the specified metadata, text,
+        /// time stamp, flags, and client data.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp to associate with the script.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating the script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         public static IScript Create(
             string name,
             string group,
@@ -352,6 +633,69 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script from the specified metadata, text,
+        /// source location, time stamp, flags, and client data.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script originated from, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="startLine">
+        /// The line number where the script begins, or an invalid line number
+        /// if it is unknown.
+        /// </param>
+        /// <param name="endLine">
+        /// The line number where the script ends, or an invalid line number if
+        /// it is unknown.
+        /// </param>
+        /// <param name="viaSource">
+        /// Non-zero if the script was obtained via the [source] command.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp to associate with the script.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating the script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         public static IScript Create(
             string name,
             string group,
@@ -390,6 +734,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script by cloning the specified existing
+        /// script.
+        /// </summary>
+        /// <param name="script">
+        /// The script to clone.  This parameter may not be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The newly cloned script, or null if it could not be cloned.
+        /// </returns>
         public static IScript Create(
             IScript script,
             ref Result error
@@ -422,6 +780,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script intended for use with the [after]
+        /// command, from the specified metadata, text, time stamp, flags, and
+        /// client data.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp to associate with the script.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating the script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         /* INTERNAL STATIC OK */
         internal static IScript CreateForAfter(
             string name,
@@ -449,6 +856,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script intended for use during policy
+        /// evaluation, from the specified metadata, text, and flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="error">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         /* INTERNAL STATIC OK */
         internal static IScript CreateForPolicy(
             string name,
@@ -470,6 +909,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a script intended for use during policy
+        /// evaluation by cloning the specified existing script and replacing
+        /// its text with the specified original text.
+        /// </summary>
+        /// <param name="script">
+        /// The script to clone.  This parameter may not be null.
+        /// </param>
+        /// <param name="text">
+        /// The original text to use for the cloned script.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The newly cloned script, or null if it could not be cloned.
+        /// </returns>
         internal static IScript CreateForPolicy(
             IScript script,  /* in */
             string text,     /* in: originalText */
@@ -513,6 +971,47 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method creates a script of the specified type by extracting its
+        /// metadata and text from the specified XML node.
+        /// </summary>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="node">
+        /// The XML node containing the script metadata and text.  This
+        /// parameter may not be null.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating the script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// The newly created script, or null if it could not be created.
+        /// </returns>
         /* INTERNAL STATIC OK */
         internal static IScript CreateFromXmlNode( /* NOTE: Engine use only. */
             string type,
@@ -579,6 +1078,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the metadata and text of the specified script to
+        /// the specified XML node.
+        /// </summary>
+        /// <param name="node">
+        /// The XML node to populate with the script metadata and text.  This
+        /// parameter may not be null.
+        /// </param>
+        /// <param name="script">
+        /// The script whose metadata and text are saved.  This parameter may
+        /// not be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be set to an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, ReturnCode.Error.
+        /// </returns>
         public static ReturnCode SaveToXmlNode(
             XmlNode node,
             IScript script,
@@ -610,6 +1128,89 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private
+        /// <summary>
+        /// This method creates a script from the fully specified metadata,
+        /// text, source location, flags, client data, and bundle data.  It is
+        /// the common implementation used by the public and internal factory
+        /// methods.
+        /// </summary>
+        /// <param name="id">
+        /// The globally unique identifier for the script.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="description">
+        /// The description of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="type">
+        /// The type of the script.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The script text.  This parameter may be null.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script originated from, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="startLine">
+        /// The line number where the script begins, or an invalid line number
+        /// if it is unknown.
+        /// </param>
+        /// <param name="endLine">
+        /// The line number where the script ends, or an invalid line number if
+        /// it is unknown.
+        /// </param>
+        /// <param name="viaSource">
+        /// Non-zero if the script was obtained via the [source] command.
+        /// </param>
+        /// <param name="blockType">
+        /// The type of XML block the script was extracted from.
+        /// </param>
+        /// <param name="timeStamp">
+        /// The time stamp to associate with the script.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// The public key token to associate with the script.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="signature">
+        /// The cryptographic signature to associate with the script.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="engineMode">
+        /// The engine mode that should be used when evaluating the script.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags that should be used when evaluating the
+        /// script.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags that should be used when evaluating the script.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the script.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="bundleData">
+        /// The bundle data, including any security restrictions, to associate
+        /// with the script.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The newly created script.
+        /// </returns>
         internal static IScript InternalCreate(
             Guid id,
             string name,
@@ -659,17 +1260,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnumerator Class
+        /// <summary>
+        /// This class provides an enumerator over the parts of a script.
+        /// Currently, a script always consists of a single part (its text).
+        /// </summary>
         [ObjectId("10883ee1-ca0c-44d0-89f9-2cdf26517ca1")]
         private sealed class ScriptEnumerator : IEnumerator
         {
             #region Private Data
+            /// <summary>
+            /// The script being enumerated.
+            /// </summary>
             private IScript script;
+
+            /// <summary>
+            /// The current zero-based position within the script being
+            /// enumerated.
+            /// </summary>
             private int position;
             #endregion
 
             ///////////////////////////////////////////////////////////////////
 
             #region Public Constructors
+            /// <summary>
+            /// Constructs an enumerator over the parts of the specified script.
+            /// </summary>
+            /// <param name="script">
+            /// The script to enumerate.  This parameter may not be null.
+            /// </param>
             public ScriptEnumerator(
                 IScript script
                 )
@@ -686,6 +1305,9 @@ namespace Eagle._Components.Public
             ///////////////////////////////////////////////////////////////////
 
             #region IEnumerator Members
+            /// <summary>
+            /// Gets the current script part at the enumerator's position.
+            /// </summary>
             public object Current
             {
                 get
@@ -719,6 +1341,14 @@ namespace Eagle._Components.Public
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method advances the enumerator to the next part of the
+            /// script.
+            /// </summary>
+            /// <returns>
+            /// True if the enumerator was successfully advanced to the next
+            /// part; otherwise, false.
+            /// </returns>
             public bool MoveNext()
             {
                 position++;
@@ -738,6 +1368,10 @@ namespace Eagle._Components.Public
 
             ///////////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method resets the enumerator to its initial position,
+            /// before the first part of the script.
+            /// </summary>
             public void Reset()
             {
                 position = Index.Invalid;
@@ -749,6 +1383,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IEnumerable Members
+        /// <summary>
+        /// This method returns an enumerator that iterates over the parts of
+        /// this script.
+        /// </summary>
+        /// <returns>
+        /// An enumerator over the parts of this script.
+        /// </returns>
         public IEnumerator GetEnumerator()
         {
             return new ScriptEnumerator(this);
@@ -758,6 +1399,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICollection Members
+        /// <summary>
+        /// Gets the number of parts in this script.
+        /// </summary>
         public int Count
         {
             //
@@ -770,6 +1414,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether access to this script is
+        /// synchronized (thread-safe).
+        /// </summary>
         public bool IsSynchronized
         {
             get { return false; } // must lock manually.
@@ -777,7 +1425,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The object used to synchronize access to this script.
+        /// </summary>
         private readonly object syncRoot = new object();
+
+        /// <summary>
+        /// Gets an object that can be used to synchronize access to this
+        /// script.
+        /// </summary>
         public object SyncRoot
         {
             get { return syncRoot; }
@@ -785,6 +1441,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the parts of this script to the specified array,
+        /// starting at the specified index.
+        /// </summary>
+        /// <param name="array">
+        /// The destination array.  This parameter may not be null and must be
+        /// one-dimensional.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index in the destination array at which copying
+        /// begins.
+        /// </param>
         public void CopyTo(
             Array array,
             int index
@@ -816,7 +1484,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// The name of this script.
+        /// </summary>
         private string name;
+
+        /// <summary>
+        /// Gets or sets the name of this script.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -827,7 +1502,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// The identifier kind of this script.
+        /// </summary>
         private IdentifierKind kind;
+
+        /// <summary>
+        /// Gets or sets the identifier kind of this script.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { return kind; }
@@ -836,7 +1518,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The globally unique identifier of this script.
+        /// </summary>
         private Guid id;
+
+        /// <summary>
+        /// Gets or sets the globally unique identifier of this script.
+        /// </summary>
         public Guid Id
         {
             get { return id; }
@@ -847,7 +1536,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this script.
+        /// </summary>
         private IClientData clientData;
+
+        /// <summary>
+        /// Gets or sets the client data associated with this script.
+        /// </summary>
         public IClientData ClientData
         {
             get { CheckIsImmutable(); return clientData; }
@@ -858,7 +1554,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// The group of this script.
+        /// </summary>
         private string group;
+
+        /// <summary>
+        /// Gets or sets the group of this script.
+        /// </summary>
         public string Group
         {
             get { return group; }
@@ -867,7 +1570,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The description of this script.
+        /// </summary>
         private string description;
+
+        /// <summary>
+        /// Gets or sets the description of this script.
+        /// </summary>
         public string Description
         {
             get { return description; }
@@ -878,7 +1588,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IScriptLocation Members
+        /// <summary>
+        /// The name of the file this script originated from, if any.
+        /// </summary>
         private string fileName;
+
+        /// <summary>
+        /// Gets or sets the name of the file this script originated from, if
+        /// any.
+        /// </summary>
         public string FileName
         {
             get { return fileName; }
@@ -887,7 +1605,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The line number where this script begins.
+        /// </summary>
         private int startLine;
+
+        /// <summary>
+        /// Gets or sets the line number where this script begins.
+        /// </summary>
         public int StartLine
         {
             get { return startLine; }
@@ -896,7 +1621,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The line number where this script ends.
+        /// </summary>
         private int endLine;
+
+        /// <summary>
+        /// Gets or sets the line number where this script ends.
+        /// </summary>
         public int EndLine
         {
             get { return endLine; }
@@ -905,7 +1637,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if this script was obtained via the [source] command.
+        /// </summary>
         private bool viaSource;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether this script was obtained via
+        /// the [source] command.
+        /// </summary>
         public bool ViaSource
         {
             get { return viaSource; }
@@ -914,6 +1654,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a list of name/value pairs representing the
+        /// metadata and content of this script.
+        /// </summary>
+        /// <returns>
+        /// A list of name/value pairs representing this script.
+        /// </returns>
         public StringPairList ToList()
         {
             return ToList(false);
@@ -921,6 +1668,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a list of name/value pairs representing the
+        /// metadata and content of this script, optionally scrubbing
+        /// potentially sensitive information.
+        /// </summary>
+        /// <param name="scrub">
+        /// Non-zero to omit or sanitize potentially sensitive information,
+        /// such as file paths and security details.
+        /// </param>
+        /// <returns>
+        /// A list of name/value pairs representing this script.
+        /// </returns>
         public StringPairList ToList(
             bool scrub
             )
@@ -1042,7 +1801,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IScriptData Members
+        /// <summary>
+        /// The type of this script.
+        /// </summary>
         private string type;
+
+        /// <summary>
+        /// Gets the type of this script.
+        /// </summary>
         public string Type
         {
             get { return type; }
@@ -1050,6 +1816,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the list of parts that make up this script.  This property is
+        /// obsolete and currently always returns null.
+        /// </summary>
         [Obsolete()]
         public IList Parts
         {
@@ -1067,7 +1837,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The text of this script.
+        /// </summary>
         private string text;
+
+        /// <summary>
+        /// Gets or sets the text of this script.  The set accessor is private
+        /// and intended for use by CreateForPolicy only.
+        /// </summary>
         public string Text
         {
             //
@@ -1082,7 +1860,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// The type of XML block this script was extracted from.
+        /// </summary>
         private XmlBlockType blockType;
+
+        /// <summary>
+        /// Gets the type of XML block this script was extracted from.
+        /// </summary>
         public XmlBlockType BlockType
         {
             get { return blockType; }
@@ -1090,7 +1875,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The time stamp associated with this script.
+        /// </summary>
         private DateTime timeStamp;
+
+        /// <summary>
+        /// Gets the time stamp associated with this script.
+        /// </summary>
         public DateTime TimeStamp
         {
             get { return timeStamp; }
@@ -1098,7 +1890,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The public key token associated with this script.
+        /// </summary>
         private string publicKeyToken;
+
+        /// <summary>
+        /// Gets the public key token associated with this script.
+        /// </summary>
         public string PublicKeyToken
         {
             get { return publicKeyToken; }
@@ -1106,7 +1905,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cryptographic signature associated with this script.
+        /// </summary>
         private byte[] signature;
+
+        /// <summary>
+        /// Gets the cryptographic signature associated with this script.  When
+        /// this script has any security restrictions, a defensive copy is
+        /// returned.
+        /// </summary>
         public byte[] Signature
         {
             get
@@ -1122,7 +1930,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if CAS_POLICY
+        /// <summary>
+        /// The Code Access Security evidence associated with this script.
+        /// </summary>
         private Evidence evidence;
+
+        /// <summary>
+        /// Gets the Code Access Security evidence associated with this script.
+        /// </summary>
         public Evidence Evidence
         {
             get { return evidence; }
@@ -1130,7 +1945,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The hash value associated with this script.
+        /// </summary>
         private byte[] hashValue;
+
+        /// <summary>
+        /// Gets the hash value associated with this script.  When this script
+        /// has any security restrictions, a defensive copy is returned.
+        /// </summary>
         public byte[] HashValue
         {
             get
@@ -1144,7 +1967,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The hash algorithm associated with this script.
+        /// </summary>
         private HashAlgorithm hashAlgorithm;
+
+        /// <summary>
+        /// Gets the hash algorithm associated with this script.
+        /// </summary>
         public HashAlgorithm HashAlgorithm
         {
             get { return hashAlgorithm; }
@@ -1153,7 +1983,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The bundle data, including any security restrictions, associated
+        /// with this script.
+        /// </summary>
         private IBundleData bundleData;
+
+        /// <summary>
+        /// Gets the bundle data, including any security restrictions,
+        /// associated with this script.
+        /// </summary>
         public IBundleData BundleData
         {
             get { return bundleData; }
@@ -1163,7 +2002,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveScriptFlags Members
+        /// <summary>
+        /// The engine mode that should be used when evaluating this script.
+        /// </summary>
         private EngineMode engineMode;
+
+        /// <summary>
+        /// Gets or sets the engine mode that should be used when evaluating
+        /// this script.  The set accessor is not implemented.
+        /// </summary>
         public EngineMode EngineMode
         {
             get { return engineMode; }
@@ -1172,7 +2019,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The script flags that should be used when evaluating this script.
+        /// </summary>
         private ScriptFlags scriptFlags;
+
+        /// <summary>
+        /// Gets or sets the script flags that should be used when evaluating
+        /// this script.  The set accessor is not implemented.
+        /// </summary>
         public ScriptFlags ScriptFlags
         {
             get { return scriptFlags; }
@@ -1181,7 +2036,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The engine flags that should be used when evaluating this script.
+        /// </summary>
         private EngineFlags engineFlags;
+
+        /// <summary>
+        /// Gets or sets the engine flags that should be used when evaluating
+        /// this script.  The set accessor is not implemented.
+        /// </summary>
         public EngineFlags EngineFlags
         {
             get { return engineFlags; }
@@ -1190,7 +2053,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The substitution flags that should be used when evaluating this
+        /// script.
+        /// </summary>
         private SubstitutionFlags substitutionFlags;
+
+        /// <summary>
+        /// Gets or sets the substitution flags that should be used when
+        /// evaluating this script.  The set accessor is not implemented.
+        /// </summary>
         public SubstitutionFlags SubstitutionFlags
         {
             get { return substitutionFlags; }
@@ -1199,7 +2071,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The event flags that should be used when evaluating this script.
+        /// </summary>
         private EventFlags eventFlags;
+
+        /// <summary>
+        /// Gets or sets the event flags that should be used when evaluating
+        /// this script.  The set accessor is not implemented.
+        /// </summary>
         public EventFlags EventFlags
         {
             get { return eventFlags; }
@@ -1208,7 +2088,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The expression flags that should be used when evaluating this
+        /// script.
+        /// </summary>
         private ExpressionFlags expressionFlags;
+
+        /// <summary>
+        /// Gets or sets the expression flags that should be used when
+        /// evaluating this script.  The set accessor is not implemented.
+        /// </summary>
         public ExpressionFlags ExpressionFlags
         {
             get { return expressionFlags; }
@@ -1218,6 +2107,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if DATA
+        /// <summary>
+        /// Gets or sets the bundle flags associated with this script.  Neither
+        /// accessor is implemented.
+        /// </summary>
         public BundleFlags BundleFlags
         {
             get { throw new NotImplementedException(); }
@@ -1229,6 +2122,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IScript Members
+        /// <summary>
+        /// This method determines whether this script should be treated as a
+        /// file rather than as inline text, based on its security flags.
+        /// </summary>
+        /// <param name="fileName">
+        /// Upon success, this parameter will be set to the name of the file to
+        /// treat this script as; otherwise, it will be set to null.
+        /// </param>
+        /// <param name="fileBytes">
+        /// Upon success, this parameter will be set to the raw bytes of the
+        /// file to treat this script as; otherwise, it will be set to null.
+        /// </param>
+        /// <returns>
+        /// True if this script should be treated as a file; otherwise, false.
+        /// </returns>
         public bool ShouldTreatAsFile(
             out string fileName,
             out byte[] fileBytes
@@ -1255,6 +2163,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method returns the type of XML block this script was extracted
+        /// from, as a lower-case string.
+        /// </summary>
+        /// <returns>
+        /// The lower-case string representation of the XML block type.
+        /// </returns>
         public string GetBlockTypeString()
         {
             return blockType.ToString().ToLowerInvariant();
@@ -1263,6 +2178,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the dictionary of extra attributes associated
+        /// with this script, returning null if this script is immutable.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of extra attributes, or null if this script is
+        /// immutable or there are none.
+        /// </returns>
         public ObjectDictionary MaybeGetExtra()
         {
             if (IsImmutable())
@@ -1273,6 +2196,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the dictionary of extra attributes associated
+        /// with this script, throwing an exception if this script is immutable.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of extra attributes, or null if there are none.
+        /// </returns>
         public ObjectDictionary GetExtra()
         {
             //
@@ -1291,6 +2221,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes this script immutable so that subsequent attempts
+        /// to modify it are rejected.
+        /// </summary>
         public void MakeImmutable()
         {
             if (bundleData == null)
@@ -1307,6 +2241,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// This method creates a new script that is a copy of this script.
+        /// </summary>
+        /// <returns>
+        /// A new script that is a copy of this script.
+        /// </returns>
         public object Clone()
         {
             return InternalCreate(
@@ -1323,6 +2263,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this script.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this script, consisting of its text and
+        /// type formatted as a list.
+        /// </returns>
         public override string ToString()
         {
             return StringList.MakeList(text, type);

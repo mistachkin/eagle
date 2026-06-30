@@ -33,6 +33,7 @@ using Eagle._Interfaces.Private;
 using Eagle._Interfaces.Public;
 using SharedStringOps = Eagle._Components.Shared.StringOps;
 using StringLongPair = Eagle._Interfaces.Public.IAnyPair<string, long>;
+using CharBoolPair = Eagle._Components.Public.AnyPair<char?, bool>;
 
 #if NET_40
 using BigIntegerDictionary = System.Collections.Generic.Dictionary<
@@ -45,16 +46,42 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This static class provides Eagle's core value parsing, conversion, and
+    /// inspection services.  It converts between strings and the numeric,
+    /// boolean, date/time, list, index, and object value types that Eagle
+    /// scripts manipulate -- for example, parsing a string into an integer,
+    /// double, wide integer, big integer, boolean, or list, resolving an index
+    /// expression (such as <c>end</c> or <c>end-2</c>), and mapping between
+    /// .NET types and Eagle's type model.  These services back expression
+    /// evaluation, command argument processing, and result handling throughout
+    /// the engine, and they honor the configured culture and Eagle's numeric
+    /// conventions.  Most conversion methods follow the
+    /// <see cref="ReturnCode" /> plus <c>ref</c>-output pattern: they return
+    /// <see cref="ReturnCode.Ok" /> and assign the parsed value on success, or
+    /// <see cref="ReturnCode.Error" /> and assign an error message on failure.
+    /// See <c>core_language.md</c> for the value and expression syntax.
+    /// </summary>
     /* INTERNAL STATIC OK */
     [ObjectId("cd8749dc-8483-45e9-ab43-a8daef79df64")]
     public static class Value
     {
         #region Private Constants
+        /// <summary>
+        /// The cached string representation of the integer zero.
+        /// </summary>
         internal static readonly string ZeroString = 0.ToString();
+        /// <summary>
+        /// The cached string representation of the integer one.
+        /// </summary>
         internal static readonly string OneString = 1.ToString();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The decimal separator character used when no culture-specific
+        /// separator is available.
+        /// </summary>
         private static readonly string DefaultDecimalSeparator = Characters.Period.ToString();
 
         //
@@ -63,29 +90,66 @@ namespace Eagle._Components.Public
         //       the case of 'E' / 'e'.  Also, these do not appear to vary
         //       based on the current culture.
         //
+        /// <summary>
+        /// The set of characters whose presence in a string may indicate a
+        /// floating point value (i.e. the exponent characters).
+        /// </summary>
         private static readonly char[] MaybeFloatingPointChars = {
             Characters.E, Characters.e
         };
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The error message used when an index falls outside the permitted
+        /// bounds.
+        /// </summary>
         private const string badIndexBoundsError = "bad index bounds";
+        /// <summary>
+        /// The error message format used when an index expression contains an
+        /// unsupported arithmetic operator.
+        /// </summary>
         private const string badIndexOperatorError = "bad index operator {0}, must be one of: +-*/%";
 
+        /// <summary>
+        /// The error message format used when a string cannot be parsed as a
+        /// simple index.
+        /// </summary>
         private const string badIndexError1 =
             "bad index {0}: must be start|end|count|integer";
 
+        /// <summary>
+        /// The error message format used when a string cannot be parsed as a
+        /// compound (operator-based) index.
+        /// </summary>
         private const string badIndexError2 =
             "bad index {0}: must be start|end|count|integer?[+-*/%]start|end|count|integer?";
 
+        /// <summary>
+        /// The reserved name representing the "none" index keyword.
+        /// </summary>
         private const string noneName = "none";
+        /// <summary>
+        /// The reserved name representing the "start" index keyword.
+        /// </summary>
         private const string startName = "start";
+        /// <summary>
+        /// The reserved name representing the "end" index keyword.
+        /// </summary>
         private const string endName = "end";
+        /// <summary>
+        /// The reserved name representing the "count" index keyword.
+        /// </summary>
         private const string countName = "count";
 
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to recognize a compound index
+        /// expression composed of two index keywords (or integers) joined by
+        /// an arithmetic operator.
+        /// </summary>
         private static Regex startEndPlusMinusIndexRegEx = RegExOps.Create(
             "^(" + noneName + "|" + startName + "|" + endName + "|" +
             countName + "|\\d+){1}([\\+\\-\\*\\/\\%]{1})(" +
@@ -98,10 +162,26 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression pattern used to match a simple embedded
+        /// annotation marker within script text.
+        /// </summary>
         private static string annotationsPattern1 = "#\\s+<<(\\w+)>>\\s+";
+        /// <summary>
+        /// The regular expression pattern used to match a name/value embedded
+        /// annotation marker within script text.
+        /// </summary>
         private static string annotationsPattern2 = "#\\s+<<(\\w+):(\\w+(?: \\w+)*)>>\\s+";
 
+        /// <summary>
+        /// The regular expression pattern used to match a simple annotation
+        /// name.
+        /// </summary>
         private static string annotationsPattern3 = "^(\\w+)$";
+        /// <summary>
+        /// The regular expression pattern used to match a name/value
+        /// annotation.
+        /// </summary>
         private static string annotationsPattern4 = "^(\\w+):(\\w+(?: \\w+)*)$";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -109,6 +189,9 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to recognize a dotted version string.
+        /// </summary>
         private static Regex versionRegEx = RegExOps.Create(
             "^\\d+\\.\\d+(?:\\.\\d+){0,2}$",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -118,6 +201,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to recognize a globally unique
+        /// identifier in any of its supported textual formats.
+        /// </summary>
         private static Regex guidRegEx = RegExOps.Create(
             "^(?:[0-9A-F]{32}|[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}" +
             "|\\{[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}\\}|" +
@@ -129,6 +216,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The regular expression used to recognize a version range (a pair of
+        /// optional versions separated by a hyphen).
+        /// </summary>
         private static Regex versionRangeRegEx = RegExOps.Create(
             "^(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?-(\\d+\\.\\d+(?:\\.\\d+(?:\\.\\d+)?)?)?$",
             RegexOptions.CultureInvariant | RegexOptions.Compiled);
@@ -142,12 +233,24 @@ namespace Eagle._Components.Public
         //       associated .NET Framework classes for the method overloads
         //       that do not accept an explicit number styles parameter.
         //
+        /// <summary>
+        /// The default number styles used when parsing a byte value.
+        /// </summary>
         private static NumberStyles byteStyles = NumberStyles.Integer;
 
+        /// <summary>
+        /// The default number styles used when parsing a narrow integer value.
+        /// </summary>
         private static NumberStyles narrowIntegerStyles = NumberStyles.Integer;
 
+        /// <summary>
+        /// The default number styles used when parsing an integer value.
+        /// </summary>
         private static NumberStyles integerStyles = NumberStyles.Integer;
 
+        /// <summary>
+        /// The default number styles used when parsing a wide integer value.
+        /// </summary>
         private static NumberStyles wideIntegerStyles = NumberStyles.Integer;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -159,6 +262,9 @@ namespace Eagle._Components.Public
         //       DateTime class for the method overloads that do not accept
         //       an explicit DateTime styles parameter.
         //
+        /// <summary>
+        /// The default date/time styles used when parsing a date/time value.
+        /// </summary>
         private static DateTimeStyles dateTimeStyles = DateTimeStyles.None;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -174,17 +280,33 @@ namespace Eagle._Components.Public
         //       associated .NET Framework classes for the method overloads
         //       that do not accept an explicit number styles parameter.
         //
+        /// <summary>
+        /// The default number styles used when parsing a fixed-point decimal
+        /// value.
+        /// </summary>
         private static NumberStyles decimalStyles = NumberStyles.Number;
 
+        /// <summary>
+        /// The default number styles used when parsing a single-precision
+        /// floating point value.
+        /// </summary>
         private static NumberStyles singleStyles =
             NumberStyles.Float | NumberStyles.AllowThousands;
 
+        /// <summary>
+        /// The default number styles used when parsing a double-precision
+        /// floating point value.
+        /// </summary>
         private static NumberStyles doubleStyles =
             NumberStyles.Float | NumberStyles.AllowThousands;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// The default number styles used when parsing an arbitrary-precision
+        /// big integer value.
+        /// </summary>
         private static NumberStyles bigIntegerStyles = NumberStyles.Integer;
 #endif
         #endregion
@@ -192,6 +314,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the static data of this
+        /// class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -200,20 +326,43 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The culture used by default for value parsing and formatting.
+        /// </summary>
         private static CultureInfo DefaultCulture = null;
+        /// <summary>
+        /// The format provider used by default for numeric value parsing and
+        /// formatting.
+        /// </summary>
         private static IFormatProvider NumberFormatProvider = null;
+        /// <summary>
+        /// The format provider used by default for date/time value parsing and
+        /// formatting.
+        /// </summary>
         private static IFormatProvider DateTimeFormatProvider = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Named Numeric Values
+        /// <summary>
+        /// The lookup table mapping recognized names (such as infinity and
+        /// NaN) to their single-precision floating point values.
+        /// </summary>
         private static SingleDictionary namedSingles = null; // Inf, NaN, etc (float)
+        /// <summary>
+        /// The lookup table mapping recognized names (such as infinity and
+        /// NaN) to their double-precision floating point values.
+        /// </summary>
         private static DoubleDictionary namedDoubles = null; // Inf, NaN, etc (double)
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// The lookup table mapping recognized names to their
+        /// arbitrary-precision big integer values.
+        /// </summary>
         private static BigIntegerDictionary namedBigIntegers = null; // MinusOne, Zero, One, etc (BigInteger)
 #endif
         #endregion
@@ -221,13 +370,37 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Supported "Value" Types
+        /// <summary>
+        /// The list of types treated as integer-valued.
+        /// </summary>
         private static TypeList integerTypes = null;
+        /// <summary>
+        /// The list of types treated as floating point-valued.
+        /// </summary>
         private static TypeList floatTypes = null;
+        /// <summary>
+        /// The list of types treated as string-valued.
+        /// </summary>
         private static TypeList stringTypes = null;
+        /// <summary>
+        /// The list of all types treated as numeric.
+        /// </summary>
         private static TypeList numberTypes = null;
+        /// <summary>
+        /// The list of types treated as integral (whole-number) numeric.
+        /// </summary>
         private static TypeList integralTypes = null;
+        /// <summary>
+        /// The list of types treated as non-integral numeric.
+        /// </summary>
         private static TypeList nonIntegralTypes = null;
+        /// <summary>
+        /// The list of non-numeric value types supported by this class.
+        /// </summary>
         private static TypeList otherTypes = null;
+        /// <summary>
+        /// The list of all value types supported by this class.
+        /// </summary>
         private static TypeList allTypes = null;
         #endregion
 
@@ -237,7 +410,15 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The callback invoked, when present, to transform a single error
+        /// result before it is returned.
+        /// </summary>
         private static ErrorCallback errorCallback;
+        /// <summary>
+        /// The callback invoked, when present, to transform a list of error
+        /// results before it is returned.
+        /// </summary>
         private static ErrorListCallback errorListCallback;
         #endregion
         #endregion
@@ -245,6 +426,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Constructor
+        /// <summary>
+        /// This static constructor initializes the supported type lists and the
+        /// static state used by the value services of this class.
+        /// </summary>
         static Value()
         {
             NumberOps.InitializeTypes();
@@ -257,6 +442,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Initialization Methods
+        /// <summary>
+        /// This method initializes the culture, supported type lists, and named
+        /// numeric lookup tables used by this class.
+        /// </summary>
         internal static void Initialize()
         {
             InitializeCulture();
@@ -266,6 +455,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the default culture and the associated
+        /// numeric and date/time format providers, if they have not already
+        /// been set.
+        /// </summary>
         private static void InitializeCulture()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -286,6 +480,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the static type lists used when adding
+        /// operators and functions, if they have not already been set.
+        /// </summary>
         private static void InitializeTypes()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -383,6 +581,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the lookup tables of named single, double,
+        /// and big integer values understood by the expression parser, if they
+        /// have not already been set.
+        /// </summary>
         private static void InitializeNamedNumerics()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -422,6 +625,15 @@ namespace Eagle._Components.Public
                             GetDefaultCulture()),
                         float.PositiveInfinity);
 
+                    namedSingles[Vars.Expression.Infinity] =
+                        float.PositiveInfinity;
+
+                    namedSingles[Characters.PlusSign +
+                        Vars.Expression.Infinity] = float.PositiveInfinity;
+
+                    namedSingles[Characters.MinusSign +
+                        Vars.Expression.Infinity] = float.NegativeInfinity;
+
                     namedSingles.Add(TclVars.Expression.NaN, float.NaN);
                 }
 
@@ -457,6 +669,15 @@ namespace Eagle._Components.Public
                             GetDefaultCulture()),
                         double.PositiveInfinity);
 
+                    namedDoubles[Vars.Expression.Infinity] =
+                        double.PositiveInfinity;
+
+                    namedDoubles[Characters.PlusSign +
+                        Vars.Expression.Infinity] = double.PositiveInfinity;
+
+                    namedDoubles[Characters.MinusSign +
+                        Vars.Expression.Infinity] = double.NegativeInfinity;
+
                     namedDoubles.Add(TclVars.Expression.NaN, double.NaN);
                 }
 
@@ -481,6 +702,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Error Callback Helper Methods
+        /// <summary>
+        /// This method invokes the configured single-error callback, if any, to
+        /// transform the specified error result.
+        /// </summary>
+        /// <param name="error">
+        /// The error result to transform.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The transformed error result, or the original error result when no
+        /// callback is configured.
+        /// </returns>
         private static Result MaybeInvokeErrorCallback(
             Result error /* in */
             )
@@ -497,6 +729,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method invokes the configured error-list callback, if any, to
+        /// transform the specified list of error results.
+        /// </summary>
+        /// <param name="errors">
+        /// The list of error results to transform.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// The transformed list of error results, or the original list when no
+        /// callback is configured.
+        /// </returns>
         private static ResultList MaybeInvokeErrorCallback(
             ResultList errors /* in */
             )
@@ -513,6 +757,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the currently configured single-error callback.
+        /// </summary>
+        /// <returns>
+        /// The currently configured single-error callback, or null if none is
+        /// configured.
+        /// </returns>
         internal static ErrorCallback GetErrorCallback()
         {
             lock (syncRoot)
@@ -523,6 +774,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the currently configured error-list callback.
+        /// </summary>
+        /// <returns>
+        /// The currently configured error-list callback, or null if none is
+        /// configured.
+        /// </returns>
         internal static ErrorListCallback GetErrorListCallback()
         {
             lock (syncRoot)
@@ -533,6 +791,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the single-error callback used to transform error
+        /// results.
+        /// </summary>
+        /// <param name="callback">
+        /// The single-error callback to use, or null to remove any existing
+        /// callback.
+        /// </param>
         internal static void SetErrorCallback(
             ErrorCallback callback /* in */
             )
@@ -545,6 +811,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the error-list callback used to transform lists of
+        /// error results.
+        /// </summary>
+        /// <param name="callback">
+        /// The error-list callback to use, or null to remove any existing
+        /// callback.
+        /// </param>
         internal static void SetErrorListCallback(
             ErrorListCallback callback /* in */
             )
@@ -559,6 +833,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Culture Helper Methods
+        /// <summary>
+        /// This method returns the default culture used for value parsing and
+        /// formatting, initializing it if necessary.
+        /// </summary>
+        /// <returns>
+        /// The default culture, which is never null.
+        /// </returns>
         internal static CultureInfo GetDefaultCulture() /* CANNOT RETURN NULL */
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -574,6 +855,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default format provider used for numeric
+        /// value parsing and formatting, initializing the culture if necessary.
+        /// </summary>
+        /// <returns>
+        /// The default numeric format provider, which may be null.
+        /// </returns>
         private static IFormatProvider GetNumberFormatProvider() /* MAY RETURN NULL */
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -586,6 +874,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the numeric format provider associated with the
+        /// specified culture, falling back to the default numeric format
+        /// provider.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture whose numeric format provider is returned.  This
+        /// parameter may be null, in which case the default numeric format
+        /// provider is used.
+        /// </param>
+        /// <returns>
+        /// The numeric format provider for the specified culture, which may be
+        /// null.
+        /// </returns>
         internal static IFormatProvider GetNumberFormatProvider( /* MAY RETURN NULL */
             CultureInfo cultureInfo
             )
@@ -596,6 +898,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the default format provider used for date/time
+        /// value parsing and formatting, initializing the culture if necessary.
+        /// </summary>
+        /// <returns>
+        /// The default date/time format provider, which may be null.
+        /// </returns>
         internal static IFormatProvider GetDateTimeFormatProvider() /* MAY RETURN NULL */
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -608,6 +917,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the date/time format provider associated with
+        /// the specified culture, falling back to the default date/time format
+        /// provider.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture whose date/time format provider is returned.  This
+        /// parameter may be null, in which case the default date/time format
+        /// provider is used.
+        /// </param>
+        /// <returns>
+        /// The date/time format provider for the specified culture, which may
+        /// be null.
+        /// </returns>
         internal static IFormatProvider GetDateTimeFormatProvider( /* MAY RETURN NULL */
             CultureInfo cultureInfo
             )
@@ -628,6 +951,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the decimal separator string associated with the
+        /// specified format provider, falling back to the default decimal
+        /// separator.
+        /// </summary>
+        /// <param name="formatProvider">
+        /// The format provider whose decimal separator is returned.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The decimal separator string for the specified format provider, or
+        /// the default decimal separator when one is not available.
+        /// </returns>
         private static string GetNumberDecimalSeparator( /* MAY RETURN NULL */
             IFormatProvider formatProvider
             )
@@ -645,6 +981,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Number / DateTime Styles Helper Methods
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// byte value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a byte
+        /// value.
+        /// </param>
         private static void GetByteStyles(
             out NumberStyles styles
             )
@@ -657,6 +1001,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// narrow integer value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a narrow
+        /// integer value.
+        /// </param>
         private static void GetNarrowIntegerStyles(
             out NumberStyles styles
             )
@@ -669,6 +1021,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing an
+        /// integer value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing an integer
+        /// value.
+        /// </param>
         private static void GetIntegerStyles(
             out NumberStyles styles
             )
@@ -681,6 +1041,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// wide integer value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a wide
+        /// integer value.
+        /// </param>
         private static void GetWideIntegerStyles(
             out NumberStyles styles
             )
@@ -693,6 +1061,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// fixed-point decimal value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a
+        /// fixed-point decimal value.
+        /// </param>
         private static void GetDecimalStyles(
             out NumberStyles styles
             )
@@ -708,6 +1084,14 @@ namespace Eagle._Components.Public
         //
         // WARNING: For use by public entry points of this class only.
         //
+        /// <summary>
+        /// This method retrieves the default date/time styles used when parsing
+        /// a date/time value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the date/time styles used when parsing a
+        /// date/time value.
+        /// </param>
         private static void GetDateTimeStyles(
             out DateTimeStyles styles
             )
@@ -720,6 +1104,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// single-precision floating point value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a
+        /// single-precision floating point value.
+        /// </param>
         private static void GetSingleStyles(
             out NumberStyles styles
             )
@@ -732,6 +1124,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing a
+        /// double-precision floating point value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing a
+        /// double-precision floating point value.
+        /// </param>
         private static void GetDoubleStyles(
             out NumberStyles styles
             )
@@ -745,6 +1145,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method retrieves the default number styles used when parsing an
+        /// arbitrary-precision big integer value.
+        /// </summary>
+        /// <param name="styles">
+        /// Upon return, receives the number styles used when parsing an
+        /// arbitrary-precision big integer value.
+        /// </param>
         private static void GetBigIntegerStyles(
             out NumberStyles styles
             )
@@ -760,6 +1168,18 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Type Mapping Helper Methods
+        /// <summary>
+        /// This method copies each non-null type from the specified type list
+        /// into the specified dictionary, creating the dictionary if necessary.
+        /// </summary>
+        /// <param name="list">
+        /// The list of types to copy.  This parameter may be null, in which
+        /// case no types are copied.
+        /// </param>
+        /// <param name="dictionary">
+        /// A dictionary that, upon return, contains an entry for each copied
+        /// type.  When null, a new dictionary is created.
+        /// </param>
         private static void CopyTypes(
             TypeList list,
             ref Dictionary<Type, object> dictionary
@@ -782,6 +1202,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the supported types selected by the specified
+        /// flags to the specified type list, creating the list if necessary.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags selecting which categories of supported types to include.
+        /// </param>
+        /// <param name="types">
+        /// A type list that, upon return, has the selected types appended to
+        /// it.  When null, a new list is created.
+        /// </param>
         internal static void GetTypes(
             TypeListFlags flags,
             ref TypeList types
@@ -874,6 +1305,31 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Special Value Helper Methods
+        /// <summary>
+        /// This method parses tab-separated key/value mapping lines from the
+        /// specified text, honoring the specified automation flags.  Upon
+        /// success, the parsed mappings are stored in the <paramref name="list" />
+        /// parameter; upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The text containing the tab-separated mapping lines to parse.  This
+        /// parameter cannot be null.
+        /// </param>
+        /// <param name="automationFlags">
+        /// The flags controlling parsing behavior, such as whether null values
+        /// and duplicate keys are permitted.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of parsed key/value mappings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExtractMappings(
             string text,                     /* in */
             AutomationFlags automationFlags, /* in */
@@ -1029,6 +1485,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the specified script file and extracts its text,
+        /// embedded signature, and trailing data.  Upon success, the extracted
+        /// portions are stored in the corresponding parameters; upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the script file to read.  This parameter cannot be null
+        /// or an empty string.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to interpret the script text.  This parameter may
+        /// be null, in which case a default binary encoding is used.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text.
+        /// </param>
+        /// <param name="signature">
+        /// Upon success, receives the embedded signature bytes.
+        /// </param>
+        /// <param name="data">
+        /// Upon success, receives the trailing data bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExtractScript(
             string fileName,      /* in */
             Encoding encoding,    /* in: OPTIONAL */
@@ -1070,6 +1556,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the script text, embedded signature, and
+        /// trailing data from the specified bytes.  Upon success, the extracted
+        /// portions are stored in the corresponding parameters; upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="bytes">
+        /// The raw bytes from which to extract the script.  This parameter
+        /// cannot be null or empty.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding used to interpret the script text.  This parameter may
+        /// be null, in which case a default binary encoding is used.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the script text.
+        /// </param>
+        /// <param name="signature">
+        /// Upon success, receives the embedded signature bytes.
+        /// </param>
+        /// <param name="data">
+        /// Upon success, receives the trailing data bytes.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExtractScript(
             byte[] bytes,         /* in */
             Encoding encoding,    /* in: OPTIONAL */
@@ -1164,6 +1680,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified dictionary with the set of known
+        /// annotation markers.
+        /// </summary>
+        /// <param name="annotations">
+        /// A dictionary that, upon return, contains an entry for each known
+        /// annotation marker.  When null, a new dictionary is created.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetAnnotations(
             ref StringDictionary annotations /* in, out */
             )
@@ -1175,6 +1703,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified dictionary with the set of known
+        /// annotation markers.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="annotations">
+        /// A dictionary that, upon return, contains an entry for each known
+        /// annotation marker.  When null, a new dictionary is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetAnnotations(
             ref StringDictionary annotations, /* in, out */
             ref Result error                  /* out */
@@ -1225,6 +1769,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches one of the
+        /// recognized annotation patterns.
+        /// </summary>
+        /// <param name="text">
+        /// The text to test.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the text matches a recognized annotation pattern;
+        /// otherwise, zero.
+        /// </returns>
         public static bool IsAnnotation(
             string text /* in */
             )
@@ -1245,6 +1800,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts embedded annotations from the specified text and
+        /// adds them to the specified dictionary.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The text from which to extract annotations.  This parameter cannot
+        /// be null.
+        /// </param>
+        /// <param name="annotations">
+        /// A dictionary that, upon return, contains an entry for each extracted
+        /// annotation.  When null, a new dictionary is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ExtractAnnotations(
             string text,                      /* in */
             ref StringDictionary annotations, /* in, out */
@@ -1291,6 +1866,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to look up the single-precision floating point
+        /// value associated with the specified name.  Upon success, the value is
+        /// stored in the <paramref name="value" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The name to look up.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating point value
+        /// associated with the name.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the name was found; otherwise, zero.
+        /// </returns>
         private static bool TryLookupNamedSingle(
             string text,
             ref float value
@@ -1310,6 +1900,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to look up the double-precision floating point
+        /// value associated with the specified name.  Upon success, the value is
+        /// stored in the <paramref name="value" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The name to look up.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating point value
+        /// associated with the name.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the name was found; otherwise, zero.
+        /// </returns>
         private static bool TryLookupNamedDouble(
             string text,
             ref double value
@@ -1330,6 +1935,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method attempts to look up the arbitrary-precision big integer
+        /// value associated with the specified name.  Upon success, the value is
+        /// stored in the <paramref name="value" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The name to look up.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the arbitrary-precision big integer value
+        /// associated with the name.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the name was found; otherwise, zero.
+        /// </returns>
         private static bool TryLookupNamedBigInteger(
             string text,
             ref BigInteger value
@@ -1350,6 +1970,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method examines the specified text for a radix prefix (such as
+        /// the binary, octal, decimal, or hexadecimal prefix) and, when one is
+        /// present, records the corresponding radix flags and the remaining
+        /// text.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The text to examine for a radix prefix.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture associated with the text.  This parameter is not used.
+        /// </param>
+        /// <param name="prefixFlags">
+        /// On input, the value flags controlling prefix handling; on return,
+        /// updated with the detected radix flags.
+        /// </param>
+        /// <param name="newText">
+        /// When a prefix is present, receives the text with the prefix removed.
+        /// </param>
+        /// <param name="negative">
+        /// When a prefix is present, receives a value indicating whether the
+        /// text carried a leading minus sign.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// Non-zero if no error occurred; otherwise, zero.
+        /// </returns>
         private static bool CheckRadixPrefix(
             string text,                /* in */
             CultureInfo cultureInfo,    /* in: NOT USED */
@@ -1447,6 +2097,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the specified value boxed as a narrow integer
+        /// when it fits within the narrow integer range, or as a wide integer
+        /// otherwise.
+        /// </summary>
+        /// <param name="value">
+        /// The wide integer value to box.
+        /// </param>
+        /// <returns>
+        /// The value boxed as a narrow integer when it fits within the narrow
+        /// integer range; otherwise, the value boxed as a wide integer.
+        /// </returns>
         private static object GetIntegerOrWideInteger(
             long value
             )
@@ -1459,6 +2121,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified text into the most appropriate
+        /// numeric value type.  Upon success, the parsed value is stored in the
+        /// <paramref name="value" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to determine parsing behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the text is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the text.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the parsed numeric value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetNumeric(
             Interpreter interpreter,
             string text,
@@ -1475,6 +2162,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified text into the most appropriate
+        /// numeric value type.  Upon success, the parsed value is stored in the
+        /// <paramref name="value" /> parameter; upon failure, an error message
+        /// is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to determine parsing behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="flags">
+        /// The flags controlling how the text is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the text.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the parsed numeric value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNumeric(
             Interpreter interpreter,
             string text,
@@ -1713,6 +2429,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the string comparison type indicated by the
+        /// specified value flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The value flags that determine whether a case-insensitive comparison
+        /// is requested.
+        /// </param>
+        /// <returns>
+        /// The string comparison type indicated by the flags.
+        /// </returns>
         private static StringComparison GetComparisonType(
             ValueFlags flags
             )
@@ -1726,6 +2453,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Boolean Options To ValueFlags Methods
+        /// <summary>
+        /// This method builds the value flags used for type conversion from the
+        /// specified boolean options.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified options.
+        /// </returns>
         internal static ValueFlags GetTypeValueFlags(
             bool strict,
             bool verbose,
@@ -1738,6 +2481,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for type conversion from the
+        /// specified boolean options.
+        /// </summary>
+        /// <param name="allowInteger">
+        /// Non-zero to allow an integer value to be accepted.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified options.
+        /// </returns>
         internal static ValueFlags GetTypeValueFlags(
             bool allowInteger,
             bool strict,
@@ -1751,6 +2513,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for type conversion by
+        /// combining the specified base flags with the specified boolean
+        /// options.
+        /// </summary>
+        /// <param name="flags">
+        /// The base value flags to combine with the specified options.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to allow an integer value to be accepted.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified base flags and
+        /// options.
+        /// </returns>
         internal static ValueFlags GetTypeValueFlags(
             ValueFlags flags,
             bool allowInteger,
@@ -1778,6 +2564,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for type conversion from the
+        /// specified option flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The option flags from which the value flags are derived.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified option flags.
+        /// </returns>
         internal static ValueFlags GetTypeValueFlags(
             OptionFlags flags
             )
@@ -1801,6 +2597,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for object conversion by
+        /// combining the specified base flags with the specified boolean
+        /// options.
+        /// </summary>
+        /// <param name="flags">
+        /// The base value flags to combine with the specified options.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified base flags and
+        /// options.
+        /// </returns>
         internal static ValueFlags GetObjectValueFlags(
             ValueFlags flags,
             bool strict,
@@ -1814,6 +2631,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for object conversion by
+        /// combining the specified base flags with the specified boolean
+        /// options.
+        /// </summary>
+        /// <param name="flags">
+        /// The base value flags to combine with the specified options.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to produce verbose error messages.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive matching.
+        /// </param>
+        /// <param name="noNested">
+        /// Non-zero to disallow nested object resolution.
+        /// </param>
+        /// <param name="noComObject">
+        /// Non-zero to disallow COM object resolution.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified base flags and
+        /// options.
+        /// </returns>
         internal static ValueFlags GetObjectValueFlags(
             ValueFlags flags,
             bool strict,
@@ -1845,6 +2689,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for member resolution by
+        /// combining the specified base flags with the specified boolean
+        /// options.
+        /// </summary>
+        /// <param name="flags">
+        /// The base value flags to combine with the specified options.
+        /// </param>
+        /// <param name="noNested">
+        /// Non-zero to disallow nested object resolution.
+        /// </param>
+        /// <param name="noComObject">
+        /// Non-zero to disallow COM object resolution.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified base flags and
+        /// options.
+        /// </returns>
         internal static ValueFlags GetMemberValueFlags(
             ValueFlags flags,
             bool noNested,
@@ -1864,6 +2726,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the value flags used for call frame resolution
+        /// from the specified boolean option.
+        /// </summary>
+        /// <param name="strict">
+        /// Non-zero to require a strict conversion.
+        /// </param>
+        /// <returns>
+        /// The value flags corresponding to the specified option.
+        /// </returns>
         internal static ValueFlags GetCallFrameValueFlags(
             bool strict
             )
@@ -1878,6 +2750,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the individual boolean type-conversion options
+        /// from the specified value flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The value flags from which to extract the boolean options.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Upon return, non-zero if an integer value is allowed.
+        /// </param>
+        /// <param name="strict">
+        /// Upon return, non-zero if a strict conversion is required.
+        /// </param>
+        /// <param name="verbose">
+        /// Upon return, non-zero if verbose error messages are produced.
+        /// </param>
+        /// <param name="noCase">
+        /// Upon return, non-zero if matching is case-insensitive.
+        /// </param>
         internal static void ExtractTypeValueFlags(
             ValueFlags flags,
             out bool allowInteger,
@@ -1902,6 +2793,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string appears to be a
+        /// version value, based on a simple pattern match.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string looks like a version value;
+        /// otherwise, zero.
+        /// </returns>
         private static bool LooksLikeVersion(
             string text
             )
@@ -1924,6 +2826,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the version value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetVersion(
             string text,
             CultureInfo cultureInfo,
@@ -1937,6 +2856,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the version value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetVersion(
             string text,
             CultureInfo cultureInfo,
@@ -1952,6 +2893,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the version value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetVersion(
             string text,
             CultureInfo cultureInfo,
@@ -1988,6 +2954,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version range, i.e. a
+        /// pair of version values.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value1">
+        /// Upon success, receives the first version of the range, if any.
+        /// </param>
+        /// <param name="value2">
+        /// Upon success, receives the second version of the range, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetVersionRange(
             string text,
             ValueFlags flags,
@@ -2004,6 +2993,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version range, i.e. a
+        /// pair of version values.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value1">
+        /// Upon success, receives the first version of the range, if any.
+        /// </param>
+        /// <param name="value2">
+        /// Upon success, receives the second version of the range, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetVersionRange(
             string text,
             ValueFlags flags,
@@ -2021,6 +3037,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a version range, i.e. a
+        /// pair of version values.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value1">
+        /// Upon success, receives the first version of the range, if any.
+        /// </param>
+        /// <param name="value2">
+        /// Upon success, receives the second version of the range, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetVersionRange(
             string text,
             ValueFlags flags,
@@ -2113,6 +3159,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a uri value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="uriKind">
+        /// The kind of uri (e.g. absolute or relative) that is permitted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the uri value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetUri(
             string text,
             UriKind uriKind,
@@ -2128,6 +3194,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a uri value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="uriKind">
+        /// The kind of uri (e.g. absolute or relative) that is permitted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the uri value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetUri(
             string text,
             UriKind uriKind,
@@ -2145,6 +3236,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a uri value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="uriKind">
+        /// The kind of uri (e.g. absolute or relative) that is permitted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the uri value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUri(
             string text,
             UriKind uriKind,
@@ -2170,6 +3289,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reverses, in place, the byte order of the dash-delimited
+        /// sections of a serialized guid that require byte-swapping on
+        /// little-endian platforms.
+        /// </summary>
+        /// <param name="bytes">
+        /// The array of guid bytes to reverse in place.  Upon success, this
+        /// array contains the byte-swapped guid.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the bytes were reversed successfully; otherwise, zero.
+        /// </returns>
         public static bool ReverseGuidBytes(
             byte[] bytes /* in, out */
             )
@@ -2204,6 +3335,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string appears to be a
+        /// guid value, based on a simple pattern match.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string looks like a guid value; otherwise,
+        /// zero.
+        /// </returns>
         private static bool LooksLikeGuid(
             string text
             )
@@ -2226,6 +3368,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a guid value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the guid value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetGuid(
             string text,
             CultureInfo cultureInfo,
@@ -2240,6 +3399,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a guid value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the guid value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetGuid(
             string text,
             CultureInfo cultureInfo,
@@ -2255,6 +3436,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a guid value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the guid value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetGuid(
             string text,
             CultureInfo cultureInfo,
@@ -2288,6 +3494,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable guid value.
+        /// An empty string is converted to a null value.  Upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the guid value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableGuid(
             string text,
             CultureInfo cultureInfo,
@@ -2304,6 +3532,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable guid value.
+        /// An empty string is converted to a null value.  Upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the guid value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNullableGuid(
             string text,
             CultureInfo cultureInfo,
@@ -2333,6 +3586,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs the default type-resolution callbacks when the
+        /// caller did not supply them, unless their use has been disabled via
+        /// the value flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="callback1">
+        /// The one-parameter type-resolution callback.  When null, it may be
+        /// set to the default callback.
+        /// </param>
+        /// <param name="callback3">
+        /// The three-parameter type-resolution callback.  When null, it may be
+        /// set to the default callback.
+        /// </param>
         private static void MaybeUseDefaultGetTypeCallbacks(
             ValueFlags flags,
             ref GetTypeCallback1 callback1,
@@ -2356,6 +3625,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges the errors and exception accumulated during a
+        /// local type-resolution attempt into the overall list of errors and
+        /// exception provided by the caller.
+        /// </summary>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="localErrors">
+        /// The list of errors accumulated during the local type-resolution
+        /// attempt, if any.
+        /// </param>
+        /// <param name="localException">
+        /// The exception caught during the local type-resolution attempt, if
+        /// any.
+        /// </param>
+        /// <param name="errors">
+        /// Upon return, contains the merged list of errors.  When null, a new
+        /// list may be created.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, receives the exception that was caught, if any.
+        /// </param>
         private static void HandleGetAnyTypeErrors(
             ValueFlags flags,
             ResultList localErrors,
@@ -2393,6 +3685,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve the specified type name by searching
+        /// each of the specified assemblies in turn.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The type name to resolve.
+        /// </param>
+        /// <param name="types">
+        /// The list of type arguments to apply for a generic type, if any.
+        /// </param>
+        /// <param name="assemblies">
+        /// The assemblies to search for the type.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetAnyTypeViaAnyAssembly(
             Interpreter interpreter,
             string text,
@@ -2467,6 +3795,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified type name to a type, optionally
+        /// searching the assemblies loaded into the specified application
+        /// domain.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The type name to resolve.
+        /// </param>
+        /// <param name="types">
+        /// The list of type arguments to apply for a generic type, if any.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies may be searched, if
+        /// any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetAnyType(
             Interpreter interpreter,
             string text,
@@ -2486,6 +3845,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified type name to a type, optionally
+        /// searching the assemblies loaded into the specified application
+        /// domain.  Upon failure, the errors encountered are stored in the
+        /// <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The type name to resolve.
+        /// </param>
+        /// <param name="types">
+        /// The list of type arguments to apply for a generic type, if any.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies may be searched, if
+        /// any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetAnyType(
             Interpreter interpreter,
             string text,
@@ -2513,6 +3908,45 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified type name to a type, optionally
+        /// searching the assemblies loaded into the specified application
+        /// domain.  Upon failure, the errors encountered are stored in the
+        /// <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The type name to resolve.
+        /// </param>
+        /// <param name="types">
+        /// The list of type arguments to apply for a generic type, if any.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies may be searched, if
+        /// any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetAnyType(
             Interpreter interpreter,
             string text,
@@ -2592,6 +4026,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to resolve the specified type name via the
+        /// specified type-resolution callbacks, optionally constrained to a
+        /// single assembly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The type name to resolve.
+        /// </param>
+        /// <param name="types">
+        /// The list of type arguments to apply for a generic type, if any.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to which type resolution is constrained, if any.
+        /// </param>
+        /// <param name="callback1">
+        /// The one-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="callback3">
+        /// The three-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved type.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetAnyTypeViaCallback(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -2998,6 +4475,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of types.  Upon
+        /// failure, the errors encountered are stored in the
+        /// <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies may be searched, if
+        /// any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of types parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetTypeList(
             Interpreter interpreter,
             string text,
@@ -3024,6 +4534,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of types.  Upon
+        /// failure, the errors encountered are stored in the
+        /// <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain whose loaded assemblies may be searched, if
+        /// any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of types parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetTypeList(
             Interpreter interpreter,
             string text,
@@ -3094,6 +4640,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of types, using
+        /// the specified type-resolution callbacks.  Upon failure, the errors
+        /// encountered are stored in the <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to which type resolution is constrained, if any.
+        /// </param>
+        /// <param name="callback1">
+        /// The one-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="callback3">
+        /// The three-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of types parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetTypeList(
             Interpreter interpreter,
             string text,
@@ -3122,6 +4706,47 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of types, using
+        /// the specified type-resolution callbacks.  Upon failure, the errors
+        /// encountered are stored in the <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="assembly">
+        /// The assembly to which type resolution is constrained, if any.
+        /// </param>
+        /// <param name="callback1">
+        /// The one-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="callback3">
+        /// The three-parameter type-resolution callback to use, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of types parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during type
+        /// resolution.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetTypeList(
             Interpreter interpreter,
             string text,
@@ -3194,6 +4819,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of return codes.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of return codes parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetReturnCodeList(
             string text,
             CultureInfo cultureInfo,
@@ -3209,6 +4856,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of return codes.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of return codes parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetReturnCodeList(
             string text,
             CultureInfo cultureInfo,
@@ -3268,6 +4940,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of enumerated
+        /// values of the specified type.  Upon failure, the errors encountered
+        /// are stored in the <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumeration type that each element must conform to.
+        /// </param>
+        /// <param name="oldValue">
+        /// The previous value used as the basis when parsing flag
+        /// enumerations, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of enumerated values parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during the
+        /// conversion.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetEnumList(
             Interpreter interpreter,
             string text,
@@ -3295,6 +5003,45 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of enumerated
+        /// values of the specified type.  Upon failure, the errors encountered
+        /// are stored in the <paramref name="errors" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumeration type that each element must conform to.
+        /// </param>
+        /// <param name="oldValue">
+        /// The previous value used as the basis when parsing flag
+        /// enumerations, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of enumerated values parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during the
+        /// conversion.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetEnumList(
             Interpreter interpreter,
             string text,
@@ -3424,6 +5171,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a date/time
+        /// value.
+        /// </summary>
+        /// <param name="value">
+        /// The string to convert.
+        /// </param>
+        /// <param name="useKind">
+        /// Non-zero to apply the configured date/time kind to the parsed value.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="value" />.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         internal static bool TryParseDateTime( /* NOTE: FOR USE BY THE Variant CLASS ONLY */
             string value,
             bool useKind,
@@ -3436,6 +5200,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a date/time
+        /// value, using the date/time parameters associated with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// The string to convert.
+        /// </param>
+        /// <param name="useKind">
+        /// Non-zero to apply the configured date/time kind to the parsed value.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="value" />.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         private static bool TryParseDateTime(
             Interpreter interpreter,
             string value,
@@ -3456,6 +5241,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a date/time
+        /// value, using the specified date/time kind, styles, and format
+        /// provider.
+        /// </summary>
+        /// <param name="value">
+        /// The string to convert.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value, if requested.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="provider">
+        /// The format provider used when parsing the value, if any.
+        /// </param>
+        /// <param name="useKind">
+        /// Non-zero to apply the specified date/time kind to the parsed value.
+        /// </param>
+        /// <param name="dateTime">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="value" />.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         private static bool TryParseDateTime(
             string value,
             DateTimeKind kind,
@@ -3483,6 +5295,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally using the specified format.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetDateTime(
             string text,
             string format,
@@ -3500,6 +5339,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally using the specified format.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDateTime(
             string text,
             string format,
@@ -3519,6 +5389,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally using the specified format.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDateTime(
             string text,
             string format,
@@ -3574,6 +5478,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDateTime2(
             string text,
             string format,
@@ -3595,6 +5529,38 @@ namespace Eagle._Components.Public
         //
         // WARNING: For external use only.  May be removed in the future.
         //
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [Obsolete()]
         public static ReturnCode GetDateTime2( /* COMPAT: Eagle beta. */
             string text,
@@ -3619,6 +5585,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetDateTime2(
             string text,
             string format,
@@ -3639,6 +5640,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDateTime2(
             string text,
             string format,
@@ -3723,6 +5762,34 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by SetupOps ONLY.
         //
+        /// <summary>
+        /// This method converts the specified string to a date/time value,
+        /// using the default date/time format and culture.  Upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetDateTime3(
             string text,
             ValueFlags flags,
@@ -3741,6 +5808,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable date/time
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableDateTime2(
             string text,
             string format,
@@ -3761,6 +5863,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable date/time
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="format">
+        /// The exact format string to use when parsing, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="kind">
+        /// The date/time kind to apply to the parsed value.
+        /// </param>
+        /// <param name="styles">
+        /// The date/time styles that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the date/time value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableDateTime2(
             string text,
             string format,
@@ -3794,6 +5934,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetTimeSpan(
             string text,
             CultureInfo cultureInfo,
@@ -3808,6 +5965,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetTimeSpan(
             string text,
             CultureInfo cultureInfo,
@@ -3823,6 +6002,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetTimeSpan(
             string text,
             CultureInfo cultureInfo,
@@ -3844,6 +6048,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetTimeSpan2(
             string text,
             ValueFlags flags,
@@ -3859,6 +6084,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetTimeSpan2(
             string text,
             ValueFlags flags,
@@ -3875,6 +6126,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a time-span value,
+        /// optionally falling back to interpreting it as an integer tick count.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetTimeSpan2(
             string text,
             ValueFlags flags,
@@ -3924,6 +6204,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable time-span
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableTimeSpan2(
             string text,
             ValueFlags flags,
@@ -3940,6 +6246,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable time-span
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the time-span value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableTimeSpan2(
             string text,
             ValueFlags flags,
@@ -3970,6 +6305,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is the reserved
+        /// name that represents an invalid (none) index.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string is the reserved none name;
+        /// otherwise, zero.
+        /// </returns>
         private static bool IsNoneName(
             string text
             )
@@ -3980,6 +6326,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is the reserved
+        /// name that represents the starting index.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string is the reserved start name;
+        /// otherwise, zero.
+        /// </returns>
         private static bool IsStartName(
             string text
             )
@@ -3990,6 +6347,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is the reserved
+        /// name that represents the ending index.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string is the reserved end name;
+        /// otherwise, zero.
+        /// </returns>
         private static bool IsEndName(
             string text
             )
@@ -4000,6 +6368,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string is the reserved
+        /// name that represents the count of elements.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the specified string is the reserved count name;
+        /// otherwise, zero.
+        /// </returns>
         private static bool IsCountName(
             string text
             )
@@ -4010,6 +6389,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method verifies that the specified index falls within the
+        /// specified bounds, when strict bounds checking is enabled.
+        /// </summary>
+        /// <param name="index">
+        /// The index value to check.
+        /// </param>
+        /// <param name="firstIndex">
+        /// The lowest valid index, or an invalid index if there are none.
+        /// </param>
+        /// <param name="lastIndex">
+        /// The highest valid index, or an invalid index if there are none.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to enforce bounds checking.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode CheckIndex(
             int index,
             int firstIndex,
@@ -4041,6 +6443,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method selects the most appropriate error result to report for
+        /// a failed index conversion.
+        /// </summary>
+        /// <param name="text">
+        /// The index string that could not be converted.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors accumulated during the conversion, if any.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <returns>
+        /// The error result to report.
+        /// </returns>
         private static Result GetIndexError(
             string text,
             ResultList errors,
@@ -4062,6 +6480,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends a contextual message, along with the specified
+        /// error, to the list of index conversion errors.
+        /// </summary>
+        /// <param name="partIndex">
+        /// The one-based position of the index string part being processed, or
+        /// zero for the entire string.
+        /// </param>
+        /// <param name="error">
+        /// The error to add, if any.
+        /// </param>
+        /// <param name="errors">
+        /// The list of errors to append to.  When null, a new list may be
+        /// created.
+        /// </param>
         private static void AddIndexError(
             int partIndex,
             Result error,
@@ -4090,6 +6523,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a single index string part to an integer index,
+        /// optionally recognizing named indexes and offsets.
+        /// </summary>
+        /// <param name="text">
+        /// The index string part to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="count">
+        /// The number of elements in the associated list.
+        /// </param>
+        /// <param name="partIndex">
+        /// The one-based position of the index string part being processed, or
+        /// zero for the entire string.
+        /// </param>
+        /// <param name="firstIndex">
+        /// The lowest valid index, or an invalid index if there are none.
+        /// </param>
+        /// <param name="lastIndex">
+        /// The highest valid index, or an invalid index if there are none.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to enforce bounds checking.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting index.
+        /// </param>
+        /// <param name="errors">
+        /// Upon failure, receives the list of errors encountered during the
+        /// conversion.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetIndex(
             string text,
             ValueFlags flags,
@@ -4258,6 +6731,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integer index,
+        /// recognizing named indexes and the special "index[+-]offset" syntax.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The index string to convert.
+        /// </param>
+        /// <param name="count">
+        /// The number of elements in the associated list.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting index.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetIndex(
             string text,
             int count,
@@ -4527,6 +7028,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of integer
+        /// indexes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="count">
+        /// The number of elements in the associated list.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of indexes parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetIndexList(
             Interpreter interpreter,
             string text,
@@ -4545,6 +7073,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a list of integer
+        /// indexes.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.
+        /// </param>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="count">
+        /// The number of elements in the associated list.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the list of indexes parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetIndexList(
             Interpreter interpreter,
             string text,
@@ -4605,6 +7164,60 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a call frame from the specified level
+        /// specification.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The level specification to resolve.
+        /// </param>
+        /// <param name="levelFlags">
+        /// The flags that control which kinds of level specifications are
+        /// permitted.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack to search.
+        /// </param>
+        /// <param name="globalFrame">
+        /// The global call frame.
+        /// </param>
+        /// <param name="currentGlobalFrame">
+        /// The current global call frame.
+        /// </param>
+        /// <param name="currentFrame">
+        /// The current call frame.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The call frame flags that a matching frame must have.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The call frame flags that a matching frame must not have.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that a matching frame have all of the flags in
+        /// <paramref name="hasFlags" />.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that a matching frame lack all of the flags in
+        /// <paramref name="notHasFlags" />.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how the level specification is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="frame">
+        /// Upon success, receives the resolved call frame.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// A <see cref="FrameResult" /> value describing the outcome of the
+        /// call frame search.
+        /// </returns>
         internal static FrameResult GetCallFrame(
             string text,
             LevelFlags levelFlags,
@@ -4637,6 +7250,74 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a call frame from the specified level
+        /// specification, also reporting details about the search that was
+        /// performed.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The level specification to resolve.
+        /// </param>
+        /// <param name="levelFlags">
+        /// The flags that control which kinds of level specifications are
+        /// permitted.
+        /// </param>
+        /// <param name="callStack">
+        /// The call stack to search.
+        /// </param>
+        /// <param name="globalFrame">
+        /// The global call frame.
+        /// </param>
+        /// <param name="currentGlobalFrame">
+        /// The current global call frame.
+        /// </param>
+        /// <param name="currentFrame">
+        /// The current call frame.
+        /// </param>
+        /// <param name="hasFlags">
+        /// The call frame flags that a matching frame must have.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The call frame flags that a matching frame must not have.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero to require that a matching frame have all of the flags in
+        /// <paramref name="hasFlags" />.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero to require that a matching frame lack all of the flags in
+        /// <paramref name="notHasFlags" />.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how the level specification is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="mark">
+        /// Upon success, non-zero if the resolved call frames should be marked.
+        /// </param>
+        /// <param name="absolute">
+        /// Upon success, non-zero if an absolute, rather than relative, search
+        /// was performed.
+        /// </param>
+        /// <param name="super">
+        /// Upon success, non-zero if the outer global frame was used.
+        /// </param>
+        /// <param name="level">
+        /// Upon success, receives the resolved level number.
+        /// </param>
+        /// <param name="frame">
+        /// Upon success, receives the resolved call frame.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// A <see cref="FrameResult" /> value describing the outcome of the
+        /// call frame search.
+        /// </returns>
         internal static FrameResult GetCallFrame(
             string text,
             LevelFlags levelFlags,
@@ -4901,6 +7582,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a boolean value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBoolean2(
             string text,
             ValueFlags flags,
@@ -4916,6 +7617,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a boolean value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetBoolean2(
             string text,
             ValueFlags flags,
@@ -4932,6 +7658,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a boolean value.  Upon failure, an error message is stored
+        /// in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from the value
+        /// source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetBoolean6(
             IGetValue getValue,
             ValueFlags flags,
@@ -4946,6 +7697,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable boolean
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableBoolean2(
             string text,
             ValueFlags flags,
@@ -4965,6 +7742,27 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by the [string is boolean] sub-command only.
         //
+        /// <summary>
+        /// This method determines whether the specified string is a recognized
+        /// boolean keyword.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBoolean5(
             string text,
             ValueFlags flags,
@@ -4984,6 +7782,34 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by the [string is boolean] sub-command only.
         //
+        /// <summary>
+        /// This method determines whether the specified string is a recognized
+        /// boolean keyword.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetBoolean5(
             string text,
             ValueFlags flags,
@@ -5009,6 +7835,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a boolean
+        /// value, recognizing only the known boolean keywords.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         internal static bool TryParseBooleanOnly(
             string text,
             ValueFlags flags,
@@ -5023,6 +7866,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a boolean
+        /// value, recognizing only the known boolean keywords.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison type to use when matching keywords.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         private static bool TryParseBooleanOnly(
             string text,
             StringComparison comparisonType,
@@ -5037,6 +7897,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string to a boolean
+        /// value, recognizing only the known boolean keywords, and also reports
+        /// whether the value was expressed as an integer.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="comparisonType">
+        /// The string comparison type to use when matching keywords.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="wasInteger">
+        /// Upon success, non-zero if the recognized value was expressed as an
+        /// integer (i.e. zero or one).
+        /// </param>
+        /// <returns>
+        /// Non-zero if the conversion succeeded; otherwise, zero.
+        /// </returns>
         private static bool TryParseBooleanOnly(
             string text,
             StringComparison comparisonType,
@@ -5198,6 +8080,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a boolean value.  Upon
+        /// failure, an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetBoolean2(
             string text,
             ValueFlags flags,
@@ -5277,6 +8187,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable boolean
+        /// value.  An empty string is converted to a null value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />, or null when the string is empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught, if any.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNullableBoolean2(
             string text,
             ValueFlags flags,
@@ -5310,6 +8249,31 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by Engine.StringToBoolean ONLY.
         //
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a boolean value.  Upon failure, an error message is stored
+        /// in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from the value
+        /// source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBoolean3(
             IGetValue getValue,
             ValueFlags flags,
@@ -5420,6 +8384,28 @@ namespace Eagle._Components.Public
         //
         // NOTE: For use by SetupOps ONLY.
         //
+        /// <summary>
+        /// This method converts the specified string to a boolean value, using
+        /// the default culture.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the boolean value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBoolean4(
             string text,
             ValueFlags flags,
@@ -5435,6 +8421,37 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a single-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSingle2(
             string text,
             CultureInfo cultureInfo,
@@ -5484,6 +8501,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a single-precision floating-point value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSingle(
             IGetValue getValue,
             CultureInfo cultureInfo,
@@ -5499,6 +8534,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a single-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetSingle(
             IGetValue getValue,
             CultureInfo cultureInfo,
@@ -5514,6 +8572,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a single-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSingle(
             IGetValue getValue,
             CultureInfo cultureInfo,
@@ -5570,6 +8654,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a single-precision
+        /// floating-point value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetSingle(
             string text,
             CultureInfo cultureInfo,
@@ -5584,6 +8686,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a single-precision
+        /// floating-point value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetSingle(
             string text,
             CultureInfo cultureInfo,
@@ -5599,6 +8723,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a single-precision
+        /// floating-point value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the single-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSingle(
             string text,
             CultureInfo cultureInfo,
@@ -5634,6 +8783,32 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a double-precision floating-point value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDouble2(
             string text,
             ValueFlags flags,
@@ -5657,6 +8832,31 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the Option Parser.
         //
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a big integer value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBigInteger2(
             string text,
             ValueFlags flags,
@@ -5677,6 +8877,36 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the Expression parser.
         //
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a big integer value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBigInteger2(
             string text,
             ValueFlags flags,
@@ -5695,6 +8925,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a big integer value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetBigInteger2(
             string text,
             ValueFlags flags,
@@ -5745,6 +9008,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a big integer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetBigInteger(
             string text,
             ValueFlags flags,
@@ -5761,6 +9044,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a big integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetBigInteger(
             string text,
             ValueFlags flags,
@@ -5778,6 +9086,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a big integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the big integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetBigInteger(
             string text,
             ValueFlags flags,
@@ -5828,6 +9164,37 @@ namespace Eagle._Components.Public
         //
         // NOTE: Used by the Expression parser.
         //
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a double-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetDouble2(
             string text,
             ValueFlags flags,
@@ -5846,6 +9213,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a double-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDouble2(
             string text,
             ValueFlags flags,
@@ -5896,6 +9297,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a double-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [Obsolete()]
         public static ReturnCode GetDouble(
             IGetValue getValue,
@@ -5913,6 +9337,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a double-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetDouble(
             IGetValue getValue,
             ValueFlags flags,
@@ -5930,6 +9380,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a double-precision floating-point value.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from the value source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDouble(
             IGetValue getValue,
             ValueFlags flags,
@@ -5987,6 +9466,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a double-precision
+        /// floating-point value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetDouble(
             string text,
             ValueFlags flags,
@@ -6002,6 +9502,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a double-precision
+        /// floating-point value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetDouble(
             string text,
             CultureInfo cultureInfo,
@@ -6018,6 +9540,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a double-precision
+        /// floating-point value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetDouble(
             string text,
             ValueFlags flags,
@@ -6035,6 +9582,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a double-precision
+        /// floating-point value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the double-precision floating-point value
+        /// parsed from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDouble(
             string text,
             ValueFlags flags,
@@ -6085,6 +9660,32 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a decimal value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDecimal2(
             string text,
             ValueFlags flags,
@@ -6101,6 +9702,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a decimal value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDecimal2(
             string text,
             ValueFlags flags,
@@ -6119,6 +9750,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the longest valid prefix of the specified
+        /// string to a decimal value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDecimal2(
             string text,
             ValueFlags flags,
@@ -6171,6 +9835,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a fixed-point decimal
+        /// value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the fixed-point decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetDecimal(
             string text,
             ValueFlags flags,
@@ -6186,6 +9871,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a fixed-point decimal
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the fixed-point decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetDecimal(
             string text,
             ValueFlags flags,
@@ -6202,6 +9912,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a fixed-point decimal
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the fixed-point decimal value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetDecimal(
             string text,
             ValueFlags flags,
@@ -6247,6 +9985,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned wide
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUnsignedWideInteger(
             string text,
             CultureInfo cultureInfo,
@@ -6277,6 +10040,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a wide integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetWideInteger(
             string text,
             CultureInfo cultureInfo,
@@ -6307,6 +10095,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable wide
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />, or null when <paramref name="text" /> is
+        /// null or an empty string.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableWideInteger2(
             string text,
             ValueFlags flags,
@@ -6336,6 +10150,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a wide integer value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from the value
+        /// source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetWideInteger2(
             IGetValue getValue,
             ValueFlags flags,
@@ -6353,6 +10192,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified value
+        /// source to a wide integer value.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value source to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from the value
+        /// source.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetWideInteger2(
             IGetValue getValue,
             ValueFlags flags,
@@ -6417,6 +10284,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a wide integer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetWideInteger2(
             string text,
             ValueFlags flags,
@@ -6432,6 +10319,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a wide integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetWideInteger2(
             string text,
             ValueFlags flags,
@@ -6448,6 +10360,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned wide
+        /// integer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUnsignedWideInteger2(
             string text,
             ValueFlags flags,
@@ -6463,6 +10396,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned wide
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetUnsignedWideInteger2(
             string text,
             ValueFlags flags,
@@ -6479,6 +10437,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse the specified string as a wide
+        /// integer that begins with a radix prefix, such as hexadecimal,
+        /// decimal, octal, or binary.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to true if a recognized radix prefix was found and
+        /// the value was parsed from it; otherwise, set to false.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ParseWideIntegerWithRadixPrefix(
             string text,
             ValueFlags flags,
@@ -6495,6 +10479,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse the specified string as a wide
+        /// integer that begins with a radix prefix, such as hexadecimal,
+        /// decimal, octal, or binary.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to true if a recognized radix prefix was found and
+        /// the value was parsed from it; otherwise, set to false.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ParseWideIntegerWithRadixPrefix(
             string text,
             ValueFlags flags,
@@ -6640,6 +10654,32 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method attempts to parse the specified string as a
+        /// <see cref="BigInteger" /> that begins with a radix prefix, such as
+        /// hexadecimal, decimal, octal, or binary.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to true if a recognized radix prefix was found and
+        /// the value was parsed from it; otherwise, set to false.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the <see cref="BigInteger" /> value parsed
+        /// from <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ParseBigIntegerWithRadixPrefix(
             string text,
             ValueFlags flags,
@@ -6656,6 +10696,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse the specified string as a
+        /// <see cref="BigInteger" /> that begins with a radix prefix, such as
+        /// hexadecimal, decimal, octal, or binary.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="done">
+        /// Upon return, set to true if a recognized radix prefix was found and
+        /// the value was parsed from it; otherwise, set to false.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the <see cref="BigInteger" /> value parsed
+        /// from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ParseBigIntegerWithRadixPrefix(
             string text,
             ValueFlags flags,
@@ -6801,6 +10871,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a wide integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetWideInteger2(
             string text,
             ValueFlags flags,
@@ -6905,6 +11003,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned wide
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned wide integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUnsignedWideInteger2(
             string text,
             ValueFlags flags,
@@ -7014,6 +11140,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integral value,
+        /// represented as an <see cref="INumber" /> using the narrowest
+        /// integer or wide integer type able to hold the parsed value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value as an
+        /// <see cref="INumber" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetIntegerOrWideInteger(
             string text,
             ValueFlags flags,
@@ -7029,6 +11177,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integral value,
+        /// represented as an <see cref="INumber" /> using the narrowest
+        /// integer or wide integer type able to hold the parsed value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the parsed value as an
+        /// <see cref="INumber" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetIntegerOrWideInteger(
             string text,
             ValueFlags flags,
@@ -7076,6 +11251,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified strings to a match mode value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to determine parsing behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="oldText">
+        /// The string containing the existing flags value, if any.
+        /// </param>
+        /// <param name="newText">
+        /// The string containing the flags value to parse and combine with
+        /// the existing value.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the match mode value resulting from
+        /// combining <paramref name="oldText" /> and <paramref name="newText" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetMatchMode2(
             Interpreter interpreter,
             string oldText,
@@ -7095,6 +11303,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified strings to a match mode value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used to determine parsing behavior.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="oldText">
+        /// The string containing the existing flags value, if any.
+        /// </param>
+        /// <param name="newText">
+        /// The string containing the flags value to parse and combine with
+        /// the existing value.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the match mode value resulting from
+        /// combining <paramref name="oldText" /> and <paramref name="newText" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetMatchMode2(
             Interpreter interpreter,
             string oldText,
@@ -7138,6 +11382,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a completion code
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the completion code value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetReturnCode2(
             string text,
             ValueFlags flags,
@@ -7154,6 +11423,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a completion code
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the completion code value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetReturnCode2(
             string text,
             ValueFlags flags,
@@ -7196,6 +11493,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a public key token.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="value">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, receives the public key token bytes parsed from
+        /// <paramref name="value" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetPublicKeyToken(
             string value,
             CultureInfo cultureInfo,
@@ -7211,6 +11530,28 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified string to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetByte( /* NOT USED */
             string text,
             CultureInfo cultureInfo,
@@ -7226,6 +11567,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetByte(
             string text,
             CultureInfo cultureInfo,
@@ -7256,6 +11622,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a signed byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSignedByte( /* NOT USED */
             string text,
             CultureInfo cultureInfo,
@@ -7271,6 +11659,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a signed byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSignedByte(
             string text,
             CultureInfo cultureInfo,
@@ -7301,6 +11714,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a byte value.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetByte2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7318,6 +11751,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetByte2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7335,6 +11793,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetByte2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7392,6 +11878,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a byte value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetByte2(
             string text,
             ValueFlags flags,
@@ -7407,6 +11913,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetByte2(
             string text,
             ValueFlags flags,
@@ -7423,6 +11954,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetByte2(
             string text,
             ValueFlags flags,
@@ -7457,6 +12016,31 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified value to a signed byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSignedByte2( /* NOT USED */
             IGetValue getValue,
             ValueFlags flags,
@@ -7474,6 +12058,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a signed byte value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSignedByte2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7533,6 +12145,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a signed byte value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetSignedByte2(
             string text,
             ValueFlags flags,
@@ -7549,6 +12186,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a signed byte value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the signed byte value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetSignedByte2(
             string text,
             ValueFlags flags,
@@ -7595,6 +12260,31 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified string to a narrow integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNarrowInteger( /* NOT USED */
             string text,
             CultureInfo cultureInfo,
@@ -7625,6 +12315,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a narrow integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNarrowInteger2( /* NOT USED */
             IGetValue getValue,
             ValueFlags flags,
@@ -7642,6 +12357,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a narrow integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNarrowInteger2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7701,6 +12444,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a narrow integer
+        /// value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNarrowInteger2(
             string text,
             ValueFlags flags,
@@ -7716,6 +12480,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a narrow integer
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNarrowInteger2(
             string text,
             ValueFlags flags,
@@ -7732,6 +12521,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a narrow integer
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the narrow integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNarrowInteger2(
             string text,
             ValueFlags flags,
@@ -7776,6 +12593,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned narrow
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned narrow integer value parsed
+        /// from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetUnsignedNarrowInteger2(
             string text,
             ValueFlags flags,
@@ -7792,6 +12634,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned narrow
+        /// integer value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned narrow integer value parsed
+        /// from <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUnsignedNarrowInteger2(
             string text,
             ValueFlags flags,
@@ -7826,6 +12696,31 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified string to a character value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCharacter( /* NOT USED */
             string text,
             CultureInfo cultureInfo,
@@ -7869,6 +12764,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a character value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCharacter2( /* NOT USED */
             IGetValue getValue,
             ValueFlags flags,
@@ -7886,6 +12806,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified value to a character value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value obtained from
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCharacter2(
             IGetValue getValue,
             ValueFlags flags,
@@ -7945,6 +12893,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a character value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCharacter2(
             string text,
             ValueFlags flags,
@@ -7960,6 +12928,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a character value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetCharacter2(
             string text,
             ValueFlags flags,
@@ -7976,6 +12969,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a character value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the character value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetCharacter2(
             string text,
             ValueFlags flags,
@@ -8006,6 +13027,31 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified string to a integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetInteger(
             string text,
             CultureInfo cultureInfo,
@@ -8038,6 +13084,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to a nullable integer
+        /// value.  When the string is null or empty, a null value is produced.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value parsed from
+        /// <paramref name="text" />, or null when <paramref name="text" /> is
+        /// null or empty.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNullableInteger2(
             string text,
             ValueFlags flags,
@@ -8067,6 +13140,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified
+        /// <see cref="IGetValue" /> object to an integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The object that provides the value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value provided by
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetInteger2(
             IGetValue getValue,
             ValueFlags flags,
@@ -8084,6 +13183,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified
+        /// <see cref="IGetValue" /> object to an integer value.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="getValue">
+        /// The object that provides the value to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value provided by
+        /// <paramref name="getValue" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetInteger2(
             IGetValue getValue,
             ValueFlags flags,
@@ -8141,6 +13269,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetInteger2(
             string text,
             ValueFlags flags,
@@ -8156,6 +13304,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetInteger2(
             string text,
             ValueFlags flags,
@@ -8172,6 +13345,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetInteger2(
             string text,
             ValueFlags flags,
@@ -8216,6 +13417,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned integer value.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetUnsignedInteger2(
             string text,
             ValueFlags flags,
@@ -8231,6 +13452,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetUnsignedInteger2(
             string text,
             ValueFlags flags,
@@ -8247,6 +13493,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string to an unsigned integer value.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the value is parsed.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the unsigned integer value parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetUnsignedInteger2(
             string text,
             ValueFlags flags,
@@ -8279,6 +13553,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an interpreter by name.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the interpreter to look up.
+        /// </param>
+        /// <param name="type">
+        /// The flags that specify which categories of interpreter to consider.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the interpreter identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetInterpreter(
             Interpreter interpreter,
             string text,
@@ -8294,6 +13588,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an interpreter by name.  Upon failure,
+        /// an error message is stored in the <paramref name="error" />
+        /// parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the interpreter to look up.
+        /// </param>
+        /// <param name="type">
+        /// The flags that specify which categories of interpreter to consider.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the interpreter identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetInterpreter(
             Interpreter interpreter,
             string text,
@@ -8418,6 +13737,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a nested member of an object by delegating the
+        /// lookup to the specified script binder.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="scriptBinder">
+        /// The script binder used to perform the member lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the member to look up.
+        /// </param>
+        /// <param name="typedInstance">
+        /// The typed instance whose member is being looked up.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The flags that specify which kinds of members to consider.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the member lookup is performed.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved member.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNestedMemberViaBinder(
             IScriptBinder scriptBinder,
             string text,
@@ -8450,6 +13806,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a nested member of an object using the binder
+        /// belonging to the specified interpreter.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the member to look up.
+        /// </param>
+        /// <param name="typedInstance">
+        /// The typed instance whose member is being looked up.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The flags that specify which kinds of members to consider.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the member lookup is performed.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved member.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNestedMember(
             Interpreter interpreter,
             string text,
@@ -8471,6 +13864,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the resolution of a nested member of an object.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter and any caught exception is
+        /// stored in the <paramref name="exception" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="text">
+        /// The name of the member to look up.
+        /// </param>
+        /// <param name="typedInstance">
+        /// The typed instance whose member is being looked up.
+        /// </param>
+        /// <param name="memberTypes">
+        /// The flags that specify which kinds of members to consider.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the member lookup is performed.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved member.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives any exception that was caught during the
+        /// lookup.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNestedMember(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -8886,6 +14322,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a nested object by delegating the lookup to the
+        /// specified script binder.  Upon failure, an error message is stored
+        /// in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="scriptBinder">
+        /// The script binder used to perform the object lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider during the lookup.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which to resolve the object.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="objectType">
+        /// The type of object to create, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// The proxy type to use, if any.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved object.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNestedObjectViaBinder(
             IScriptBinder scriptBinder,
             string text,
@@ -8921,6 +14400,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the runtime type of the specified
+        /// object should be obtained by calling its <c>GetType</c> method.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose type is being considered.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The flags associated with the object.
+        /// </param>
+        /// <returns>
+        /// True if the <c>GetType</c> method of the object should be used to
+        /// obtain its type; otherwise, false.
+        /// </returns>
         private static bool ShouldUseObjectGetType(
             object @object,
             ValueFlags valueFlags,
@@ -8950,6 +14446,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of a transparent proxy
+        /// object should be determined manually.
+        /// </summary>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted.
+        /// </param>
+        /// <param name="objectFlags">
+        /// The flags associated with the object.
+        /// </param>
+        /// <returns>
+        /// True if the proxy type should be determined manually; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldUseManualType(
             ValueFlags valueFlags,
             ObjectFlags objectFlags
@@ -8968,6 +14478,49 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves a nested object using the binder belonging to
+        /// the specified interpreter.  Upon failure, an error message is stored
+        /// in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider during the lookup.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which to resolve the object.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="objectType">
+        /// The type of object to create, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// The proxy type to use, if any.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved object.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNestedObject(
             Interpreter interpreter,
             string text,
@@ -8992,6 +14545,55 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs the resolution of a nested object.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter and any caught exception is
+        /// stored in the <paramref name="exception" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="types">
+        /// The list of candidate types to consider during the lookup.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain in which to resolve the object.
+        /// </param>
+        /// <param name="bindingFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="objectType">
+        /// The type of object to create, if any.
+        /// </param>
+        /// <param name="proxyType">
+        /// The proxy type to use, if any.
+        /// </param>
+        /// <param name="valueFlags">
+        /// The flags that control how values are interpreted during the
+        /// lookup.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use for any culture-sensitive operations.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resolved object.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives any exception that was caught during the
+        /// lookup.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNestedObject(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -9712,6 +15314,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an object by name and returns its underlying
+        /// value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the object identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetObject( /* For use by GetVariant ONLY. */
             Interpreter interpreter,
             string text,
@@ -9727,6 +15350,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an object by name and returns its underlying
+        /// value.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the object identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetObject(
             Interpreter interpreter,
             string text,
@@ -9788,6 +15436,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an object by name and returns its underlying
+        /// value, using non-verbose lookup semantics.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the object identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetObject(
             Interpreter interpreter,
             string text,
@@ -9804,6 +15470,33 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an object by name and returns its type, flags,
+        /// and underlying value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, receives the type associated with the object.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon success, receives the flags associated with the object.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the object identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetObject(
             Interpreter interpreter,
             string text,
@@ -9822,6 +15515,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method looks up an object by name and returns its type, flags,
+        /// and underlying value.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the lookup.
+        /// </param>
+        /// <param name="text">
+        /// The name of the object to look up.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the object lookup is performed.
+        /// </param>
+        /// <param name="type">
+        /// Upon success, receives the type associated with the object.
+        /// </param>
+        /// <param name="objectFlags">
+        /// Upon success, receives the flags associated with the object.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the value of the object identified by
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetObject(
             Interpreter interpreter,
             string text,
@@ -9900,6 +15624,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a value
+        /// of the most appropriate type, based on the specified conversion
+        /// flags.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="styles">
+        /// The <see cref="DateTimeStyles" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetValue(
             string text,
             string format,
@@ -9922,6 +15678,38 @@ namespace Eagle._Components.Public
         //
         // WARNING: For external use only.  May be removed in the future.
         //
+        /// <summary>
+        /// This method attempts to convert the specified string into a value
+        /// of the most appropriate type, based on the specified conversion
+        /// flags.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [Obsolete()]
         public static ReturnCode GetValue(
             string text,
@@ -9946,6 +15734,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a value
+        /// of the most appropriate type, based on the specified conversion
+        /// flags.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="styles">
+        /// The <see cref="DateTimeStyles" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetValue(
             string text,
             string format,
@@ -9966,6 +15790,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a value
+        /// of the most appropriate type, based on the specified conversion
+        /// flags.  Each candidate type is attempted in turn, subject to the
+        /// conversion flags.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="styles">
+        /// The <see cref="DateTimeStyles" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetValue(
             string text,
             string format,
@@ -10154,6 +16018,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a numeric
+        /// value, based on the specified conversion flags.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNumber(
             string text,
             ValueFlags flags,
@@ -10169,6 +16053,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a numeric
+        /// value, based on the specified conversion flags.  Upon failure, an
+        /// error message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetNumber(
             string text,
             ValueFlags flags,
@@ -10185,6 +16093,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the specified string into a numeric
+        /// value, based on the specified conversion flags.  Each candidate
+        /// numeric type is attempted in turn, subject to the conversion flags.
+        /// Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNumber(
             string text,
             ValueFlags flags,
@@ -10287,6 +16224,32 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method attempts to convert the longest valid prefix of the
+        /// specified string into a numeric value, based on the specified
+        /// conversion flags.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNumber2(
             string text,
             ValueFlags flags,
@@ -10303,6 +16266,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the longest valid prefix of the
+        /// specified string into a numeric value, based on the specified
+        /// conversion flags.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNumber2(
             string text,
             ValueFlags flags,
@@ -10321,6 +16314,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to convert the longest valid prefix of the
+        /// specified string into a numeric value, based on the specified
+        /// conversion flags.  Upon failure, an error message is stored in
+        /// the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which numeric types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the converted numeric value.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetNumber2(
             string text,
             ValueFlags flags,
@@ -10425,6 +16451,51 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string into a callback, suitable
+        /// for use as an <see cref="ICallback" />.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type of the callback to create.  This parameter is optional and
+        /// may be null, in which case the type is parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="text">
+        /// The string describing the callback to create.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when resolving the type.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="options">
+        /// The options used to control creation of the callback.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.  This parameter
+        /// is optional and may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the callback.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="callback">
+        /// Upon success, receives the created callback.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetCallback(
             Interpreter interpreter,       /* in */
             Type type,                     /* in: OPTIONAL */
@@ -10450,6 +16521,56 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string into a callback, suitable
+        /// for use as an <see cref="ICallback" />.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="type">
+        /// The type of the callback to create.  This parameter is optional and
+        /// may be null, in which case the type is parsed from
+        /// <paramref name="text" />.
+        /// </param>
+        /// <param name="text">
+        /// The string describing the callback to create.
+        /// </param>
+        /// <param name="appDomain">
+        /// The application domain to use when resolving the type.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="options">
+        /// The options used to control creation of the callback.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="valueFlags">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.  This parameter
+        /// is optional and may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with the callback.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="callback">
+        /// Upon success, receives the created callback.
+        /// </param>
+        /// <param name="marshalFlags">
+        /// The marshalling flags used to control creation of the callback.
+        /// Upon return, receives the marshalling flags as modified during the
+        /// conversion.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetCallback(
             Interpreter interpreter,       /* in */
             Type type,                     /* in: OPTIONAL */
@@ -10549,6 +16670,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the default date/time parsing parameters,
+        /// optionally overriding them with those configured for the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose date/time parameters should be used.
+        /// This parameter is optional and may be null, in which case the
+        /// default parameters are used.
+        /// </param>
+        /// <param name="kind">
+        /// Upon return, receives the <see cref="DateTimeKind" /> to use when
+        /// parsing date/time values.
+        /// </param>
+        /// <param name="styles">
+        /// Upon return, receives the <see cref="DateTimeStyles" /> to use when
+        /// parsing date/time values.
+        /// </param>
+        /// <param name="provider">
+        /// Upon return, receives the format provider to use when parsing
+        /// date/time values.
+        /// </param>
         private static void MaybeGetDateTimeParameters(
             Interpreter interpreter,
             out DateTimeKind kind,
@@ -10564,6 +16707,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the default date/time parsing parameters,
+        /// optionally overriding them with those configured for the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose date/time parameters should be used.
+        /// This parameter is optional and may be null, in which case the
+        /// default parameters are used.
+        /// </param>
+        /// <param name="format">
+        /// Upon return, receives the format string to use when parsing
+        /// date/time values.
+        /// </param>
+        /// <param name="kind">
+        /// Upon return, receives the <see cref="DateTimeKind" /> to use when
+        /// parsing date/time values.
+        /// </param>
+        /// <param name="styles">
+        /// Upon return, receives the <see cref="DateTimeStyles" /> to use when
+        /// parsing date/time values.
+        /// </param>
         private static void MaybeGetDateTimeParameters(
             Interpreter interpreter,
             out string format,
@@ -10579,6 +16744,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the default date/time parsing parameters,
+        /// optionally overriding them with those configured for the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context whose date/time parameters should be used.
+        /// This parameter is optional and may be null, in which case the
+        /// default parameters are used.
+        /// </param>
+        /// <param name="format">
+        /// Upon return, receives the format string to use when parsing
+        /// date/time values.
+        /// </param>
+        /// <param name="kind">
+        /// Upon return, receives the <see cref="DateTimeKind" /> to use when
+        /// parsing date/time values.
+        /// </param>
+        /// <param name="styles">
+        /// Upon return, receives the <see cref="DateTimeStyles" /> to use when
+        /// parsing date/time values.
+        /// </param>
+        /// <param name="provider">
+        /// Upon return, receives the format provider to use when parsing
+        /// date/time values.
+        /// </param>
         private static void MaybeGetDateTimeParameters(
             Interpreter interpreter,
             out string format,
@@ -10633,6 +16824,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the value provided by the specified
+        /// <see cref="IGetValue" /> into a variant, attempting numeric,
+        /// date/time, time span, list, and string interpretations as
+        /// appropriate.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="getValue">
+        /// The object that provides the value to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetVariant(
             Interpreter interpreter,
             IGetValue getValue,
@@ -10774,6 +16994,34 @@ namespace Eagle._Components.Public
         //
         // NOTE: For ConversionOps.Dynamic.ChangeType.ToVariant USE ONLY.
         //
+        /// <summary>
+        /// This method converts the specified string into a variant, attempting
+        /// numeric, date/time, time span, and string interpretations as
+        /// appropriate.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetVariant(
             Interpreter interpreter,
             string text,
@@ -10797,6 +17045,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string into a variant, attempting
+        /// numeric, date/time, time span, and string interpretations as
+        /// appropriate.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="styles">
+        /// The <see cref="DateTimeStyles" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetVariant( /* FOR [string] USE ONLY. */
             Interpreter interpreter,
             string text,
@@ -10817,6 +17100,45 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string into a variant, attempting
+        /// object, numeric, date/time, time span, and string interpretations as
+        /// appropriate.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="format">
+        /// The format string to use when parsing date/time values.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="kind">
+        /// The <see cref="DateTimeKind" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="styles">
+        /// The <see cref="DateTimeStyles" /> to use when parsing date/time
+        /// values.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetVariant(
             Interpreter interpreter,
             string text,
@@ -10902,6 +17224,36 @@ namespace Eagle._Components.Public
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method converts the specified string into a variant,
+        /// attempting a numeric interpretation and falling back to a string
+        /// interpretation as appropriate.  Upon failure, an error message is
+        /// stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetVariant2( /* NOT USED */
             string text,
             ValueFlags flags,
@@ -10920,6 +17272,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified string into a variant,
+        /// attempting a numeric interpretation and falling back to a string
+        /// interpretation as appropriate.
+        /// </summary>
+        /// <param name="text">
+        /// The string to be converted.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control which value types are attempted.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the resulting variant.
+        /// </param>
+        /// <param name="stopIndex">
+        /// Upon success, receives the index one character past the last
+        /// character of <paramref name="text" /> that was successfully
+        /// parsed.
+        /// </param>
+        /// <param name="error">
+        /// This parameter is not used.
+        /// </param>
+        /// <param name="exception">
+        /// This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetVariant2( /* NOT USED */
             string text,
             ValueFlags flags,
@@ -10953,6 +17337,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method coerces both of the specified operands to the string
+        /// type, as required by the specified operator or function.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The operator or function that the operands belong to.
+        /// </param>
+        /// <param name="variant1">
+        /// The first operand to be coerced.
+        /// </param>
+        /// <param name="variant2">
+        /// The second operand to be coerced.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode FixupStringVariants(
             IIdentifierName identifierName,
             IVariant variant1,
@@ -10992,6 +17398,43 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the operands for the specified operator from
+        /// the provided argument list, converting each into a variant.  Upon
+        /// failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="operator">
+        /// The operator whose operands are being extracted.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments containing the operator and its operands.
+        /// </param>
+        /// <param name="flags">
+        /// The flags used to control conversion of both operands.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting operands should be treated as read-only.
+        /// </param>
+        /// <param name="operand1">
+        /// Upon success, receives the first operand.
+        /// </param>
+        /// <param name="operand2">
+        /// Upon success, receives the second operand.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetOperandsFromArguments(
             Interpreter interpreter,
             IOperator @operator,
@@ -11012,6 +17455,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the operands for the specified operator from
+        /// the provided argument list, converting each into a variant using
+        /// separate conversion flags for each operand.  Upon failure, an error
+        /// message is stored in the <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use for the conversion.
+        /// </param>
+        /// <param name="operator">
+        /// The operator whose operands are being extracted.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments containing the operator and its operands.
+        /// </param>
+        /// <param name="flags1">
+        /// The flags used to control conversion of the first operand.
+        /// </param>
+        /// <param name="flags2">
+        /// The flags used to control conversion of the second operand.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the resulting operands should be treated as read-only.
+        /// </param>
+        /// <param name="operand1">
+        /// Upon success, receives the first operand.
+        /// </param>
+        /// <param name="operand2">
+        /// Upon success, receives the second operand.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode GetOperandsFromArguments(
             Interpreter interpreter,
             IOperator @operator,
@@ -11217,6 +17700,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs type-promotion or coercion on one or both of
+        /// the specified operands, as required by the specified operator or
+        /// function.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The operator or function that the operands belong to.
+        /// </param>
+        /// <param name="variant1">
+        /// The first operand to be converted.
+        /// </param>
+        /// <param name="variant2">
+        /// The second operand to be converted.
+        /// </param>
+        /// <param name="type1">
+        /// The type to which the first operand should be converted, if any.
+        /// </param>
+        /// <param name="type2">
+        /// The type to which the second operand should be converted, if any.
+        /// </param>
+        /// <param name="noConvert1">
+        /// Non-zero to prevent numeric conversion of the first operand.
+        /// </param>
+        /// <param name="noConvert2">
+        /// Non-zero to prevent numeric conversion of the second operand.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode FixupVariants(
             IIdentifierName identifierName,
             IVariant variant1,
@@ -11236,6 +17749,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs type-promotion or coercion on one or both of
+        /// the specified operands, as required by the specified operator or
+        /// function.  Upon failure, an error message is stored in the
+        /// <paramref name="error" /> parameter.
+        /// </summary>
+        /// <param name="identifierName">
+        /// The operator or function that the operands belong to.
+        /// </param>
+        /// <param name="variant1">
+        /// The first operand to be converted.
+        /// </param>
+        /// <param name="variant2">
+        /// The second operand to be converted.
+        /// </param>
+        /// <param name="type1">
+        /// The type to which the first operand should be converted, if any.
+        /// </param>
+        /// <param name="type2">
+        /// The type to which the second operand should be converted, if any.
+        /// </param>
+        /// <param name="noConvert1">
+        /// Non-zero to prevent numeric conversion of the first operand.
+        /// </param>
+        /// <param name="noConvert2">
+        /// Non-zero to prevent numeric conversion of the second operand.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode FixupVariants(
             IIdentifierName identifierName,
             IVariant variant1,

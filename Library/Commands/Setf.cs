@@ -18,6 +18,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>setf</c> command, which gets or sets
+    /// a variable value using an explicit set of <see cref="VariableFlags" />.
+    /// This obsolete, diagnostic command exposes the low-level variable access
+    /// path so the flags can be specified directly.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("7c8c73c9-41f9-496f-b1a5-1b4a9aa421c4")]
     [Obsolete()]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.NonStandard |
@@ -26,6 +33,13 @@ namespace Eagle._Commands
     internal sealed class Setf : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>setf</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Setf(
             ICommandData commandData
             )
@@ -38,11 +52,46 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>setf</c> command.  It parses the
+        /// requested <see cref="VariableFlags" /> from the first argument and
+        /// then, depending on the argument count, either gets the value of the
+        /// named variable or sets it to the supplied value and re-gets the
+        /// resulting value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the <see cref="VariableFlags" /> to
+        /// use; element two is the variable name; an optional element three
+        /// supplies the new value to assign.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the (possibly newly assigned) value of
+        /// the named variable.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success, with the variable value
+        /// placed in <paramref name="result" />; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, the
+        /// variable flags cannot be parsed, or the variable access fails, with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             if (interpreter == null)

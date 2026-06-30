@@ -35,6 +35,12 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string names to string
+    /// pairs (<see cref="IPair{T}" /> of string).  It extends the underlying
+    /// generic dictionary with helpers for populating, filtering, and producing
+    /// a string form of its keys.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -42,6 +48,9 @@ namespace Eagle._Containers.Private
     internal sealed class StringPairDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty string pair dictionary.
+        /// </summary>
         public StringPairDictionary()
             : base()
         {
@@ -50,6 +59,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string pair dictionary whose keys are the items of the
+        /// specified collection, each associated with a null value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings to add as keys of the new dictionary.
+        /// </param>
         public StringPairDictionary(
             IEnumerable<string> collection
             )
@@ -60,6 +76,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string pair dictionary initialized with the entries of
+        /// the specified dictionary, wrapping each value in a string pair.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public StringPairDictionary(
             IDictionary<string, string> dictionary
             )
@@ -70,6 +94,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string pair dictionary initialized with the entries
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public StringPairDictionary(
             IDictionary<string, IPair<string>> dictionary
             )
@@ -82,6 +114,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method adds each item of the specified collection as a key with
+        /// a null value.  Items that are null are skipped.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings to add as keys.
+        /// </param>
         public void Add(
             IEnumerable<string> collection
             )
@@ -97,6 +136,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an entry for each key/value pair in the specified
+        /// dictionary, wrapping each value in a string pair.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are added.
+        /// </param>
         public void Add(
             IDictionary<string, string> dictionary
             )
@@ -107,6 +153,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new dictionary that contains only the entries
+        /// whose keys match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select the keys that are included in the result.
+        /// This parameter may be null, in which case all entries are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The newly created dictionary containing the matching entries.
+        /// </returns>
         public StringPairDictionary Filter(
             string pattern,
             bool noCase
@@ -128,6 +189,21 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the keys that are included in the result.
+        /// This parameter may be null, in which case all keys are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if the pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -145,6 +221,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

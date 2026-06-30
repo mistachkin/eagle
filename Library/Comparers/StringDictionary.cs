@@ -19,23 +19,99 @@ using Eagle._Containers.Private;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class compares and tests strings for equality using a dictionary
+    /// ordering, in which embedded runs of digits are compared as numbers and
+    /// case differences are treated only as a secondary ordering criterion.  It
+    /// supports extracting a list element from each string prior to comparison
+    /// and tracking duplicate counts on behalf of the list sorting subsystem.
+    /// </summary>
     [ObjectId("6e8a6ed6-daea-4e9c-946c-cb425f2e73ed")]
     internal sealed class StringDictionaryComparer : IComparer<string>, IEqualityComparer<string>
     {
         #region Private Data
+        /// <summary>
+        /// The number of nested comparison levels, used when tracking duplicate
+        /// elements during a sort.
+        /// </summary>
         private int levels;
+
+        /// <summary>
+        /// The interpreter context used when extracting list elements to
+        /// compare, or null if none.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// When true, elements are compared in ascending order; otherwise, in
+        /// descending order.
+        /// </summary>
         private bool ascending;
+
+        /// <summary>
+        /// The index specification used to extract a sub-element from each
+        /// string prior to comparison, or null to compare the whole string.
+        /// </summary>
         private string indexText;
+
+        /// <summary>
+        /// When true, only the left operand has the index extraction applied to
+        /// it during comparison.
+        /// </summary>
         private bool leftOnly;
+
+        /// <summary>
+        /// When true, duplicate elements are tracked so that they may be
+        /// removed from the sorted result.
+        /// </summary>
         private bool unique;
+
+        /// <summary>
+        /// The culture used when extracting list elements to compare.
+        /// </summary>
         private CultureInfo cultureInfo;
+
+        /// <summary>
+        /// The dictionary used to record the number of times each duplicate
+        /// element has been seen during a sort.
+        /// </summary>
         private IntDictionary duplicates;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class with the specified comparison
+        /// options.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context used when extracting list elements to
+        /// compare, or null if none.
+        /// </param>
+        /// <param name="ascending">
+        /// When true, elements are compared in ascending order; otherwise, in
+        /// descending order.
+        /// </param>
+        /// <param name="indexText">
+        /// The index specification used to extract a sub-element from each
+        /// string prior to comparison, or null to compare the whole string.
+        /// </param>
+        /// <param name="leftOnly">
+        /// When true, only the left operand has the index extraction applied to
+        /// it during comparison.
+        /// </param>
+        /// <param name="unique">
+        /// When true, duplicate elements are tracked so that they may be
+        /// removed from the sorted result.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when extracting list elements to compare.
+        /// </param>
+        /// <param name="duplicates">
+        /// The dictionary used to record duplicate element counts.  If null, a
+        /// new dictionary is created and returned via this parameter.
+        /// </param>
         public StringDictionaryComparer(
             Interpreter interpreter,
             bool ascending,
@@ -63,6 +139,21 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// Returns the character at the specified index within the specified
+        /// string, or a null character if the string is null or the index is
+        /// out of range.
+        /// </summary>
+        /// <param name="text">
+        /// The string from which to retrieve a character.
+        /// </param>
+        /// <param name="index">
+        /// The zero-based index of the character to retrieve.
+        /// </param>
+        /// <returns>
+        /// The character at the specified index, or a null character if it is
+        /// not available.
+        /// </returns>
         private static char GetChar(
             string text,
             int index
@@ -80,6 +171,24 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IComparer<string> Members
+        /// <summary>
+        /// Compares two strings using a dictionary ordering and returns a value
+        /// indicating their relative order, applying the configured index
+        /// extraction and duplicate tracking.  Embedded digit runs are compared
+        /// numerically and case is used only as a secondary criterion.
+        /// </summary>
+        /// <param name="left">
+        /// The first string to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second string to compare.
+        /// </param>
+        /// <returns>
+        /// Less than zero if <paramref name="left" /> is less than
+        /// <paramref name="right" />, zero if they are equal, and greater than
+        /// zero if <paramref name="left" /> is greater than
+        /// <paramref name="right" />.
+        /// </returns>
         public int Compare(
             string left,
             string right
@@ -191,7 +300,7 @@ namespace Eagle._Comparers
 
                         /*
                          * Convert both chars to lower for the comparison, because
-                         * dictionary sorts are case insensitve.  Covert to lower, not
+                         * dictionary sorts are case insensitive.  Covert to lower, not
                          * upper, so chars between Z and a will sort before A (where most
                          * other interesting punctuations occur)
                          */
@@ -262,6 +371,19 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<string> Members
+        /// <summary>
+        /// Determines whether two strings are equal according to this
+        /// comparer's ordering.
+        /// </summary>
+        /// <param name="left">
+        /// The first string to compare.
+        /// </param>
+        /// <param name="right">
+        /// The second string to compare.
+        /// </param>
+        /// <returns>
+        /// True if the strings are considered equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             string left,
             string right
@@ -272,6 +394,16 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Returns a hash code for the specified string that is consistent with
+        /// this comparer's notion of equality.
+        /// </summary>
+        /// <param name="value">
+        /// The string for which a hash code is to be computed.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified string.
+        /// </returns>
         public int GetHashCode(
             string value
             )

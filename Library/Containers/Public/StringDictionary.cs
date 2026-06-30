@@ -38,6 +38,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string keys to string
+    /// values.  It extends the underlying generic dictionary of strings with
+    /// helpers for building from and converting to other representations (for
+    /// example, flat lists, name/value collections, and pair lists), as well
+    /// as for producing filtered string forms of its keys and values.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -45,12 +52,20 @@ namespace Eagle._Containers.Public
     public sealed class StringDictionary : SomeDictionary
     {
         #region Private Static Data
+        /// <summary>
+        /// The most recently issued auto-generated key value.  It is
+        /// incremented atomically by <see cref="NextId" /> to produce unique
+        /// keys for values added without an explicit key.
+        /// </summary>
         private static long nextId = 0;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty string dictionary.
+        /// </summary>
         public StringDictionary()
             : base()
         {
@@ -59,6 +74,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string dictionary that is initialized with the entries
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public StringDictionary(
             IDictionary<string, string> dictionary
             )
@@ -69,6 +92,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string dictionary that is initialized with the entries
+        /// copied from the specified non-generic dictionary.  Keys and values
+        /// are converted to their string forms.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The non-generic dictionary whose entries are copied into the new
+        /// dictionary.  This parameter may be null.
+        /// </param>
         public StringDictionary(
             IDictionary dictionary
             )
@@ -78,6 +110,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string dictionary that is initialized from the
+        /// specified list, optionally treating its elements as keys and/or
+        /// values.
+        /// </summary>
+        /// <param name="list">
+        /// The list of strings used to populate the new dictionary.
+        /// </param>
+        /// <param name="keys">
+        /// Non-zero if the list elements should be used as keys.  When
+        /// <paramref name="values" /> is also non-zero, the list is treated as
+        /// a flat sequence of alternating keys and values.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero if the list elements should be used as values.  When
+        /// <paramref name="keys" /> is non-zero, the list is treated as a flat
+        /// sequence of alternating keys and values; otherwise, each value is
+        /// added under an auto-generated unique key.
+        /// </param>
         public StringDictionary(
             IList<string> list,
             bool keys,
@@ -99,6 +150,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string dictionary that is initialized from the
+        /// specified collection, optionally treating its elements as keys
+        /// and/or values.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings used to populate the new dictionary.
+        /// </param>
+        /// <param name="keys">
+        /// Non-zero if the collection elements should be used as keys.  When
+        /// <paramref name="values" /> is also non-zero, the collection is
+        /// treated as a sequence of alternating keys and values.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero if the collection elements should be used as values.  When
+        /// <paramref name="keys" /> is non-zero, the collection is treated as a
+        /// sequence of alternating keys and values; otherwise, each value is
+        /// added under an auto-generated unique key.
+        /// </param>
         public StringDictionary(
             IEnumerable<string> collection,
             bool keys,
@@ -120,6 +190,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs a string dictionary that is initialized from the
+        /// specified collection of string pairs, using the first element of
+        /// each pair as the key and the second as the value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs used to populate the new dictionary.
+        /// </param>
         public StringDictionary(
             IEnumerable<IPair<string>> collection
             )
@@ -132,6 +210,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a string dictionary from previously serialized data.
+        /// This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source of the serialized
+        /// data.
+        /// </param>
         private StringDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -146,6 +235,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty string dictionary that is sized to hold the
+        /// specified number of entries without further growth.
+        /// </summary>
+        /// <param name="capacity">
+        /// The initial number of entries the dictionary can contain.
+        /// </param>
         internal StringDictionary(
             int capacity
             )
@@ -158,6 +254,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// Creates a new string dictionary from the string form of a list of
+        /// name/value pairs.
+        /// </summary>
+        /// <param name="value">
+        /// The string containing a list of name/value pairs to parse.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero if a duplicate key should be treated as an error instead of
+        /// being overwritten.
+        /// </param>
+        /// <returns>
+        /// The newly created string dictionary, or null if the string could
+        /// not be parsed.
+        /// </returns>
         public static StringDictionary FromString(
             string value,
             bool addOnly
@@ -170,6 +281,25 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new string dictionary from the string form of a list of
+        /// name/value pairs.
+        /// </summary>
+        /// <param name="value">
+        /// The string containing a list of name/value pairs to parse.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero if a duplicate key should be treated as an error instead of
+        /// being overwritten.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The newly created string dictionary, or null if the string could
+        /// not be parsed.
+        /// </returns>
         public static StringDictionary FromString(
             string value,
             bool addOnly,
@@ -181,6 +311,26 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new string dictionary from the string form of a list,
+        /// optionally treating it as a list of keys only.
+        /// </summary>
+        /// <param name="value">
+        /// The string containing the list to parse.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero if a duplicate key should be treated as an error instead of
+        /// being overwritten.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the list elements are keys only (each stored with a null
+        /// value); otherwise, the list is treated as alternating name/value
+        /// pairs.
+        /// </param>
+        /// <returns>
+        /// The newly created string dictionary, or null if the string could
+        /// not be parsed.
+        /// </returns>
         public static StringDictionary FromString(
             string value,
             bool addOnly,
@@ -194,6 +344,30 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new string dictionary from the string form of a list,
+        /// optionally treating it as a list of keys only.
+        /// </summary>
+        /// <param name="value">
+        /// The string containing the list to parse.
+        /// </param>
+        /// <param name="addOnly">
+        /// Non-zero if a duplicate key should be treated as an error instead of
+        /// being overwritten.
+        /// </param>
+        /// <param name="keysOnly">
+        /// Non-zero if the list elements are keys only (each stored with a null
+        /// value); otherwise, the list is treated as alternating name/value
+        /// pairs.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// The newly created string dictionary, or null if the string could
+        /// not be parsed.
+        /// </returns>
         public static StringDictionary FromString(
             string value,
             bool addOnly,
@@ -252,6 +426,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method atomically increments and returns the next available
+        /// auto-generated identifier value.
+        /// </summary>
+        /// <returns>
+        /// The next available identifier value.
+        /// </returns>
         private static long NextId()
         {
             return Interlocked.Increment(ref nextId);
@@ -259,6 +440,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a unique key suitable for storing a value that
+        /// was supplied without an explicit key.
+        /// </summary>
+        /// <returns>
+        /// The string form of a newly generated unique key.
+        /// </returns>
         private static string GetUniqueKey()
         {
             return NextId().ToString();
@@ -268,6 +456,10 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Dictionary<string, string> Overrides
+        /// <summary>
+        /// This method removes all entries from the dictionary and resets the
+        /// auto-generated key counter.
+        /// </summary>
         public new void Clear()
         {
             base.Clear();
@@ -279,6 +471,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the dictionary into an equivalent name/value
+        /// collection.
+        /// </summary>
+        /// <returns>
+        /// A new name/value collection containing all of the key/value pairs
+        /// from this dictionary.
+        /// </returns>
         public NameValueCollection ToNameValueCollection()
         {
             NameValueCollection collection = new NameValueCollection();
@@ -291,6 +491,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds an entry to the dictionary, converting the
+        /// specified key and value objects to their string forms.
+        /// </summary>
+        /// <param name="key">
+        /// The object whose string form is used as the key.
+        /// </param>
+        /// <param name="value">
+        /// The object whose string form is used as the value.
+        /// </param>
         public void AddFrom(
             object key,
             object value
@@ -303,6 +513,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified list, starting at the
+        /// given index, as a key with a null value.  Null elements are skipped.
+        /// </summary>
+        /// <param name="list">
+        /// The list of keys to add to the dictionary.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element to add.
+        /// </param>
         public void AddKeys(
             IList<string> list,
             int startIndex
@@ -319,6 +539,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified list, starting at the
+        /// given index, as a value stored under an auto-generated unique key.
+        /// </summary>
+        /// <param name="list">
+        /// The list of values to add to the dictionary.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element to add.
+        /// </param>
         public void AddValues(
             IList<string> list,
             int startIndex
@@ -330,6 +560,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the elements of the specified list, starting at the
+        /// given index, as alternating key/value pairs.  Existing keys are not
+        /// overwritten.
+        /// </summary>
+        /// <param name="list">
+        /// The list of alternating keys and values to add to the dictionary.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element (a key) to add.
+        /// </param>
         public void AddKeysAndValues(
             IList<string> list,
             int startIndex
@@ -340,6 +581,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the elements of the specified list, starting at the
+        /// given index, as alternating key/value pairs.
+        /// </summary>
+        /// <param name="list">
+        /// The list of alternating keys and values to add to the dictionary.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index of the first list element (a key) to add.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero if values for keys that already exist should be overwritten;
+        /// otherwise, existing keys are left unchanged.
+        /// </param>
         public void AddKeysAndValues(
             IList<string> list,
             int startIndex,
@@ -365,6 +620,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the key/value pairs from the specified dictionary
+        /// to this dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are added to this dictionary.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero if values for keys that already exist should be overwritten;
+        /// otherwise, existing keys are left unchanged.
+        /// </param>
         public void AddKeysAndValues(
             IDictionary<string, string> dictionary,
             bool merge
@@ -381,6 +647,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified collection as a key
+        /// with a null value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys to add to the dictionary.
+        /// </param>
         public void AddKeys(
             IEnumerable<string> collection
             )
@@ -390,6 +663,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified non-generic
+        /// collection as a key with a null value.  Elements are converted to
+        /// their string forms.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys to add to the dictionary.
+        /// </param>
         public void AddKeys(
             IEnumerable collection
             )
@@ -399,6 +680,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified collection as a key,
+        /// associating each with the specified value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys to add to the dictionary.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each added key.
+        /// </param>
         public void AddKeys(
             IEnumerable<string> collection,
             string value
@@ -410,6 +701,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified non-generic
+        /// collection as a key, associating each with the specified value.
+        /// Elements are converted to their string forms.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys to add to the dictionary.
+        /// </param>
+        /// <param name="value">
+        /// The value to associate with each added key.
+        /// </param>
         public void AddKeys(
             IEnumerable collection,
             string value
@@ -421,6 +723,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds each element of the specified collection as a value
+        /// stored under an auto-generated unique key.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of values to add to the dictionary.
+        /// </param>
         public void AddValues(
             IEnumerable<string> collection
             )
@@ -431,6 +740,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the elements of the specified collection as
+        /// alternating key/value pairs.  When the collection contains an odd
+        /// number of elements, the final key is added with a null value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of alternating keys and values to add to the
+        /// dictionary.
+        /// </param>
         public void AddKeysAndValues(
             IEnumerable<string> collection
             )
@@ -457,6 +775,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the entries from the specified non-generic
+        /// dictionary to this dictionary.  Keys and values are converted to
+        /// their string forms.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The non-generic dictionary whose entries are added to this
+        /// dictionary.
+        /// </param>
         public void Add(
             IDictionary dictionary
             )
@@ -466,6 +793,19 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the entries from the specified non-generic
+        /// dictionary to this dictionary.  Keys and values are converted to
+        /// their string forms.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The non-generic dictionary whose entries are added to this
+        /// dictionary.  This parameter may be null.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero if a null <paramref name="dictionary" /> should cause an
+        /// exception to be thrown; otherwise, a null dictionary is ignored.
+        /// </param>
         public void Add(
             IDictionary dictionary,
             bool strict
@@ -495,6 +835,15 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the entries from the specified collection of string
+        /// pairs to this dictionary, using the first element of each pair as the
+        /// key and the second as the value.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of string pairs whose entries are added to this
+        /// dictionary.
+        /// </param>
         public void Add(
             IEnumerable<IPair<string>> collection
             )
@@ -505,6 +854,27 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern, using the specified matching mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode used to compare each key against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is a
+        /// regular expression mode.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string KeysToString(
             MatchMode mode,
             string pattern,
@@ -523,6 +893,16 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing all of the keys of the
+        /// dictionary, joined using the specified separator.
+        /// </summary>
+        /// <param name="separator">
+        /// The string used to separate adjacent keys in the result.
+        /// </param>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public string KeysToString(
             string separator
             )
@@ -536,6 +916,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string KeysToString(
             string pattern,
             bool noCase
@@ -550,6 +944,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which keys are
+        /// included.  This parameter may be null to include all keys.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching keys.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string KeysToString(
             string pattern,
             RegexOptions regExOptions
@@ -564,6 +972,28 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the values of the
+        /// dictionary whose values match the specified pattern, using the
+        /// specified matching mode.
+        /// </summary>
+        /// <param name="mode">
+        /// The matching mode used to compare each value against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to select which values are included.  This parameter
+        /// may be null to include all values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is a
+        /// regular expression mode.
+        /// </param>
+        /// <returns>
+        /// The list of matching values formatted as a string.
+        /// </returns>
         public string ValuesToString(
             MatchMode mode,
             string pattern,
@@ -582,6 +1012,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the values of the
+        /// dictionary that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which values are included.  This parameter
+        /// may be null to include all values.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching values formatted as a string.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             bool noCase
@@ -596,6 +1040,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the values of the
+        /// dictionary that match the specified regular expression pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which values are
+        /// included.  This parameter may be null to include all values.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching values.
+        /// </param>
+        /// <returns>
+        /// The list of matching values formatted as a string.
+        /// </returns>
         public string ValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -610,6 +1068,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary whose keys match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys (and their values) are
+        /// included.  This parameter may be null to include all entries.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -626,6 +1098,22 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary whose keys match the specified regular expression
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The regular expression pattern used to select which keys (and their
+        /// values) are included.  This parameter may be null to include all
+        /// entries.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when matching keys.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             RegexOptions regExOptions
@@ -642,6 +1130,20 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -656,6 +1158,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the dictionary into a list of string pairs.
+        /// </summary>
+        /// <returns>
+        /// A new list of string pairs containing all of the key/value pairs
+        /// from this dictionary.
+        /// </returns>
         public StringPairList ToPairs()
         {
             return ToPairs(null, false);
@@ -663,6 +1172,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the entries of the dictionary whose keys match
+        /// the specified pattern into a list of string pairs.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys (and their values) are
+        /// included.  This parameter may be null to include all entries.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// A new list of string pairs containing the matching key/value pairs
+        /// from this dictionary.
+        /// </returns>
         public StringPairList ToPairs(
             string pattern,
             bool noCase
@@ -685,6 +1209,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns the string representation of the dictionary,
+        /// consisting of all of its keys formatted as a string.
+        /// </summary>
+        /// <returns>
+        /// The keys of the dictionary formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

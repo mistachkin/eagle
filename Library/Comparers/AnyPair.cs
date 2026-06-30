@@ -18,6 +18,20 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class provides comparison and equality comparison for
+    /// <see cref="IAnyPair{T1, T2}" /> instances.  The specific components of
+    /// each pair that are compared, and the order in which they are compared,
+    /// are determined by a <see cref="PairComparison" /> value, optionally
+    /// using caller-supplied comparers and converting between the two component
+    /// types when necessary.
+    /// </summary>
+    /// <typeparam name="T1">
+    /// The type of the first (X) component of each pair.
+    /// </typeparam>
+    /// <typeparam name="T2">
+    /// The type of the second (Y) component of each pair.
+    /// </typeparam>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -26,18 +40,56 @@ namespace Eagle._Comparers
             IComparer<IAnyPair<T1, T2>>, IEqualityComparer<IAnyPair<T1, T2>>
     {
         #region Private Data
+        /// <summary>
+        /// The value that determines which components of each pair are compared
+        /// and in what order.
+        /// </summary>
         private PairComparison comparisonType;
+
+        /// <summary>
+        /// The comparer used for the first (X) component, or null to use the
+        /// default comparer.
+        /// </summary>
         private IComparer<T1> xComparer;
+
+        /// <summary>
+        /// The equality comparer used for the first (X) component, or null to
+        /// use the default equality comparer.
+        /// </summary>
         private IEqualityComparer<T1> xEqualityComparer;
+
+        /// <summary>
+        /// The comparer used for the second (Y) component, or null to use the
+        /// default comparer.
+        /// </summary>
         private IComparer<T2> yComparer;
+
+        /// <summary>
+        /// The equality comparer used for the second (Y) component, or null to
+        /// use the default equality comparer.
+        /// </summary>
         private IEqualityComparer<T2> yEqualityComparer;
+
+        /// <summary>
+        /// The format provider used when converting a component value between
+        /// the two component types.
+        /// </summary>
         private IFormatProvider formatProvider;
+
+        /// <summary>
+        /// When non-zero, an exception is thrown when a comparison cannot be
+        /// performed; otherwise, a default result is returned.
+        /// </summary>
         private bool throwOnError;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class with all fields set to their
+        /// default (none) values.
+        /// </summary>
         private AnyPair()
         {
             this.comparisonType = PairComparison.None;
@@ -53,6 +105,18 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class that uses the default comparers
+        /// for both component types.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The value that determines which components of each pair are compared
+        /// and in what order.
+        /// </param>
+        /// <param name="throwOnError">
+        /// Non-zero to throw an exception when a comparison cannot be performed;
+        /// otherwise, zero to return a default result.
+        /// </param>
         public AnyPair(
             PairComparison comparisonType,
             bool throwOnError
@@ -65,6 +129,38 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that uses the specified
+        /// comparers and format provider.
+        /// </summary>
+        /// <param name="comparisonType">
+        /// The value that determines which components of each pair are compared
+        /// and in what order.
+        /// </param>
+        /// <param name="xComparer">
+        /// The comparer to use for the first (X) component, or null to use the
+        /// default comparer.
+        /// </param>
+        /// <param name="xEqualityComparer">
+        /// The equality comparer to use for the first (X) component, or null to
+        /// use the default equality comparer.
+        /// </param>
+        /// <param name="yComparer">
+        /// The comparer to use for the second (Y) component, or null to use the
+        /// default comparer.
+        /// </param>
+        /// <param name="yEqualityComparer">
+        /// The equality comparer to use for the second (Y) component, or null
+        /// to use the default equality comparer.
+        /// </param>
+        /// <param name="formatProvider">
+        /// The format provider to use when converting a component value between
+        /// the two component types.
+        /// </param>
+        /// <param name="throwOnError">
+        /// Non-zero to throw an exception when a comparison cannot be performed;
+        /// otherwise, zero to return a default result.
+        /// </param>
         public AnyPair(
             PairComparison comparisonType,
             IComparer<T1> xComparer,
@@ -87,6 +183,25 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method converts a value from one component type to another,
+        /// using the configured format provider when the source value is
+        /// convertible.
+        /// </summary>
+        /// <typeparam name="T1A">
+        /// The type of the source value to convert from.
+        /// </typeparam>
+        /// <typeparam name="T2A">
+        /// The type to convert the source value to.
+        /// </typeparam>
+        /// <param name="value">
+        /// The value to convert.
+        /// </param>
+        /// <returns>
+        /// The converted value, or the default value of
+        /// <typeparamref name="T2A" /> if the conversion cannot be performed and
+        /// errors are not configured to throw.
+        /// </returns>
         private T2A CastToTypeParameter<T1A, T2A>(T1A value)
         {
             IConvertible convertible = value as IConvertible;
@@ -121,6 +236,22 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<IAnyPair<T1, T2>> Members
+        /// <summary>
+        /// This method compares two <see cref="IAnyPair{T1, T2}" /> instances,
+        /// comparing the components selected by the configured comparison type.
+        /// </summary>
+        /// <param name="left">
+        /// The first pair to compare. This parameter may be null.
+        /// </param>
+        /// <param name="right">
+        /// The second pair to compare. This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// Zero if the pairs are equal, a negative number if
+        /// <paramref name="left" /> sorts before <paramref name="right" />, or a
+        /// positive number if <paramref name="left" /> sorts after
+        /// <paramref name="right" />. A null pair sorts before a non-null pair.
+        /// </returns>
         public int Compare(
             IAnyPair<T1, T2> left,
             IAnyPair<T1, T2> right
@@ -191,6 +322,20 @@ namespace Eagle._Comparers
         ///////////////////////////////////////////////////////////////////////
 
         #region IEqualityComparer<IAnyPair<T1, T2>> Members
+        /// <summary>
+        /// This method determines whether two
+        /// <see cref="IAnyPair{T1, T2}" /> instances are equal, comparing the
+        /// components selected by the configured comparison type.
+        /// </summary>
+        /// <param name="left">
+        /// The first pair to compare. This parameter may be null.
+        /// </param>
+        /// <param name="right">
+        /// The second pair to compare. This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the two pairs are equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             IAnyPair<T1, T2> left,
             IAnyPair<T1, T2> right
@@ -259,6 +404,17 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a hash code for the specified
+        /// <see cref="IAnyPair{T1, T2}" /> instance, computed from the
+        /// components selected by the configured comparison type.
+        /// </summary>
+        /// <param name="value">
+        /// The pair to compute a hash code for. This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A hash code for the specified pair, or zero if it is null.
+        /// </returns>
         public int GetHashCode(
             IAnyPair<T1, T2> value
             )

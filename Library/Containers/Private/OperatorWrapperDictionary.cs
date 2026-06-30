@@ -28,10 +28,19 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary of expression operator wrappers, keyed
+    /// by name.  It extends the generic wrapper dictionary with a type name
+    /// suitable for use within Eagle and the ability to produce a filtered list
+    /// of its contents.
+    /// </summary>
     [ObjectId("9d65ae2d-b85f-42df-a860-6357d2b09246")]
     internal sealed class OperatorWrapperDictionary :
             WrapperDictionary<string, OperatorWrapper>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public OperatorWrapperDictionary()
             : base()
         {
@@ -40,6 +49,51 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds a list of the operators in this dictionary, optionally
+        /// filtered by their flags and by a name pattern, and appends the
+        /// matching entries to the supplied list.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The flags that an operator must have in order to be included, or
+        /// <see cref="OperatorFlags.None" /> to skip this filter.
+        /// </param>
+        /// <param name="notHasFlags">
+        /// The flags that an operator must not have in order to be included, or
+        /// <see cref="OperatorFlags.None" /> to skip this filter.
+        /// </param>
+        /// <param name="hasAll">
+        /// Non-zero if an operator must have all of the flags specified via
+        /// <paramref name="hasFlags" />; otherwise, having any of them is
+        /// sufficient.
+        /// </param>
+        /// <param name="notHasAll">
+        /// Non-zero if an operator must lack all of the flags specified via
+        /// <paramref name="notHasFlags" />; otherwise, lacking any of them is
+        /// sufficient.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to filter the entries, or null to include all of
+        /// them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to include the lexeme, operands, and flags of each operator
+        /// in addition to its name.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the matching entries.  If this is null, a new
+        /// list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message that describes why the
+        /// operation could not be completed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public ReturnCode ToList(
             OperatorFlags hasFlags,
             OperatorFlags notHasFlags,

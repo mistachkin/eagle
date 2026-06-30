@@ -37,6 +37,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>file</c> command, which provides
+    /// access to a wide variety of file system operations.  It is an
+    /// ensemble whose sub-commands query and manipulate file and directory
+    /// names, attributes, time stamps, contents, security, and related
+    /// information.  See <c>core_language.md</c> for the command syntax and
+    /// semantics.
+    /// </summary>
     [ObjectId("b2d52593-b6b5-4382-8992-af0ecee078bb")]
     /*
      * POLICY: We allow certain "safe" sub-commands.
@@ -55,11 +63,32 @@ namespace Eagle._Commands
     [ObjectGroup("fileSystem")]
     internal sealed class _File : Core
     {
+        /// <summary>
+        /// The collection of callbacks, keyed by qualified name (for example
+        /// <c>file.ctime</c> or <c>directory.mtime</c>), used to query the
+        /// creation, last write, and last access times of a file or directory.
+        /// This is a one-time, shared initialization and is not a
+        /// per-interpreter datum.
+        /// </summary>
         private static Dictionary<string, GetDateTimeCallback> GetTimeCallbacks = null;
+        /// <summary>
+        /// The collection of callbacks, keyed by qualified name (for example
+        /// <c>file.ctime</c> or <c>directory.mtime</c>), used to set the
+        /// creation, last write, and last access times of a file or directory.
+        /// This is a one-time, shared initialization and is not a
+        /// per-interpreter datum.
+        /// </summary>
         private static Dictionary<string, SetDateTimeCallback> SetTimeCallbacks = null;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>file</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _File(
             ICommandData commandData
             )
@@ -103,6 +132,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "atime", "attributes", "channels", "cleanup", "copy", "ctime",
             "delete", "dirname", "drive", "executable", "exists",
@@ -118,6 +152,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -127,11 +165,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedFileSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -141,6 +188,40 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>file</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>copy</c>,
+        /// <c>delete</c>, <c>exists</c>, <c>normalize</c>, <c>attributes</c>,
+        /// <c>stat</c>, or <c>size</c>) in order to query or manipulate files,
+        /// directories, and their associated file system information, honoring
+        /// the recognized options for each sub-command.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name and element one is the sub-command name, followed by
+        /// any sub-command-specific arguments.  This parameter should not be
+        /// null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the dispatched
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the interpreter is null, the argument list is null, or
+        /// the dispatched sub-command fails, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

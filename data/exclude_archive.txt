@@ -71,10 +71,12 @@
 *\.git\*
 *\.gitattributes
 *\.gitignore
+*\.gitmodules
 *\.komodotools\*
 *\.svn\*
 *\.vs\*
 *\_FOSSIL_
+*\audit\*
 *\bin\*
 *\Commercial\*
 *\cov-int\*

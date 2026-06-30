@@ -29,16 +29,34 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the private helper methods used to query and
+    /// manage the per-version setup information for the core library,
+    /// including the installation path, application identifier, and the
+    /// various security and update related settings stored in the system
+    /// registry.  On Windows, it also manages the named mutexes used to
+    /// prevent the setup program from running while the library is in use.
+    /// </summary>
     [ObjectId("bd1dfe4f-116f-4780-9bbf-4c8c80d94873")]
     internal static class SetupOps
     {
         #region Private Constants
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// The name of the session-local mutex used to indicate that the
+        /// library is currently in use, preventing the setup program from
+        /// running.
+        /// </summary>
         private static readonly string mutexName = GlobalState.GetPackageName(
             PackageType.Default, null, "_Setup", false);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the system-global mutex (i.e. the session-local mutex
+        /// name prefixed with the "Global\\" namespace) used to indicate that
+        /// the library is currently in use across all user sessions.
+        /// </summary>
         private static readonly string globalMutexName =
             "Global\\" + mutexName;
 #endif
@@ -46,27 +64,84 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_STANDARD_20
+        /// <summary>
+        /// The base name of the registry key, relative to a root key, under
+        /// which the per-version setup information for the library is stored.
+        /// </summary>
         private static readonly string libraryKeyName =
             GlobalState.GetPackageName(PackageType.Default, "Software\\",
                 null, false);
 
+        /// <summary>
+        /// The suffix appended to a registry key name to select the "low
+        /// security" group of settings (i.e. those writable by non-elevated
+        /// users).
+        /// </summary>
         private static readonly string lowSecurityKeyNameSuffix = "\\Low";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the registry value containing the strong name of the
+        /// installed core library assembly.
+        /// </summary>
         private const string assemblyValueName = "Assembly";
+
+        /// <summary>
+        /// The name of the registry value containing the unique application
+        /// identifier assigned to the setup instance.
+        /// </summary>
         private const string appIdValueName = "AppId";
+
+        /// <summary>
+        /// The name of the registry value containing the compilation
+        /// information for the installed core library.
+        /// </summary>
         private const string compileInfoValueName = "CompileInfo";
+
+        /// <summary>
+        /// The name of the registry value containing the installation path of
+        /// the core library.
+        /// </summary>
         private const string pathValueName = "Path";
+
+        /// <summary>
+        /// The name of the registry value indicating whether the core library
+        /// should be checked for being trusted.
+        /// </summary>
         private const string checkCoreTrustedValueName = "CheckCoreTrusted";
+
+        /// <summary>
+        /// The name of the registry value indicating whether the core library
+        /// should be checked for being verified.
+        /// </summary>
         private const string checkCoreVerifiedValueName = "CheckCoreVerified";
+
+        /// <summary>
+        /// The name of the registry value indicating whether (or when) the
+        /// core library should be checked for updates.
+        /// </summary>
         private const string checkCoreUpdatesValueName = "CheckCoreUpdates";
+
+        /// <summary>
+        /// The name of the registry value indicating whether the core library
+        /// should be made "safe".
+        /// </summary>
         private const string makeCoreSafeValueName = "MakeCoreSafe";
+
+        /// <summary>
+        /// The name of the registry value indicating whether the core library
+        /// should be made "secure".
+        /// </summary>
         private const string makeCoreSecureValueName = "MakeCoreSecure";
 
         ///////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// The name of the registry value indicating whether the core library
+        /// should be made "isolated".
+        /// </summary>
         private const string makeCoreIsolatedValueName = "MakeCoreIsolated";
 #endif
 #endif
@@ -79,9 +154,17 @@ namespace Eagle._Components.Private
         //
         // HACK: These are not read-only.
         //
+        /// <summary>
+        /// The default setting flags used when reading setting values from the
+        /// registry.
+        /// </summary>
         private static SettingFlags DefaultReadSettingFlags =
             SettingFlags.Default;
 
+        /// <summary>
+        /// The default setting flags used when writing setting values to the
+        /// registry.
+        /// </summary>
         private static SettingFlags DefaultWriteSettingFlags =
             SettingFlags.Default;
 
@@ -105,10 +188,20 @@ namespace Eagle._Components.Private
         //       able to actually install updates; however, that is a totally
         //       separate issue and can vary wildly between deployments.
         //
+        /// <summary>
+        /// The setting flags used when reading the "CheckCoreUpdates" value;
+        /// these enable both the "low security" and "high security" groups of
+        /// local machine settings.
+        /// </summary>
         private static SettingFlags SpecialReadSettingFlags =
             SettingFlags.LocalMachine | SettingFlags.LowSecurity |
             SettingFlags.HighSecurity;
 
+        /// <summary>
+        /// The setting flags used when writing the "CheckCoreUpdates" value;
+        /// these enable both the "low security" and "high security" groups of
+        /// local machine settings.
+        /// </summary>
         private static SettingFlags SpecialWriteSettingFlags =
             SettingFlags.LocalMachine | SettingFlags.LowSecurity |
             SettingFlags.HighSecurity;
@@ -118,14 +211,52 @@ namespace Eagle._Components.Private
         //
         // HACK: These are not read-only.
         //
+        /// <summary>
+        /// When non-zero, errors encountered while reading the "Path" setting
+        /// value are not reported via the complaint subsystem.
+        /// </summary>
         private static bool PathNoComplain = false;
+
+        /// <summary>
+        /// When non-zero, errors encountered while reading the
+        /// "CheckCoreTrusted" setting value are not reported via the complaint
+        /// subsystem.
+        /// </summary>
         private static bool CheckCoreTrustedNoComplain = true;
+
+        /// <summary>
+        /// When non-zero, errors encountered while reading the
+        /// "CheckCoreVerified" setting value are not reported via the
+        /// complaint subsystem.
+        /// </summary>
         private static bool CheckCoreVerifiedNoComplain = true;
+
+        /// <summary>
+        /// When non-zero, errors encountered while reading or writing the
+        /// "CheckCoreUpdates" setting value are not reported via the complaint
+        /// subsystem.
+        /// </summary>
         private static bool CheckCoreUpdatesNoComplain = true;
+
+        /// <summary>
+        /// When non-zero, errors encountered while reading the "MakeCoreSafe"
+        /// setting value are not reported via the complaint subsystem.
+        /// </summary>
         private static bool MakeCoreSafeNoComplain = true;
+
+        /// <summary>
+        /// When non-zero, errors encountered while reading the
+        /// "MakeCoreSecure" setting value are not reported via the complaint
+        /// subsystem.
+        /// </summary>
         private static bool MakeCoreSecureNoComplain = true;
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// When non-zero, errors encountered while reading the
+        /// "MakeCoreIsolated" setting value are not reported via the complaint
+        /// subsystem.
+        /// </summary>
         private static bool MakeCoreIsolatedNoComplain = true;
 #endif
 
@@ -134,13 +265,41 @@ namespace Eagle._Components.Private
         //
         // HACK: These are not read-only.
         //
+        /// <summary>
+        /// The default value returned for the "CheckCoreTrusted" setting when
+        /// it is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultCheckCoreTrusted = true;
+
+        /// <summary>
+        /// The default value returned for the "CheckCoreVerified" setting when
+        /// it is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultCheckCoreVerified = true;
+
+        /// <summary>
+        /// The default value returned for the "CheckCoreUpdates" setting when
+        /// it is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultCheckCoreUpdates = false;
+
+        /// <summary>
+        /// The default value returned for the "MakeCoreSafe" setting when it
+        /// is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultMakeCoreSafe = false;
+
+        /// <summary>
+        /// The default value returned for the "MakeCoreSecure" setting when it
+        /// is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultMakeCoreSecure = false;
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// The default value returned for the "MakeCoreIsolated" setting when
+        /// it is missing or cannot be parsed.
+        /// </summary>
         private static bool DefaultMakeCoreIsolated = false;
 #endif
 
@@ -149,6 +308,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is not read-only.
         //
+        /// <summary>
+        /// The number of ticks that must elapse between successive checks for
+        /// updates.  A negative value means "never" and a zero value means
+        /// "always".
+        /// </summary>
         private static long CheckCoreUpdatesTicks = 15 * TimeSpan.TicksPerDay;
 #endif
         #endregion
@@ -156,6 +320,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the mutable state of this
+        /// class across threads.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
@@ -164,7 +332,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: *NEVER CLOSED* Prevents our setup from installing.
         //
+        /// <summary>
+        /// The handle of the system-global mutex held while the library is in
+        /// use, preventing the setup program from running across all user
+        /// sessions.
+        /// </summary>
         private static IntPtr globalMutex = IntPtr.Zero;
+
+        /// <summary>
+        /// The handle of the session-local mutex held while the library is in
+        /// use, preventing the setup program from running in the current user
+        /// session.
+        /// </summary>
         private static IntPtr mutex = IntPtr.Zero;
 #endif
         #endregion
@@ -172,6 +351,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Support Methods
+        /// <summary>
+        /// This method adds rows describing the current setup information
+        /// (e.g. mutex names, registry key names, setting flags, and selected
+        /// setting values) to the specified list, for diagnostic purposes.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the setup information rows are added.  If this
+        /// parameter is null, this method does nothing.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control the level of detail included; when empty
+        /// content is requested, all available rows are emitted even when
+        /// their values are unset.
+        /// </param>
         public static void AddInfo(
             StringPairList list,
             DetailFlags detailFlags
@@ -325,6 +518,13 @@ namespace Eagle._Components.Private
 
         #region Instance Path Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method queries the installation path for the setup instance
+        /// matching the version of the currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// The installation path, or null if it could not be found.
+        /// </returns>
         public static string GetPath()
         {
             return GetPath(GlobalState.GetAssemblyVersion());
@@ -332,6 +532,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the installation path for the setup instance
+        /// matching the specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// The installation path, or null if it could not be found.
+        /// </returns>
         public static string GetPath(
             Version version
             )
@@ -343,6 +554,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the installation path for the setup instance
+        /// matching the specified version, using the specified root registry
+        /// key.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to search.
+        /// </param>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="path">
+        /// Upon success, receives the installation path.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the installation path was found; otherwise, false.
+        /// </returns>
         private static bool GetPath(
             RegistryKey rootKey,
             Version version,
@@ -361,6 +593,18 @@ namespace Eagle._Components.Private
 
         #region Instance Enumeration Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method enumerates all setup instances stored under the local
+        /// machine root registry key.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, receives the list of setup instances; upon failure,
+        /// receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetInstances(
             ref Result result
             )
@@ -370,6 +614,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enumerates all setup instances stored under the
+        /// specified root registry key.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to search.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the list of setup instances; upon failure,
+        /// receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetInstances(
             RegistryKey rootKey,
             ref Result result
@@ -467,6 +726,15 @@ namespace Eagle._Components.Private
 
         #region Check-For-Trusted Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for being trusted, based on the setting associated with the version
+        /// of the currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be checked for being trusted;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldCheckCoreTrusted()
         {
             return ShouldCheckCoreTrusted(GlobalState.GetAssemblyVersion());
@@ -474,6 +742,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for being trusted, based on the setting associated with the
+        /// specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for being trusted;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldCheckCoreTrusted(
             Version version
             )
@@ -509,6 +790,15 @@ namespace Eagle._Components.Private
 
         #region Check-For-Verified Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for being verified, based on the setting associated with the
+        /// version of the currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be checked for being verified;
+        /// otherwise, false.
+        /// </returns>
         public static bool ShouldCheckCoreVerified()
         {
             return ShouldCheckCoreVerified(GlobalState.GetAssemblyVersion());
@@ -516,6 +806,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for being verified, based on the setting associated with the
+        /// specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for being verified;
+        /// otherwise, false.
+        /// </returns>
         private static bool ShouldCheckCoreVerified(
             Version version
             )
@@ -551,6 +854,14 @@ namespace Eagle._Components.Private
 
         #region Check-For-Safe Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "safe", based on the setting associated with the version of the
+        /// currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be made "safe"; otherwise, false.
+        /// </returns>
         public static bool ShouldMakeCoreSafe()
         {
             return ShouldMakeCoreSafe(GlobalState.GetAssemblyVersion());
@@ -558,6 +869,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "safe", based on the setting associated with the specified version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be made "safe"; otherwise, false.
+        /// </returns>
         private static bool ShouldMakeCoreSafe(
             Version version
             )
@@ -593,6 +915,14 @@ namespace Eagle._Components.Private
 
         #region Check-For-Secure Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "secure", based on the setting associated with the version of the
+        /// currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be made "secure"; otherwise, false.
+        /// </returns>
         public static bool ShouldMakeCoreSecure()
         {
             return ShouldMakeCoreSecure(GlobalState.GetAssemblyVersion());
@@ -600,6 +930,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "secure", based on the setting associated with the specified
+        /// version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be made "secure"; otherwise, false.
+        /// </returns>
         private static bool ShouldMakeCoreSecure(
             Version version
             )
@@ -635,6 +977,15 @@ namespace Eagle._Components.Private
 
         #region Check-For-Isolated Support Methods
 #if !NET_STANDARD_20 && ISOLATED_PLUGINS
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "isolated", based on the setting associated with the version of the
+        /// currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be made "isolated"; otherwise,
+        /// false.
+        /// </returns>
         public static bool ShouldMakeCoreIsolated()
         {
             return ShouldMakeCoreIsolated(GlobalState.GetAssemblyVersion());
@@ -642,6 +993,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be made
+        /// "isolated", based on the setting associated with the specified
+        /// version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be made "isolated"; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldMakeCoreIsolated(
             Version version
             )
@@ -677,6 +1041,18 @@ namespace Eagle._Components.Private
 
         #region Check-For-Updates Support Methods
 #if !NET_STANDARD_20 && THREADING
+        /// <summary>
+        /// This method determines whether enough time has elapsed since the
+        /// specified date and time for the core library to be checked for
+        /// updates again.
+        /// </summary>
+        /// <param name="dateTime">
+        /// The (UTC) date and time of the most recent check for updates.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for updates; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldCheckCoreUpdatesViaValue(
             DateTime dateTime
             )
@@ -709,6 +1085,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for updates, based on the specified raw setting value, which may be
+        /// either a boolean or a date and time indicating the most recent
+        /// check for updates.
+        /// </summary>
+        /// <param name="value">
+        /// The raw setting value to interpret.  This parameter may be null, in
+        /// which case the default value is returned.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for updates; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldCheckCoreUpdatesViaValue(
             string value
             )
@@ -796,6 +1186,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for updates, based on the setting associated with the version of
+        /// the currently executing assembly.
+        /// </summary>
+        /// <returns>
+        /// True if the core library should be checked for updates; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldCheckCoreUpdates()
         {
             bool missing = false;
@@ -805,6 +1204,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for updates, based on the setting associated with the version of
+        /// the currently executing assembly.
+        /// </summary>
+        /// <param name="missing">
+        /// Upon return, this is set to non-zero if the underlying setting
+        /// value was not found.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for updates; otherwise,
+        /// false.
+        /// </returns>
         public static bool ShouldCheckCoreUpdates(
             ref bool missing
             )
@@ -815,6 +1227,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the core library should be checked
+        /// for updates, based on the setting associated with the specified
+        /// version.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="missing">
+        /// Upon return, this is set to non-zero if the underlying setting
+        /// value was not found.
+        /// </param>
+        /// <returns>
+        /// True if the core library should be checked for updates; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldCheckCoreUpdates(
             Version version,
             ref bool missing
@@ -831,6 +1260,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method records the current date and time as the most recent
+        /// check for updates, by writing it to the "CheckCoreUpdates" setting
+        /// value for the version of the currently executing assembly.
+        /// </summary>
         public static void MarkCheckCoreUpdatesNow()
         {
             SetSettingValue(
@@ -845,6 +1279,18 @@ namespace Eagle._Components.Private
 
         #region Read/Write Setting Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method builds the array of root registry keys to be searched,
+        /// based on the specified setting flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The setting flags used to determine which root registry keys are
+        /// included.
+        /// </param>
+        /// <returns>
+        /// An array of root registry keys; entries corresponding to disabled
+        /// flags are null.
+        /// </returns>
         private static RegistryKey[] GetRootKeys(
             SettingFlags flags
             )
@@ -859,6 +1305,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the registry key name (relative to a root key)
+        /// for the specified version and security level.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance.  This parameter may be null, in
+        /// which case the versionless key name is built.
+        /// </param>
+        /// <param name="lowSecurity">
+        /// Non-zero to build the "low security" key name, zero to build the
+        /// "high security" key name, or null to determine the security level
+        /// automatically based on whether the current user is an
+        /// administrator.
+        /// </param>
+        /// <returns>
+        /// The registry key name, or null if the base library key name is
+        /// unavailable.
+        /// </returns>
         private static string GetKeyName(
             Version version,
             bool? lowSecurity
@@ -888,6 +1352,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the ordered array of registry key names to be
+        /// searched for the specified version, taking into account the
+        /// specified setting flags, the permissions of the current user, and
+        /// whether the operation is read-only.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance.  This parameter may be null, in
+        /// which case the versionless key names are built.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to determine which security groups of
+        /// settings are included.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if the key names are being built for a read-only
+        /// operation.
+        /// </param>
+        /// <returns>
+        /// An array of registry key names; entries corresponding to disabled
+        /// or inapplicable security groups are null.
+        /// </returns>
         private static string[] GetKeyNames(
             Version version,
             SettingFlags flags,
@@ -970,6 +1456,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the specified version, along with its three-part,
+        /// two-part, and empty (versionless) variants, to the specified
+        /// dictionary, for use when searching for setting values.
+        /// </summary>
+        /// <param name="versions">
+        /// The dictionary to which the version variants are added.  If this
+        /// parameter is null, this method does nothing.
+        /// </param>
+        /// <param name="version">
+        /// The version whose variants are added.  This parameter may be null,
+        /// in which case only the empty (versionless) variant is added.
+        /// </param>
         private static void AddVersionVariants(
             IDictionary<Version, Version> versions,
             Version version
@@ -1006,6 +1505,28 @@ namespace Eagle._Components.Private
 
         #region Read Setting Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method reads the named setting value for the specified version
+        /// from the registry, searching all applicable root keys and version
+        /// variants.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to read.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control the search.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting of any errors via the complaint
+        /// subsystem.
+        /// </param>
+        /// <returns>
+        /// The setting value, or null if it could not be found.
+        /// </returns>
         private static string GetSettingValue(
             Version version,
             string name,
@@ -1026,6 +1547,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the named setting value for the specified version
+        /// from the registry, searching all applicable root keys and version
+        /// variants.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to read.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control the search.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting of any errors via the complaint
+        /// subsystem.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the setting value.
+        /// </param>
+        /// <returns>
+        /// True if the setting value was found; otherwise, false.
+        /// </returns>
         private static bool GetSettingValue(
             Version version,
             string name,
@@ -1062,6 +1608,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the named setting value for the specified version
+        /// from the registry, using the specified root key, optionally
+        /// reporting any errors via the complaint subsystem.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to search.
+        /// </param>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to read.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control the search.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting of any errors via the complaint
+        /// subsystem.
+        /// </param>
+        /// <returns>
+        /// The setting value, or null if it could not be found.
+        /// </returns>
         private static string GetSettingValue(
             RegistryKey rootKey,
             Version version,
@@ -1096,6 +1667,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the named setting value for the specified version
+        /// from the registry, using the specified root key, searching the
+        /// applicable key names in order.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to search.
+        /// </param>
+        /// <param name="version">
+        /// The version of the setup instance to query.  This parameter may be
+        /// null, in which case the versionless instance is queried.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to read.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control the search.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the setting value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the setting value was found; otherwise, false.
+        /// </returns>
         private static bool GetSettingValue(
             RegistryKey rootKey,
             Version version,
@@ -1185,6 +1783,31 @@ namespace Eagle._Components.Private
 
         #region Write Setting Support Methods
 #if !NET_STANDARD_20
+        /// <summary>
+        /// This method writes the named setting value for the specified
+        /// version to the registry, attempting each applicable root key and
+        /// version variant until one succeeds.
+        /// </summary>
+        /// <param name="version">
+        /// The version of the setup instance to update.  This parameter may be
+        /// null, in which case the versionless instance is updated.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to write.
+        /// </param>
+        /// <param name="value">
+        /// The setting value to write.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control where the value is written.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting of any errors via the complaint
+        /// subsystem.
+        /// </param>
+        /// <returns>
+        /// True if the setting value was written; otherwise, false.
+        /// </returns>
         private static bool SetSettingValue(
             Version version,
             string name,
@@ -1221,6 +1844,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the named setting value for the specified
+        /// version to the registry, using the specified root key, optionally
+        /// reporting any errors via the complaint subsystem.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to update.
+        /// </param>
+        /// <param name="version">
+        /// The version of the setup instance to update.  This parameter may be
+        /// null, in which case the versionless instance is updated.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to write.
+        /// </param>
+        /// <param name="value">
+        /// The setting value to write.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control where the value is written.
+        /// </param>
+        /// <param name="noComplain">
+        /// Non-zero to suppress reporting of any errors via the complaint
+        /// subsystem.
+        /// </param>
+        /// <returns>
+        /// True if the setting value was written; otherwise, false.
+        /// </returns>
         private static bool SetSettingValue(
             RegistryKey rootKey,
             Version version,
@@ -1253,6 +1904,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the named setting value for the specified
+        /// version to the registry, using the specified root key, attempting
+        /// each applicable key name in order until one succeeds.
+        /// </summary>
+        /// <param name="rootKey">
+        /// The root registry key to update.
+        /// </param>
+        /// <param name="version">
+        /// The version of the setup instance to update.  This parameter may be
+        /// null, in which case the versionless instance is updated.
+        /// </param>
+        /// <param name="name">
+        /// The name of the registry value to write.
+        /// </param>
+        /// <param name="value">
+        /// The setting value to write.  This parameter cannot be null.
+        /// </param>
+        /// <param name="flags">
+        /// The setting flags used to control where the value is written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the setting value was written; otherwise, false.
+        /// </returns>
         private static bool SetSettingValue(
             RegistryKey rootKey,
             Version version,
@@ -1348,6 +2026,23 @@ namespace Eagle._Components.Private
 
         #region Mutex Support Methods
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method conditionally reports the specified mutex-related error
+        /// via the complaint subsystem (only when complaining is appropriate
+        /// for the current application domain) and always emits a diagnostic
+        /// trace message.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="result">
+        /// The result describing the error.  If this parameter is null, no
+        /// complaint is issued.
+        /// </param>
+        /// <param name="dispose">
+        /// Non-zero if this complaint is being issued while disposing or
+        /// closing the mutexes; this affects the trace priority used.
+        /// </param>
         private static void MaybeComplain(
             ReturnCode code,
             Result result,
@@ -1375,6 +2070,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method registers the exited event handler for the current
+        /// application domain (using the domain unload event for non-default
+        /// domains and the process exit event for the default domain), so the
+        /// setup mutexes can be closed automatically, unless this behavior has
+        /// been disabled via configuration.
+        /// </summary>
         private static void AddExitedEventHandler()
         {
             if (!GlobalConfiguration.DoesValueExist(
@@ -1401,6 +2103,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unregisters the exited event handler previously
+        /// registered for the current application domain.
+        /// </summary>
         private static void RemoveExitedEventHandler()
         {
             AppDomain appDomain = AppDomainOps.GetCurrent();
@@ -1416,6 +2122,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is the event handler invoked when the current
+        /// application domain is being unloaded or the process is exiting; it
+        /// closes the setup mutexes and unregisters itself.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the event.
+        /// </param>
+        /// <param name="e">
+        /// The event arguments.
+        /// </param>
         private static void SetupOps_Exited(
             object sender,
             EventArgs e
@@ -1434,6 +2151,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and takes ownership of a named Win32 mutex.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the mutex to create.
+        /// </param>
+        /// <param name="lastError">
+        /// Upon return, receives the last Win32 error code resulting from the
+        /// attempt to create the mutex.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The handle of the created mutex, or <see cref="IntPtr.Zero" /> on
+        /// failure.
+        /// </returns>
         private static IntPtr CreateMutex(
             string name,
             ref int lastError,
@@ -1473,6 +2207,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the specified Win32 mutex handle.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle of the mutex to close.  Upon success, this is set to
+        /// <see cref="IntPtr.Zero" />.
+        /// </param>
+        /// <param name="lastError">
+        /// Upon return, receives the last Win32 error code resulting from the
+        /// attempt to close the handle.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// True if the mutex handle was closed; otherwise, false.
+        /// </returns>
         private static bool CloseMutex(
             ref IntPtr handle,
             ref int lastError,
@@ -1516,6 +2267,11 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method registers the exited event handler and creates the
+        /// session-local and system-global setup mutexes, reporting any errors
+        /// via the complaint subsystem.
+        /// </summary>
         public static void CreateMutexes()
         {
             AddExitedEventHandler();
@@ -1531,6 +2287,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates and takes ownership of the session-local and
+        /// system-global setup mutexes (if they do not already exist),
+        /// preventing the setup program from running while the library is in
+        /// use.  An access-denied error is treated as success because it
+        /// indicates the mutex already exists.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error(s).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode CreateMutexes(
             ref Result error
             )
@@ -1627,6 +2397,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the session-local and system-global setup
+        /// mutexes (if they are currently held), releasing the protection that
+        /// prevents the setup program from running while the library is in use.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error(s).
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode CloseMutexes(
             ref Result error
             )

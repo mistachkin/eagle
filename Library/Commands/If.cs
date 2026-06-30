@@ -19,6 +19,13 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>if</c> command, which conditionally
+    /// evaluates one of a series of scripts based on the boolean value of its
+    /// associated test expressions, optionally falling back to a final
+    /// <c>else</c> script when no test succeeds.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("a08efef8-37e2-4abd-8128-b0a16ce2b8a1")]
     [CommandFlags(
         CommandFlags.Safe | CommandFlags.Standard |
@@ -26,12 +33,33 @@ namespace Eagle._Commands
     [ObjectGroup("conditional")]
     internal sealed class If : Core
     {
+        /// <summary>
+        /// The literal keyword that optionally introduces the script
+        /// associated with a test expression.
+        /// </summary>
         private const string Then = "then";
+
+        /// <summary>
+        /// The literal keyword that introduces an additional test expression
+        /// and script clause.
+        /// </summary>
         private const string ElseIf = "elseif";
+
+        /// <summary>
+        /// The literal keyword that introduces the fallback script evaluated
+        /// when no test expression succeeds.
+        /// </summary>
         private const string Else = "else";
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of the <c>if</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public If(
             ICommandData commandData
             )
@@ -41,11 +69,49 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>if</c> command.  It evaluates the first
+        /// test expression and, if true, evaluates its associated script;
+        /// otherwise it proceeds through any <c>elseif</c> clauses and finally
+        /// the optional <c>else</c> script.  The optional <c>then</c> keyword
+        /// may precede each script.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements form the sequence of test
+        /// expressions, optional <c>then</c>/<c>elseif</c>/<c>else</c>
+        /// keywords, and scripts.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the evaluated
+        /// script, or an empty string when no test expression succeeded and no
+        /// <c>else</c> script was present.  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> when the selected script (if any)
+        /// evaluates successfully; otherwise, a non-Ok value such as
+        /// <see cref="ReturnCode.Error" /> when an expression or script fails,
+        /// the arguments are malformed, the interpreter is null, or the
+        /// argument list is null, with details placed in
+        /// <paramref name="result" />.  The control-flow values
+        /// <see cref="ReturnCode.Break" />, <see cref="ReturnCode.Continue" />,
+        /// and <see cref="ReturnCode.Return" /> may be propagated from the
+        /// evaluated script.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

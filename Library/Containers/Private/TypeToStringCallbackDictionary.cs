@@ -37,6 +37,11 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps types to the callback
+    /// delegates used to produce the string representations of objects of
+    /// those types.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -44,6 +49,9 @@ namespace Eagle._Containers.Private
     internal sealed class TypeToStringCallbackDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public TypeToStringCallbackDictionary()
             : base()
         {
@@ -52,6 +60,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the type-to-callback
+        /// mappings copied from another dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary containing the initial type-to-callback mappings to
+        /// copy into the newly created dictionary.
+        /// </param>
         public TypeToStringCallbackDictionary(
             IDictionary<Type, ToStringCallback> dictionary
             )
@@ -65,6 +81,18 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary being
+        /// constructed.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized data associated with
+        /// the dictionary being constructed.
+        /// </param>
         private TypeToStringCallbackDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -79,6 +107,21 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method builds a string representation of the type names in this
+        /// dictionary, optionally filtered by a match pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the type names.  This parameter may be
+        /// null to include all names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <returns>
+        /// The string representation of the (optionally filtered) type names in
+        /// this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -94,6 +137,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method builds a string representation of the type names in this
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the type names in this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

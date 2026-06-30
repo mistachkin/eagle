@@ -36,6 +36,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a centralized collection of helper methods for
+    /// working with enumerated types.  It supports parsing strings into
+    /// enumeration values (including flag enumerations and integer values),
+    /// converting enumeration values to their underlying integral values,
+    /// manipulating flag enumeration values via operators, and caching the
+    /// name and value metadata for enumerated types.
+    /// </summary>
     [ObjectId("32db1eb0-d7c8-4a31-82bf-215ae3d9086d")]
     internal static class EnumOps
     {
@@ -52,6 +60,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// A special integer value used together with CommandBehavior values
+        /// that, when set, suppresses extra SQLiteDataReader.Read calls within
+        /// the ExecuteScalar methods for write transactions.
+        /// </summary>
         private static CommandBehavior SkipExtraReads =
             (CommandBehavior)0x10000000;
 
@@ -66,6 +79,11 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// A special integer value used together with CommandBehavior values
+        /// that, when set, forces extra SQLiteDataReader.Read calls to be
+        /// performed within the ExecuteScalar methods for all transactions.
+        /// </summary>
         public const CommandBehavior ForceExtraReads =
             (CommandBehavior)0x20000000;
 #endif
@@ -81,6 +99,10 @@ namespace Eagle._Components.Private
         //       with the .NET Framework (internal) semantics for the
         //       treatment of enumerated values as integer values.
         //
+        /// <summary>
+        /// When non-zero, a null enumeration value, value type, or type is
+        /// treated as a wide (64-bit) integer; otherwise, it is not.
+        /// </summary>
         private static bool TreatNullAsWideInteger = true;
 
         ///////////////////////////////////////////////////////////////////////
@@ -88,6 +110,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, a boolean string is permitted as an integer value
+        /// when parsing enumeration values; otherwise, it is not.
+        /// </summary>
         private static bool TreatBooleanAsInteger = false; // COMPAT: Eagle.
 
         ///////////////////////////////////////////////////////////////////////
@@ -101,6 +127,11 @@ namespace Eagle._Components.Private
         //       will be used; otherwise, the legacy TryParseFast
         //       method will be used.
         //
+        /// <summary>
+        /// When non-zero, the generic built-in Enum.TryParse method provided
+        /// by the .NET Framework 4.0 and later is used; otherwise, the legacy
+        /// TryParseFast method is used.
+        /// </summary>
         private static bool UseBuiltInTryParse = true;
 #endif
 
@@ -117,29 +148,71 @@ namespace Eagle._Components.Private
         //       as well as intermittently returning the wrong result),
         //       it is disabled by default.
         //
+        /// <summary>
+        /// When non-zero, the private Enum.InternalGetEnumValues method is used
+        /// to obtain the lists of names and values for an enumerated type;
+        /// otherwise, it is not.  This is disabled by default because it does
+        /// not work reliably.
+        /// </summary>
         private static bool UseInternalGetValues = false;
 
         //
         // NOTE: Used by the "GetNamesAndValuesInternal" method.
         //
+        /// <summary>
+        /// The name of the private Enum.InternalGetEnumValues method used by
+        /// the GetNamesAndValuesInternal method.
+        /// </summary>
         private const string GetValuesMethodName = "InternalGetEnumValues";
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// The name of the generic Enum.TryParse method used when locating it
+        /// via reflection.
+        /// </summary>
         private const string TryParseMethodName = "TryParse";
 #endif
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags operator character used to select an enumeration table.
+        /// </summary>
         internal const char SelectTableOperator = Characters.Slash;
+
+        /// <summary>
+        /// The flags operator character used to add flag bits.
+        /// </summary>
         internal const char AddFlagOperator = Characters.PlusSign;
+
+        /// <summary>
+        /// The flags operator character used to remove flag bits.
+        /// </summary>
         internal const char RemoveFlagOperator = Characters.MinusSign;
+
+        /// <summary>
+        /// The flags operator character used to set the overall value equal to
+        /// the specified value.
+        /// </summary>
         internal const char SetFlagOperator = Characters.EqualSign;
+
+        /// <summary>
+        /// The flags operator character used to set the overall value equal to
+        /// the specified value and then switch to adding flag bits.
+        /// </summary>
         internal const char SetAddFlagOperator = Characters.Colon;
+
+        /// <summary>
+        /// The flags operator character used to keep (bitwise 'AND') flag bits.
+        /// </summary>
         internal const char KeepFlagOperator = Characters.Ampersand;
 
+        /// <summary>
+        /// The default flags operator character to use when none is specified.
+        /// </summary>
         internal static readonly char DefaultFlagOperator = SetAddFlagOperator;
 
         ///////////////////////////////////////////////////////////////////////
@@ -147,6 +220,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default string of permitted flags operator characters to use
+        /// when an empty operator string is specified.
+        /// </summary>
         private static string DefaultFlagOperators = AddFlagOperator.ToString();
         #endregion
 
@@ -155,8 +232,22 @@ namespace Eagle._Components.Private
         #region Cache Data
         #region TryParse MethodInfo
 #if NET_40
+        /// <summary>
+        /// The object used to synchronize access to the cached TryParse method
+        /// information.
+        /// </summary>
         private static object tryParseSyncRoot = new object();
+
+        /// <summary>
+        /// The cached generic Enum.TryParse method information, prior to being
+        /// constructed for a specific enumeration type.
+        /// </summary>
         private static MethodInfo tryParse = null;
+
+        /// <summary>
+        /// The cache of TryParse method information, keyed by enumeration type,
+        /// each already constructed for its specific enumeration type.
+        /// </summary>
         private static Dictionary<Type, MethodInfo> tryParseCache;
 #endif
         #endregion
@@ -164,7 +255,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Names / Values
+        /// <summary>
+        /// The object used to synchronize access to the cache of enumeration
+        /// names and values.
+        /// </summary>
         private static object cacheSyncRoot = new object();
+
+        /// <summary>
+        /// The cache of enumeration names and values, keyed by enumeration
+        /// type.
+        /// </summary>
         private static EnumCacheDictionary cache = null;
         #endregion
         #endregion
@@ -172,6 +272,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Cache Methods
+        /// <summary>
+        /// This method clears all cached enumeration data, including the cached
+        /// names and values and the cached TryParse method information.
+        /// </summary>
+        /// <returns>
+        /// The total number of cache entries that were removed.
+        /// </returns>
         public static int ClearCache()
         {
             int result = ClearNamesAndValuesCache();
@@ -185,6 +292,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the cache of enumeration names and values.
+        /// </summary>
+        /// <returns>
+        /// The number of cache entries that were removed, or
+        /// <see cref="Count.Invalid" /> if the cache was not allocated.
+        /// </returns>
         private static int ClearNamesAndValuesCache()
         {
             lock (cacheSyncRoot) /* TRANSACTIONAL */
@@ -204,6 +318,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method clears the cached TryParse method information.
+        /// </summary>
+        /// <returns>
+        /// The number of cache entries that were removed.
+        /// </returns>
         private static int ClearTryParseCache()
         {
             lock (tryParseSyncRoot) /* TRANSACTIONAL */
@@ -234,6 +354,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method gets the enumerated value of a named field or property
+        /// of an object, which is expected to be a flags enumeration.
+        /// </summary>
+        /// <param name="object">
+        /// The object whose field or property value is to be obtained.
+        /// </param>
+        /// <param name="memberName">
+        /// The name of the field or property to obtain.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match the member name in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value of the named member, or null if it could not be
+        /// obtained.
+        /// </returns>
         public static Enum GetFlags(
             object @object,    /* in */
             string memberName, /* in */
@@ -384,6 +525,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified type is an enumerated
+        /// type that has the FlagsAttribute applied to it.
+        /// </summary>
+        /// <param name="enumType">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is a flags enumeration; otherwise, false.
+        /// </returns>
         public static bool IsFlags(
             Type enumType /* in */
             )
@@ -397,6 +548,33 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if ISOLATED_PLUGINS
+        /// <summary>
+        /// This method converts a value to the specified enumerated type and
+        /// then to its underlying integral value, also reporting the type code
+        /// of that underlying value.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to convert the value to.
+        /// </param>
+        /// <param name="value">
+        /// The value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="typeCode">
+        /// Upon success, this parameter will be modified to contain the type
+        /// code of the underlying integral value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The underlying integral value of the converted enumerated value, or
+        /// null if it could not be obtained.
+        /// </returns>
         public static object ConvertToTypeCodeValue(
             Type enumType,           /* in */
             object value,            /* in */
@@ -477,6 +655,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the value of the specified
+        /// enumerated type that corresponds to the specified underlying value.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to obtain the value as.
+        /// </param>
+        /// <param name="value">
+        /// The underlying value to convert into an enumerated value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryGet(
             Type enumType,   /* in */
             object value,    /* in */
@@ -516,6 +711,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a leading or trailing "None" or "Default" name
+        /// (and its associated separator) from the string representation of an
+        /// enumerated value.
+        /// </summary>
+        /// <param name="value">
+        /// The enumeration string value to fix up.
+        /// </param>
+        /// <returns>
+        /// The fixed up enumeration string value.
+        /// </returns>
         public static string FixupEnumString( /* CORE */
             string value /* in */
             )
@@ -565,6 +771,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Support Methods
+        /// <summary>
+        /// This method determines whether the leading non-identifier character
+        /// of the specified value should be ignored when parsing it.
+        /// </summary>
+        /// <param name="value">
+        /// The value being parsed.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to consider ignoring the leading non-identifier character.
+        /// </param>
+        /// <returns>
+        /// True if the leading character should be ignored; otherwise, false.
+        /// </returns>
         private static bool ShouldIgnoreLeading(
             string value,      /* in */
             bool ignoreLeading /* in */
@@ -592,6 +811,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified enumerated value should
+        /// be treated as a wide (64-bit) integer, based on its underlying type.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value should be treated as a wide integer; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldTreatAsWideInteger(
             Enum value /* in */
             )
@@ -609,6 +839,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified value should be treated
+        /// as a wide (64-bit) integer, based on its type.
+        /// </summary>
+        /// <param name="value">
+        /// The value to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value should be treated as a wide integer; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldTreatAsWideInteger(
             object value /* in */
             )
@@ -626,6 +867,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether values of the specified type should
+        /// be treated as a wide (64-bit) integer.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the type should be treated as a wide integer; otherwise,
+        /// false.
+        /// </returns>
         private static bool ShouldTreatAsWideInteger(
             Type type /* in */
             )
@@ -638,6 +890,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces the common flag delimiter characters (comma,
+        /// pipe, and semicolon) within a flags string with spaces so that it
+        /// may be parsed as a list.
+        /// </summary>
+        /// <param name="value">
+        /// The flags string value to fix up.
+        /// </param>
+        /// <returns>
+        /// The fixed up flags string value.
+        /// </returns>
         private static string FixupFlagsString(
             string value /* in */
             )
@@ -673,6 +936,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method commits new enumeration names and values into the
+        /// caller-supplied name and value lists, either by appending to the
+        /// existing lists, reusing the supplied collections, or copying them.
+        /// </summary>
+        /// <param name="enumNames">
+        /// Upon return, this parameter will contain the combined enumeration
+        /// names.
+        /// </param>
+        /// <param name="enumValues">
+        /// Upon return, this parameter will contain the combined enumeration
+        /// values.
+        /// </param>
+        /// <param name="newEnumNames">
+        /// The new enumeration names to commit.  This parameter may be null.
+        /// </param>
+        /// <param name="newEnumValues">
+        /// The new enumeration values to commit.  This parameter may be null.
+        /// </param>
+        /// <param name="forceCopy">
+        /// Non-zero to force the new names and values to be copied into new
+        /// lists instead of being reused directly.
+        /// </param>
         private static void CommitNamesAndValues(
             ref StringList enumNames,         /* in, out */
             ref UlongList enumValues,         /* in, out */
@@ -704,6 +990,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an error message indicating that an invalid
+        /// flags operator character was encountered.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="operator">
+        /// The invalid flags operator character.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         private static string BadFlagsOperatorError(
             Type enumType,
             char @operator
@@ -724,6 +1023,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an error message indicating that an invalid
+        /// enumeration value was encountered, including the list of valid
+        /// names.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="enumName">
+        /// The invalid enumeration name or value.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         private static string BadValueError(
             Type enumType,
             string enumName
@@ -737,6 +1050,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats an error message indicating that the number of
+        /// enumeration names does not match the number of enumeration values.
+        /// </summary>
+        /// <param name="count1">
+        /// The number of enumeration names.
+        /// </param>
+        /// <param name="count2">
+        /// The number of enumeration values.
+        /// </param>
+        /// <returns>
+        /// The formatted error message.
+        /// </returns>
         private static string CountMismatchError(
             int count1,
             int count2
@@ -751,6 +1077,28 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParse* Methods
+        /// <summary>
+        /// This method attempts to parse a string as an integer value (signed
+        /// or unsigned) and convert it into a value of the specified
+        /// enumerated type, verifying that the round-trip conversion matches.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseInteger(
             Type enumType,           /* in */
             string value,            /* in */
@@ -859,6 +1207,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string as a wide (64-bit) integer
+        /// value (signed or unsigned) and convert it into a value of the
+        /// specified enumerated type, verifying that the round-trip conversion
+        /// matches.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseWideInteger(
             Type enumType,           /* in */
             string value,            /* in */
@@ -968,6 +1339,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string as a boolean value and
+        /// convert it into a value of the specified enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseBooleanOnly(
             Type enumType,          /* in */
             string value,           /* in */
@@ -982,6 +1370,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string as a boolean value and
+        /// convert it into a value of the element type of the specified
+        /// enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseBooleanOnly(
             Type enumType,           /* in */
             string value,            /* in */
@@ -1028,6 +1438,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string as some kind of integer
+        /// value and convert it into a value of the specified enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseSomeKindOfInteger(
             Type enumType,          /* in */
             string value,           /* in */
@@ -1042,6 +1469,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string as some kind of integer
+        /// value and convert it into a value of the element type of the
+        /// specified enumerated type, choosing between wide integer and
+        /// integer parsing based on the underlying type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseSomeKindOfInteger(
             Type enumType,           /* in */
             string value,            /* in */
@@ -1085,6 +1535,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a convertible value into an unsigned long
+        /// (64-bit) integer, treating it as signed or unsigned based on its
+        /// type code.
+        /// </summary>
+        /// <param name="convertible">
+        /// The convertible value to convert.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The unsigned long integer value, or zero if the value is null or its
+        /// type code is not supported.
+        /// </returns>
         private static ulong ConvertibleToULong(
             IConvertible convertible, /* in */
             CultureInfo cultureInfo   /* in: OPTIONAL */
@@ -1139,6 +1605,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public TryParse Methods
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParse(
             Type enumType,     /* in */
             string value,      /* in */
@@ -1154,6 +1639,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParse( /* OVERLOAD */
             Type enumType,     /* in */
             string value,      /* in */
@@ -1169,6 +1677,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type, dispatching to either the built-in or fast parsing
+        /// implementation.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to ignore a leading non-identifier character when matching
+        /// enumeration names.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParse( /* OVERLOAD */
             Type enumType,        /* in */
             string value,         /* in */
@@ -1197,6 +1736,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParse Methods
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type, using the supplied name and value lists.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of valid enumeration names.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of valid enumeration values.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParse( /* INTERNAL */
             Type enumType,        /* in */
             string value,         /* in */
@@ -1214,6 +1784,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type, using the supplied name and value lists, and
+        /// dispatching to either the built-in or fast parsing implementation.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of valid enumeration names.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of valid enumeration values.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to ignore a leading non-identifier character when matching
+        /// enumeration names.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParse( /* OVERLOAD */
             Type enumType,        /* in */
             string value,         /* in */
@@ -1245,6 +1854,18 @@ namespace Eagle._Components.Private
 
         #region Private TryParseBuiltIn Methods (NetFx 4.0)
 #if NET_40
+        /// <summary>
+        /// This method verifies that the parameters of a candidate generic
+        /// Enum.TryParse method match the expected signature: a string, a
+        /// boolean, and a reference to a generic value-type constrained type.
+        /// </summary>
+        /// <param name="parameterInfos">
+        /// The parameter information for the candidate method.
+        /// </param>
+        /// <returns>
+        /// True if the parameters match the expected signature; otherwise,
+        /// false.
+        /// </returns>
         private static bool CheckTryParseParameterInfos(
             ParameterInfo[] parameterInfos /* in */
             )
@@ -1275,6 +1896,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method locates, via reflection, the generic Enum.TryParse
+        /// method with the expected signature, caching it for subsequent use.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The method information for the generic Enum.TryParse method, or null
+        /// if it could not be found.
+        /// </returns>
         private static MethodInfo GetTryParseMethodInfo(
             ref Result error /* out */
             )
@@ -1340,6 +1973,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the generic Enum.TryParse method constructed for
+        /// the specified enumerated type, caching the constructed method for
+        /// subsequent use.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to construct the generic method for.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The constructed method information for the Enum.TryParse method, or
+        /// null if it could not be obtained.
+        /// </returns>
         private static MethodInfo GetTryParseMethodInfo(
             Type enumType,   /* in */
             ref Result error /* out */
@@ -1419,6 +2068,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type using the generic built-in Enum.TryParse method
+        /// provided by the .NET Framework 4.0 and later.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to ignore a leading non-identifier character when matching
+        /// enumeration names.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.  This
+        /// parameter is not used.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseBuiltIn(
             Type enumType,        /* in */
             string value,         /* in */
@@ -1557,6 +2238,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region GetNamesAndValues Methods (NetFx 2.0/3.5/4.0, and Mono)
+        /// <summary>
+        /// This method determines whether the enumeration names and values need
+        /// to be obtained prior to parsing, which is not necessary when the
+        /// built-in TryParse method is being used.
+        /// </summary>
+        /// <returns>
+        /// True if the names and values should be obtained; otherwise, false.
+        /// </returns>
         private static bool ShouldGetNamesAndValues()
         {
 #if NET_40
@@ -1569,6 +2258,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the lists of names and underlying values for the
+        /// specified enumerated type, dispatching to the internal or slow
+        /// implementation as appropriate.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to obtain the names and values for.
+        /// </param>
+        /// <param name="enumNames">
+        /// Upon return, this parameter will contain the enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// Upon return, this parameter will contain the enumeration values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode GetNamesAndValues(
             Type enumType,            /* in */
             ref StringList enumNames, /* in, out */
@@ -1591,6 +2302,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if !NET_40 && !MONO && NET_20_FAST_ENUM
+        /// <summary>
+        /// This method obtains the lists of names and underlying values for the
+        /// specified enumerated type by invoking the private
+        /// Enum.InternalGetEnumValues method via reflection, falling back on
+        /// the slow implementation if necessary.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to obtain the names and values for.
+        /// </param>
+        /// <param name="enumNames">
+        /// Upon return, this parameter will contain the enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// Upon return, this parameter will contain the enumeration values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetNamesAndValuesInternal(
             Type enumType,            /* in */
             ref StringList enumNames, /* in, out */
@@ -1702,6 +2436,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the lists of names and underlying values for the
+        /// specified enumerated type by reflecting over its public static
+        /// fields, caching the result for subsequent use.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to obtain the names and values for.
+        /// </param>
+        /// <param name="enumNames">
+        /// Upon return, this parameter will contain the enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// Upon return, this parameter will contain the enumeration values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode GetNamesAndValuesSlow(
             Type enumType,            /* in */
             ref StringList enumNames, /* in, out */
@@ -1833,6 +2589,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParseFast Methods (NetFx 2.0/3.5, and Mono)
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type using the legacy fast parsing implementation,
+        /// obtaining the enumeration names and values as necessary.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to ignore a leading non-identifier character when matching
+        /// enumeration names.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseFast(
             Type enumType,        /* in */
             string value,         /* in */
@@ -1860,6 +2647,44 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to parse a string into a value of the specified
+        /// enumerated type using the legacy fast parsing implementation and the
+        /// supplied name and value lists.  The string may consist of multiple
+        /// comma-separated names and/or integer values to be combined.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of valid enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of valid enumeration values.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// Non-zero to ignore a leading non-identifier character when matching
+        /// enumeration names.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseFast(
             Type enumType,        /* in */
             string value,         /* in */
@@ -2092,6 +2917,37 @@ namespace Eagle._Components.Private
         #region Dead Code
         #region Private TryParseSlow Methods (Obsolete)
 #if DEAD_CODE
+        /// <summary>
+        /// This method attempts to parse the specified value as a member of
+        /// the specified enumerated type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value against.
+        /// </param>
+        /// <param name="value">
+        /// The value to parse.
+        /// </param>
+        /// <param name="allowInteger">
+        /// When non-zero, integer values are permitted.
+        /// </param>
+        /// <param name="ignoreLeading">
+        /// When non-zero, a leading non-identifier character may be ignored
+        /// when the value cannot otherwise be parsed.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// When non-zero, a failure to find a matching member is treated as an
+        /// error.
+        /// </param>
+        /// <param name="noCase">
+        /// When non-zero, the value is matched without regard to case.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that occurred.
+        /// </param>
+        /// <returns>
+        /// The parsed enumerated value, or null if the value could not be
+        /// parsed.
+        /// </returns>
         [Obsolete()]
         private static object TryParseSlow( /* NOT USED */
             Type enumType,        /* in */
@@ -2166,6 +3022,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private ToUIntOrULong Methods
+        /// <summary>
+        /// This method converts a value into either an unsigned integer or an
+        /// unsigned long integer, depending on the size of its underlying type.
+        /// </summary>
+        /// <param name="value">
+        /// The value to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned value, or null if it could not be converted.
+        /// </returns>
         private static ulong? ToUIntOrULong(
             object value /* in */
             ) /* SAFE */
@@ -2175,6 +3041,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a value into either an unsigned integer or an
+        /// unsigned long integer, depending on the size of its underlying type.
+        /// </summary>
+        /// <param name="value">
+        /// The value to convert.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned value, or null if it could not be converted.
+        /// </returns>
         private static ulong? ToUIntOrULong(
             object value,           /* in */
             CultureInfo cultureInfo /* in: OPTIONAL */
@@ -2190,6 +3070,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into either an unsigned
+        /// integer or an unsigned long integer, depending on the size of its
+        /// underlying type.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned value.
+        /// </returns>
         private static ulong ToUIntOrULong(
             Enum value,             /* in */
             CultureInfo cultureInfo /* in: OPTIONAL */
@@ -2204,6 +3099,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private ToInt / ToUInt Methods
+        /// <summary>
+        /// This method converts an enumerated value into a signed integer,
+        /// possibly losing information if the underlying value does not fit.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted signed integer value.
+        /// </returns>
         private static int ToInt(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2215,6 +3127,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned integer,
+        /// possibly losing information if the underlying value does not fit.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned integer value.
+        /// </returns>
         private static uint ToUInt(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2226,6 +3155,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned integer,
+        /// possibly losing information if the underlying value does not fit.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned integer value.
+        /// </returns>
         private static uint ToUInt(
             Enum value /* in */
             ) /* LOSSY */
@@ -2236,6 +3175,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned integer,
+        /// possibly losing information if the underlying value does not fit.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned integer value.
+        /// </returns>
         private static uint ToUInt(
             Enum value,             /* in */
             CultureInfo cultureInfo /* in: OPTIONAL */
@@ -2251,6 +3204,23 @@ namespace Eagle._Components.Private
 
         #region Private ToLong / ToULong Methods
 #if !MONO
+        /// <summary>
+        /// This method converts an enumerated value into a signed long (64-bit)
+        /// integer using the fast (reflection-based) implementation.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted signed long integer value.
+        /// </returns>
         private static long ToLongFast(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2263,6 +3233,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned long
+        /// (64-bit) integer using the fast implementation, which invokes the
+        /// private Enum.ToUInt64 method via reflection.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.  This parameter is not used.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter is not used.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned long integer value.
+        /// </returns>
         private static ulong ToULongFast(
             Type enumType,          /* in: NOT USED */
             Enum value,             /* in */
@@ -2283,6 +3271,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into a signed long (64-bit)
+        /// integer using the slow (non-reflection-based) implementation.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted signed long integer value.
+        /// </returns>
         private static long ToLongSlow(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2300,6 +3305,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned long
+        /// (64-bit) integer using the slow implementation, which switches on
+        /// the underlying type code of the value.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.  This parameter is not used.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned long integer value.
+        /// </returns>
         private static ulong ToULongSlow(
             Type enumType,          /* in: NOT USED */
             Enum value,             /* in */
@@ -2357,6 +3380,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into a signed long (64-bit)
+        /// integer, dispatching to the fast or slow implementation depending on
+        /// the runtime.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted signed long integer value.
+        /// </returns>
         private static long ToLong(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2373,6 +3414,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned long
+        /// (64-bit) integer, dispatching to the fast or slow implementation
+        /// depending on the runtime.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the value.
+        /// </param>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned long integer value.
+        /// </returns>
         private static ulong ToULong(
             Type enumType,          /* in */
             Enum value,             /* in */
@@ -2389,6 +3448,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned long
+        /// (64-bit) integer.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned long integer value.
+        /// </returns>
         private static ulong ToULong(
             Enum value /* in */
             ) /* SAFE */
@@ -2399,6 +3468,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts an enumerated value into an unsigned long
+        /// (64-bit) integer.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned long integer value.
+        /// </returns>
         private static ulong ToULong(
             Enum value,             /* in */
             CultureInfo cultureInfo /* in: OPTIONAL */
@@ -2413,6 +3496,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public ToLong / ToULong Methods
+        /// <summary>
+        /// This method converts an enumerated value into a signed long (64-bit)
+        /// integer.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The converted signed long integer value.
+        /// </returns>
         public static long ToLong(
             Enum value /* in */
             ) /* SAFE */
@@ -2429,6 +3522,17 @@ namespace Eagle._Components.Private
         // TODO: *HACK* What is the true purpose of this method?  What test
         //       cases will reveal why it is necessary?
         //
+        /// <summary>
+        /// This method converts an enumerated value into either an unsigned
+        /// integer or an unsigned long integer, depending on the size of its
+        /// underlying type.
+        /// </summary>
+        /// <param name="value">
+        /// The enumerated value to convert.
+        /// </param>
+        /// <returns>
+        /// The converted unsigned value.
+        /// </returns>
         public static ulong ToUIntOrULong(
             Enum value /* in */
             ) /* SAFE */
@@ -2440,6 +3544,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParseFlags Methods
+        /// <summary>
+        /// This method validates that every character in the specified operator
+        /// string is a valid flags operator, substituting the default operators
+        /// when an empty string is supplied.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="operators">
+        /// The string of operator characters to validate.  Upon return, this
+        /// parameter will be trimmed or replaced with the default operators.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if all operator characters are valid; otherwise, false.
+        /// </returns>
         private static bool AreFlagsOperators(
             Type enumType,        /* in */
             ref string operators, /* in, out */
@@ -2501,6 +3624,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified flag values are
+        /// entirely unmasked, that is, none of their bits fall outside of the
+        /// specified mask values.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="flagValues">
+        /// The flag values to check.
+        /// </param>
+        /// <param name="maskValues">
+        /// The mask values defining the permitted bits.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if all flag value bits are within the mask; otherwise, false.
+        /// </returns>
         private static bool AreFlagsValuesUnmasked(
             Type enumType,           /* in */
             object flagValues,       /* in */
@@ -2555,6 +3703,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified flags operator is
+        /// unmasked, that is, present in the specified string of permitted
+        /// operators.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="operator">
+        /// The flags operator character to check.
+        /// </param>
+        /// <param name="operators">
+        /// The string of permitted operator characters.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the operator is permitted; otherwise, false.
+        /// </returns>
         private static bool IsFlagsOperatorUnmasked(
             Type enumType,    /* in */
             char @operator,   /* in */
@@ -2581,6 +3750,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the initial ("old") flags enumeration value,
+        /// either by parsing the specified string value or by using a value of
+        /// zero when the string is null or empty.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string value to parse.  This parameter may be null or empty.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of valid enumeration names.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of valid enumeration values.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit the value to be expressed as an integer.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="enumValue">
+        /// Upon return, this parameter will contain the obtained enumeration
+        /// value, or null if it could not be obtained.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
         private static void GetFlagsValue(
             Type enumType,           /* in */
             string value,            /* in */
@@ -2618,6 +3824,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method applies the specified flags operator to combine the
+        /// second operand enumeration value into the first operand enumeration
+        /// value.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type of the operands.
+        /// </param>
+        /// <param name="operand2EnumValue">
+        /// The second (right-hand) operand enumeration value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="operand1EnumValue">
+        /// The first (left-hand) operand enumeration value.  Upon return, this
+        /// parameter will contain the result of the operation, or null on
+        /// failure.
+        /// </param>
+        /// <param name="operator">
+        /// The flags operator character to apply.  Upon return, this parameter
+        /// may be modified (for example, the set-add operator is changed to the
+        /// add operator).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
         private static void PerformFlagsOperator(
             Type enumType,                /* in */
             object operand2EnumValue,     /* in */
@@ -2722,6 +3957,39 @@ namespace Eagle._Components.Private
         // NOTE: This overload is only for use by the "Eagle._Commands.Host"
         //       and "Eagle._Components.Private.TraceLimits" classes.
         //
+        /// <summary>
+        /// This method parses a flags enumeration value by applying the
+        /// operators and names in the "new" value string to the "old" value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The flags enumerated type to parse the value as.
+        /// </param>
+        /// <param name="oldValue">
+        /// The initial enumeration value, as a string.  This parameter may be
+        /// null or empty.
+        /// </param>
+        /// <param name="newValue">
+        /// The string of operators and names to apply to the initial value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit values to be expressed as integers.
+        /// </param>
+        /// <param name="errorOnNop">
+        /// Non-zero to treat an empty "new" value as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The resulting enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParseFlags(
             Interpreter interpreter, /* in: OPTIONAL */
             Type enumType,           /* in */
@@ -2742,6 +4010,43 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a flags enumeration value by applying the
+        /// operators and names in the "new" value string to the "old" value.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The flags enumerated type to parse the value as.
+        /// </param>
+        /// <param name="oldValue">
+        /// The initial enumeration value, as a string.  This parameter may be
+        /// null or empty.
+        /// </param>
+        /// <param name="newValue">
+        /// The string of operators and names to apply to the initial value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit values to be expressed as integers.
+        /// </param>
+        /// <param name="errorOnNop">
+        /// Non-zero to treat an empty "new" value as an error.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The resulting enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParseFlags( /* COMPAT: Eagle beta. */
             Interpreter interpreter, /* in: OPTIONAL */
             Type enumType,           /* in */
@@ -2762,6 +4067,56 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a flags enumeration value by applying the
+        /// operators and names in the "new" value string to the "old" value,
+        /// honoring an optional set of mask values and mask operators.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The flags enumerated type to parse the value as.
+        /// </param>
+        /// <param name="oldValue">
+        /// The initial enumeration value, as a string.  This parameter may be
+        /// null or empty.
+        /// </param>
+        /// <param name="newValue">
+        /// The string of operators and names to apply to the initial value.
+        /// </param>
+        /// <param name="maskValues">
+        /// The mask values that constrain which flag values may be used.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="maskOperators">
+        /// The string of operators that constrain which flag operators may be
+        /// used.  This parameter may be null.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit values to be expressed as integers.
+        /// </param>
+        /// <param name="errorOnNop">
+        /// Non-zero to treat an empty "new" value as an error.
+        /// </param>
+        /// <param name="errorOnMask">
+        /// Non-zero to treat the use of a masked value or operator as an error
+        /// instead of silently skipping it.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The resulting enumerated value, or null if it could not be obtained.
+        /// </returns>
         public static object TryParseFlags(
             Interpreter interpreter, /* in: OPTIONAL */
             Type enumType,           /* in */
@@ -2797,6 +4152,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParseFlags Methods
+        /// <summary>
+        /// This method checks whether the specified item is one of the special,
+        /// recognized flag names (currently only for the CommandBehavior type)
+        /// and, if so, returns its corresponding enumeration value.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type being parsed.
+        /// </param>
+        /// <param name="item">
+        /// The item string to check.
+        /// </param>
+        /// <param name="itemEnumValue">
+        /// Upon return, this parameter will contain the special enumeration
+        /// value, or null if the item is not a special flag.
+        /// </param>
+        /// <returns>
+        /// True if the item is a recognized special flag; otherwise, false.
+        /// </returns>
         private static bool CheckForSpecialFlags(
             Type enumType,           /* in */
             string item,             /* in */
@@ -2837,6 +4210,65 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a flags enumeration value by applying the
+        /// operators and names in the "new" value string to the "old" value,
+        /// using the supplied name and value lists and honoring an optional set
+        /// of mask values and mask operators.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The flags enumerated type to parse the value as.
+        /// </param>
+        /// <param name="oldValue">
+        /// The initial enumeration value, as a string.  This parameter may be
+        /// null or empty.
+        /// </param>
+        /// <param name="newValue">
+        /// The string of operators and names to apply to the initial value.
+        /// </param>
+        /// <param name="maskValues">
+        /// The mask values that constrain which flag values may be used.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="maskOperators">
+        /// The string of operators that constrain which flag operators may be
+        /// used.  This parameter may be null.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of valid enumeration names.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of valid enumeration values.  This parameter may be null
+        /// when using the built-in parsing implementation.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="allowInteger">
+        /// Non-zero to permit values to be expressed as integers.
+        /// </param>
+        /// <param name="errorOnNop">
+        /// Non-zero to treat an empty "new" value as an error.
+        /// </param>
+        /// <param name="errorOnMask">
+        /// Non-zero to treat the use of a masked value or operator as an error
+        /// instead of silently skipping it.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The resulting enumerated value, or null if it could not be obtained.
+        /// </returns>
         private static object TryParseFlags(
             Interpreter interpreter, /* in: OPTIONAL */
             Type enumType,           /* in */
@@ -3184,6 +4616,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public TryParseTables Methods
+        /// <summary>
+        /// This method fills the parameter tables for the specified enumerated
+        /// type with all of its names and values, grouped according to the
+        /// parameter index attributes applied to the type.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type to fill the tables for.
+        /// </param>
+        /// <param name="tables">
+        /// Upon return, this parameter will contain the filled parameter
+        /// tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode FillTables(
             Type enumType,                 /* in */
             ref ObjectDictionary[] tables, /* in, out */
@@ -3216,6 +4668,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string of operators and names into a set of
+        /// parameter tables for the specified enumerated type, grouped
+        /// according to the parameter index attributes applied to the type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string of operators and names to parse.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="errorOnEmptyList">
+        /// Non-zero to treat an empty modifiers list as an error.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="tables">
+        /// Upon return, this parameter will contain the resulting parameter
+        /// tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode TryParseTables(
             Interpreter interpreter,       /* in: OPTIONAL */
             Type enumType,                 /* in */
@@ -3255,6 +4746,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the combined unsigned long integer value for
+        /// each parameter table and stores it into the corresponding element of
+        /// the supplied parameter values array.
+        /// </summary>
+        /// <param name="tables">
+        /// The parameter tables to combine.
+        /// </param>
+        /// <param name="parameterValues">
+        /// Upon return, each element of this array will contain the combined
+        /// value for the corresponding table.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="errorOnBadValue">
+        /// Non-zero to treat a value that cannot be converted as an error
+        /// instead of silently skipping it.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         public static ReturnCode SetParameterValuesFromTables(
             ObjectDictionary[] tables, /* in */
             ulong[] parameterValues,   /* in */
@@ -3317,6 +4836,36 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private TryParseTables Methods
+        /// <summary>
+        /// This method fills the parameter tables with the supplied enumeration
+        /// names and values, grouped according to the supplied parameter
+        /// indexes.
+        /// </summary>
+        /// <param name="enumType">
+        /// The enumerated type the names and values belong to.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of enumeration values.
+        /// </param>
+        /// <param name="parameterIndexes">
+        /// The parameter index for each enumeration name, used to determine
+        /// which table it belongs to.
+        /// </param>
+        /// <param name="tables">
+        /// Upon return, this parameter will contain the filled parameter
+        /// tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode FillTables(
             Type enumType,                 /* in */
             StringList enumNames,          /* in */
@@ -3372,6 +4921,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the enumeration names (and their values) matching
+        /// the specified pattern to the appropriate parameter tables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type the names and values belong to.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of enumeration values.
+        /// </param>
+        /// <param name="parameterIndexes">
+        /// The parameter index for each enumeration name, used to determine
+        /// which table it belongs to.
+        /// </param>
+        /// <param name="pattern">
+        /// The string-matching pattern used to select names.  This parameter
+        /// may be null, in which case all names are selected.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match names in a case-insensitive manner.
+        /// </param>
+        /// <param name="tables">
+        /// Upon return, this parameter will contain the updated parameter
+        /// tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode AddToTable(
             Interpreter interpreter,       /* in: OPTIONAL */
             Type enumType,                 /* in */
@@ -3445,6 +5033,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the specified table any entries whose key
+        /// does not match the specified pattern, keeping only the matching
+        /// entries.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="table">
+        /// The table to modify in place.
+        /// </param>
+        /// <param name="pattern">
+        /// The string-matching pattern used to select entries to keep.  This
+        /// parameter may be null, in which case all entries match.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match keys in a case-insensitive manner.
+        /// </param>
         private static void KeepFromTable(
             Interpreter interpreter, /* in: OPTIONAL */
             ObjectDictionary table,  /* in, out */
@@ -3489,6 +5095,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes from the specified table any entries whose key
+        /// matches the specified pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="table">
+        /// The table to modify in place.
+        /// </param>
+        /// <param name="pattern">
+        /// The string-matching pattern used to select entries to remove.  This
+        /// parameter may be null, in which case all entries match.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match keys in a case-insensitive manner.
+        /// </param>
         private static void RemoveFromTable(
             Interpreter interpreter, /* in: OPTIONAL */
             ObjectDictionary table,  /* in, out */
@@ -3533,6 +5156,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the index of the first enumeration name matching
+        /// the specified pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of enumeration names to search.
+        /// </param>
+        /// <param name="pattern">
+        /// The string-matching pattern used to select a name.  This parameter
+        /// may be null, in which case the first name matches.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match names in a case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The index of the first matching name, or
+        /// <see cref="_Constants.Index.Invalid" /> if no name matches.
+        /// </returns>
         private static int FindName(
             Interpreter interpreter, /* in: OPTIONAL */
             StringList enumNames,    /* in */
@@ -3560,6 +5204,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the parameter table corresponding to the
+        /// enumeration name at the specified index, allocating the table array
+        /// and the table itself as necessary.
+        /// </summary>
+        /// <param name="tables">
+        /// The array of parameter tables.  Upon return, this parameter may be
+        /// allocated or have an element allocated.
+        /// </param>
+        /// <param name="parameterIndexes">
+        /// The parameter index for each enumeration name.
+        /// </param>
+        /// <param name="index">
+        /// The index of the enumeration name whose table is to be obtained.
+        /// </param>
+        /// <returns>
+        /// The corresponding parameter table, or null if it could not be
+        /// obtained.
+        /// </returns>
         private static ObjectDictionary GetTable(
             ref ObjectDictionary[] tables, /* in, out */
             int?[] parameterIndexes,       /* in */
@@ -3610,6 +5273,55 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a string of operators and names into the supplied
+        /// parameter tables, using the supplied name and value lists and
+        /// parameter indexes.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type to parse the value as.
+        /// </param>
+        /// <param name="value">
+        /// The string of operators and names to parse.
+        /// </param>
+        /// <param name="enumNames">
+        /// The list of enumeration names.
+        /// </param>
+        /// <param name="enumValues">
+        /// The list of enumeration values.
+        /// </param>
+        /// <param name="parameterIndexes">
+        /// The parameter index for each enumeration name, used to determine
+        /// which table it belongs to.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture-specific formatting information to use, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to match enumeration names in a case-insensitive manner.
+        /// </param>
+        /// <param name="errorOnEmptyList">
+        /// Non-zero to treat an empty modifiers list as an error.
+        /// </param>
+        /// <param name="errorOnNotFound">
+        /// Non-zero to treat a name that cannot be found as an error.
+        /// </param>
+        /// <param name="tables">
+        /// Upon return, this parameter will contain the resulting parameter
+        /// tables.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         private static ReturnCode TryParseTables(
             Interpreter interpreter,       /* in: OPTIONAL */
             Type enumType,                 /* in */

@@ -35,24 +35,52 @@ using SharedStringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Hosts
 {
+    /// <summary>
+    /// This class implements an interpreter host that reads from and writes to
+    /// the system console (i.e. via the <see cref="System.Console" /> class
+    /// and, where available, the native console subsystem).  It builds upon the
+    /// <see cref="Core" /> base host to provide console-specific support for
+    /// colors, window and buffer sizing, the window title, the window icon, line
+    /// editing, and Ctrl-C (script cancellation) keypress handling.  Most of its
+    /// behavior can be overridden by derived host classes.
+    /// </summary>
     [ObjectId("e15283cf-00b4-44f2-a16e-48cf061e53d1")]
     public class Console : Core, ISynchronize, IDisposable
     {
         #region Private Static Data
+        /// <summary>
+        /// The object used to synchronize access to the static state shared by
+        /// all instances of this class.
+        /// </summary>
         private static readonly object staticSyncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// The number of outstanding requests to treat the native console as
+        /// closed.  When greater than zero, the console is considered closed and
+        /// will not be used.
+        /// </summary>
         private static int closeCount = 0;
 #endif
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of console host instances that have performed their
+        /// one-time console setup.  This is used to coordinate setup and
+        /// teardown of the shared console customizations across instances.
+        /// </summary>
         private static int referenceCount = 0;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of outstanding requests to throw an exception when the
+        /// system console is required but not available.  When greater than
+        /// zero, the various SystemConsole*MustBeOpen methods will throw.
+        /// </summary>
         private static int mustBeOpenCount = 0;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
@@ -62,6 +90,10 @@ namespace Eagle._Hosts
         // HACK: Setting this value to non-zero will disable script cancellation
         //       from being triggered via the Cancel (PrivateForceCancel) method.
         //
+        /// <summary>
+        /// When non-zero, script cancellation will not be triggered via the
+        /// Cancel (PrivateForceCancel) method.
+        /// </summary>
         private static bool defaultForceNoCancel = false;
 #endif
 
@@ -71,6 +103,11 @@ namespace Eagle._Hosts
         //       application domain one (e.g. the Ctrl-C keypress handler will
         //       be added/removed).
         //
+        /// <summary>
+        /// When non-zero, this class treats non-default application domains like
+        /// the default application domain (e.g. the Ctrl-C keypress handler will
+        /// be added or removed).
+        /// </summary>
         private static bool defaultForceAppDomain = false;
 
         //
@@ -78,13 +115,31 @@ namespace Eagle._Hosts
         //       event handler to be changed even when there may be an event
         //       handler pending.
         //
+        /// <summary>
+        /// When non-zero, the console cancel event handler is changed even when
+        /// there may be an event handler pending.
+        /// </summary>
         private static bool defaultForcePending = true;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS && DRAWING && !NET_STANDARD_20
+        /// <summary>
+        /// The custom console window icon currently installed by this class, if
+        /// any.
+        /// </summary>
         private static Icon icon;
+
+        /// <summary>
+        /// The original large console window icon, saved so that it can be
+        /// restored when the custom icon is uninstalled.
+        /// </summary>
         private static IntPtr oldBigIcon;
+
+        /// <summary>
+        /// The original small console window icon, saved so that it can be
+        /// restored when the custom icon is uninstalled.
+        /// </summary>
         private static IntPtr oldSmallIcon;
 #endif
 
@@ -93,33 +148,82 @@ namespace Eagle._Hosts
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The shared event handler used to respond to console Ctrl-C (cancel)
+        /// keypress events.
+        /// </summary>
         private static ConsoleCancelEventHandler consoleCancelEventHandler = null;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The object used to synchronize access to the per-instance state of
+        /// this console host.
+        /// </summary>
         private readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// A guard used to ensure that the certificate subject is computed only
+        /// once for this console host instance.
+        /// </summary>
         private int certificateCount = 0;
+
+        /// <summary>
+        /// The cached certificate subject string used when building the console
+        /// window title, if any.
+        /// </summary>
         private string certificateSubject = null; /* CACHED */
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The original console window title, saved so that it can be restored
+        /// later.  This is null when no title has been saved.
+        /// </summary>
         private string savedTitle;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The original console foreground color, saved so that it can be
+        /// restored later.
+        /// </summary>
         private ConsoleColor savedForegroundColor = _ConsoleColor.None;
+
+        /// <summary>
+        /// The original console background color, saved so that it can be
+        /// restored later.
+        /// </summary>
         private ConsoleColor savedBackgroundColor = _ConsoleColor.None;
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The original console window width, saved so that it can be restored
+        /// later.
+        /// </summary>
         private int savedWindowWidth = _Size.Invalid;
+
+        /// <summary>
+        /// The original console window height, saved so that it can be restored
+        /// later.
+        /// </summary>
         private int savedWindowHeight = _Size.Invalid;
+
+        /// <summary>
+        /// The original console buffer width, saved so that it can be restored
+        /// later.
+        /// </summary>
         private int savedBufferWidth = _Size.Invalid;
+
+        /// <summary>
+        /// The original console buffer height, saved so that it can be restored
+        /// later.
+        /// </summary>
         private int savedBufferHeight = _Size.Invalid;
         #endregion
 
@@ -128,6 +232,10 @@ namespace Eagle._Hosts
         #region Private Constants
         #region Native Console CancelKeyPress Handling
 #if NATIVE
+        /// <summary>
+        /// The maximum amount of time, in milliseconds, to wait when forcing
+        /// script cancellation via a native console signal.
+        /// </summary>
         private static int forceCancelTimeout = 5000;
 #endif
         #endregion
@@ -158,13 +266,27 @@ namespace Eagle._Hosts
         //
         //       https://bit.ly/2d3EniG (shortened version of above)
         //
+        /// <summary>
+        /// The maximum number of characters that can be safely written to the
+        /// console in a single operation, working around an internal size limit
+        /// of the underlying native write console function.
+        /// </summary>
         internal static readonly int SafeWriteSize = 25000; /* NOTE: <=26000 */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Buffer Size Constants
+        /// <summary>
+        /// The number of columns to subtract from a requested width when
+        /// computing the maximum console buffer width.
+        /// </summary>
         private static readonly int MaximumBufferWidthMargin = 8;
+
+        /// <summary>
+        /// The maximum "reasonable" console buffer height, in rows, used when
+        /// setting up the maximum console size (e.g. for the scrollback buffer).
+        /// </summary>
         private static readonly int MaximumBufferHeight = 9999;
         #endregion
 
@@ -175,44 +297,134 @@ namespace Eagle._Hosts
         // HACK: These are considered to be "best guess" values.
         //       Please adjust them to suit your taste as necessary.
         //
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the minimum size.
+        /// </summary>
         private static readonly int MinimumWindowWidth = 40;
+
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the compact size.
+        /// </summary>
         private static readonly int CompactWindowWidth = 80;
+
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the full size.
+        /// </summary>
         private static readonly int FullWindowWidth = 120;
+
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the super-full size.
+        /// </summary>
         private static readonly int SuperFullWindowWidth = 160;
+
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the jumbo size.
+        /// </summary>
         private static readonly int JumboWindowWidth = 200;
+
+        /// <summary>
+        /// The window width, in columns, at or above which the console is
+        /// considered to have the super-jumbo size.
+        /// </summary>
         private static readonly int SuperJumboWindowWidth = 230;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Window Height Constants
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the minimum size.
+        /// </summary>
         private static readonly int MinimumWindowHeight = 10;
+
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the compact size.
+        /// </summary>
         private static readonly int CompactWindowHeight = 25;
+
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the full size.
+        /// </summary>
         private static readonly int FullWindowHeight = 40;
+
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the super-full size.
+        /// </summary>
         private static readonly int SuperFullWindowHeight = 60;
+
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the jumbo size.
+        /// </summary>
         private static readonly int JumboWindowHeight = 75;
+
+        /// <summary>
+        /// The window height, in rows, at or above which the console is
+        /// considered to have the super-jumbo size.
+        /// </summary>
         private static readonly int SuperJumboWindowHeight = 90;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Margin Constants
+        /// <summary>
+        /// The number of columns to subtract from a requested width when
+        /// computing the maximum console window width.
+        /// </summary>
         private static readonly int MaximumWindowWidthMargin = MaximumBufferWidthMargin;
+
+        /// <summary>
+        /// The number of rows to subtract from a requested height when computing
+        /// the maximum console window height.
+        /// </summary>
         private static readonly int MaximumWindowHeightMargin = 6;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Window Title Constants
+        /// <summary>
+        /// The prefix prepended to the console window title when the current
+        /// process is running with administrative privileges.
+        /// </summary>
         private static readonly string AdministratorTitlePrefix = "Administrator:";
+
+        /// <summary>
+        /// The prefix prepended to the certificate subject portion of the
+        /// console window title.
+        /// </summary>
         private static readonly string CertificateSubjectPrefix = "- ";
+
+        /// <summary>
+        /// The placeholder shown in the console window title while the
+        /// certificate subject is being checked.
+        /// </summary>
         private static readonly string CertificateSubjectPending = "checking certificate...";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ConsoleKeyInfo Formatting Constants
+        /// <summary>
+        /// The format string used to echo a console key modifier and its
+        /// separator when echoing a read key.
+        /// </summary>
         private static readonly string ModifierEchoFormat = "{0}{1}";
+
+        /// <summary>
+        /// The character used to separate console key modifiers from one another
+        /// when echoing a read key.
+        /// </summary>
         private static readonly char ModifierEchoSeparator = Characters.MinusSign;
         #endregion
 
@@ -223,6 +435,10 @@ namespace Eagle._Hosts
         //
         // NOTE: This is purposely not read-only.
         //
+        /// <summary>
+        /// The ANSI escape sequence format string used to move the cursor back
+        /// (to the left) by a given number of columns.
+        /// </summary>
         private static string AnsiCursorBackFormat = "\x1B[{0}D";
 #endif
         #endregion
@@ -231,6 +447,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs a new console host instance, saving the original console
+        /// size and colors and performing the initial console setup.
+        /// </summary>
+        /// <param name="hostData">
+        /// The host data used to initialize this console host.  This parameter
+        /// may be null.
+        /// </param>
         public Console(
             IHostData hostData
             )
@@ -262,6 +486,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Flags Support
+        /// <summary>
+        /// Resets only the cached host flags for this console host so that they
+        /// will be recomputed on the next request.
+        /// </summary>
         private void PrivateResetHostFlagsOnly()
         {
             hostFlags = HostFlags.Invalid;
@@ -269,6 +497,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the cached host flags for this console host and the base host.
+        /// </summary>
+        /// <returns>
+        /// True if the host flags were reset successfully; otherwise, false.
+        /// </returns>
         private bool PrivateResetHostFlags()
         {
             PrivateResetHostFlagsOnly();
@@ -277,6 +511,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes the host flags for this console host, if they have not
+        /// already been computed, based on the supported capabilities and the
+        /// current console size and platform.
+        /// </summary>
+        /// <returns>
+        /// The host flags describing the capabilities of this console host.
+        /// </returns>
         protected override HostFlags MaybeInitializeHostFlags()
         {
             if (hostFlags == HostFlags.Invalid)
@@ -381,6 +623,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Records whether a read exception has occurred and resets the cached
+        /// host flags accordingly.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if a read exception has occurred; otherwise, zero.
+        /// </param>
         protected override void SetReadException(
             bool exception
             )
@@ -391,6 +640,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Records whether a write exception has occurred and resets the cached
+        /// host flags accordingly.
+        /// </summary>
+        /// <param name="exception">
+        /// Non-zero if a write exception has occurred; otherwise, zero.
+        /// </param>
         protected override void SetWriteException(
             bool exception
             )
@@ -403,6 +659,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Host Read/Write Levels Support
+        /// <summary>
+        /// Increments the shared and base read levels upon entering a console
+        /// read operation.
+        /// </summary>
         protected override void EnterReadLevel()
         {
             // CheckDisposed();
@@ -413,6 +673,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decrements the shared and base read levels upon exiting a console
+        /// read operation.
+        /// </summary>
         protected override void ExitReadLevel()
         {
             // CheckDisposed();
@@ -423,6 +687,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Increments the shared and base write levels upon entering a console
+        /// write operation.
+        /// </summary>
         protected override void EnterWriteLevel()
         {
             // CheckDisposed();
@@ -433,6 +701,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decrements the shared and base write levels upon exiting a console
+        /// write operation.
+        /// </summary>
         protected override void ExitWriteLevel()
         {
             // CheckDisposed();
@@ -446,6 +718,23 @@ namespace Eagle._Hosts
 
         #region Console Handling
         #region Native Console Stream Handling
+        /// <summary>
+        /// Determines whether the specified system console channel has been
+        /// redirected (e.g. to or from a file or pipe).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when reporting any error encountered while
+        /// querying the channel.  This parameter may be null.
+        /// </param>
+        /// <param name="channelType">
+        /// The console channel to query.
+        /// </param>
+        /// <param name="default">
+        /// The value to return when the redirection state cannot be determined.
+        /// </param>
+        /// <returns>
+        /// True if the specified channel has been redirected; otherwise, false.
+        /// </returns>
         private static bool SystemConsoleIsRedirected(
             Interpreter interpreter,
             ChannelType channelType,
@@ -508,6 +797,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console input channel has been
+        /// redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the console input channel has been redirected; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool SystemConsoleInputIsRedirected()
         {
             return SystemConsoleIsRedirected(
@@ -517,6 +814,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console output or error channel has
+        /// been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the console output or error channel has been redirected;
+        /// otherwise, false.
+        /// </returns>
         protected virtual bool SystemConsoleOutputIsRedirected()
         {
             Interpreter interpreter = InternalSafeGetInterpreter(false);
@@ -534,6 +839,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console error channel has been
+        /// redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the console error channel has been redirected; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool SystemConsoleErrorIsRedirected()
         {
             return SystemConsoleIsRedirected(
@@ -545,6 +858,11 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console Open/Close Handling
+        /// <summary>
+        /// Enables throwing exceptions from the various SystemConsole*MustBeOpen
+        /// methods when the system console is required but not available, if not
+        /// already enabled.
+        /// </summary>
         private static void EnableThrowOnMustBeOpen()
         {
             //
@@ -556,6 +874,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Temporarily changes whether the various SystemConsole*MustBeOpen
+        /// methods throw an exception when the console is unavailable, saving the
+        /// previous setting so that it can be restored later.
+        /// </summary>
+        /// <param name="throwOnMustBeOpen">
+        /// Non-zero to enable throwing; otherwise, zero.
+        /// </param>
+        /// <param name="savedThrowOnMustBeOpen">
+        /// Upon return, receives the previous setting so that it can be passed
+        /// to <see cref="EndThrowOnMustBeOpen" />.
+        /// </param>
         internal static void BeginThrowOnMustBeOpen(
             bool throwOnMustBeOpen,          /* in */
             out bool? savedThrowOnMustBeOpen /* out */
@@ -567,6 +897,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Restores the previously saved setting controlling whether the various
+        /// SystemConsole*MustBeOpen methods throw an exception when the console
+        /// is unavailable.
+        /// </summary>
+        /// <param name="savedThrowOnMustBeOpen">
+        /// The setting saved by <see cref="BeginThrowOnMustBeOpen" />; it is set
+        /// to null upon return.
+        /// </param>
         internal static void EndThrowOnMustBeOpen(
             ref bool? savedThrowOnMustBeOpen /* in, out */
             )
@@ -580,6 +919,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the various
+        /// SystemConsole*MustBeOpen methods throw an exception when the console
+        /// is required but not available.  Setting this property to true
+        /// increments, and to false decrements, the underlying request count.
+        /// </summary>
         internal static bool ThrowOnMustBeOpen
         {
             get
@@ -598,6 +943,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console is open (i.e. available for
+        /// use), optionally requiring that the console window itself is open.
+        /// </summary>
+        /// <param name="window">
+        /// Non-zero to also require that the console window is open; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the system console is open; otherwise, false.
+        /// </returns>
         private static bool SystemConsoleIsOpen(
             bool window
             )
@@ -626,6 +982,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console input channel is open by
+        /// probing an input-related console property.
+        /// </summary>
+        /// <returns>
+        /// True if the console input channel is open; otherwise, false.
+        /// </returns>
         private static bool SystemConsoleInputIsOpen()
         {
             try
@@ -656,6 +1019,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console output channel is open by
+        /// probing an output-related console property.
+        /// </summary>
+        /// <returns>
+        /// True if the console output channel is open; otherwise, false.
+        /// </returns>
         private static bool SystemConsoleOutputIsOpen()
         {
             try
@@ -686,6 +1056,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the system console output channel is open,
+        /// returning a fallback value on platforms where the underlying check is
+        /// known to be unreliable (e.g. .NET Core on Linux or macOS).
+        /// </summary>
+        /// <param name="default">
+        /// The value to return when the output-open check cannot be performed
+        /// reliably.
+        /// </param>
+        /// <returns>
+        /// True if the console output channel is open; otherwise, false.
+        /// </returns>
         private static bool MaybeSystemConsoleOutputIsOpen(
             bool @default
             )
@@ -709,6 +1091,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Throws an exception if the system console is required but not
+        /// available, optionally requiring that the console window is open.  Does
+        /// nothing when throwing is disabled.
+        /// </summary>
+        /// <param name="window">
+        /// Non-zero to also require that the console window is open; otherwise,
+        /// zero.
+        /// </param>
         protected static void SystemConsoleMustBeOpen(
             bool window
             )
@@ -726,6 +1117,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Throws an exception if the system console input channel is required
+        /// but not available.  Does nothing when throwing is disabled or when
+        /// input is redirected.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose input redirection state is consulted.
+        /// This parameter may be null.
+        /// </param>
         protected static void SystemConsoleInputMustBeOpen(
             IInteractiveHost interactiveHost
             )
@@ -744,6 +1144,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Throws an exception if the system console output channel is required
+        /// but not available.  Does nothing when throwing is disabled or when
+        /// output is redirected.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose output redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
         protected static void SystemConsoleOutputMustBeOpen(
             IStreamHost streamHost
             )
@@ -762,6 +1171,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Throws an exception if the system console error channel is required
+        /// but not available.  Does nothing when throwing is disabled or when
+        /// the error channel is redirected.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose error redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
         protected static void SystemConsoleErrorMustBeOpen(
             IStreamHost streamHost
             )
@@ -783,6 +1201,22 @@ namespace Eagle._Hosts
 
         #region System.Console ReadLine Handling
 #if UNIX
+        /// <summary>
+        /// Moves the console cursor back to the start of the current line by
+        /// emitting the appropriate ANSI escape sequence for the length of the
+        /// supplied prompt.
+        /// </summary>
+        /// <param name="textWriter">
+        /// The text writer to which the cursor-movement escape sequence is
+        /// written.  This parameter may be null.
+        /// </param>
+        /// <param name="prompt">
+        /// The prompt whose length determines how far the cursor is moved.  Upon
+        /// failure, it may be set to null.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the cursor was moved successfully; otherwise, false.
+        /// </returns>
         protected virtual bool CursorBackToStartOfLine(
             TextWriter textWriter, /* in */
             ref string prompt      /* in, out */
@@ -820,6 +1254,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Reads a line of input from the system console, using native line
+        /// editing and history navigation when available on non-Windows
+        /// platforms.
+        /// </summary>
+        /// <returns>
+        /// The line of text read from the console, or null if the end of input
+        /// has been reached.
+        /// </returns>
         protected virtual string SystemConsoleReadLine()
         {
 #if NATIVE && UNIX
@@ -852,6 +1295,21 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console Size Handling
+        /// <summary>
+        /// Gets the largest possible console window size using the managed
+        /// console properties, as a fallback when the native size query is not
+        /// available.
+        /// </summary>
+        /// <param name="width">
+        /// Upon success, receives the largest window width, in columns.
+        /// </param>
+        /// <param name="height">
+        /// Upon success, receives the largest window height, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the largest window size was obtained successfully; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool FallbackGetLargestWindowSize(
             ref int width,
             ref int height
@@ -888,6 +1346,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the current console window width, in columns, falling back to
+        /// the base host value if the console is not open or the query fails.
+        /// </summary>
         protected override int WindowWidth
         {
             get
@@ -914,6 +1376,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the current console window height, in rows, falling back to the
+        /// base host value if the console is not open or the query fails.
+        /// </summary>
         protected override int WindowHeight
         {
             get
@@ -940,6 +1406,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Saves the current console buffer and window sizes into this
+        /// instance's saved-size fields so that they can be restored later.
+        /// </summary>
+        /// <returns>
+        /// True if the sizes were saved successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SaveSize()
         {
             bool locked = false;
@@ -982,6 +1455,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Saves the current console buffer and window sizes into the supplied
+        /// output parameters.
+        /// </summary>
+        /// <param name="bufferWidth">
+        /// Upon success, receives the current console buffer width, in columns.
+        /// </param>
+        /// <param name="bufferHeight">
+        /// Upon success, receives the current console buffer height, in rows.
+        /// </param>
+        /// <param name="windowWidth">
+        /// Upon success, receives the current console window width, in columns.
+        /// </param>
+        /// <param name="windowHeight">
+        /// Upon success, receives the current console window height, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the sizes were saved successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SaveSize(
             ref int bufferWidth,
             ref int bufferHeight,
@@ -1027,6 +1519,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console buffer and window sizes to the specified values.
+        /// </summary>
+        /// <param name="bufferWidth">
+        /// The new console buffer width, in columns.
+        /// </param>
+        /// <param name="bufferHeight">
+        /// The new console buffer height, in rows.
+        /// </param>
+        /// <param name="windowWidth">
+        /// The new console window width, in columns.
+        /// </param>
+        /// <param name="windowHeight">
+        /// The new console window height, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the sizes were set successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SetSize(
             int bufferWidth,
             int bufferHeight,
@@ -1081,6 +1591,37 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes valid console buffer and window sizes from the requested
+        /// width and height, applying margins and clamping to reasonable limits.
+        /// </summary>
+        /// <param name="width">
+        /// The requested width, in columns, or an invalid size to keep the
+        /// current width.
+        /// </param>
+        /// <param name="height">
+        /// The requested height, in rows, or an invalid size to keep the current
+        /// height.
+        /// </param>
+        /// <param name="maximum">
+        /// Non-zero to compute sizes suitable for the maximum console size;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="bufferWidth">
+        /// Upon success, receives the computed console buffer width, in columns.
+        /// </param>
+        /// <param name="bufferHeight">
+        /// Upon success, receives the computed console buffer height, in rows.
+        /// </param>
+        /// <param name="windowWidth">
+        /// Upon success, receives the computed console window width, in columns.
+        /// </param>
+        /// <param name="windowHeight">
+        /// Upon success, receives the computed console window height, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the sizes were computed successfully; otherwise, false.
+        /// </returns>
         protected virtual bool CalculateSize(
             int width,
             int height,
@@ -1227,6 +1768,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Computes and sets the console buffer and window sizes from the
+        /// requested width and height.
+        /// </summary>
+        /// <param name="width">
+        /// The requested width, in columns, or an invalid size to keep the
+        /// current width.
+        /// </param>
+        /// <param name="height">
+        /// The requested height, in rows, or an invalid size to keep the current
+        /// height.
+        /// </param>
+        /// <param name="maximum">
+        /// Non-zero to set sizes suitable for the maximum console size;
+        /// otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the sizes were set successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SetSize(
             int width,
             int height,
@@ -1270,6 +1830,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console Color Save/Restore
+        /// <summary>
+        /// Saves the current console foreground and background colors into this
+        /// instance's saved-color fields so that they can be restored later.
+        /// </summary>
+        /// <returns>
+        /// True if the colors were saved successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SaveColors()
         {
             //
@@ -1315,6 +1882,27 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the console colors should be reset prior to
+        /// setting them, based on whether the requested colors match the saved
+        /// colors.
+        /// </summary>
+        /// <param name="foreground">
+        /// Non-zero if the foreground color is being set; otherwise, zero.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero if the background color is being set; otherwise, zero.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color being set.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color being set.
+        /// </param>
+        /// <returns>
+        /// True if the colors should be reset before being set; otherwise,
+        /// false.
+        /// </returns>
         protected internal virtual bool ShouldResetColorsForSetColors(
             bool foreground,
             bool background,
@@ -1365,6 +1953,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Restores the originally saved console foreground and background
+        /// colors.
+        /// </summary>
+        /// <returns>
+        /// True if the colors were restored successfully; otherwise, false.
+        /// </returns>
         protected internal virtual bool RestoreColors()
         {
             //
@@ -1419,6 +2014,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console Title Handling
+        /// <summary>
+        /// Gets the certificate subject to display in the console window title,
+        /// computing it once by verifying that the core and entry assemblies
+        /// share the same certificate subject.
+        /// </summary>
+        /// <returns>
+        /// The certificate subject string, or null if it is unavailable or the
+        /// subjects do not match.
+        /// </returns>
         protected virtual string GetCertificateSubject()
         {
             lock (syncRoot) /* TRANSACTIONAL */
@@ -1519,6 +2123,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Saves the current console window title so that it can be restored
+        /// later, unless it has already been saved or the platform does not
+        /// support fetching the title.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the title was saved (or saving was not required); otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool SaveTitle(
             ref Result error
             )
@@ -1559,6 +2175,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Restores the previously saved console window title, if any.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the title was restored successfully; otherwise, false.
+        /// </returns>
         protected virtual bool RestoreTitle(
             ref Result error
             )
@@ -1588,6 +2213,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Builds the console window title from the administrator prefix, the
+        /// default and base titles, the optional certificate subject, and the
+        /// interactive mode.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive mode is included in the title.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="useCertificate">
+        /// Non-zero to include the certificate subject; zero to include the
+        /// pending-certificate placeholder; null to omit any certificate text.
+        /// </param>
+        /// <returns>
+        /// The constructed console window title.
+        /// </returns>
         protected virtual string BuildTitle(
             Interpreter interpreter,
             bool? useCertificate
@@ -1623,6 +2264,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console window title, first showing the original title while
+        /// the certificate is being checked and then showing the final title.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// True if the title was set successfully; otherwise, false.
+        /// </returns>
         protected virtual bool SetTitle(
             ref Result error
             )
@@ -1679,6 +2330,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets up or tears down the console window title, saving and setting the
+        /// title during setup and restoring it during teardown, unless changing
+        /// the title has been disabled.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to set up (save and set) the title; zero to tear down
+        /// (restore) the title.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded; otherwise, false.
+        /// </returns>
         protected virtual bool SetupTitle(
             bool setup
             )
@@ -1753,6 +2416,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Console Stream Handling
+        /// <summary>
+        /// Determines whether the specified console channel has been redirected.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel to query.
+        /// </param>
+        /// <returns>
+        /// True if the specified channel has been redirected; otherwise, false.
+        /// </returns>
         protected virtual bool IsChannelRedirected(
             ChannelType channelType
             )
@@ -1764,6 +2436,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console Stream Handling
+        /// <summary>
+        /// Gets the system console input stream.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose input redirection state is consulted.
+        /// This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The console input stream, or null if it could not be obtained.
+        /// </returns>
         private static Stream GetInputStream(
             IInteractiveHost interactiveHost
             )
@@ -1783,6 +2465,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the system console input stream.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose input redirection state is consulted.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, receives the console input stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetInputStream(
             IInteractiveHost interactiveHost,
             ref Stream stream,
@@ -1809,6 +2508,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the system console output stream.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose output redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The console output stream, or null if it could not be obtained.
+        /// </returns>
         private static Stream GetOutputStream(
             IStreamHost streamHost
             )
@@ -1828,6 +2537,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the system console output stream.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose output redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, receives the console output stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetOutputStream(
             IStreamHost streamHost,
             ref Stream stream,
@@ -1854,6 +2580,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the system console error stream.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose error redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The console error stream, or null if it could not be obtained.
+        /// </returns>
         private static Stream GetErrorStream(
             IStreamHost streamHost
             )
@@ -1873,6 +2609,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the system console error stream.
+        /// </summary>
+        /// <param name="streamHost">
+        /// The stream host whose error redirection state is consulted.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, receives the console error stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode GetErrorStream(
             IStreamHost streamHost,
             ref Stream stream,
@@ -1901,6 +2654,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static Stream "Factory" Methods
+        /// <summary>
+        /// Creates a new stream reader over the specified stream using the
+        /// specified encoding.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to read from.  This parameter may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when reading.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The new stream reader, or null if the stream or encoding is null.
+        /// </returns>
         private static StreamReader NewStreamReader(
             Stream stream,
             Encoding encoding
@@ -1914,6 +2680,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Creates a new stream writer over the specified stream using the
+        /// specified encoding and auto-flush setting.
+        /// </summary>
+        /// <param name="stream">
+        /// The stream to write to.  This parameter may be null.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when writing.  This parameter may be null.
+        /// </param>
+        /// <param name="autoFlush">
+        /// Non-zero to flush the writer after every write; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// The new stream writer, or null if the stream or encoding is null.
+        /// </returns>
         private static StreamWriter NewStreamWriter(
             Stream stream,
             Encoding encoding,
@@ -1940,6 +2722,13 @@ namespace Eagle._Hosts
         #region Console Setup Handling
         #region Console CancelKeyPress Handling
         #region ConsoleCancelEventHandler Handling
+        /// <summary>
+        /// Gets the shared console Ctrl-C (cancel) event handler, creating it on
+        /// first use.
+        /// </summary>
+        /// <returns>
+        /// The shared console cancel event handler.
+        /// </returns>
         private static ConsoleCancelEventHandler GetConsoleCancelEventHandler()
         {
             lock (staticSyncRoot) /* TRANSACTIONAL */
@@ -1959,6 +2748,23 @@ namespace Eagle._Hosts
 
         #region Native Console CancelKeyPress Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Unhooks the native Win32 console control handler installed by the
+        /// managed console subsystem, working around incorrect internal state
+        /// management.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to unhook even when script cancellation has been disabled;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of an expected handler as an error;
+        /// otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode UnhookSystemConsoleControlHandler(
             bool force,
             bool strict
@@ -1971,6 +2777,26 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Unhooks the native Win32 console control handler installed by the
+        /// managed console subsystem, working around incorrect internal state
+        /// management.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to unhook even when script cancellation has been disabled;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat the absence of an expected handler as an error;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode UnhookSystemConsoleControlHandler(
             bool force,
             bool strict,
@@ -2017,6 +2843,14 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Console CancelKeyPress Handling
+        /// <summary>
+        /// Determines whether a script cancellation triggered via the console is
+        /// currently pending.
+        /// </summary>
+        /// <returns>
+        /// True if a console-triggered cancellation is pending; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool IsCancelViaConsolePending()
         {
             return Interpreter.IsCancelViaConsolePending();
@@ -2024,6 +2858,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Installs the console Ctrl-C (cancel) keypress handler, unless a cancel
+        /// event is already pending and installation is not being forced.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to install the handler even when a cancel event is pending;
+        /// otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the handler was installed; otherwise, false.
+        /// </returns>
         protected virtual bool InstallCancelKeyPressHandler(
             bool force
             )
@@ -2074,6 +2919,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Uninstalls the console Ctrl-C (cancel) keypress handler, unless a
+        /// cancel event is already pending and uninstallation is not being
+        /// forced.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to uninstall the handler even when a cancel event is
+        /// pending; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the handler was uninstalled; otherwise, false.
+        /// </returns>
         protected internal virtual bool UninstallCancelKeyPressHandler(
             bool force
             )
@@ -2147,6 +3004,25 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Installs or uninstalls the console Ctrl-C (cancel) keypress handler,
+        /// unless cancellation handling has been disabled or the current
+        /// application domain is not eligible.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to install the handler; zero to uninstall it.
+        /// </param>
+        /// <param name="forceAppDomain">
+        /// Non-zero to set up the handler even in a non-default application
+        /// domain; otherwise, zero.
+        /// </param>
+        /// <param name="forcePending">
+        /// Non-zero to install or uninstall the handler even when a cancel event
+        /// is pending; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded; otherwise, false.
+        /// </returns>
         protected virtual bool SetupCancelKeyPressHandler(
             bool setup,
             bool forceAppDomain,
@@ -2190,6 +3066,15 @@ namespace Eagle._Hosts
 
         #region Native Console Icon Handling
 #if NATIVE && WINDOWS && DRAWING && !NET_STANDARD_20
+        /// <summary>
+        /// Installs the custom console window icon from the entry assembly,
+        /// unless changing the icon has been disabled or the platform does not
+        /// support it.
+        /// </summary>
+        /// <returns>
+        /// True if the icon was installed (or installation was not required);
+        /// otherwise, false.
+        /// </returns>
         private bool SetupIcon()
         {
             try
@@ -2229,6 +3114,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Installs or uninstalls the custom console window icon, unless changing
+        /// the icon has been disabled or the platform does not support it.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to install the icon; zero to uninstall it.
+        /// </param>
+        /// <param name="stream">
+        /// The stream containing the icon to install.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded (or was not required); otherwise,
+        /// false.
+        /// </returns>
         private bool SetupIcon(
             bool setup,   /* in */
             Stream stream /* in */
@@ -2291,6 +3191,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Installs a custom icon on the specified console window, saving the
+        /// original icons so that they can be restored later.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle of the console window whose icon is being changed.
+        /// </param>
+        /// <param name="stream">
+        /// The stream containing the icon to install.
+        /// </param>
         private static void InstallIcon(
             IntPtr handle, /* in */
             Stream stream  /* in */
@@ -2317,6 +3227,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Restores the original icons on the specified console window and
+        /// disposes the custom icon, if any.
+        /// </summary>
+        /// <param name="handle">
+        /// The handle of the console window whose icon is being restored.
+        /// </param>
         private static void UninstallIcon(
             IntPtr handle /* in */
             )
@@ -2344,6 +3261,16 @@ namespace Eagle._Hosts
 
         #region Native Console Mode Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Sets up or tears down the native console input mode, disabling mouse
+        /// input during setup so that right-click works as expected.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to set up the console mode; zero to tear it down.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded; otherwise, false.
+        /// </returns>
         private bool SetupMode(
             bool setup
             )
@@ -2372,6 +3299,25 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Global Setup Methods
+        /// <summary>
+        /// Determines whether the shared console customizations should be set up
+        /// or torn down, based on the reference count and any explicit override,
+        /// and marks the setup state accordingly.
+        /// </summary>
+        /// <param name="newReferenceCount">
+        /// The updated console host reference count.
+        /// </param>
+        /// <param name="setup">
+        /// Non-zero if setup is being requested; zero if teardown is being
+        /// requested.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to ignore the reference count; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the caller should perform the setup or teardown; otherwise,
+        /// false.
+        /// </returns>
         protected virtual bool ShouldSetup(
             int newReferenceCount,
             bool setup,
@@ -2429,6 +3375,24 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Performs the one-time setup or teardown of the shared console
+        /// customizations (title, icon, mode, and cancel keypress handler),
+        /// coordinated via the reference count.
+        /// </summary>
+        /// <param name="host">
+        /// The console host performing the setup or teardown.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="setup">
+        /// Non-zero to set up the customizations; zero to tear them down.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to ignore the reference count; otherwise, zero.
+        /// </param>
+        /// <returns>
+        /// True if the operation succeeded; otherwise, false.
+        /// </returns>
         private static bool Setup(
             Console host,
             bool setup,
@@ -2554,6 +3518,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Console Test Mode Handling
+        /// <summary>
+        /// Enables or disables console test mode, adjusting the host flags and
+        /// host test flags accordingly.
+        /// </summary>
+        /// <param name="enable">
+        /// Non-zero to enable test mode; zero to disable it.
+        /// </param>
         internal void EnableTests(
             bool enable
             )
@@ -2592,7 +3563,16 @@ namespace Eagle._Hosts
 
         #region Console Read Cancellation Handling
         #region Read Cancellation Properties
+        /// <summary>
+        /// The number of outstanding requests to cancel a pending console read.
+        /// When greater than zero, in-progress reads are considered canceled.
+        /// </summary>
         private int cancelReadLevels;
+
+        /// <summary>
+        /// Gets the number of outstanding requests to cancel a pending console
+        /// read.
+        /// </summary>
         protected internal virtual int CancelReadLevels
         {
             get
@@ -2608,6 +3588,12 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Check Read Cancellation
+        /// <summary>
+        /// Determines whether a pending console read has been canceled.
+        /// </summary>
+        /// <returns>
+        /// True if a console read has been canceled; otherwise, false.
+        /// </returns>
         protected virtual bool WasReadCanceled()
         {
             return Interlocked.CompareExchange(
@@ -2618,6 +3604,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Reset Read Cancellation
+        /// <summary>
+        /// Resets the console read cancellation state so that subsequent reads
+        /// are not considered canceled.
+        /// </summary>
         protected virtual void ResetCancelRead()
         {
             // CheckDisposed();
@@ -2630,6 +3620,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Initiate Read Cancellation
+        /// <summary>
+        /// Requests cancellation of any pending console read.
+        /// </summary>
         protected virtual void CancelRead()
         {
             // CheckDisposed();
@@ -2641,6 +3634,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Read / ReadLine Mutators
+        /// <summary>
+        /// Clears the value read from the console if the read has been canceled.
+        /// </summary>
+        /// <param name="value">
+        /// The value read from the console; it is set to null if the read has
+        /// been canceled.  This parameter may be null.
+        /// </param>
         protected virtual void GetValueForRead(
             ref string value /* in, out */
             )
@@ -2651,6 +3651,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Clears the value read from the console if the read has been canceled.
+        /// </summary>
+        /// <param name="value">
+        /// The value read from the console; it is set to null if the read has
+        /// been canceled.  This parameter may be null.
+        /// </param>
         protected virtual void GetValueForRead(
             ref int? value /* in, out */
             )
@@ -2661,6 +3668,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Clears the key information read from the console if the read has been
+        /// canceled.
+        /// </summary>
+        /// <param name="value">
+        /// The key information read from the console; it is set to null if the
+        /// read has been canceled.  This parameter may be null.
+        /// </param>
         [Obsolete()]
         protected virtual void GetValueForRead(
             ref ConsoleKeyInfo? value /* in, out */
@@ -2674,6 +3689,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Read / ReadLine Echo Helper Methods
+        /// <summary>
+        /// Echoes a string value that was read from the console back to the
+        /// console output.
+        /// </summary>
+        /// <param name="value">
+        /// The string value to echo.  This parameter may be null.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the value; otherwise,
+        /// zero.
+        /// </param>
         protected virtual void EchoValueForRead(
             string value, /* in */
             bool newLine  /* in */
@@ -2684,6 +3710,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Echoes an integer character value that was read from the console back
+        /// to the console output.
+        /// </summary>
+        /// <param name="value">
+        /// The integer character value to echo.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the value; otherwise,
+        /// zero.
+        /// </param>
         protected virtual void EchoValueForRead(
             int value,   /* in */
             bool newLine /* in */
@@ -2696,6 +3733,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Echoes a console key, including its modifiers, that was read from the
+        /// console back to the console output, skipping non-printable
+        /// characters.
+        /// </summary>
+        /// <param name="value">
+        /// The console key information to echo.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the key; otherwise, zero.
+        /// </param>
         [Obsolete()]
         protected virtual void EchoValueForRead(
             ConsoleKeyInfo value, /* in */
@@ -2750,7 +3798,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Console Pending Reads/Writes Handling
+        /// <summary>
+        /// The number of console read operations currently in progress across
+        /// all instances sharing the system console.
+        /// </summary>
         private static int sharedReadLevels;
+
+        /// <summary>
+        /// Gets the number of console read operations currently in progress
+        /// across all instances sharing the system console.
+        /// </summary>
         protected internal virtual int SharedReadLevels
         {
             get
@@ -2766,7 +3823,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of console write operations currently in progress across
+        /// all instances sharing the system console.
+        /// </summary>
         private static int sharedWriteLevels;
+
+        /// <summary>
+        /// Gets the number of console write operations currently in progress
+        /// across all instances sharing the system console.
+        /// </summary>
         protected internal virtual int SharedWriteLevels
         {
             get
@@ -2782,6 +3848,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Verifies that there are no pending console reads or writes (local or
+        /// shared) and that the console is not in use by other application
+        /// domains, so that the console may be safely closed.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives a message describing why the console cannot be
+        /// closed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if there are no pending operations;
+        /// otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         protected virtual ReturnCode CheckActiveReadsAndWrites(
             ref Result error
             )
@@ -2845,6 +3924,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Native Console Handling
+        /// <summary>
+        /// Reports a native console error via the complaint subsystem, but only
+        /// when there is a result and verbose mode is enabled.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="result">
+        /// The result describing the error.  This parameter may be null, in
+        /// which case nothing is reported.
+        /// </param>
         private void MaybeComplain(
             ReturnCode code,
             Result result
@@ -2863,6 +3953,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Native Console Prompt Handling
+        /// <summary>
+        /// Gets the prompt flags from the specified interpreter, falling back to
+        /// the default prompt flags when unavailable.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose prompt flags are retrieved.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The prompt flags for the interpreter, or the default prompt flags.
+        /// </returns>
         protected virtual PromptFlags GetPromptFlags(
             Interpreter interpreter /* in */
             )
@@ -2893,6 +3994,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the default interactive start prompt for the current
+        /// interpreter, if any.
+        /// </summary>
+        /// <returns>
+        /// The prompt string, or null if no interpreter is available.
+        /// </returns>
         protected virtual string MaybeGetPrompt()
         {
             Interpreter interpreter = SafeGetInterpreter();
@@ -2916,6 +4024,23 @@ namespace Eagle._Hosts
 
         #region Native Console Open/Close Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Attaches to an existing native console or opens a new one, and
+        /// prevents the console window from being closed when appropriate.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force the attach or open operation; otherwise, zero.
+        /// </param>
+        /// <param name="attach">
+        /// Non-zero to attach to an existing console; zero to open a new one.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateAttachOrOpen(
             bool force,
             bool attach,
@@ -2983,6 +4108,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Closes the native console standard input handle, e.g. to break out of
+        /// a blocking read.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateCloseStandardInput(
             ref Result error
             )
@@ -3007,6 +4143,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Closes the native console.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateClose(
             ref Result error
             )
@@ -3035,6 +4181,19 @@ namespace Eagle._Hosts
 
         #region Native Console Size Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Gets the largest possible native console window size.
+        /// </summary>
+        /// <param name="width">
+        /// Upon success, receives the largest window width, in columns.
+        /// </param>
+        /// <param name="height">
+        /// Upon success, receives the largest window height, in rows.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateGetLargestWindowSize(
             ref int width,
             ref int height
@@ -3066,6 +4225,22 @@ namespace Eagle._Hosts
 
         #region Native Console Mode Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Gets the native console mode flags for the specified channel.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is retrieved.
+        /// </param>
+        /// <param name="mode">
+        /// Upon success, receives the mode flags for the channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateGetMode(
             ChannelType channelType,
             ref uint mode,
@@ -3091,6 +4266,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the native console mode flags for the specified channel.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is set.
+        /// </param>
+        /// <param name="mode">
+        /// The mode flags to set for the channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateSetMode(
             ChannelType channelType,
             uint mode,
@@ -3116,6 +4307,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Enables or disables the specified native console mode flags for the
+        /// input channel.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is changed.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to enable the specified mode flags; zero to disable them.
+        /// </param>
+        /// <param name="mode">
+        /// The mode flags to enable or disable.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateChangeMode(
             ChannelType channelType,
             bool enable,
@@ -3144,6 +4352,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Enables or disables the specified native console mode flags when the
+        /// console is open.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is changed.
+        /// </param>
+        /// <param name="enable">
+        /// Non-zero to enable the specified mode flags; zero to disable them.
+        /// </param>
+        /// <param name="mode">
+        /// The mode flags to enable or disable.
+        /// </param>
+        /// <returns>
+        /// True if the mode was changed successfully; otherwise, false.
+        /// </returns>
         protected virtual bool ChangeMode( /* NOT USED? */
             ChannelType channelType,
             bool enable,
@@ -3165,6 +4389,12 @@ namespace Eagle._Hosts
 
         #region Native Console Window Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Determines whether the native console has been marked as closed.
+        /// </summary>
+        /// <returns>
+        /// True if the console has been marked as closed; otherwise, false.
+        /// </returns>
         private static bool WasConsoleClosed()
         {
             return Interlocked.CompareExchange(
@@ -3173,6 +4403,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Increments the count of outstanding requests to treat the native
+        /// console as closed.
+        /// </summary>
+        /// <returns>
+        /// The updated close count.
+        /// </returns>
         private static int BumpConsoleClosed()
         {
             return Interlocked.Increment(ref closeCount);
@@ -3180,6 +4417,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Decrements the count of outstanding requests to treat the native
+        /// console as closed.
+        /// </summary>
+        /// <returns>
+        /// The updated close count.
+        /// </returns>
         private static int UnbumpConsoleClosed()
         {
             return Interlocked.Decrement(ref closeCount);
@@ -3191,6 +4435,17 @@ namespace Eagle._Hosts
 
         #region Native Console Input Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Flushes the native console input buffer, discarding any pending
+        /// input.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateFlushInputBuffer(
             ref Result error
             )
@@ -3219,6 +4474,21 @@ namespace Eagle._Hosts
 
         #region Native Console CancelKeyPress Handling
 #if NATIVE
+        /// <summary>
+        /// Forces script cancellation by raising a native console signal (e.g.
+        /// simulating Ctrl-C).
+        /// </summary>
+        /// <param name="noCancel">
+        /// Non-zero to raise the signal without triggering script cancellation;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode PrivateForceCancel(
             bool noCancel,
             ref Result error
@@ -3254,6 +4524,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to break out of a synchronous console read, optionally
+        /// forcing script cancellation first, so that the interactive loop can
+        /// observe interpreter state changes.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force script cancellation before simulating input;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateCancel(
             bool force,
             ref Result error
@@ -3332,6 +4618,16 @@ namespace Eagle._Hosts
 
         #region Native Console History Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Clears the native console command history.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode PrivateResetHistory(
             ref Result error
             )
@@ -3360,6 +4656,14 @@ namespace Eagle._Hosts
 
         #region Native Console Write Handling
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// Determines whether output can be written using the native console
+        /// write functions (i.e. native console support is available, native
+        /// window output is enabled, and output is not redirected).
+        /// </summary>
+        /// <returns>
+        /// True if native writing is possible; otherwise, false.
+        /// </returns>
         private bool CanWriteNative()
         {
             if (!NativeConsole.IsSupported() ||
@@ -3374,6 +4678,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Enables or disables writing output using the native console write
+        /// functions by adjusting the host flags.
+        /// </summary>
+        /// <param name="writeNative">
+        /// Non-zero to enable native writing; zero to disable it.
+        /// </param>
         internal void SetWriteNative(
             bool writeNative
             )
@@ -3386,6 +4697,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a value to the console using the native console write
+        /// functions, if native writing is possible.
+        /// </summary>
+        /// <typeparam name="T">
+        /// The type of the value to write.
+        /// </typeparam>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the value; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the value was written natively; otherwise, false.
+        /// </returns>
         private bool WriteNative<T>(
             T value,
             bool newLine
@@ -3400,6 +4728,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a line terminator to the console using the native console
+        /// write functions, if native writing is possible.
+        /// </summary>
+        /// <returns>
+        /// True if the line terminator was written natively; otherwise, false.
+        /// </returns>
         private bool WriteLineNative()
         {
             if (!CanWriteNative())
@@ -3412,6 +4747,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a character to the console, preferring the native console
+        /// write functions and falling back to the managed console.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the character; otherwise,
+        /// zero.
+        /// </param>
         private void PrivateWrite(
             char value,
             bool newLine
@@ -3430,6 +4776,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a string to the console, preferring the native console write
+        /// functions and falling back to the managed console.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the string; otherwise,
+        /// zero.
+        /// </param>
         private void PrivateWrite(
             string value,
             bool newLine
@@ -3448,6 +4805,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a line terminator to the console, preferring the native
+        /// console write functions and falling back to the managed console.
+        /// </summary>
         private void PrivateWriteLine()
         {
 #if NATIVE && WINDOWS
@@ -3464,6 +4825,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Content Section Methods
+        /// <summary>
+        /// Determines whether this console host supports colored output,
+        /// returning false when console output is redirected.
+        /// </summary>
+        /// <returns>
+        /// True if colored output is supported; otherwise, false.
+        /// </returns>
         protected override bool DoesSupportColor()
         {
             if (SystemConsoleOutputIsRedirected())
@@ -3474,6 +4842,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether this console host adjusts output colors, returning
+        /// false when console output is redirected.
+        /// </summary>
+        /// <returns>
+        /// True if color adjustment is supported; otherwise, false.
+        /// </returns>
         protected override bool DoesAdjustColor()
         {
             if (SystemConsoleOutputIsRedirected())
@@ -3484,6 +4859,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether this console host supports window and buffer
+        /// sizing, returning false when console output is redirected.
+        /// </summary>
+        /// <returns>
+        /// True if sizing is supported; otherwise, false.
+        /// </returns>
         protected override bool DoesSupportSizing()
         {
             if (SystemConsoleOutputIsRedirected())
@@ -3494,6 +4876,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether this console host supports cursor positioning,
+        /// returning false when console output is redirected.
+        /// </summary>
+        /// <returns>
+        /// True if positioning is supported; otherwise, false.
+        /// </returns>
         protected override bool DoesSupportPositioning()
         {
             if (SystemConsoleOutputIsRedirected())
@@ -3506,6 +4895,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInteractiveHost Members
+        /// <summary>
+        /// Gets or sets the base title for this host; setting it also refreshes
+        /// the console window title.  This property is write-only on this host.
+        /// </summary>
         public override string Title
         {
             set
@@ -3519,6 +4912,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Rebuilds and reapplies the console window title.
+        /// </summary>
+        /// <returns>
+        /// True if the title was refreshed successfully; otherwise, false.
+        /// </returns>
         public override bool RefreshTitle()
         {
             CheckDisposed();
@@ -3528,6 +4927,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether console input has been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if console input has been redirected; otherwise, false.
+        /// </returns>
         public override bool IsInputRedirected()
         {
             CheckDisposed();
@@ -3601,6 +5006,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the console (including its window) is open.
+        /// </summary>
+        /// <returns>
+        /// True if the console is open; otherwise, false.
+        /// </returns>
         public override bool IsOpen()
         {
             CheckDisposed();
@@ -3610,6 +5021,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Pauses execution until a key is pressed on the console, discarding the
+        /// key.
+        /// </summary>
+        /// <returns>
+        /// True if a key was read successfully; otherwise, false.
+        /// </returns>
         public override bool Pause()
         {
             CheckDisposed();
@@ -3654,6 +5072,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Flushes the console output and error channels.
+        /// </summary>
+        /// <returns>
+        /// True if at least one channel was flushed successfully; otherwise,
+        /// false.
+        /// </returns>
         public override bool Flush()
         {
             CheckDisposed();
@@ -3741,7 +5166,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached host flags for this console host, or
+        /// <see cref="HostFlags.Invalid" /> if they have not yet been computed.
+        /// </summary>
         private HostFlags hostFlags = HostFlags.Invalid;
+
+        /// <summary>
+        /// Gets the host flags describing the capabilities of this console host.
+        /// </summary>
+        /// <returns>
+        /// The host flags for this console host.
+        /// </returns>
         public override HostFlags GetHostFlags()
         {
             CheckDisposed();
@@ -3751,6 +5187,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Reads a line of input from the console, optionally echoing it.
+        /// </summary>
+        /// <param name="value">
+        /// Upon success, receives the line of text read from the console.
+        /// </param>
+        /// <returns>
+        /// True if a line was read successfully; otherwise, false.
+        /// </returns>
         public override bool ReadLine(
             ref string value
             )
@@ -3813,6 +5258,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a line terminator to the console output.
+        /// </summary>
+        /// <returns>
+        /// True if the line terminator was written successfully; otherwise,
+        /// false.
+        /// </returns>
         public override bool WriteLine()
         {
             CheckDisposed();
@@ -3860,6 +5312,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IStreamHost Members
+        /// <summary>
+        /// Gets a new stream over the standard console input.
+        /// </summary>
         public override Stream DefaultIn
         {
             get
@@ -3873,6 +5328,9 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a new stream over the standard console output.
+        /// </summary>
         public override Stream DefaultOut
         {
             get
@@ -3886,6 +5344,9 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a new stream over the standard console error.
+        /// </summary>
         public override Stream DefaultError
         {
             get
@@ -3899,6 +5360,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the console input stream; setting it redirects console input to
+        /// read from the supplied stream using the current input encoding.
+        /// </summary>
         public override Stream In
         {
             get { CheckDisposed(); return GetInputStream(this); }
@@ -3914,6 +5379,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the console output stream; setting it redirects console output
+        /// to write to the supplied stream using the current output encoding.
+        /// </summary>
         public override Stream Out
         {
             get { CheckDisposed(); return GetOutputStream(this); }
@@ -3929,6 +5398,11 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the console error stream; setting it redirects console error
+        /// output to write to the supplied stream using the current error
+        /// encoding.
+        /// </summary>
         public override Stream Error
         {
             get { CheckDisposed(); return GetErrorStream(this); }
@@ -3944,6 +5418,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the encoding used when reading from the console input
+        /// channel.
+        /// </summary>
         public override Encoding InputEncoding
         {
             get
@@ -3964,6 +5442,10 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the encoding used when writing to the console output
+        /// channel.
+        /// </summary>
         public override Encoding OutputEncoding
         {
             get
@@ -3988,6 +5470,11 @@ namespace Eagle._Hosts
         // HACK: This uses OutputEncoding since there is no ErrorEncoding
         //       property of the System.Console class.
         //
+        /// <summary>
+        /// Gets or sets the encoding used when writing to the console error
+        /// channel.  Because the underlying console class has no separate error
+        /// encoding, this uses the console output encoding.
+        /// </summary>
         public override Encoding ErrorEncoding
         {
             get
@@ -4008,6 +5495,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the console input channel by reapplying its encoding and
+        /// re-acquiring the input reader.
+        /// </summary>
+        /// <returns>
+        /// True if the input channel was reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetIn()
         {
             CheckDisposed();
@@ -4052,6 +5546,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the console output channel by reapplying its encoding and
+        /// re-acquiring the output writer.
+        /// </summary>
+        /// <returns>
+        /// True if the output channel was reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetOut()
         {
             CheckDisposed();
@@ -4096,6 +5597,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the console error channel by reapplying the output encoding and
+        /// re-acquiring the error writer.
+        /// </summary>
+        /// <returns>
+        /// True if the error channel was reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetError()
         {
             CheckDisposed();
@@ -4140,6 +5648,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether console output has been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if console output has been redirected; otherwise, false.
+        /// </returns>
         public override bool IsOutputRedirected()
         {
             CheckDisposed();
@@ -4179,6 +5693,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the console error channel has been redirected.
+        /// </summary>
+        /// <returns>
+        /// True if the console error channel has been redirected; otherwise,
+        /// false.
+        /// </returns>
         public override bool IsErrorRedirected()
         {
             CheckDisposed();
@@ -4218,6 +5739,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets up the console input, output, and error channels.  This is not
+        /// implemented on this host.
+        /// </summary>
+        /// <returns>
+        /// True if the channels were set up successfully; otherwise, false.
+        /// </returns>
         public override bool SetupChannels()
         {
             CheckDisposed();
@@ -4229,6 +5757,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDebugHost Members
+        /// <summary>
+        /// Creates a copy of this console host associated with the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to associate with the new host.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// The newly created console host.
+        /// </returns>
         public override IHost Clone(
             Interpreter interpreter
             )
@@ -4242,7 +5781,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached host test flags for this console host, or
+        /// <see cref="HostTestFlags.Invalid" /> if they have not yet been
+        /// computed.
+        /// </summary>
         private HostTestFlags hostTestFlags = HostTestFlags.Invalid;
+
+        /// <summary>
+        /// Gets the host test flags for this console host, computing them if
+        /// necessary.
+        /// </summary>
+        /// <returns>
+        /// The host test flags for this console host.
+        /// </returns>
         public override HostTestFlags GetTestFlags()
         {
             CheckDisposed();
@@ -4255,6 +5807,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Cancels any pending console read and attempts to break out of a
+        /// synchronous console read so that interpreter state changes can be
+        /// observed.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force script cancellation; otherwise, zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Cancel(
             bool force,
             ref Result error
@@ -4288,6 +5855,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Initiates exit of the interpreter by stopping further activity and
+        /// breaking out of any blocking console read.
+        /// </summary>
+        /// <param name="force">
+        /// Non-zero to force the interpreter to stop all activity; otherwise,
+        /// zero.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Exit(
             bool force,
             ref Result error
@@ -4332,6 +5914,14 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a line terminator to the debug output, which is forwarded to
+        /// the normal console output.
+        /// </summary>
+        /// <returns>
+        /// True if the line terminator was written successfully; otherwise,
+        /// false.
+        /// </returns>
         public override bool WriteDebugLine()
         {
             CheckDisposed();
@@ -4345,6 +5935,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a character to the debug output, which is forwarded to the
+        /// normal console output using the debug colors.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the character; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the character was written successfully; otherwise, false.
+        /// </returns>
         public override bool WriteDebug(
             char value,
             bool newLine
@@ -4362,6 +5966,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a string to the debug output, which is forwarded to the normal
+        /// console output using the debug colors.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the string; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the string was written successfully; otherwise, false.
+        /// </returns>
         public override bool WriteDebug(
             string value,
             bool newLine
@@ -4379,6 +5997,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a line terminator to the console error channel.
+        /// </summary>
+        /// <returns>
+        /// True if the line terminator was written successfully; otherwise,
+        /// false.
+        /// </returns>
         public override bool WriteErrorLine()
         {
             CheckDisposed();
@@ -4423,6 +6048,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a character to the console error channel using the error (or
+        /// fatal) colors.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the character; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the character was written successfully; otherwise, false.
+        /// </returns>
         public override bool WriteError(
             char value,
             bool newLine
@@ -4469,6 +6108,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a string to the console error channel using the error (or
+        /// fatal) colors.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the string; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the string was written successfully; otherwise, false.
+        /// </returns>
         public override bool WriteError(
             string value,
             bool newLine
@@ -4517,6 +6170,30 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IInformationHost Members
+        /// <summary>
+        /// Writes host-specific custom information, used only in test mode by
+        /// this host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter for which the information is written.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags controlling which details are written.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the information;
+        /// otherwise, zero.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// The foreground color to use when writing the information.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// The background color to use when writing the information.
+        /// </param>
+        /// <returns>
+        /// True if the information was written successfully; otherwise, false.
+        /// </returns>
         public override bool WriteCustomInfo(
             Interpreter interpreter,
             DetailFlags detailFlags,
@@ -4543,6 +6220,23 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IBoxHost Members
+        /// <summary>
+        /// Begins a visual box (grouping) on the host.  This host does not draw
+        /// boxes and always reports success.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.  This parameter may be null.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs to display in the box.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the box.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the box was begun successfully; otherwise, false.
+        /// </returns>
         public override bool BeginBox(
             string name,
             StringPairList list,
@@ -4556,6 +6250,23 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Ends a visual box (grouping) on the host.  This host does not draw
+        /// boxes and always reports success.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the box.  This parameter may be null.
+        /// </param>
+        /// <param name="list">
+        /// The list of name/value pairs displayed in the box.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the box.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the box was ended successfully; otherwise, false.
+        /// </returns>
         public override bool EndBox(
             string name,
             StringPairList list,
@@ -4571,6 +6282,13 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IColorHost Members
+        /// <summary>
+        /// Resets the console foreground and background colors to their
+        /// defaults.
+        /// </summary>
+        /// <returns>
+        /// True if the colors were reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetColors()
         {
             CheckDisposed();
@@ -4604,6 +6322,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the current console foreground and background colors.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// Upon success, receives the current foreground color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon success, receives the current background color.
+        /// </param>
+        /// <returns>
+        /// True if the colors were obtained successfully; otherwise, false.
+        /// </returns>
         public override bool GetColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -4642,6 +6372,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Adjusts the supplied colors by swapping the foreground and background
+        /// colors (i.e. reverse video).
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// On input, the foreground color; on output, the swapped color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// On input, the background color; on output, the swapped color.
+        /// </param>
+        /// <returns>
+        /// True if the colors were adjusted successfully; otherwise, false.
+        /// </returns>
         public override bool AdjustColors(
             ref ConsoleColor foregroundColor,
             ref ConsoleColor backgroundColor
@@ -4661,6 +6404,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console foreground color, optionally substituting the saved
+        /// foreground color when no color is specified.
+        /// </summary>
+        /// <param name="foregroundColor">
+        /// The foreground color to set.
+        /// </param>
+        /// <returns>
+        /// True if the foreground color was set successfully; otherwise, false.
+        /// </returns>
         public override bool SetForegroundColor(
             ConsoleColor foregroundColor
             )
@@ -4750,6 +6503,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console background color, optionally substituting the saved
+        /// background color when no color is specified.
+        /// </summary>
+        /// <param name="backgroundColor">
+        /// The background color to set.
+        /// </param>
+        /// <returns>
+        /// True if the background color was set successfully; otherwise, false.
+        /// </returns>
         public override bool SetBackgroundColor(
             ConsoleColor backgroundColor
             )
@@ -4841,6 +6604,18 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPositionHost Members
+        /// <summary>
+        /// Gets the current cursor position on the console.
+        /// </summary>
+        /// <param name="left">
+        /// Upon success, receives the cursor column (zero-based).
+        /// </param>
+        /// <param name="top">
+        /// Upon success, receives the cursor row (zero-based).
+        /// </param>
+        /// <returns>
+        /// True if the position was obtained successfully; otherwise, false.
+        /// </returns>
         public override bool GetPosition(
             ref int left,
             ref int top
@@ -4879,6 +6654,21 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the cursor position on the console, ignoring either coordinate
+        /// that is invalid.
+        /// </summary>
+        /// <param name="left">
+        /// The cursor column (zero-based), or an invalid position to leave the
+        /// column unchanged.
+        /// </param>
+        /// <param name="top">
+        /// The cursor row (zero-based), or an invalid position to leave the row
+        /// unchanged.
+        /// </param>
+        /// <returns>
+        /// True if the position was set successfully; otherwise, false.
+        /// </returns>
         public override bool SetPosition(
             int left,
             int top
@@ -4923,6 +6713,17 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISizeHost Members
+        /// <summary>
+        /// Restores the console buffer and window sizes to the originally saved
+        /// sizes, restoring the prior sizes on failure.
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The type of size to reset; only the window (current) size is
+        /// supported.
+        /// </param>
+        /// <returns>
+        /// True if the size was reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetSize(
             HostSizeType hostSizeType
             )
@@ -4999,6 +6800,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the console size of the specified type (buffer or window,
+        /// current or maximum).
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The type of size to get.
+        /// </param>
+        /// <param name="width">
+        /// Upon success, receives the width, in columns.
+        /// </param>
+        /// <param name="height">
+        /// Upon success, receives the height, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the size was obtained successfully; otherwise, false.
+        /// </returns>
         public override bool GetSize(
             HostSizeType hostSizeType,
             ref int width,
@@ -5091,6 +6908,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console size of the specified type (window current or
+        /// maximum); setting the buffer size is not supported.
+        /// </summary>
+        /// <param name="hostSizeType">
+        /// The type of size to set.
+        /// </param>
+        /// <param name="width">
+        /// The width to set, in columns.
+        /// </param>
+        /// <param name="height">
+        /// The height to set, in rows.
+        /// </param>
+        /// <returns>
+        /// True if the size was set successfully; otherwise, false.
+        /// </returns>
         public override bool SetSize(
             HostSizeType hostSizeType,
             int width,
@@ -5126,6 +6959,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IReadHost Members
+        /// <summary>
+        /// Reads a single character from the console input, optionally echoing
+        /// it.
+        /// </summary>
+        /// <param name="value">
+        /// Upon success, receives the character read, as an integer.
+        /// </param>
+        /// <returns>
+        /// True if a character was read successfully; otherwise, false.
+        /// </returns>
         public override bool Read(
             ref int value
             )
@@ -5190,6 +7033,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Reads a single key from the console input, optionally echoing it, and
+        /// returns the key information wrapped in client data.
+        /// </summary>
+        /// <param name="intercept">
+        /// Non-zero to intercept the key (i.e. not display it); otherwise, zero.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the key information wrapped in client data.
+        /// </param>
+        /// <returns>
+        /// True if a key was read successfully; otherwise, false.
+        /// </returns>
         public override bool ReadKey(
             bool intercept,
             ref IClientData value
@@ -5256,6 +7112,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Reads a single key from the console input, optionally echoing it, and
+        /// returns the key information directly.
+        /// </summary>
+        /// <param name="intercept">
+        /// Non-zero to intercept the key (i.e. not display it); otherwise, zero.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the key information.
+        /// </param>
+        /// <returns>
+        /// True if a key was read successfully; otherwise, false.
+        /// </returns>
         [Obsolete()]
         public override bool ReadKey(
             bool intercept,
@@ -5325,6 +7194,19 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IWriteHost Members
+        /// <summary>
+        /// Writes a character to the console output.
+        /// </summary>
+        /// <param name="value">
+        /// The character to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the character; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the character was written successfully; otherwise, false.
+        /// </returns>
         public override bool Write(
             char value,
             bool newLine
@@ -5373,6 +7255,19 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Writes a string to the console output.
+        /// </summary>
+        /// <param name="value">
+        /// The string to write.
+        /// </param>
+        /// <param name="newLine">
+        /// Non-zero to append a line terminator after the string; otherwise,
+        /// zero.
+        /// </param>
+        /// <returns>
+        /// True if the string was written successfully; otherwise, false.
+        /// </returns>
         public override bool Write(
             string value,
             bool newLine
@@ -5423,6 +7318,16 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IHost Members
+        /// <summary>
+        /// Builds a list of name/value pairs describing the current state of
+        /// this console host, for diagnostic purposes.
+        /// </summary>
+        /// <param name="detailFlags">
+        /// The flags controlling which details are included.
+        /// </param>
+        /// <returns>
+        /// A list of name/value pairs describing the host state.
+        /// </returns>
         public override StringList QueryState(
             DetailFlags detailFlags
             )
@@ -5501,6 +7406,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Plays a beep on the console at the specified frequency and duration.
+        /// </summary>
+        /// <param name="frequency">
+        /// The frequency of the beep, in hertz.
+        /// </param>
+        /// <param name="duration">
+        /// The duration of the beep, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the beep was played successfully; otherwise, false.
+        /// </returns>
         public override bool Beep(
             int frequency,
             int duration
@@ -5537,6 +7454,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Determines whether the host is idle.  This host has no idle detection
+        /// and always reports that it is idle.
+        /// </summary>
+        /// <returns>
+        /// True if the host is idle; otherwise, false.
+        /// </returns>
         public override bool IsIdle()
         {
             CheckDisposed();
@@ -5549,6 +7473,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Clears the console screen.
+        /// </summary>
+        /// <returns>
+        /// True if the console was cleared successfully; otherwise, false.
+        /// </returns>
         public override bool Clear()
         {
             CheckDisposed();
@@ -5587,6 +7517,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the cached host flags for this console host so that they will
+        /// be recomputed on the next request.
+        /// </summary>
+        /// <returns>
+        /// True if the host flags were reset successfully; otherwise, false.
+        /// </returns>
         public override bool ResetHostFlags()
         {
             CheckDisposed();
@@ -5596,6 +7533,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Clears the console command history.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode ResetHistory(
             ref Result error
             )
@@ -5612,6 +7559,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the console mode flags for the specified channel.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is retrieved.
+        /// </param>
+        /// <param name="mode">
+        /// Upon success, receives the mode flags for the channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode GetMode(
             ChannelType channelType,
             ref uint mode,
@@ -5630,6 +7593,22 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Sets the console mode flags for the specified channel.
+        /// </summary>
+        /// <param name="channelType">
+        /// The console channel whose mode is set.
+        /// </param>
+        /// <param name="mode">
+        /// The mode flags to set for the channel.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode SetMode(
             ChannelType channelType,
             uint mode,
@@ -5648,6 +7627,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Opens (or attaches to) the native console and re-applies this host's
+        /// console customizations.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Open(
             ref Result error
             )
@@ -5686,6 +7676,18 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Tears down this host's console customizations and closes the native
+        /// console, provided there are no pending reads or writes and the host
+        /// is not locked as a kiosk.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Close(
             ref Result error
             )
@@ -5756,6 +7758,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Discards any pending or cached console input.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Discard(
             ref Result error
             )
@@ -5780,6 +7792,17 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Resets the console streams, the base host state, and the cached host
+        /// flags to their default state.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives information about the error encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public override ReturnCode Reset(
             ref Result error
             )
@@ -5805,6 +7828,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Begins a named output section on the host.  This host does not render
+        /// sections and always reports success.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the section.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the section.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the section was begun successfully; otherwise, false.
+        /// </returns>
         public override bool BeginSection(
             string name,
             IClientData clientData
@@ -5817,6 +7854,20 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Ends a named output section on the host.  This host does not render
+        /// sections and always reports success.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the section.  This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data associated with the section.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the section was ended successfully; otherwise, false.
+        /// </returns>
         public override bool EndSection(
             string name,
             IClientData clientData
@@ -5831,6 +7882,10 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeBase Members
+        /// <summary>
+        /// Gets the object used to synchronize access to the per-instance state
+        /// of this console host.
+        /// </summary>
         public virtual object SyncRoot
         {
             get { CheckDisposed(); return syncRoot; }
@@ -5840,6 +7895,12 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Members
+        /// <summary>
+        /// Attempts to acquire the synchronization lock without waiting.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, set to true if the lock was acquired; otherwise, false.
+        /// </param>
         public virtual void TryLock(
             ref bool locked
             )
@@ -5854,6 +7915,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock, waiting up to the
+        /// configured wait-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, set to true if the lock was acquired; otherwise, false.
+        /// </param>
         public void TryLockWithWait(
             ref bool locked
             )
@@ -5870,6 +7938,13 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock without waiting and
+        /// without checking whether this object has been disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, set to true if the lock was acquired; otherwise, false.
+        /// </param>
         public void TryLockNoThrow(
             ref bool locked
             )
@@ -5884,6 +7959,16 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Attempts to acquire the synchronization lock, waiting up to the
+        /// specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum amount of time, in milliseconds, to wait for the lock.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, set to true if the lock was acquired; otherwise, false.
+        /// </param>
         public virtual void TryLock(
             int timeout,
             ref bool locked
@@ -5899,6 +7984,12 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Releases the synchronization lock if it is currently held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, true if the lock is held; set to false upon release.
+        /// </param>
         public virtual void ExitLock(
             ref bool locked
             )
@@ -5920,6 +8011,9 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this console host has been disposed.
+        /// </summary>
         public override bool Disposed
         {
             get { return disposed; }
@@ -5929,7 +8023,15 @@ namespace Eagle._Hosts
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this console host has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// Throws an exception if this console host has been disposed and the
+        /// interpreter is configured to throw on disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -5943,6 +8045,15 @@ namespace Eagle._Hosts
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Releases the resources used by this console host, tearing down the
+        /// console customizations during disposal.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="IDisposable.Dispose" /> method; zero if it is being called
+        /// from the finalizer.
+        /// </param>
         protected override void Dispose(bool disposing)
         {
             try

@@ -16,6 +16,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Wrappers
 {
+    /// <summary>
+    /// This class provides the default base implementation for the
+    /// <see cref="IWrapper" /> interface, which is used to wrap an underlying
+    /// object so it can participate in the interpreter as an identifiable,
+    /// token-bearing entity.  Concrete sub-classes supply the wrapped object
+    /// and indicate whether it represents a disposable resource.
+    /// </summary>
     [ObjectId("e6aca5bb-218f-47a3-9174-62e39dcebf6c")]
     public abstract class Default :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -24,6 +31,9 @@ namespace Eagle._Wrappers
         IWrapper
     {
         #region Protected Constructors
+        /// <summary>
+        /// Constructs an instance of this wrapper base class.
+        /// </summary>
         protected Default()
         {
             // do nothing.
@@ -33,7 +43,16 @@ namespace Eagle._Wrappers
         ///////////////////////////////////////////////////////////////////////
 
         #region IWrapperData Members
+        /// <summary>
+        /// The unique token that identifies this wrapper within the
+        /// interpreter.
+        /// </summary>
         private long token;
+
+        /// <summary>
+        /// Gets or sets the unique token that identifies this wrapper within
+        /// the interpreter.
+        /// </summary>
         public virtual long Token
         {
             get { CheckDisposed(); return token; }
@@ -55,6 +74,10 @@ namespace Eagle._Wrappers
         //       ability to call this method from within the CheckDisposed
         //       method.
         //
+        /// <summary>
+        /// Gets a value indicating whether the object wrapped by this instance
+        /// represents a resource that requires disposal.
+        /// </summary>
         public abstract bool IsDisposable { get; }
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,12 +85,28 @@ namespace Eagle._Wrappers
         // NOTE: The default wrapper, in order to provide any functionality,
         //       requires access to the wrapped object.
         //
+        /// <summary>
+        /// Gets or sets the underlying object wrapped by this instance.
+        /// </summary>
         public abstract object Object { get; set; }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method determines whether the wrapped object is equal to the
+        /// specified object.  When there is no wrapped object, the base class
+        /// implementation is used instead.
+        /// </summary>
+        /// <param name="obj">
+        /// The object to compare with the wrapped object.  This parameter may
+        /// be null.
+        /// </param>
+        /// <returns>
+        /// True if the wrapped object is equal to <paramref name="obj" />;
+        /// otherwise, false.
+        /// </returns>
         public override bool Equals(object obj)
         {
             CheckDisposed();
@@ -78,6 +117,13 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a hash code for the wrapped object.  When there
+        /// is no wrapped object, the base class implementation is used instead.
+        /// </summary>
+        /// <returns>
+        /// A hash code for the wrapped object.
+        /// </returns>
         public override int GetHashCode()
         {
             CheckDisposed();
@@ -88,6 +134,14 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string representation of the wrapped object.
+        /// When there is no wrapped object, the base class implementation is
+        /// used instead.
+        /// </summary>
+        /// <returns>
+        /// A string representation of the wrapped object.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -100,7 +154,16 @@ namespace Eagle._Wrappers
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this instance has been disposed
+        /// and the wrapped object actually represents a disposable resource;
+        /// otherwise, it does nothing.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -124,6 +187,16 @@ namespace Eagle._Wrappers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources used by this instance.  When the
+        /// wrapped object implements <see cref="IDisposable" />, it is disposed
+        /// as well.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from the
+        /// finalizer.
+        /// </param>
         protected virtual void Dispose(
             bool disposing
             )
@@ -164,6 +237,10 @@ namespace Eagle._Wrappers
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources used by this instance and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -174,6 +251,10 @@ namespace Eagle._Wrappers
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of this wrapper class, releasing any
+        /// unmanaged resources.
+        /// </summary>
         ~Default()
         {
             Dispose(false);

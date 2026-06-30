@@ -14,9 +14,18 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class exposes the set of conditional compilation symbols that were
+    /// active when this assembly was built, as a list of their names.
+    /// </summary>
     [ObjectId("bd546b57-162e-44c5-9c9a-339e9adb92bd")]
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of conditional compilation symbol names that were defined
+        /// for this build.  The exact contents depend on which symbols were
+        /// active at compile time; the list is terminated with a null element.
+        /// </summary>
         public static readonly StringList OptionList = new StringList(new string[] {
 #if ASSEMBLY_DATETIME
             "ASSEMBLY_DATETIME",

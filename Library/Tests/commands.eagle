@@ -115,7 +115,9 @@ proc getCmdList84 {} {
                 {missing proc auto_load} {missing proc auto_load_index} \
                 {missing proc auto_qualify} {missing cmd binary} \
                 {missing cmd case} {missing cmd fileevent} \
-                {missing cmd scan} {missing cmd trace}] \
+                [expr {[llength [info commands scan]] > 0 ? \
+                    "" : {missing cmd scan}}] \
+                {missing cmd trace}] \
                 [filter [list {extra cmd apply} {extra cmd base64} \
                 {extra cmd bgerror} \
                 [expr {[llength [info commands callback]] > 0 ? \
@@ -175,7 +177,9 @@ proc getCmdList85 {} {
                 [expr {[llength [info commands dict]] > 0 ? \
                     "" : {missing cmd dict}}] \
                 {missing cmd fileevent} \
-                {missing cmd scan} {missing cmd trace}] \
+                [expr {[llength [info commands scan]] > 0 ? \
+                    "" : {missing cmd scan}}] \
+                {missing cmd trace}] \
                 [filter [list {extra cmd base64} {extra cmd bgerror} \
                 [expr {[llength [info commands callback]] > 0 ? \
                     {extra cmd callback} : ""}] \
@@ -244,7 +248,9 @@ proc getCmdList86 {} {
                 {missing cmd coroutine} \
                 [expr {[llength [info commands dict]] > 0 ? \
                     "" : {missing cmd dict}}] \
-                {missing cmd fileevent} {missing cmd scan} \
+                {missing cmd fileevent} \
+                [expr {[llength [info commands scan]] > 0 ? \
+                    "" : {missing cmd scan}}] \
                 {missing cmd tailcall} {missing cmd trace} \
                 {missing cmd yield} \
                 [expr {[lsearch $tcl_commands yieldto] != -1 ? \
@@ -545,8 +551,8 @@ list} {lreplace list} {lreverse list} {lsearch list} {lset list} {lsort list}\
 {object managedEnvironment} {open fileSystem} {package scriptEnvironment}\
 {parse string} {pid nativeEnvironment} {proc procedure} {puts channel} {pwd\
 fileSystem} {read channel} {regexp string} {regsub string} {rename\
-scriptEnvironment} {return control} {scope variable} {seek channel} {set\
-variable} {socket network} {source engine} {split string} {sql\
+scriptEnvironment} {return control} {scan string} {scope variable} {seek\
+channel} {set variable} {socket network} {source engine} {split string} {sql\
 managedEnvironment} {string string} {subst engine} {switch conditional} {tcl\
 nativeEnvironment} {tell channel} {test1 test} {test2 test} {throw control}\
 {time time} {truncate channel} {try control} {unload managedEnvironment} {unset\

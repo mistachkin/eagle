@@ -37,6 +37,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps string keys to integer
+    /// values.  It extends the underlying generic dictionary of integers with
+    /// helpers for populating itself from collections of strings, for counting
+    /// occurrences of keys, for serializing to and from a flat string form, and
+    /// for producing filtered string forms of its keys and values.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -44,6 +51,9 @@ namespace Eagle._Containers.Private
     internal sealed class IntDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty integer dictionary.
+        /// </summary>
         public IntDictionary()
             : base()
         {
@@ -52,6 +62,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty integer dictionary that is sized to hold the
+        /// specified number of entries without further growth.
+        /// </summary>
+        /// <param name="capacity">
+        /// The initial number of entries the dictionary can contain.
+        /// </param>
         public IntDictionary(
             int capacity
             )
@@ -62,6 +79,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an empty integer dictionary that uses the specified
+        /// equality comparer when comparing keys.
+        /// </summary>
+        /// <param name="comparer">
+        /// The equality comparer used to compare keys, or null to use the
+        /// default comparer.
+        /// </param>
         public IntDictionary(
             IEqualityComparer<string> comparer
             )
@@ -72,6 +97,14 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an integer dictionary that is initialized with the entries
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose key/value pairs are copied into the new
+        /// dictionary.
+        /// </param>
         public IntDictionary(
             IDictionary<string, int> dictionary
             )
@@ -82,6 +115,18 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an integer dictionary that is populated from the specified
+        /// collection of name/value pairs, accumulating values for duplicate
+        /// keys.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings, each of which is parsed as a list whose
+        /// first element is a key and whose second element is an integer value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the integer values.
+        /// </param>
         public IntDictionary(
             IEnumerable<string> collection,
             CultureInfo cultureInfo
@@ -93,6 +138,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an integer dictionary that counts the occurrences of each
+        /// key in the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys whose occurrences are counted.
+        /// </param>
         public IntDictionary(
             IEnumerable<string> collection
             )
@@ -106,6 +158,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an integer dictionary from previously serialized data.
+        /// This constructor is used during deserialization.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context that describes the source of the serialized
+        /// data.
+        /// </param>
         private IntDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -120,6 +183,20 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method serializes the specified integer dictionary into a flat
+        /// string consisting of alternating keys and values.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The integer dictionary to serialize.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The serialized string form of the dictionary, or null if it could
+        /// not be serialized.
+        /// </returns>
         public static string FastSerialize(
             IntDictionary dictionary,
             ref Result error
@@ -153,6 +230,26 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method deserializes an integer dictionary from a flat string
+        /// consisting of alternating keys and values, as produced by
+        /// <see cref="FastSerialize" />.
+        /// </summary>
+        /// <param name="value">
+        /// The serialized string form of the dictionary.
+        /// </param>
+        /// <param name="failOnError">
+        /// Non-zero to abandon deserialization and return null upon encountering
+        /// a malformed element; zero to stop processing at the malformed element
+        /// and return the entries parsed so far.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// The deserialized integer dictionary, or null if it could not be
+        /// deserialized.
+        /// </returns>
         public static IntDictionary FastDeserialize(
             string value,
             bool failOnError,
@@ -237,6 +334,19 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method adds the name/value pairs contained in the specified
+        /// collection to the dictionary, accumulating values for keys that are
+        /// already present.  Elements that cannot be parsed into a key and a
+        /// valid integer value are silently ignored.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of strings, each of which is parsed as a list whose
+        /// first element is a key and whose second element is an integer value.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the integer values.
+        /// </param>
         public void Add(
             IEnumerable<string> collection,
             CultureInfo cultureInfo
@@ -293,6 +403,15 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the occurrences of each key in the specified
+        /// collection, incrementing the value stored for keys that are already
+        /// present and adding new keys with a value of one.  Null elements are
+        /// ignored.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection of keys whose occurrences are counted.
+        /// </param>
         public void AddKeys(
             IEnumerable<string> collection
             )
@@ -315,6 +434,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys and values of the
+        /// dictionary whose keys match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys (and their values) are
+        /// included.  This parameter may be null to include all entries.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The matching keys and values formatted as a string.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -331,6 +464,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string containing the keys of the dictionary
+        /// that match the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to select which keys are included.  This parameter
+        /// may be null to include all keys.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The list of matching keys formatted as a string.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -347,6 +494,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string containing all the keys of the
+        /// dictionary.
+        /// </summary>
+        /// <returns>
+        /// The list of keys formatted as a string.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

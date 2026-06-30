@@ -18,6 +18,12 @@ using Eagle._Attributes;
 
 namespace Eagle._Encodings
 {
+    /// <summary>
+    /// This class represents the identity encoding, a one-to-one mapping
+    /// between bytes and characters that performs no transformation.  It
+    /// extends <see cref="OneByteEncoding" /> and differs only in its
+    /// registered (IANA) name.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -25,18 +31,27 @@ namespace Eagle._Encodings
     public sealed class IdentityEncoding : OneByteEncoding
     {
         #region Public Constants
+        /// <summary>
+        /// A shared, pre-built instance of this encoding.
+        /// </summary>
         public static readonly Encoding Identity = new IdentityEncoding();
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constants
+        /// <summary>
+        /// The registered (IANA) name reported for this encoding.
+        /// </summary>
         internal static new readonly string webName = "Identity";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Text.Encoding Overrides
+        /// <summary>
+        /// Gets the registered (IANA) name for this encoding.
+        /// </summary>
         public override string WebName
         {
             get { return webName; }

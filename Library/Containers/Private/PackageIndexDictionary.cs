@@ -28,6 +28,11 @@ using PackageIndexAnyPair = Eagle._Components.Public.MutableAnyPair<
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps a package index path to its
+    /// associated name and package index flags, keyed by path.  It extends the
+    /// path dictionary with a type name suitable for use within Eagle.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -36,6 +41,9 @@ namespace Eagle._Containers.Private
             PathDictionary<PackageIndexAnyPair>
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public PackageIndexDictionary()
             : base()
         {
@@ -44,6 +52,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose elements are copied into the new dictionary.
+        /// </param>
         public PackageIndexDictionary(
             PackageIndexDictionary dictionary
             )
@@ -57,6 +72,17 @@ namespace Eagle._Containers.Private
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized
+        /// data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for this dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized stream associated with
+        /// this dictionary.
+        /// </param>
         private PackageIndexDictionary(
             SerializationInfo info,
             StreamingContext context

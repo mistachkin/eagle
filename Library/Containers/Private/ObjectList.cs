@@ -23,6 +23,12 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a list of arbitrary object references.  It extends
+    /// the standard generic list with the ability to add ranges from a
+    /// non-generic collection, to be converted to the Eagle list format, and to
+    /// be cloned.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -30,6 +36,9 @@ namespace Eagle._Containers.Private
     internal sealed class ObjectList : List<object>, ICloneable
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ObjectList()
             : base()
         {
@@ -38,6 +47,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the elements
+        /// copied from the specified collection.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are copied into the new list.
+        /// </param>
         public ObjectList(
             IEnumerable<object> collection
             )
@@ -48,6 +64,13 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that contains the specified
+        /// objects.
+        /// </summary>
+        /// <param name="objects">
+        /// The objects to be added to the new list.
+        /// </param>
         public ObjectList(
             params object[] objects
             )
@@ -60,6 +83,13 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// Adds the elements of the specified non-generic collection to the end
+        /// of this list.
+        /// </summary>
+        /// <param name="collection">
+        /// The collection whose elements are added to this list.
+        /// </param>
         public void AddRange(
             IEnumerable collection
             )
@@ -70,6 +100,20 @@ namespace Eagle._Containers.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format, optionally
+        /// including only those elements matching the specified pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the elements, or null to include all of
+        /// them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents this list.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -84,6 +128,12 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// Converts this list to a string in the Eagle list format.
+        /// </summary>
+        /// <returns>
+        /// The string, in the Eagle list format, that represents this list.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);
@@ -93,6 +143,12 @@ namespace Eagle._Containers.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// Creates a new list that is a copy of this one.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this list.
+        /// </returns>
         public object Clone()
         {
             return new ObjectList(this);

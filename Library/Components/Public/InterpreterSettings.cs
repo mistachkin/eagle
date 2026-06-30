@@ -32,6 +32,16 @@ using _RuleSet = Eagle._Components.Public.RuleSet;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class holds the collection of settings used to create and
+    /// initialize an <see cref="Interpreter" />, including its creation,
+    /// host creation, initialization, script, interpreter, plugin, and
+    /// (optionally) native Tcl find and load flags, together with the
+    /// associated objects (e.g. host, owner, policies, traces, and the
+    /// auto-path list).  It supports loading from and saving to settings
+    /// files (INI and, when available, XML) and provides factory methods
+    /// for several common configurations.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -43,11 +53,19 @@ namespace Eagle._Components.Public
         IInterpreterSettings
     {
         #region Private Constants
+        /// <summary>
+        /// The composite format string used to build a settings file name
+        /// from a base file name and a file extension.
+        /// </summary>
         private static readonly string LoadFromFileNameFormat =
             "{0}.settings{1}";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter creation flags used when creating a "safe"
+        /// interpreter via <c>CreateSafe</c>.
+        /// </summary>
         private const CreateFlags SafeCreateFlags =
             (CreateFlags.FastSingleUse & ~(CreateFlags.Initialize |
             CreateFlags.ThrowOnError)) | CreateFlags.IfNecessary |
@@ -58,6 +76,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The interpreter host creation flags used when creating a "safe"
+        /// interpreter via <c>CreateSafe</c>.
+        /// </summary>
         private const HostCreateFlags SafeHostCreateFlags =
             HostCreateFlags.FastSingleUse;
         #endregion
@@ -65,44 +87,137 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The rule set associated with these interpreter settings, if any.
+        /// </summary>
         private IRuleSet ruleSet;
+        /// <summary>
+        /// The command line arguments associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private IEnumerable<string> args;
+        /// <summary>
+        /// The culture name associated with these interpreter settings, if
+        /// any.
+        /// </summary>
         private string culture;
+        /// <summary>
+        /// The interpreter creation flags.
+        /// </summary>
         private CreateFlags createFlags;
+        /// <summary>
+        /// The interpreter host creation flags.
+        /// </summary>
         private HostCreateFlags hostCreateFlags;
+        /// <summary>
+        /// The interpreter initialization flags.
+        /// </summary>
         private InitializeFlags initializeFlags;
+        /// <summary>
+        /// The script flags used when evaluating startup scripts.
+        /// </summary>
         private ScriptFlags scriptFlags;
+        /// <summary>
+        /// The interpreter flags.
+        /// </summary>
         private InterpreterFlags interpreterFlags;
+        /// <summary>
+        /// The interpreter test flags.
+        /// </summary>
         private InterpreterTestFlags interpreterTestFlags;
+        /// <summary>
+        /// The plugin flags.
+        /// </summary>
         private PluginFlags pluginFlags;
 
 #if NATIVE && TCL
+        /// <summary>
+        /// The flags used when finding native Tcl.
+        /// </summary>
         private FindFlags findFlags;
+        /// <summary>
+        /// The flags used when loading native Tcl.
+        /// </summary>
         private LoadFlags loadFlags;
 #endif
 
+        /// <summary>
+        /// The application domain associated with these interpreter
+        /// settings, if any.
+        /// </summary>
 #if SERIALIZATION
         [NonSerialized()]
 #endif
         private AppDomain appDomain;
 
+        /// <summary>
+        /// The interpreter host associated with these interpreter settings,
+        /// if any.
+        /// </summary>
         private IHost host;
+        /// <summary>
+        /// The profile name associated with these interpreter settings, if
+        /// any.
+        /// </summary>
         private string profile;
+        /// <summary>
+        /// The opaque owner object associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private object owner;
+        /// <summary>
+        /// The opaque application object associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private object applicationObject;
+        /// <summary>
+        /// The opaque policy object associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private object policyObject;
+        /// <summary>
+        /// The opaque resolver object associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private object resolverObject;
+        /// <summary>
+        /// The opaque user object associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private object userObject;
+        /// <summary>
+        /// The list of policies associated with these interpreter settings,
+        /// if any.
+        /// </summary>
         private PolicyList policies;
+        /// <summary>
+        /// The list of traces associated with these interpreter settings,
+        /// if any.
+        /// </summary>
         private TraceList traces;
+        /// <summary>
+        /// The startup script text associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private string text;
+        /// <summary>
+        /// The script library path associated with these interpreter
+        /// settings, if any.
+        /// </summary>
         private string libraryPath;
+        /// <summary>
+        /// The auto-path list associated with these interpreter settings,
+        /// if any.
+        /// </summary>
         private StringList autoPathList;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         private InterpreterSettings()
         {
             // do nothing.
@@ -112,6 +227,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new instance of interpreter settings with
+        /// all values left at their default (uninitialized) state.
+        /// </summary>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         public static IInterpreterSettings Create()
         {
             return new InterpreterSettings();
@@ -119,6 +241,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings, with
+        /// all values reset and the flags fields set to their default
+        /// values.
+        /// </summary>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         public static IInterpreterSettings CreateDefault()
         {
             return CreateDefault(null, null);
@@ -126,6 +256,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings, with
+        /// all values reset and the flags fields set to their default
+        /// values, optionally associating a rule set and command line
+        /// arguments with the result.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         public static IInterpreterSettings CreateDefault(
             IRuleSet ruleSet,        /* in */
             IEnumerable<string> args /* in */
@@ -150,6 +297,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings
+        /// suitable for creating a "safe" interpreter, optionally
+        /// associating a rule set and command line arguments with the
+        /// result.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         public static IInterpreterSettings CreateSafe(
             IRuleSet ruleSet,        /* in */
             IEnumerable<string> args /* in */
@@ -171,6 +335,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings with
+        /// the "non-critical" initialization flag set, optionally
+        /// associating a rule set and command line arguments with the
+        /// result.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         public static IInterpreterSettings CreateNonCritical(
             IRuleSet ruleSet,        /* in */
             IEnumerable<string> args /* in */
@@ -191,6 +372,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings by
+        /// loading it from the specified settings file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to load.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings, or null upon failure.
+        /// </returns>
         public static IInterpreterSettings CreateFrom(
             string fileName,         /* in */
             CultureInfo cultureInfo, /* in */
@@ -214,6 +421,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings
+        /// suitable for use by an interactive shell, deriving the various
+        /// flags from the specified command line arguments and environment.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <param name="originFlags">
+        /// The flags used to control which option origins are considered
+        /// when processing the command line arguments.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if the shell is being hosted by a console.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings, or null upon failure.
+        /// </returns>
         public static IInterpreterSettings CreateShell( /* PrivateShellMain */
             IRuleSet ruleSet,              /* in */
             IEnumerable<string> args,      /* in */
@@ -274,6 +511,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings
+        /// appropriate for the specified security level, optionally
+        /// associating a rule set and command line arguments with the
+        /// result.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <param name="securityLevel">
+        /// The security level that determines how the interpreter settings
+        /// are configured.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings, or null upon failure.
+        /// </returns>
         internal static IInterpreterSettings Create(
             IRuleSet ruleSet,            /* in */
             IEnumerable<string> args,    /* in */
@@ -304,6 +566,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new instance of interpreter settings using
+        /// the explicitly specified rule set, command line arguments, flags,
+        /// startup script text, and script library path.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with the interpreter settings, or null
+        /// for none.
+        /// </param>
+        /// <param name="args">
+        /// The command line arguments to associate with the interpreter
+        /// settings, or null for none.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The interpreter host creation flags to use.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The interpreter initialization flags to use.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to use.
+        /// </param>
+        /// <param name="text">
+        /// The startup script text to use, or null for none.
+        /// </param>
+        /// <param name="libraryPath">
+        /// The script library path to use, or null for none.
+        /// </param>
+        /// <returns>
+        /// The newly created interpreter settings.
+        /// </returns>
         private static IInterpreterSettings Create(
             IRuleSet ruleSet,                /* in */
             IEnumerable<string> args,        /* in */
@@ -333,6 +629,41 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method computes the various interpreter creation,
+        /// initialization, and script flags appropriate for an interactive
+        /// shell, based on the specified command line arguments and
+        /// environment.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments to consider when computing the flags.
+        /// </param>
+        /// <param name="originFlags">
+        /// The flags used to control which option origins are considered
+        /// when processing the command line arguments.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if the shell is being hosted by a console.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose diagnostic output.
+        /// </param>
+        /// <param name="createFlags">
+        /// Upon return, this parameter will be modified to contain the
+        /// computed interpreter creation flags.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// Upon return, this parameter will be modified to contain the
+        /// computed interpreter host creation flags.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// Upon return, this parameter will be modified to contain the
+        /// computed interpreter initialization flags.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// Upon return, this parameter will be modified to contain the
+        /// computed script flags.
+        /// </param>
         private static void GetFlagsForShell(
             IEnumerable<string> args,            /* in */
             OptionOriginFlags originFlags,       /* in */
@@ -412,6 +743,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified path could refer to
+        /// a settings document, based on its file extension.
+        /// </summary>
+        /// <param name="path">
+        /// The path to examine.
+        /// </param>
+        /// <returns>
+        /// True if the path could refer to a settings document; otherwise,
+        /// false.
+        /// </returns>
         private static bool CouldBeDocument(
             string path /* in */
             )
@@ -435,6 +777,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method expands any environment variables contained within
+        /// the specified value.
+        /// </summary>
+        /// <param name="value">
+        /// The value to expand.
+        /// </param>
+        /// <returns>
+        /// The expanded value.
+        /// </returns>
         private static string Expand(
             string value /* in */
             )
@@ -447,6 +799,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method expands any environment variables contained within
+        /// the string-valued members of the specified interpreter settings,
+        /// modifying them in place.
+        /// </summary>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings whose values should be expanded.
+        /// </param>
         internal static void Expand(
             IInterpreterSettings interpreterSettings /* in, out */
             )
@@ -488,6 +848,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates the specified interpreter settings from the
+        /// current state of the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to read settings from.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to populate.
+        /// </param>
+        /// <param name="recreate">
+        /// Non-zero if the interpreter settings are being populated for the
+        /// purpose of recreating an interpreter.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to populate the full set of settings; otherwise, only a
+        /// subset is populated.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode FromInterpreter(
             Interpreter interpreter,                  /* in */
             IInterpreterSettings interpreterSettings, /* in, out */
@@ -527,6 +913,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies settings values from one set of interpreter
+        /// settings to another, optionally including values that are missing
+        /// (i.e. null or "none").
+        /// </summary>
+        /// <param name="sourceInterpreterSettings">
+        /// The interpreter settings to copy values from.
+        /// </param>
+        /// <param name="targetInterpreterSettings">
+        /// The interpreter settings to copy values to.
+        /// </param>
+        /// <param name="forceMissing">
+        /// Non-zero to copy all values, including those that are missing;
+        /// otherwise, only values that are present are copied.
+        /// </param>
+        /// <returns>
+        /// The list of setting names that were copied, or null if either set
+        /// of interpreter settings was invalid.
+        /// </returns>
         internal static StringList Copy(
             IInterpreterSettings sourceInterpreterSettings, /* in */
             IInterpreterSettings targetInterpreterSettings, /* in, out */
@@ -754,6 +1159,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified INI
+        /// settings stream.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file associated with the stream, used
+        /// for diagnostic purposes.
+        /// </param>
+        /// <param name="stream">
+        /// The stream to load the settings from.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFromIni(
             string fileName,                              /* in */
             Stream stream,                                /* in */
@@ -772,6 +1212,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified INI
+        /// settings file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to load.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFromIni(
             string fileName,                              /* in */
             CultureInfo cultureInfo,                      /* in */
@@ -789,6 +1260,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the specified interpreter settings to the
+        /// specified INI settings file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to save to.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// settings values prior to saving.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to save.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SaveToIni(
             string fileName,                          /* in */
             bool expand,                              /* in */
@@ -804,6 +1297,28 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if XML
+        /// <summary>
+        /// This method populates the specified interpreter settings from the
+        /// specified XML document.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document to read settings from.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to populate.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode FromDocument(
             XmlDocument document,                     /* in */
             CultureInfo cultureInfo,                  /* in */
@@ -1035,6 +1550,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method serializes the specified interpreter settings into
+        /// the specified XML document.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document to write settings to.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to serialize.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ToDocument(
             XmlDocument document,                     /* in */
             IInterpreterSettings interpreterSettings, /* in */
@@ -1131,6 +1664,37 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if SERIALIZATION
+        /// <summary>
+        /// This method loads interpreter settings from the specified XML
+        /// document.
+        /// </summary>
+        /// <param name="document">
+        /// The XML document to load the settings from.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFromXml(
             XmlDocument document,                         /* in */
             CultureInfo cultureInfo,                      /* in */
@@ -1204,6 +1768,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified XML
+        /// settings stream.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file associated with the stream, used
+        /// for diagnostic purposes.
+        /// </param>
+        /// <param name="stream">
+        /// The stream to load the settings from.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFromXml(
             string fileName,                              /* in */
             Stream stream,                                /* in */
@@ -1240,6 +1839,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified XML
+        /// settings file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to load.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFromXml(
             string fileName,                              /* in */
             CultureInfo cultureInfo,                      /* in */
@@ -1284,6 +1914,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the specified interpreter settings to the
+        /// specified XML settings file.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to save to.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// settings values prior to saving.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to save.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode SaveToXml(
             string fileName,                          /* in */
             bool expand,                              /* in */
@@ -1381,6 +2033,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adjusts the interpreter creation flags within the
+        /// specified interpreter settings so that the default core policies
+        /// and/or traces are not added when there are already custom
+        /// policies and/or traces present.
+        /// </summary>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to adjust.
+        /// </param>
+        /// <param name="policies">
+        /// The list of policies to consider, or null for none.
+        /// </param>
+        /// <param name="traces">
+        /// The list of traces to consider, or null for none.
+        /// </param>
         private static void CheckPoliciesAndTraces(
             IInterpreterSettings interpreterSettings, /* in, out */
             PolicyList policies,                      /* in */
@@ -1411,6 +2078,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Internal Static Methods
+        /// <summary>
+        /// This method adjusts the interpreter creation flags within the
+        /// specified interpreter settings based on the policies and traces
+        /// that it already contains.
+        /// </summary>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to adjust.
+        /// </param>
         internal static void CheckPoliciesAndTraces(
             IInterpreterSettings interpreterSettings /* in, out */
             )
@@ -1425,6 +2100,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method configures the specified interpreter settings for use
+        /// when an interpreter is being created during startup, using the
+        /// specified creation and host creation flags.
+        /// </summary>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to configure.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The interpreter host creation flags to use.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode UseStartupDefaults(
             IInterpreterSettings interpreterSettings, /* in, out */
             CreateFlags createFlags,                  /* in */
@@ -1483,6 +2180,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if SHELL
+        /// <summary>
+        /// This method configures the specified interpreter settings for use
+        /// by an interactive shell, adjusting the interpreter and test flags
+        /// as appropriate (including for "safe" interpreters).
+        /// </summary>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to configure.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used to determine whether the
+        /// interpreter being created is "safe".
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode UseShellDefaults(
             IInterpreterSettings interpreterSettings, /* in, out */
             CreateFlags createFlags,                  /* in */
@@ -1534,6 +2251,39 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the default settings
+        /// file associated with the managed executable, trying each of the
+        /// supported file extensions in turn.
+        /// </summary>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="optional">
+        /// Non-zero if the absence of a settings file should be treated as
+        /// success rather than an error.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode LoadFrom(
             CultureInfo cultureInfo,                      /* in */
             bool optional,                                /* in */
@@ -1591,6 +2341,37 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method loads interpreter settings from the current state of
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to read settings from.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="recreate">
+        /// Non-zero if the interpreter settings are being loaded for the
+        /// purpose of recreating an interpreter.
+        /// </param>
+        /// <param name="full">
+        /// Non-zero to load the full set of settings; otherwise, only a
+        /// subset is loaded.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadFrom(
             Interpreter interpreter,                      /* in */
             bool expand,                                  /* in */
@@ -1637,6 +2418,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified
+        /// settings file, automatically detecting whether it is an XML or
+        /// INI document.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to load.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadFrom(
             string fileName,                              /* in */
             CultureInfo cultureInfo,                      /* in */
@@ -1671,6 +2484,42 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads interpreter settings from the specified
+        /// settings stream, automatically detecting whether it is an XML or
+        /// INI document.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file associated with the stream, used
+        /// for diagnostic purposes.
+        /// </param>
+        /// <param name="stream">
+        /// The stream to load the settings from.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to use when parsing settings values, or null to use
+        /// the default.
+        /// </param>
+        /// <param name="merge">
+        /// Non-zero to merge the loaded settings into the result; otherwise,
+        /// the loaded settings replace the result.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// loaded settings values.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// Upon success, this parameter will be modified to contain the
+        /// loaded interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadFrom(
             string fileName,                              /* in */
             Stream stream,                                /* in */
@@ -1706,6 +2555,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves the specified interpreter settings to the
+        /// specified settings file, automatically detecting whether it
+        /// should be written as an XML or INI document.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the settings file to save to.
+        /// </param>
+        /// <param name="expand">
+        /// Non-zero to expand environment variables contained within the
+        /// settings values prior to saving.
+        /// </param>
+        /// <param name="interpreterSettings">
+        /// The interpreter settings to save.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode SaveTo(
             string fileName,                          /* in */
             bool expand,                              /* in */
@@ -1740,6 +2612,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IInterpreterSettingsData Members
+        /// <summary>
+        /// Gets or sets the rule set associated with these interpreter
+        /// settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1751,6 +2627,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the command line arguments associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1762,6 +2642,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the culture name associated with these interpreter
+        /// settings.
+        /// </summary>
         public string Culture
         {
             get { return culture; }
@@ -1770,6 +2654,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter creation flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1781,6 +2668,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter host creation flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1792,6 +2682,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter initialization flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1803,6 +2696,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the script flags used when evaluating startup
+        /// scripts.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1814,6 +2711,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1825,6 +2725,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter test flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1836,6 +2739,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the plugin flags.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1848,6 +2754,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && TCL
+        /// <summary>
+        /// Gets or sets the flags used when finding native Tcl.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1859,6 +2768,9 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the flags used when loading native Tcl.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1871,6 +2783,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the application domain associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1882,6 +2798,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter host associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1893,6 +2813,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the profile name associated with these interpreter
+        /// settings.
+        /// </summary>
         public string Profile
         {
             get { return profile; }
@@ -1901,6 +2825,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the opaque owner object associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1912,6 +2840,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the opaque application object associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1923,6 +2855,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the opaque policy object associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1934,6 +2870,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the opaque resolver object associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1945,6 +2885,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the opaque user object associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1956,6 +2900,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the list of policies associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1967,6 +2915,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the list of traces associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -1978,6 +2930,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the startup script text associated with these
+        /// interpreter settings.
+        /// </summary>
         public string Text
         {
             get { return text; }
@@ -1986,6 +2942,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the script library path associated with these
+        /// interpreter settings.
+        /// </summary>
         public string LibraryPath
         {
             get { return libraryPath; }
@@ -1994,6 +2954,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the auto-path list associated with these
+        /// interpreter settings.
+        /// </summary>
 #if XML && SERIALIZATION
         [XmlIgnore()]
 #endif
@@ -2007,6 +2971,11 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IInterpreterSettings Members
+        /// <summary>
+        /// This method modifies the interpreter creation flags so that the
+        /// interpreter will be created as "safe" and its unsafe features
+        /// hidden.
+        /// </summary>
         public void MakeSafe() /* DO NOT USE: PrivateShellMainCore ONLY. */
         {
             createFlags |= CreateFlags.SafeAndHideUnsafe;
@@ -2014,6 +2983,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter creation flags so that the
+        /// interpreter will be created as "standard" and its non-standard
+        /// features hidden.
+        /// </summary>
         public void MakeStandard() /* DO NOT USE: PrivateShellMainCore ONLY. */
         {
             createFlags |= CreateFlags.StandardAndHideNonStandard;
@@ -2021,6 +2995,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter creation flags so that the
+        /// interpreter will not be initialized upon creation.
+        /// </summary>
         public void DisableInitialize()
         {
             createFlags &= ~CreateFlags.Initialize;
@@ -2028,6 +3006,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter creation flags so that the
+        /// interpreter will be created with namespace support enabled.
+        /// </summary>
         public void EnableNamespaces() /* DO NOT USE: TESTS ONLY. */
         {
             createFlags |= CreateFlags.UseNamespaces;
@@ -2035,6 +3017,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter creation flags so that the
+        /// interpreter will be created with namespace support disabled.
+        /// </summary>
         public void DisableNamespaces() /* DO NOT USE: TESTS ONLY. */
         {
             createFlags &= ~CreateFlags.UseNamespaces;
@@ -2042,6 +3028,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter initialization flags so that
+        /// the script library loader will not be used during interpreter
+        /// initialization.
+        /// </summary>
         public void DisableLoader() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags &= ~InitializeFlags.Loader;
@@ -2049,6 +3040,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter initialization flags so that
+        /// the core initialization script will not be evaluated during
+        /// interpreter initialization.
+        /// </summary>
         public void DisableInitialization() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags &= ~InitializeFlags.Initialization;
@@ -2056,6 +3052,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter initialization flags so that
+        /// the auto-path will not be set during interpreter initialization.
+        /// </summary>
         public void DisableSetAutoPath() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags &= ~InitializeFlags.SetAutoPath;
@@ -2063,6 +3063,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter flags to remove those that
+        /// are not designed for use with "safe" interpreters.
+        /// </summary>
         public void RemoveUnsafeOptions() /* DO NOT USE: TESTS ONLY. */
         {
             interpreterFlags &= ~InterpreterFlags.UnsafeMask;
@@ -2070,6 +3074,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter test flags to remove those
+        /// that are not designed for use with "safe" interpreters.
+        /// </summary>
         public void RemoveUnsafeTestOptions() /* DO NOT USE: TESTS ONLY. */
         {
             interpreterTestFlags &= ~InterpreterTestFlags.UnsafeMask;
@@ -2077,6 +3085,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter initialization flags so that
+        /// the security subsystem will be enabled during interpreter
+        /// initialization.
+        /// </summary>
         public void EnableSecurity() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags |= InitializeFlags.Security;
@@ -2084,6 +3097,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method modifies the interpreter initialization flags so that
+        /// the security subsystem will be disabled during interpreter
+        /// initialization.
+        /// </summary>
         public void DisableSecurity() /* DO NOT USE: TESTS ONLY. */
         {
             initializeFlags &= ~InitializeFlags.Security;
@@ -2091,6 +3109,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets all of the values within these interpreter
+        /// settings to their default (uninitialized) state.
+        /// </summary>
         public void ResetEverything()
         {
             //
@@ -2129,6 +3151,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets all of the flags fields within these interpreter
+        /// settings to their default values.
+        /// </summary>
         public void UseDefaultsForFlags()
         {
             //
@@ -2150,6 +3176,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the flags fields from the specified
+        /// interpreter into these interpreter settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to copy the flags from.
+        /// </param>
         public void UseFlagsFromInterpreter(
             Interpreter interpreter /* in */
             )
@@ -2173,6 +3206,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method copies the associated objects (e.g. owner,
+        /// application, policy, resolver, and user objects) from the
+        /// specified interpreter into these interpreter settings.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to copy the objects from.
+        /// </param>
         public void UseObjectsFromInterpreter(
             Interpreter interpreter /* in */
             )
@@ -2190,6 +3231,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method modifies the interpreter host creation flags so that
+        /// the native console will be attached or opened when the
+        /// interpreter host is created.
+        /// </summary>
+        /// <param name="ignoreOpen">
+        /// Non-zero to proceed even when a native console is already open.
+        /// </param>
+        /// <param name="attach">
+        /// Non-zero to attach to an existing parent console, if any.
+        /// </param>
+        /// <param name="force">
+        /// Non-zero to force the console to be opened.
+        /// </param>
         public void AttachOrOpenNativeConsole(
             bool ignoreOpen, /* in */
             bool attach,     /* in */
@@ -2211,6 +3266,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method associates the specified rule set with these
+        /// interpreter settings, unless one has already been specified.
+        /// </summary>
+        /// <param name="ruleSet">
+        /// The rule set to associate with these interpreter settings.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will be modified to contain an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode MaybeSetRuleSet(
             IRuleSet ruleSet, /* in */
             ref Result error  /* out */
@@ -2241,6 +3311,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of these interpreter
+        /// settings, formatted as a name/value list.
+        /// </summary>
+        /// <returns>
+        /// The string representation of these interpreter settings.
+        /// </returns>
         public override string ToString()
         {
             StringList list = new StringList();

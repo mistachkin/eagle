@@ -25,10 +25,17 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps a name to the thread and
+    /// toplevel form pair associated with it.
+    /// </summary>
     [ObjectId("30c1a42c-351e-4e19-a58f-5019f0b7a92e")]
     internal sealed class ToplevelDictionary :
         Dictionary<string, IAnyPair<Thread, Toplevel>>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ToplevelDictionary()
             : base()
         {
@@ -39,6 +46,13 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This constructor creates a new instance of the class using the
+        /// entries copied from the specified dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are used to populate the new instance.
+        /// </param>
         private ToplevelDictionary(
             IDictionary<string, IAnyPair<Thread, Toplevel>> dictionary
             )

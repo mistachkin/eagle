@@ -62,9 +62,22 @@ using System.Text;
 
 namespace Tools
 {
+    /// <summary>
+    /// This class implements the ResGen tool, a command line utility that
+    /// reads a managed resource definition ("resx") file and generates the
+    /// corresponding binary resources file from it.
+    /// </summary>
     public class ResGen
     {
         #region Introspection Methods
+        /// <summary>
+        /// This method attempts to determine the fully qualified file name of
+        /// the main module for the current process.
+        /// </summary>
+        /// <returns>
+        /// The file name of the main module for the current process -OR- null
+        /// if it cannot be determined.
+        /// </returns>
         private static string GetFileName()
         {
             Process process = Process.GetCurrentProcess();
@@ -89,6 +102,17 @@ namespace Tools
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to determine the version of the specified
+        /// assembly.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly to query.
+        /// </param>
+        /// <returns>
+        /// The version of the specified assembly -OR- null if it cannot be
+        /// determined.
+        /// </returns>
         private static Version GetVersion(
             Assembly assembly
             )
@@ -115,6 +139,19 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Diagnostic Output Methods
+        /// <summary>
+        /// This method conditionally writes a formatted message, followed by a
+        /// line terminator, to the console.
+        /// </summary>
+        /// <param name="condition">
+        /// Non-zero to write the message; otherwise, nothing is written.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string to write.
+        /// </param>
+        /// <param name="args">
+        /// The array of objects to format and write.
+        /// </param>
         private static void WriteLineIf(
             bool condition,
             string format,
@@ -127,6 +164,21 @@ namespace Tools
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally writes a formatted error message,
+        /// followed by a line terminator, to the console using the color
+        /// reserved for errors.  The previous console foreground color is
+        /// restored before this method returns.
+        /// </summary>
+        /// <param name="condition">
+        /// Non-zero to write the error message; otherwise, nothing is written.
+        /// </param>
+        /// <param name="format">
+        /// The composite format string to write.
+        /// </param>
+        /// <param name="args">
+        /// The array of objects to format and write.
+        /// </param>
         private static void WriteErrorIf(
             bool condition,
             string format,
@@ -154,6 +206,20 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Error Reporting Methods
+        /// <summary>
+        /// This method displays an error message to the console and/or
+        /// displays the version and command line usage information for this
+        /// tool.
+        /// </summary>
+        /// <param name="error">
+        /// The error message to display, if any.
+        /// </param>
+        /// <param name="usage">
+        /// Non-zero to display the version and command line usage information.
+        /// </param>
+        /// <returns>
+        /// Always returns one, the failure exit code for this tool.
+        /// </returns>
         private static int Fail(
             string error,
             bool usage
@@ -210,6 +276,26 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Resource Handling Methods
+        /// <summary>
+        /// This method reads all of the resources from the specified "resx"
+        /// file and writes them, in binary form, to the specified resources
+        /// file.  Resources that refer to an external file are read from that
+        /// file using the appropriate encoding, if any.
+        /// </summary>
+        /// <param name="resxFileName">
+        /// The name of the input "resx" file to read.
+        /// </param>
+        /// <param name="resourcesFileName">
+        /// The name of the output binary resources file to write.
+        /// </param>
+        /// <param name="baseDirectory">
+        /// The base directory used to resolve any relative file references
+        /// contained within the input "resx" file, if any.
+        /// </param>
+        /// <returns>
+        /// True if the resources were generated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool GenerateResources(
             string resxFileName,
             string resourcesFileName,
@@ -283,6 +369,20 @@ namespace Tools
         ///////////////////////////////////////////////////////////////////////
 
         #region Application Entry Point
+        /// <summary>
+        /// This is the entry-point for this tool.  It handles processing the
+        /// command line arguments, validating the input and output file names,
+        /// and generating the binary resources file from the input "resx"
+        /// file.
+        /// </summary>
+        /// <param name="args">
+        /// The command line arguments.  Either two or three arguments are
+        /// required: the input "resx" file name, the output resources file
+        /// name, and an optional base directory.
+        /// </param>
+        /// <returns>
+        /// Zero upon success; non-zero on failure.
+        /// </returns>
         public static int Main(string[] args)
         {
             int exitCode = 0;

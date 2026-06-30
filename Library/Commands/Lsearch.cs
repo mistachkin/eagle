@@ -25,11 +25,29 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>lsearch</c> command, which searches
+    /// the elements of a list for one that matches a pattern and returns the
+    /// index (or, optionally, the value) of the first match, every match, or
+    /// an indication that no match was found.  It supports the various match
+    /// modes (exact, glob, regexp, substring, sorted), comparison styles
+    /// (ascii, dictionary, integer, real), and modifiers (for example
+    /// <c>-all</c>, <c>-inline</c>, <c>-index</c>, <c>-start</c>,
+    /// <c>-nocase</c>, <c>-not</c>, and <c>-inverse</c>).  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("3e5dfc83-29bb-44a5-86c4-e78c0b7f21f0")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("list")]
     internal sealed class Lsearch : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>lsearch</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Lsearch(
             ICommandData commandData
             )
@@ -39,11 +57,45 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>lsearch</c> command.  It parses any
+        /// options, obtains the list to search (either directly or, with
+        /// <c>-variable</c>, from the named script variable), searches it for
+        /// the supplied pattern according to the selected match mode and
+        /// comparison style, and reports the matching index, value, or list of
+        /// matches.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by any options, then the list (or variable
+        /// name) to search and the pattern to search for.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the index of the first match (or
+        /// <see cref="Index.Invalid" /> when none is found), the matching
+        /// value when <c>-inline</c> is used, or the list of all matches when
+        /// <c>-all</c> is used.  Upon failure, this contains an appropriate
+        /// error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;
@@ -259,9 +311,21 @@ namespace Eagle._Commands
                                                     if (sorted && ((indexText == null) || (comparer != null)) && !all && !not && !inverse)
                                                     {
                                                         //
-                                                        // NOTE: Use the built-in binary search with the selected comparer.
+                                                        // BUGFIX: Use the built-in binary search with the selected comparer.
+                                                        //         When no specialized comparer was created (the simple
+                                                        //         ascending, non-indexed, case-sensitive case), the elements
+                                                        //         must still be compared ORDINALLY -- exactly as the
+                                                        //         non-sorted "-exact" path (StringList.IndexOf) and "lsort"
+                                                        //         do.  A null comparer here would fall back to
+                                                        //         Comparer<string>.Default, which is CULTURE-sensitive, so
+                                                        //         the binary search could fail to find an element that IS
+                                                        //         present (e.g. "lsearch -sorted {A B a b} b" returned -1)
+                                                        //         and disagree with "-exact" / "lsort".
                                                         //
-                                                        listIndex = list.BinarySearch(startIndex, list.Count - startIndex, pattern, comparer);
+                                                        IComparer<string> searchComparer = (comparer != null) ?
+                                                            comparer : StringComparer.Ordinal;
+
+                                                        listIndex = list.BinarySearch(startIndex, list.Count - startIndex, pattern, searchComparer);
 
                                                         if (listIndex < 0)
                                                             listIndex = Index.Invalid;

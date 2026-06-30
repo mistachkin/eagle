@@ -14,9 +14,20 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Constants
 {
+    /// <summary>
+    /// This class provides the read-only lists of compile-time define
+    /// constants (preprocessor symbols) that describe the build of Eagle.
+    /// It records the set of supported .NET Framework and .NET Core/Standard
+    /// target identifiers, as well as the complete list of optional feature
+    /// symbols that were actually enabled when this assembly was compiled.
+    /// </summary>
     [ObjectId("428a5842-dcd7-46e7-8b40-decfabb331a2")]
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of recognized .NET Framework target define constants
+        /// (for example, <c>NET_20</c> through <c>NET_481</c>).
+        /// </summary>
         public static readonly StringList DotNetFramework =
             new StringList(new string[] {
             "NET_20",
@@ -38,6 +49,11 @@ namespace Eagle._Constants
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The list of recognized .NET Core / .NET Standard target define
+        /// constants (for example, <c>NET_STANDARD_20</c> and
+        /// <c>NET_STANDARD_21</c>).
+        /// </summary>
         public static readonly StringList DotNetCore =
             new StringList(new string[] {
             "NET_STANDARD_20",
@@ -46,6 +62,12 @@ namespace Eagle._Constants
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The list of optional feature define constants that were enabled
+        /// when this assembly was compiled.  Each entry is conditionally
+        /// included based on whether its corresponding preprocessor symbol
+        /// was defined for this build; a trailing null terminates the list.
+        /// </summary>
         public static readonly StringList OptionList =
             new StringList(new string[] {
 #if APPDOMAINS

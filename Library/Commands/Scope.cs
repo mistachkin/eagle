@@ -24,12 +24,27 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>scope</c> command, which creates and
+    /// manages scope call frames (named collections of variables) and the
+    /// variables they contain.  It is an ensemble whose sub-commands cover
+    /// scope creation, opening, closing, evaluation, locking, namespace
+    /// attachment, and variable access within a scope.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("39023a46-960b-48bc-9139-55d6a2416f50")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.NonStandard)]
     [ObjectGroup("variable")]
     internal sealed class Scope : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the <c>scope</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Scope(
             ICommandData commandData
             )
@@ -42,6 +57,11 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "attach", "close", "create", "current", "destroy", "detach", "eval",
             "exists", "export", "global", "import", "list", "lock", "open", "set",
@@ -50,6 +70,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -59,6 +83,35 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>scope</c> command.  It dispatches to the
+        /// requested ensemble sub-command (for example <c>create</c>,
+        /// <c>open</c>, <c>close</c>, <c>eval</c>, or <c>set</c>) in order to
+        /// create or manipulate the named scope call frame and its variables.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, element one is the sub-command name, and any further
+        /// elements are the arguments for the selected sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result of the selected sub-command.
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code (for example <see cref="ReturnCode.Error" />) with
+        /// details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

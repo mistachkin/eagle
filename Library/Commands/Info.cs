@@ -37,6 +37,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>info</c> command, which provides
+    /// access to a large family of sub-commands for introspecting the state
+    /// of the interpreter and its host environment.  It is an ensemble
+    /// command; the available sub-commands include <c>commands</c>,
+    /// <c>exists</c>, <c>functions</c>, <c>globals</c>, <c>level</c>,
+    /// <c>library</c>, <c>locals</c>, <c>patchlevel</c>, <c>procs</c>,
+    /// <c>script</c>, <c>tclversion</c>, and <c>vars</c>, among many others.
+    /// See <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("6fd06e1a-4558-4264-88aa-a3121ed6232e")]
     /*
      * POLICY: We allow certain "safe" sub-commands.
@@ -55,6 +65,13 @@ namespace Eagle._Commands
     [ObjectGroup("introspection")]
     internal sealed class Info : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>info</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Info(
             ICommandData commandData
             )
@@ -71,6 +88,11 @@ namespace Eagle._Commands
         //       ensembles is required.  Ideally, we could use a dictionary
         //       of sub-command(s) to delegates or something.
         //
+        /// <summary>
+        /// The collection of sub-command names supported by this ensemble
+        /// command, used to dispatch each invocation to the appropriate
+        /// sub-command handler.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "active", "administrator", "appdomain",
             "args", "argv", "assembly", "base",
@@ -102,6 +124,10 @@ namespace Eagle._Commands
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names supported by this ensemble
+        /// command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -111,11 +137,20 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IPolicyEnsemble Members
+        /// <summary>
+        /// The collection of sub-command names that are permitted to execute
+        /// when this command is invoked, as determined by the active policy
+        /// configuration.
+        /// </summary>
         private readonly EnsembleDictionary allowedSubCommands = new EnsembleDictionary(
             PolicyOps.AllowedInfoSubCommandNames);
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the collection of sub-command names that are permitted to
+        /// execute when this command is invoked.
+        /// </summary>
         public override EnsembleDictionary AllowedSubCommands
         {
             get { return allowedSubCommands; }
@@ -125,6 +160,39 @@ namespace Eagle._Commands
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>info</c> command.  It dispatches to the
+        /// requested introspection sub-command (e.g. <c>commands</c>,
+        /// <c>vars</c>, <c>level</c>, <c>library</c>, <c>patchlevel</c>) to
+        /// query the state of the interpreter or its host environment, placing
+        /// the produced value into <paramref name="result" />.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; any remaining
+        /// elements are the arguments and options for that sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the selected
+        /// sub-command (for example, a list, name, version, or count).  Upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, an unknown sub-command is requested, the interpreter is
+        /// null, or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,
@@ -3778,18 +3846,7 @@ namespace Eagle._Commands
                                     {
                                         if (arguments.Count == 2)
                                         {
-                                            if (PlatformOps.IsWindowsOperatingSystem())
-                                            {
-                                                result = FileExtension.Library;
-                                            }
-                                            else if (PlatformOps.IsMacintoshOperatingSystem())
-                                            {
-                                                result = FileExtension.DynamicLibrary;
-                                            }
-                                            else
-                                            {
-                                                result = FileExtension.SharedObject;
-                                            }
+                                            result = RuntimeOps.GetSharedLibraryExtension();
                                         }
                                         else
                                         {

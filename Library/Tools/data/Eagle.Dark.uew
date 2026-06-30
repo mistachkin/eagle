@@ -26,7 +26,7 @@ namespace
 open
 package pid proc puts pwd
 read regexp regsub rename return
-seek set socket source split string subst switch
+scan seek set socket source split string subst switch
 tell then throw time try
 unload unset update uplevel upvar
 variable

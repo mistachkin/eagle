@@ -20,6 +20,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>encoding</c> command, which converts
+    /// data between character encodings and the system encoding, retrieves the
+    /// available encoding names, and reports the system encoding.  See
+    /// <c>core_language.md</c> for the command syntax and semantics.
+    /// </summary>
     [ObjectId("428e30c3-2e24-4e9a-8f13-887d8dab6756")]
     /*
      * NOTE: We have no [encoding dirs] or [encoding system] that allows
@@ -29,6 +35,13 @@ namespace Eagle._Commands
     [ObjectGroup("string")]
     internal sealed class _Encoding : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>encoding</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public _Encoding(
             ICommandData commandData
             )
@@ -38,10 +51,19 @@ namespace Eagle._Commands
         }
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-commands supported by the <c>encoding</c> command,
+        /// namely <c>convertfrom</c>, <c>convertto</c>, <c>getstring</c>,
+        /// <c>names</c>, and <c>system</c>.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] { 
             "convertfrom", "convertto", "getstring", "names", "system"
         });
 
+        /// <summary>
+        /// Gets the dictionary of sub-commands supported by the
+        /// <c>encoding</c> command.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -49,11 +71,46 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>encoding</c> command.  It dispatches to
+        /// one of the supported sub-commands (<c>convertfrom</c>,
+        /// <c>convertto</c>, <c>getstring</c>, <c>names</c>, or <c>system</c>)
+        /// to convert data between encodings, decode a byte-array object into a
+        /// string, enumerate the available encoding names, or report the
+        /// system encoding.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the arguments for that sub-command.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the value produced by the selected
+        /// sub-command (the converted data, decoded string, list of encoding
+        /// names, or system encoding name).  Upon failure, this contains an
+        /// appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the wrong number of arguments
+        /// is supplied, the sub-command is unknown, the interpreter is null,
+        /// or the argument list is null, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code;

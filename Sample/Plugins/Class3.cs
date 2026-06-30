@@ -1256,7 +1256,7 @@ namespace Sample
         /// </summary>
         /// <param name="id">
         /// The <see cref="Guid" /> value associated with the
-        /// <see cref="ObjectId" /> attribute for the target type.
+        /// <c>ObjectId</c> attribute for the target type.
         /// </param>
         /// <param name="flags">
         /// These flags determine the semantics of the lookup process used to

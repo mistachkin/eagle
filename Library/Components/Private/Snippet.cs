@@ -17,6 +17,12 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class represents a named snippet of content -- a script, a digital
+    /// signature, or other text, XML, or binary data -- together with its
+    /// identity (name, group, and description), its origin path, and the flags
+    /// that control how it may be used.  It implements <see cref="ISnippet" />.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -24,6 +30,44 @@ namespace Eagle._Components.Private
     internal sealed class Snippet : ISnippet
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs a snippet from its name, grouping, description, origin
+        /// path, content, client data, and flags.
+        /// </summary>
+        /// <param name="name">
+        /// The name of this snippet.  This parameter may be null.
+        /// </param>
+        /// <param name="group">
+        /// The group with which this snippet is associated.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="description">
+        /// The human-readable description of this snippet.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="path">
+        /// The path identifying where this snippet originated.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="bytes">
+        /// The binary content of this snippet, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="text">
+        /// The textual content of this snippet, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="xml">
+        /// The XML content of this snippet, if any.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra data to associate with this snippet, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags controlling how this snippet may be used.
+        /// </param>
         public Snippet(
             string name,
             string group,
@@ -61,6 +105,11 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method enforces that the existing name of this snippet has not
+        /// already been set, throwing if it has.  It is used to guarantee that
+        /// the name, once assigned, is immutable.
+        /// </summary>
         private void OldNameMustBeImmutable()
         {
             if (name == null)
@@ -71,6 +120,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this snippet currently has a name.
+        /// </summary>
+        /// <returns>
+        /// True if this snippet has a name; otherwise, false.
+        /// </returns>
         private bool PrivateHaveName()
         {
             return (name != null);
@@ -78,6 +133,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the name of this snippet without performing any
+        /// validation or immutability checks.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to this snippet.  This parameter may be null.
+        /// </param>
         private void PrivateSetName(
             string name /* in */
             )
@@ -89,6 +151,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method enforces that the supplied new name is valid (i.e. not
+        /// null), throwing if it is not.
+        /// </summary>
+        /// <param name="name">
+        /// The candidate new name to validate.
+        /// </param>
         private static void NewNameMustBeValid(
             string name /* in */
             )
@@ -103,6 +172,40 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method adjusts a set of snippet flags by selectively turning
+        /// individual flags on or off and then masks the result to the
+        /// per-instance flags.
+        /// </summary>
+        /// <param name="snippetFlags">
+        /// The set of flags to adjust.
+        /// </param>
+        /// <param name="isScript">
+        /// When non-null, controls the <see cref="SnippetFlags.MustBeScript" />
+        /// flag: true sets it and false clears it.  This parameter may be null,
+        /// leaving the flag unchanged.
+        /// </param>
+        /// <param name="isSignature">
+        /// When non-null, controls the
+        /// <see cref="SnippetFlags.MustBeSignature" /> flag: true sets it and
+        /// false clears it.  This parameter may be null, leaving the flag
+        /// unchanged.
+        /// </param>
+        /// <param name="forSecurity">
+        /// When non-null, controls the
+        /// <see cref="SnippetFlags.SecurityPackage" /> flag: true sets it and
+        /// false clears it.  This parameter may be null, leaving the flag
+        /// unchanged.
+        /// </param>
+        /// <param name="forInstance">
+        /// When non-null, controls the <see cref="SnippetFlags.ForInstance" />
+        /// flag: true sets it and false clears it.  This parameter may be null,
+        /// leaving the flag unchanged.
+        /// </param>
+        /// <returns>
+        /// The adjusted set of flags, masked to
+        /// <see cref="SnippetFlags.InstanceMask" />.
+        /// </returns>
         public static SnippetFlags MaskFlags(
             SnippetFlags snippetFlags, /* in */
             bool? isScript,            /* in */
@@ -152,7 +255,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierName Members
+        /// <summary>
+        /// Stores the name of this snippet.
+        /// </summary>
         private string name;
+        /// <summary>
+        /// Gets the name of this snippet.  Setting this property is not
+        /// supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -163,7 +274,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifierBase Members
+        /// <summary>
+        /// Stores the identifier kind of this snippet.
+        /// </summary>
         private IdentifierKind kind;
+        /// <summary>
+        /// Gets the identifier kind of this snippet.  Setting this property is
+        /// not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public IdentifierKind Kind
         {
             get { return kind; }
@@ -172,7 +291,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the globally unique identifier of this snippet.
+        /// </summary>
         private Guid id;
+        /// <summary>
+        /// Gets the globally unique identifier of this snippet.  Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public Guid Id
         {
             get { return id; }
@@ -183,7 +310,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// Stores the extra data associated with this snippet.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets the extra data associated with this snippet.  Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public IClientData ClientData
         {
             get { return clientData; }
@@ -194,7 +329,15 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IIdentifier Members
+        /// <summary>
+        /// Stores the group with which this snippet is associated.
+        /// </summary>
         private string group;
+        /// <summary>
+        /// Gets the group with which this snippet is associated.  Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public string Group
         {
             get { return group; }
@@ -203,7 +346,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the human-readable description of this snippet.
+        /// </summary>
         private string description;
+        /// <summary>
+        /// Gets the human-readable description of this snippet.  Setting this
+        /// property is not supported and always throws
+        /// <see cref="NotImplementedException" />.
+        /// </summary>
         public string Description
         {
             get { return description; }
@@ -214,7 +365,13 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ISnippetData Members
+        /// <summary>
+        /// Stores the path identifying where this snippet originated.
+        /// </summary>
         private string path;
+        /// <summary>
+        /// Gets the path identifying where this snippet originated.
+        /// </summary>
         public string Path
         {
             get { return path; }
@@ -222,7 +379,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the binary content of this snippet, if any.
+        /// </summary>
         private byte[] bytes;
+        /// <summary>
+        /// Gets the binary content of this snippet, if any.
+        /// </summary>
         public byte[] Bytes
         {
             get { return bytes; }
@@ -230,7 +393,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the textual content of this snippet, if any.
+        /// </summary>
         private string text;
+        /// <summary>
+        /// Gets the textual content of this snippet, if any.
+        /// </summary>
         public string Text
         {
             get { return text; }
@@ -238,7 +407,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the XML content of this snippet, if any.
+        /// </summary>
         private string xml;
+        /// <summary>
+        /// Gets the XML content of this snippet, if any.
+        /// </summary>
         public string Xml
         {
             get { return xml; }
@@ -246,7 +421,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the flags controlling how this snippet may be used.
+        /// </summary>
         private SnippetFlags snippetFlags;
+        /// <summary>
+        /// Gets the flags controlling how this snippet may be used.
+        /// </summary>
         public SnippetFlags SnippetFlags
         {
             get { return snippetFlags; }
@@ -256,6 +437,12 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region ISnippet Members
+        /// <summary>
+        /// This method determines whether this snippet currently has a name.
+        /// </summary>
+        /// <returns>
+        /// True if this snippet has a name; otherwise, false.
+        /// </returns>
         public bool HaveName()
         {
             return PrivateHaveName();
@@ -263,6 +450,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the name of this snippet only if it does not
+        /// already have one.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to this snippet.  This parameter may be null.
+        /// </param>
         public void MaybeSetName(
             string name /* in */
             )
@@ -273,6 +467,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the name of this snippet, throwing if it already
+        /// has a name or if the supplied name is invalid (i.e. null).
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to this snippet.
+        /// </param>
         public void SetName(
             string name /* in */
             )
@@ -284,6 +485,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this snippet is hidden.
+        /// </summary>
+        /// <returns>
+        /// True if this snippet is hidden; otherwise, false.
+        /// </returns>
         public bool IsHidden()
         {
             return FlagOps.HasFlags(
@@ -292,6 +499,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this snippet as hidden.
+        /// </summary>
         public void SetHidden()
         {
             snippetFlags |= SnippetFlags.Hidden;
@@ -299,6 +509,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this snippet is locked.
+        /// </summary>
+        /// <returns>
+        /// True if this snippet is locked; otherwise, false.
+        /// </returns>
         public bool IsLocked()
         {
             return FlagOps.HasFlags(
@@ -307,6 +523,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this snippet as locked.
+        /// </summary>
         public void SetLocked()
         {
             snippetFlags |= SnippetFlags.Locked;
@@ -314,6 +533,12 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this snippet is disabled.
+        /// </summary>
+        /// <returns>
+        /// True if this snippet is disabled; otherwise, false.
+        /// </returns>
         public bool IsDisabled()
         {
             return FlagOps.HasFlags(
@@ -322,6 +547,9 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marks this snippet as disabled.
+        /// </summary>
         public void SetDisabled()
         {
             snippetFlags |= SnippetFlags.Disabled;
@@ -329,6 +557,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs describing the
+        /// populated properties of this snippet.
+        /// </summary>
+        /// <returns>
+        /// The list of name/value pairs describing this snippet.
+        /// </returns>
         public IStringList ToList()
         {
             IStringList list = new StringPairList();
@@ -374,6 +609,14 @@ namespace Eagle._Components.Private
         // WARNING: Any changes to this method could break backward
         //          compatibility with previously released versions.
         //
+        /// <summary>
+        /// Returns a string representation of this snippet, preferring its
+        /// name, then its path, then its text, then its XML content.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this snippet, or the empty string if
+        /// none of those properties are set.
+        /// </returns>
         public override string ToString()
         {
             if (name != null)

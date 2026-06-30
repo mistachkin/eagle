@@ -34,6 +34,14 @@ using ConsoleColor = Eagle._Components.Public.ConsoleColor;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of private static helper methods used
+    /// to interact with interpreter hosts, including locating the host for an
+    /// interpreter, building and emitting interactive prompts, sleeping and
+    /// yielding the current thread, querying and combining host and detail
+    /// flags, reading scripts and streams via the host, and creating, wrapping,
+    /// and disposing of host instances.
+    /// </summary>
     [ObjectId("1b0d1e7d-957b-4151-b31f-598393251442")]
     internal static class HostOps
     {
@@ -42,25 +50,60 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The minimum number of active interactive loops required before the
+        /// active loops prefix is added to the interactive prompt.
+        /// </summary>
         private static int MinimumPrefixLoops = 1;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default text used for the primary (top-level) interactive
+        /// prompt.
+        /// </summary>
         private const string PrimaryPrompt = "% ";
+
+        /// <summary>
+        /// The default text used for the continuation interactive prompt, shown
+        /// when more input is needed to complete a command.
+        /// </summary>
         private const string ContinuePrompt = ">\t";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The format string used to build the active interactive loops prefix
+        /// for the interactive prompt.
+        /// </summary>
         private const string LoopsPrefixFormat = "(a:{0}) ==> ";
+
+        /// <summary>
+        /// The format string used to build the command count prefix for the
+        /// interactive prompt.
+        /// </summary>
         private const string CountPrefixFormat = "[c:{0}] ";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The prefix added to the interactive prompt when interactive
+        /// debugging is active.
+        /// </summary>
         private const string DebugPrefix = "(debug) ";
+
+        /// <summary>
+        /// The prefix added to the interactive prompt when there are queued
+        /// events.
+        /// </summary>
         private const string QueuePrefix = "^ ";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The list of default prompt strings, indexed by the integer value of
+        /// a <see cref="PromptType" />.
+        /// </summary>
         private static readonly StringList DefaultPrompts = new StringList(
             new string[] { null, PrimaryPrompt, ContinuePrompt }
         );
@@ -70,6 +113,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The format string used to build the interpreter identifier prefix
+        /// for the interactive prompt.
+        /// </summary>
         private static string IdPrefixFormat = "i:{0} ";
         #endregion
 
@@ -79,17 +126,28 @@ namespace Eagle._Components.Private
         //
         // HACK: This is not read-only.
         //
+        /// <summary>
+        /// The number of milliseconds to wait when attempting to acquire the
+        /// interpreter lock in order to obtain its host.
+        /// </summary>
         private static int GetTimeout = 2000; /* TODO: Good default? */
 
         //
         // HACK: This is not read-only.
         //
+        /// <summary>
+        /// The number of milliseconds to wait when attempting to acquire the
+        /// interpreter lock in order to obtain its interactive host.
+        /// </summary>
         private static int InteractiveGetTimeout = 2000; /* TODO: Good default? */
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Interactive Mode Formatting
+        /// <summary>
+        /// The format string used to display the current interactive mode.
+        /// </summary>
         private const string InteractiveModeFormat = "- [{0}]";
         #endregion
 
@@ -103,7 +161,16 @@ namespace Eagle._Components.Private
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The console color used as the high-contrast color for dark colors;
+        /// normally white.
+        /// </summary>
         private static ConsoleColor highContrastLightColor = ConsoleColor.White;
+
+        /// <summary>
+        /// The console color used as the high-contrast color for light colors;
+        /// normally black.
+        /// </summary>
         private static ConsoleColor highContrastDarkColor = ConsoleColor.Black;
         #endregion
 
@@ -116,6 +183,9 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The minimum size for the native console history buffer.
+        /// </summary>
         private static uint MinimumHistoryBufferSize = 200;
 
         ///////////////////////////////////////////////////////////////////////
@@ -127,6 +197,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the native Win32 API is used to write to the console;
+        /// otherwise, the managed System.Console class is used.
+        /// </summary>
         private static bool useNativeConsole = false;
 #endif
         #endregion
@@ -135,6 +209,10 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constants
+        /// <summary>
+        /// The error message format used when the interpreter host lacks
+        /// support for a required feature.
+        /// </summary>
         public static readonly string NoFeatureError =
             "interpreter host lacks support for the \"{0}\" feature";
         #endregion
@@ -146,22 +224,36 @@ namespace Eagle._Components.Private
         // NOTE: The total number of outstanding calls into Thread.Sleep in
         //       this AppDomain.
         //
+        /// <summary>
+        /// The total number of outstanding calls into Thread.Sleep in this
+        /// application domain.
+        /// </summary>
         private static int pendingSleepCount;
 
         //
         // NOTE: The total number of outstanding calls into Thread.Yield in
         //       this AppDomain.
         //
+        /// <summary>
+        /// The total number of outstanding calls into Thread.Yield in this
+        /// application domain.
+        /// </summary>
         private static int pendingYieldCount;
 
         //
         // NOTE: The total number of milliseconds slept in this AppDomain.
         //
+        /// <summary>
+        /// The total number of milliseconds slept in this application domain.
+        /// </summary>
         private static long totalSleepMilliseconds;
 
         //
         // NOTE: The total number of calls to yield in this AppDomain.
         //
+        /// <summary>
+        /// The total number of calls to yield in this application domain.
+        /// </summary>
         private static long totalYieldCount;
         #endregion
 
@@ -171,6 +263,16 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method adds host-related introspection information to the
+        /// specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list that host information is added to.  This may be modified.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The detail flags that control which information is included.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -233,6 +335,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Host Support Methods
+        /// <summary>
+        /// This method attempts to obtain the host associated with the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host is to be obtained.
+        /// </param>
+        /// <returns>
+        /// The host associated with the interpreter, or null if it is not
+        /// available.
+        /// </returns>
         private static IHost TryGet(
             Interpreter interpreter /* in */
             )
@@ -304,6 +417,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the interactive host associated with
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host is to be obtained.
+        /// </param>
+        /// <param name="promptFlags">
+        /// Upon success, receives the prompt flags associated with the
+        /// interpreter.
+        /// </param>
+        /// <returns>
+        /// The interactive host associated with the interpreter, or null if it
+        /// is not available.
+        /// </returns>
         private static IInteractiveHost TryGetInteractive(
             Interpreter interpreter,    /* in */
             ref PromptFlags promptFlags /* out */
@@ -386,6 +514,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of active interactive loops for the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <returns>
+        /// The number of active interactive loops, or zero if it cannot be
+        /// determined.
+        /// </returns>
         public static int TryGetInteractiveLoops(
             Interpreter interpreter /* in */
             )
@@ -406,6 +545,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method may adjust the specified prompt flags to include the
+        /// interpreter identifier.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose identifier is used.
+        /// </param>
+        /// <param name="promptFlags">
+        /// The prompt flags to adjust.  This may be modified.
+        /// </param>
+        /// <param name="id">
+        /// The interpreter identifier.  This may be modified.
+        /// </param>
         public static void MaybeAdjustPromptFlags(
             Interpreter interpreter,     /* in */
             ref PromptFlags promptFlags, /* in, out */
@@ -429,6 +581,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the default interactive prompt string for the
+        /// specified prompt type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the prompt is being built for.
+        /// </param>
+        /// <param name="type">
+        /// The type of prompt to build.
+        /// </param>
+        /// <param name="promptFlags">
+        /// The prompt flags that control which prefixes are added.
+        /// </param>
+        /// <param name="id">
+        /// The interpreter identifier used by the identifier prefix.
+        /// </param>
+        /// <param name="count">
+        /// The command count used by the command count prefix.
+        /// </param>
+        /// <returns>
+        /// The default prompt string.
+        /// </returns>
         public static string GetDefaultPrompt(
             Interpreter interpreter, /* in */
             PromptType type,         /* in */
@@ -485,6 +659,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the formatted interactive mode string for the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <returns>
+        /// The formatted interactive mode string, or null if there is no
+        /// interactive mode.
+        /// </returns>
         public static string GetInteractiveMode(
             Interpreter interpreter /* in */
             )
@@ -502,6 +687,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified detail flags request
+        /// empty content.
+        /// </summary>
+        /// <param name="detailFlags">
+        /// The detail flags to check.
+        /// </param>
+        /// <returns>
+        /// True if empty content is requested; otherwise, false.
+        /// </returns>
         public static bool HasEmptyContent(
             DetailFlags detailFlags /* in */
             )
@@ -512,6 +707,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified detail flags request
+        /// verbose content.
+        /// </summary>
+        /// <param name="detailFlags">
+        /// The detail flags to check.
+        /// </param>
+        /// <returns>
+        /// True if verbose content is requested; otherwise, false.
+        /// </returns>
         public static bool HasVerboseContent(
             DetailFlags detailFlags /* in */
             )
@@ -522,6 +727,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the effective detail flags for the specified
+        /// interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to query.
+        /// </param>
+        /// <returns>
+        /// The detail flags for the interpreter, or the standard detail flags
+        /// if none are available.
+        /// </returns>
         public static DetailFlags GetDetailFlags(
             Interpreter interpreter /* in */
             )
@@ -539,6 +755,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method translates the specified header flags into their
+        /// corresponding detail flags.
+        /// </summary>
+        /// <param name="headerFlags">
+        /// The header flags to translate.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The detail flags to add to.  This may be modified.
+        /// </param>
         public static void HeaderFlagsToDetailFlags(
             HeaderFlags headerFlags,    /* in */
             ref DetailFlags detailFlags /* in, out */
@@ -629,6 +855,26 @@ namespace Eagle._Components.Private
         // WARNING: All interpreter members used by this method MUST be safe
         //          to use after the interpreter has been disposed.
         //
+        /// <summary>
+        /// This method builds a list of introspection information describing
+        /// the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to describe.
+        /// </param>
+        /// <param name="name">
+        /// The name used for the section heading, or null to omit the heading.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The detail flags that control which information is included.
+        /// </param>
+        /// <param name="list">
+        /// The list that interpreter information is added to.  This may be
+        /// modified.
+        /// </param>
+        /// <returns>
+        /// True if the information was built successfully; otherwise, false.
+        /// </returns>
         public static bool BuildInterpreterInfoList(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -706,6 +952,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Sleep Support Methods
+        /// <summary>
+        /// This method causes the current thread to sleep for the specified
+        /// number of milliseconds.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ThreadSleep(
             int milliseconds, /* in */
             ref Result error  /* out */
@@ -718,6 +978,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to sleep for the specified
+        /// number of milliseconds.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ThreadSleep(
             int milliseconds,       /* in */
             ref Exception exception /* out */
@@ -730,6 +1004,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to sleep for the specified
+        /// number of milliseconds.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ThreadSleep(
             int milliseconds,        /* in */
             ref Exception exception, /* out */
@@ -764,6 +1055,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to sleep for the specified
+        /// number of milliseconds, updating the related diagnostic counters.
+        /// </summary>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
         public static void ThreadSleep(
             int milliseconds /* in */
             ) /* THREAD-SAFE */
@@ -788,6 +1086,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Yield Support Methods
+        /// <summary>
+        /// This method causes the current thread to yield its remaining time
+        /// slice.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode ThreadYield(
             ref Result error /* out */
             ) /* THREAD-SAFE */
@@ -799,6 +1108,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to yield its remaining time
+        /// slice.
+        /// </summary>
+        /// <param name="exception">
+        /// Upon failure, receives the exception that was caught.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode ThreadYield(
             ref Exception exception, /* out */
             ref Result error         /* out */
@@ -834,6 +1157,10 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the current thread to yield its remaining time
+        /// slice, updating the related diagnostic counters.
+        /// </summary>
         public static void ThreadYield() /* THREAD-SAFE */
         {
             Interlocked.Increment(ref pendingYieldCount);
@@ -865,6 +1192,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Yield / Sleep Support Methods
+        /// <summary>
+        /// This method extracts the yield type and millisecond count encoded
+        /// within the specified integer value.
+        /// </summary>
+        /// <param name="value">
+        /// The encoded value to decode.
+        /// </param>
+        /// <param name="type">
+        /// Upon return, receives the decoded yield type.
+        /// </param>
+        /// <param name="milliseconds">
+        /// Upon return, receives the decoded number of milliseconds.
+        /// </param>
         private static void YieldTypeAndMilliseconds(
             int value,           /* in */
             out YieldType type,  /* out */
@@ -877,6 +1217,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method conditionally yields the current thread and/or sleeps
+        /// for a period of time, based on the specified encoded value.
+        /// </summary>
+        /// <param name="value">
+        /// The encoded value specifying the yield type and number of
+        /// milliseconds.
+        /// </param>
         public static void MaybeThreadYieldAndOrSleep(
             int value /* in */
             )
@@ -907,6 +1255,13 @@ namespace Eagle._Components.Private
         // BUGBUG: This only works for interpreters that are known from this
         //         AppDomain.
         //
+        /// <summary>
+        /// This method resets the standard channels for all interpreters known
+        /// to this application domain.
+        /// </summary>
+        /// <param name="channelType">
+        /// The type of standard channels to reset.
+        /// </param>
         public static void ResetAllInterpreterStandardChannels(
             ChannelType channelType /* in */
             )
@@ -942,6 +1297,16 @@ namespace Eagle._Components.Private
 
         #region Host Wrapper Methods
         #region Exit Support Methods
+        /// <summary>
+        /// This method sets the host exiting flag for the host(s) associated
+        /// with the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host(s) should be flagged.
+        /// </param>
+        /// <param name="exiting">
+        /// Non-zero to indicate the host is exiting; otherwise, zero.
+        /// </param>
         public static void SetExiting(
             Interpreter interpreter, /* in */
             bool exiting             /* in */
@@ -977,6 +1342,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets the host exiting flag for the specified process
+        /// host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the host, used for diagnostics.
+        /// </param>
+        /// <param name="processHost">
+        /// The process host whose exiting flag should be set.
+        /// </param>
+        /// <param name="hostName">
+        /// The name of the host, used for diagnostics.
+        /// </param>
+        /// <param name="isolated">
+        /// Non-zero if the host is an isolated host; otherwise, zero.
+        /// </param>
+        /// <param name="exiting">
+        /// Non-zero to indicate the host is exiting; otherwise, zero.
+        /// </param>
         public static void SetExiting(
             Interpreter interpreter,  /* in */
             IProcessHost processHost, /* in */
@@ -1013,6 +1397,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Sleep Support Methods
+        /// <summary>
+        /// This method causes the host associated with the specified
+        /// interpreter to sleep for the specified number of milliseconds.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host should sleep.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Sleep(
             Interpreter interpreter, /* in */
             int milliseconds,        /* in */
@@ -1025,6 +1426,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the specified thread host to sleep for the
+        /// specified number of milliseconds.
+        /// </summary>
+        /// <param name="threadHost">
+        /// The thread host that should sleep.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Sleep(
             IThreadHost threadHost, /* in */
             int milliseconds,       /* in */
@@ -1037,6 +1455,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the specified thread host to sleep for the
+        /// specified number of milliseconds, optionally falling back to
+        /// sleeping the current thread.
+        /// </summary>
+        /// <param name="threadHost">
+        /// The thread host that should sleep.
+        /// </param>
+        /// <param name="milliseconds">
+        /// The number of milliseconds to sleep.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require host support for sleeping; otherwise, zero to
+        /// fall back to sleeping the current thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode Sleep(
             IThreadHost threadHost, /* in */
             int milliseconds,       /* in */
@@ -1088,6 +1528,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Yield Support Methods
+        /// <summary>
+        /// This method causes the host associated with the specified
+        /// interpreter to yield the current thread.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host should yield.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require host support for yielding; otherwise, zero to
+        /// fall back to yielding the current thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode Yield(
             Interpreter interpreter, /* in */
             bool strict,             /* in */
@@ -1100,6 +1558,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method causes the specified thread host to yield the current
+        /// thread, optionally falling back to yielding the current thread
+        /// directly.
+        /// </summary>
+        /// <param name="threadHost">
+        /// The thread host that should yield.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require host support for yielding; otherwise, zero to
+        /// fall back to yielding the current thread.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode Yield(
             IThreadHost threadHost, /* in */
             bool strict,            /* in */
@@ -1152,6 +1629,13 @@ namespace Eagle._Components.Private
         #region Console Support Methods
 #if CONSOLE
 #if NATIVE && WINDOWS
+        /// <summary>
+        /// This method determines whether the native Win32 console API should
+        /// be used for console output.
+        /// </summary>
+        /// <returns>
+        /// True if the native console should be used; otherwise, false.
+        /// </returns>
         public static bool ShouldUseNative()
         {
             return useNativeConsole;
@@ -1159,6 +1643,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets whether the native Win32 console API should be used
+        /// for console output.
+        /// </summary>
+        /// <param name="useNative">
+        /// Non-zero to use the native console; otherwise, zero.
+        /// </param>
         public static void SetUseNative(
             bool useNative /* in */
             )
@@ -1169,6 +1660,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the console, without a
+        /// trailing line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void ConsoleWrite(
             string value /* in */
             )
@@ -1186,6 +1684,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the console, followed by a
+        /// line terminator.
+        /// </summary>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         private static void ConsoleWriteLine(
             string value /* in */
             )
@@ -1206,6 +1711,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Output Support Methods
+        /// <summary>
+        /// This method writes the specified value, followed by a line
+        /// terminator, to the specified interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to.
+        /// </param>
+        /// <param name="value">
+        /// The value to write, or null to write an empty line.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         public static bool WriteLine(
             IInteractiveHost interactiveHost, /* in */
             string value                      /* in */
@@ -1232,6 +1750,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code and result, followed by
+        /// a line terminator, to the specified interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to.
+        /// </param>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <returns>
+        /// True if the value was written successfully; otherwise, false.
+        /// </returns>
         public static bool WriteResultLine(
             IInteractiveHost interactiveHost, /* in */
             ReturnCode code,                  /* in */
@@ -1257,6 +1791,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value to the specified interactive
+        /// host, falling back to the console when no interactive host is
+        /// available.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, if any.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         public static void WriteOrConsole(
             IInteractiveHost interactiveHost, /* in */
             string value                      /* in */
@@ -1272,6 +1817,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified value, followed by a line
+        /// terminator, to the specified interactive host, falling back to the
+        /// console when no interactive host is available.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to write to, if any.
+        /// </param>
+        /// <param name="value">
+        /// The value to write.
+        /// </param>
         public static void WriteLineOrConsole(
             IInteractiveHost interactiveHost, /* in */
             string value                      /* in */
@@ -1287,6 +1843,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code and result to the
+        /// console, complaining about them if no console output is available.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
         public static void WriteConsoleOrComplain(
             ReturnCode code, /* in */
             Result result    /* in */
@@ -1297,6 +1863,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified return code and result to the
+        /// console, complaining about them if no console output is available.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to write.
+        /// </param>
+        /// <param name="result">
+        /// The result to write.
+        /// </param>
+        /// <param name="errorLine">
+        /// The error line number associated with the result.
+        /// </param>
         public static void WriteConsoleOrComplain(
             ReturnCode code, /* in */
             Result result,   /* in */
@@ -1324,6 +1903,16 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Support Methods
+        /// <summary>
+        /// This method determines whether the specified type is, or derives
+        /// from, the null host type.
+        /// </summary>
+        /// <param name="type">
+        /// The type to check.
+        /// </param>
+        /// <returns>
+        /// True if the type is a null host type; otherwise, false.
+        /// </returns>
         private static bool IsNullType(
             Type type /* in */
             )
@@ -1335,6 +1924,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified interactive host has
+        /// been disposed.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to check.
+        /// </param>
+        /// <returns>
+        /// True if the interactive host has been disposed; otherwise, false.
+        /// </returns>
         public static bool IsDisposed(
             IInteractiveHost interactiveHost /* in */
             )
@@ -1361,6 +1960,25 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if DEBUG && VERBOSE
+        /// <summary>
+        /// This method emits a diagnostic trace describing the specified
+        /// interactive host context.
+        /// </summary>
+        /// <param name="prefix">
+        /// The prefix used to identify the trace message.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the trace.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host associated with the trace.
+        /// </param>
+        /// <param name="interactiveLoops">
+        /// The number of active interactive loops.
+        /// </param>
+        /// <param name="priority">
+        /// The trace priority to use, or null to use the default priority.
+        /// </param>
         public static void EmitTrace(
             string prefix,
             Interpreter interpreter,          /* in */
@@ -1397,6 +2015,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the interactive host for the
+        /// specified interpreter is open.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host is checked.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to force a refresh of the interactive host, zero to prevent
+        /// it, or null to decide automatically.
+        /// </param>
+        /// <param name="hostFlags">
+        /// The host flags to use or refresh.  This may be modified.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host to use or refresh.  This may be modified.
+        /// </param>
+        /// <returns>
+        /// True if the interactive host is open; otherwise, false.
+        /// </returns>
         public static bool IsOpen(
             Interpreter interpreter,             /* in */
             bool? refresh,                       /* in */
@@ -1413,6 +2051,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the interactive host for the
+        /// specified interpreter is open.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose interactive host is checked.
+        /// </param>
+        /// <param name="refresh">
+        /// Non-zero to force a refresh of the interactive host, zero to prevent
+        /// it, or null to decide automatically.
+        /// </param>
+        /// <param name="hostFlags">
+        /// The host flags to use or refresh.  This may be modified.
+        /// </param>
+        /// <param name="promptFlags">
+        /// The prompt flags to use or refresh.  This may be modified.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host to use or refresh.  This may be modified.
+        /// </param>
+        /// <returns>
+        /// True if the interactive host is open; otherwise, false.
+        /// </returns>
         public static bool IsOpen(
             Interpreter interpreter,             /* in */
             bool? refresh,                       /* in */
@@ -1608,6 +2269,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method may adjust the specified prompt flags based on the
+        /// debugging and queue states.
+        /// </summary>
+        /// <param name="debug">
+        /// Non-zero if interactive debugging is active.
+        /// </param>
+        /// <param name="queue">
+        /// Non-zero if there are queued events.
+        /// </param>
+        /// <param name="promptFlags">
+        /// The prompt flags to adjust.  This may be modified.
+        /// </param>
         public static void MaybeAdjustPromptFlags(
             bool debug,                 /* in */
             bool queue,                 /* in */
@@ -1624,6 +2298,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the header flags from the specified interactive
+        /// host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to query.
+        /// </param>
+        /// <param name="default">
+        /// The header flags to return if the interactive host is not available
+        /// or fails.
+        /// </param>
+        /// <returns>
+        /// The header flags from the interactive host, or the default value.
+        /// </returns>
         public static HeaderFlags GetHeaderFlags(
             IInteractiveHost interactiveHost, /* in */
             HeaderFlags @default              /* in */
@@ -1648,6 +2336,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the detail flags from the specified interactive
+        /// host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to query.
+        /// </param>
+        /// <param name="default">
+        /// The detail flags to return if the interactive host is not available
+        /// or fails.
+        /// </param>
+        /// <returns>
+        /// The detail flags from the interactive host, or the default value.
+        /// </returns>
         public static DetailFlags GetDetailFlags(
             IInteractiveHost interactiveHost, /* in */
             DetailFlags @default              /* in */
@@ -1672,6 +2374,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the host flags from the specified interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to query.
+        /// </param>
+        /// <returns>
+        /// The host flags from the interactive host, or
+        /// <see cref="HostFlags.None" /> if it is not available or fails.
+        /// </returns>
         public static HostFlags GetHostFlags(
             IInteractiveHost interactiveHost /* in */
             )
@@ -1695,6 +2407,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether input for the specified interactive
+        /// host is redirected.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to query.
+        /// </param>
+        /// <returns>
+        /// True if input is redirected; otherwise, false.
+        /// </returns>
         public static bool IsInputRedirected(
             IInteractiveHost interactiveHost /* in */
             )
@@ -1718,6 +2440,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of nested read levels for the specified
+        /// interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host to query.
+        /// </param>
+        /// <returns>
+        /// The number of nested read levels, or zero if it cannot be
+        /// determined.
+        /// </returns>
         public static int GetReadLevels(
             IInteractiveHost interactiveHost /* in */
             )
@@ -1741,6 +2474,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a high-contrast console color suitable for use
+        /// against the specified background color.
+        /// </summary>
+        /// <param name="color">
+        /// The background color to obtain a high-contrast color for.
+        /// </param>
+        /// <returns>
+        /// The high-contrast color, or <see cref="_ConsoleColor.None" /> if the
+        /// specified color is not recognized.
+        /// </returns>
         public static ConsoleColor GetHighContrastColor(
             ConsoleColor color /* in */
             )
@@ -1820,6 +2564,38 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the foreground and/or background colors with the
+        /// specified name from the specified color host.
+        /// </summary>
+        /// <param name="colorHost">
+        /// The color host to query.
+        /// </param>
+        /// <param name="name">
+        /// The name of the color pair to obtain.
+        /// </param>
+        /// <param name="foreground">
+        /// Non-zero to obtain the foreground color.
+        /// </param>
+        /// <param name="background">
+        /// Non-zero to obtain the background color.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require host support for colors.
+        /// </param>
+        /// <param name="foregroundColor">
+        /// Upon success, receives the foreground color.
+        /// </param>
+        /// <param name="backgroundColor">
+        /// Upon success, receives the background color.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetColors(
             IColorHost colorHost,             /* in */
             string name,                      /* in */
@@ -1893,6 +2669,18 @@ namespace Eagle._Components.Private
 
         #region Shell Support Methods
 #if SHELL
+        /// <summary>
+        /// This method sets the title of the specified interactive host.
+        /// </summary>
+        /// <param name="interactiveHost">
+        /// The interactive host whose title should be set.
+        /// </param>
+        /// <param name="value">
+        /// The title value to set.
+        /// </param>
+        /// <returns>
+        /// True if the title was set successfully; otherwise, false.
+        /// </returns>
         public static bool SetTitle(
             IInteractiveHost interactiveHost, /* in */
             string value                      /* in */
@@ -1918,6 +2706,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method (re)loads the host profile settings for the specified
+        /// interactive host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the host, if any.
+        /// </param>
+        /// <param name="interactiveHost">
+        /// The interactive host whose profile should be loaded.
+        /// </param>
+        /// <param name="profile">
+        /// The name of the profile to load.
+        /// </param>
+        /// <param name="encoding">
+        /// The encoding to use when reading the profile, or null for the
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode LoadProfile(
             Interpreter interpreter,          /* in */
             IInteractiveHost interactiveHost, /* in */
@@ -1969,6 +2781,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Library Support Methods
+        /// <summary>
+        /// This method determines whether the specified script flags forbid
+        /// obtaining a script from the host.
+        /// </summary>
+        /// <param name="scriptFlags">
+        /// The script flags to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon a positive result, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if obtaining a script from the host is forbidden; otherwise,
+        /// false.
+        /// </returns>
         public static bool HasNoHost(
             ScriptFlags scriptFlags, /* in */
             ref Result error         /* out */
@@ -1985,6 +2811,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to obtain the named script from the specified
+        /// file system host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the script is being obtained for.
+        /// </param>
+        /// <param name="fileSystemHost">
+        /// The file system host to obtain the script from.
+        /// </param>
+        /// <param name="name">
+        /// The name of the script to obtain.
+        /// </param>
+        /// <param name="direct">
+        /// Non-zero to attempt the fast path via the core library resource
+        /// manager first.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to use.  This may be modified.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to use.  This may be modified.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the script; upon failure, receives an error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetScript(
             Interpreter interpreter,        /* in */
             IFileSystemHost fileSystemHost, /* in */
@@ -2148,6 +3005,53 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Channel Support Methods
+        /// <summary>
+        /// This method attempts to obtain a stream for the specified path via
+        /// the specified file system host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the stream is being obtained for.
+        /// </param>
+        /// <param name="fileSystemHost">
+        /// The file system host to obtain the stream from.
+        /// </param>
+        /// <param name="path">
+        /// The path of the file to open.
+        /// </param>
+        /// <param name="mode">
+        /// The file mode to use.
+        /// </param>
+        /// <param name="access">
+        /// The file access to use.
+        /// </param>
+        /// <param name="share">
+        /// The file sharing to use.
+        /// </param>
+        /// <param name="bufferSize">
+        /// The buffer size to use.
+        /// </param>
+        /// <param name="options">
+        /// The file options to use.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to require host support for streams.
+        /// </param>
+        /// <param name="hostStreamFlags">
+        /// The host stream flags to use.  This may be modified.
+        /// </param>
+        /// <param name="fullPath">
+        /// Upon success, receives the full path of the opened file.
+        /// </param>
+        /// <param name="stream">
+        /// Upon success, receives the opened stream.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetStream(
             Interpreter interpreter,             /* in */
             IFileSystemHost fileSystemHost,      /* in */
@@ -2249,6 +3153,26 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Data Support Methods
+        /// <summary>
+        /// This method gets the configured data flags, optionally restricting
+        /// them for a restricted interpreter.
+        /// </summary>
+        /// <param name="culture">
+        /// The name of the culture used to parse the configured value.
+        /// </param>
+        /// <param name="specific">
+        /// Non-zero to require a culture-specific match.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags used to determine whether to apply
+        /// restrictions.
+        /// </param>
+        /// <param name="verbose">
+        /// Non-zero to enable verbose configuration lookups.
+        /// </param>
+        /// <returns>
+        /// The configured data flags.
+        /// </returns>
         public static DataFlags GetDataFlags(
             string culture,          /* in */
             bool specific,           /* in */
@@ -2302,6 +3226,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method combines the specified data flags with those of the
+        /// interpreter and any implied by the script flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose data flags should be combined, if any.
+        /// </param>
+        /// <param name="name">
+        /// The name of the data being requested.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags that may imply additional data flags.
+        /// </param>
+        /// <param name="dataFlags">
+        /// The base data flags to combine.
+        /// </param>
+        /// <returns>
+        /// The combined data flags.
+        /// </returns>
         public static DataFlags CombineDataFlags(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -2342,6 +3285,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Class Factory Methods
+        /// <summary>
+        /// This method builds the host creation flags from the specified
+        /// options.
+        /// </summary>
+        /// <param name="hostCreateFlags">
+        /// The base host creation flags supplied by the caller.
+        /// </param>
+        /// <param name="useAttach">
+        /// Non-zero to attach to an existing console.
+        /// </param>
+        /// <param name="useForce">
+        /// Non-zero to force console creation.
+        /// </param>
+        /// <param name="noColor">
+        /// Non-zero to disable host color support.
+        /// </param>
+        /// <param name="noTitle">
+        /// Non-zero to disable setting the host title.
+        /// </param>
+        /// <param name="noIcon">
+        /// Non-zero to disable setting the host icon.
+        /// </param>
+        /// <param name="noProfile">
+        /// Non-zero to disable loading the host profile.
+        /// </param>
+        /// <param name="noCancel">
+        /// Non-zero to disable cancellation support.
+        /// </param>
+        /// <returns>
+        /// The resulting host creation flags.
+        /// </returns>
         public static HostCreateFlags GetCreateFlags(
             HostCreateFlags hostCreateFlags, /* in */
             bool useAttach,                  /* in */
@@ -2395,6 +3369,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains several host-related properties from the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to obtain the properties from.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// Upon return, receives the host creation flags.
+        /// </param>
+        /// <param name="host">
+        /// Upon return, receives the interpreter host.
+        /// </param>
+        /// <param name="profile">
+        /// Upon return, receives the host profile name.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// Upon return, receives the interpreter culture.
+        /// </param>
+        /// <param name="resourceManager">
+        /// Upon return, receives the interpreter resource manager.
+        /// </param>
+        /// <param name="binder">
+        /// Upon return, receives the interpreter binder.
+        /// </param>
         private static void GetProperties(
             Interpreter interpreter,             /* in */
             out HostCreateFlags hostCreateFlags, /* out */
@@ -2415,6 +3414,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new host data container with the specified
+        /// type name.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name of the host the data is for.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created host data.
+        /// </returns>
         public static IHostData NewData(
             string typeName,                /* in */
             HostCreateFlags hostCreateFlags /* in */
@@ -2427,6 +3439,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new host data container with the specified
+        /// type name and interpreter.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name of the host the data is for.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter the host data is for.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created host data.
+        /// </returns>
         public static IHostData NewData(
             string typeName,                /* in */
             Interpreter interpreter,        /* in */
@@ -2440,6 +3468,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new host data container with the specified
+        /// type name, interpreter, resource manager, and profile.
+        /// </summary>
+        /// <param name="typeName">
+        /// The type name of the host the data is for.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter the host data is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created host data.
+        /// </returns>
         private static IHostData NewData(
             string typeName,                 /* in */
             Interpreter interpreter,         /* in */
@@ -2455,6 +3505,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new custom host using the specified callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to create the host.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The newly created host, or null if it could not be created.
+        /// </returns>
         public static IHost NewCustom(
             NewHostCallback callback,        /* in */
             Interpreter interpreter,         /* in */
@@ -2507,6 +3581,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if CONSOLE
+        /// <summary>
+        /// This method creates a new console host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created console host.
+        /// </returns>
         public static IHost NewConsole(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2522,6 +3614,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new diagnostic host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created diagnostic host.
+        /// </returns>
         public static IHost NewDiagnostic(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2536,6 +3646,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new fake host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created fake host.
+        /// </returns>
         public static IHost NewFake(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2550,6 +3678,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new null host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <returns>
+        /// The newly created null host.
+        /// </returns>
         public static IHost NewNull(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2564,6 +3710,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new wrapper host around the specified base
+        /// host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <param name="baseHost">
+        /// The base host to wrap.
+        /// </param>
+        /// <param name="baseHostOwned">
+        /// Non-zero if the wrapper host should take ownership of the base host.
+        /// </param>
+        /// <returns>
+        /// The newly created wrapper host.
+        /// </returns>
         private static _Hosts.Wrapper NewWrapper(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2580,6 +3751,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method wraps the specified base host in a wrapper host,
+        /// disposing of the base host if wrapping fails.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter the host is for.
+        /// </param>
+        /// <param name="resourceManager">
+        /// The resource manager the host should use.
+        /// </param>
+        /// <param name="profile">
+        /// The profile name the host should use.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to use.
+        /// </param>
+        /// <param name="baseHost">
+        /// The base host to wrap.  This may be modified.
+        /// </param>
+        /// <param name="baseHostOwned">
+        /// Non-zero if the base host is owned.  This may be modified.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
         public static void WrapOrDispose(
             Interpreter interpreter,         /* in */
             ResourceManager resourceManager, /* in */
@@ -2626,6 +3822,26 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new host of the specified type that copies and
+        /// wraps the current interpreter host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose host is copied and wrapped.
+        /// </param>
+        /// <param name="type">
+        /// The type of host to create.
+        /// </param>
+        /// <param name="host">
+        /// Upon success, receives the newly created host.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode CopyAndWrap(
             Interpreter interpreter, /* in */
             Type type,               /* in */
@@ -2757,6 +3973,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method unwraps and disposes of the interpreter wrapper host,
+        /// restoring its base host.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose wrapper host is unwrapped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode UnwrapAndDispose(
             Interpreter interpreter, /* in */
             ref Result error         /* out */
@@ -2811,6 +4041,16 @@ namespace Eagle._Components.Private
 
         #region Native Console Wrapper Methods
 #if CONSOLE
+        /// <summary>
+        /// This method complains that a native console operation is not
+        /// implemented, unless quiet operation is requested.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to complain on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void NotImplemented(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2825,6 +4065,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method closes the native console, if supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void CloseNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2850,6 +4099,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens or attaches the native console, if supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="forceConsole">
+        /// Non-zero to force opening a new console.
+        /// </param>
+        /// <param name="attachConsole">
+        /// Non-zero to attach to an existing parent console.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void OpenNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool forceConsole,       /* in */
@@ -2886,6 +4150,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method prevents the native console from being closed, if
+        /// supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void NoCloseNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2911,6 +4185,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resets the native console input buffer size, if
+        /// supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void FixNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2943,6 +4227,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method opens the native console handles, if supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void HookNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2968,6 +4261,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method switches the native console to a new active screen
+        /// buffer, if supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void PushNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -2994,6 +4297,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets up the native console history buffer, if supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void HistoryNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -3020,6 +4332,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method enables the use of the native console for output, if
+        /// supported.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
         private static void WriteNativeConsole(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -3043,6 +4365,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the native console is open.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform the operation on behalf of, if any.
+        /// </param>
+        /// <param name="quiet">
+        /// Non-zero to suppress complaining.
+        /// </param>
+        /// <returns>
+        /// True if the native console is open; otherwise, false.
+        /// </returns>
         public static bool IsNativeConsoleOpen(
             Interpreter interpreter, /* in: OPTIONAL */
             bool quiet               /* in */
@@ -3059,6 +4393,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs native console setup based on the specified
+        /// host creation flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to perform setup on behalf of, if any.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags that control which setup steps are
+        /// performed.
+        /// </param>
         public static void SetupNativeConsole(
             Interpreter interpreter,        /* in: OPTIONAL */
             HostCreateFlags hostCreateFlags /* in */

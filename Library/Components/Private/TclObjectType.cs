@@ -29,6 +29,13 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private.Tcl
 {
+    /// <summary>
+    /// This class provides proof-of-concept support for registering and
+    /// unregistering custom Tcl object types with a native Tcl interpreter,
+    /// together with the marshaling helpers and native callback stubs needed
+    /// to integrate Eagle object types into Tcl's typed object system.  This
+    /// code is experimental and is not production ready.
+    /// </summary>
     [SecurityPermission(SecurityAction.LinkDemand, UnmanagedCode = true)]
     [ObjectId("f2fb7f27-df8e-41b4-9d4b-bdb6383a91fa")]
     internal sealed class TclObjectType
@@ -39,10 +46,33 @@ namespace Eagle._Components.Private.Tcl
         //       should never normally need to be overridden.  This list will grow to
         //       include object types registered by other instances of this class.
         //
+        /// <summary>
+        /// The list of Tcl object type names that are considered predefined and
+        /// must never be registered (or re-registered) by callers of this class.
+        /// </summary>
         private static StringList typeNames = new StringList();
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the object types currently registered in a
+        /// native Tcl interpreter and adds any that are not already known to
+        /// the list of predefined object types that may not be registered.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter whose Tcl API object is used to query the
+        /// native Tcl interpreter.
+        /// </param>
+        /// <param name="interp">
+        /// The native Tcl interpreter to query for its registered object types.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode AddPredefindObjectTypes(
             Interpreter interpreter,
             IntPtr interp,
@@ -86,6 +116,32 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
         #region Tcl Object Type Setup
+        /// <summary>
+        /// This method registers or unregisters a custom Tcl object type with
+        /// the native Tcl interpreter.  When an object type interface is
+        /// supplied, the named object type is set up and registered; when none
+        /// is supplied, the named object type is unregistered by making it a
+        /// synonym for the built-in "string" object type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The Eagle interpreter whose Tcl API object is used to register or
+        /// unregister the object type.
+        /// </param>
+        /// <param name="name">
+        /// The name of the Tcl object type to register or unregister.  An empty
+        /// name is allowed.
+        /// </param>
+        /// <param name="objectType">
+        /// The object type interface to register, or null to unregister the
+        /// named object type.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode RegisterObjectType(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -221,6 +277,28 @@ namespace Eagle._Components.Private.Tcl
 
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes a Tcl object type structure for the named
+        /// object type, allocating the structure if necessary and populating
+        /// its name and callback delegates so that it can be registered with
+        /// the native Tcl interpreter.
+        /// </summary>
+        /// <param name="name">
+        /// The name to assign to the Tcl object type.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="objType">
+        /// The Tcl object type structure to set up.  If null upon entry, a new
+        /// structure is allocated; upon return, contains the populated object
+        /// type structure.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode SetupObjectType(
             string name,             /* in */
             ref Tcl_ObjType objType, /* in, out */
@@ -268,6 +346,17 @@ namespace Eagle._Components.Private.Tcl
 
         #region Static Object Type Helpers
 #if HAVE_SIZEOF
+        /// <summary>
+        /// This method marshals a native Tcl object pointer into a managed Tcl
+        /// object structure.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native pointer to the Tcl object to marshal.
+        /// </param>
+        /// <returns>
+        /// The marshaled Tcl object, or null if the pointer is invalid or the
+        /// marshaling fails.
+        /// </returns>
         public static Tcl_Obj MarshalObject(IntPtr objPtr)
         {
             Tcl_Obj result = null;
@@ -287,6 +376,17 @@ namespace Eagle._Components.Private.Tcl
 #endif
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method marshals a native Tcl object type pointer into a managed
+        /// Tcl object type structure.
+        /// </summary>
+        /// <param name="typePtr">
+        /// The native pointer to the Tcl object type to marshal.
+        /// </param>
+        /// <returns>
+        /// The marshaled Tcl object type, or null if the pointer is invalid or
+        /// the marshaling fails.
+        /// </returns>
         public static Tcl_ObjType MarshalObjectType(IntPtr typePtr)
         {
             Tcl_ObjType result = null;
@@ -307,6 +407,17 @@ namespace Eagle._Components.Private.Tcl
         ///////////////////////////////////////////////////////////////////////////////////////////////
 
 #if HAVE_SIZEOF
+        /// <summary>
+        /// This method marshals the object type referenced by a managed Tcl
+        /// object structure into a managed Tcl object type structure.
+        /// </summary>
+        /// <param name="obj">
+        /// The Tcl object whose referenced object type is to be marshaled.
+        /// </param>
+        /// <returns>
+        /// The marshaled Tcl object type, or null if the object does not
+        /// reference a type or the marshaling fails.
+        /// </returns>
         public static Tcl_ObjType MarshalObjectType(Tcl_Obj obj)
         {
             Tcl_ObjType result = null;
@@ -351,6 +462,23 @@ namespace Eagle._Components.Private.Tcl
         // Do not release objPtr's old internal representation unless you replace it with
         // a new one or reset the typePtr member to NULL.
         //
+        /// <summary>
+        /// This method is the native Tcl callback used to create a valid
+        /// internal representation for a Tcl object from its string
+        /// representation.  It is currently a stub.
+        /// </summary>
+        /// <param name="interp">
+        /// The native Tcl interpreter in which to report any error, or
+        /// IntPtr.Zero if no interpreter is available.
+        /// </param>
+        /// <param name="objPtr">
+        /// The native pointer to the Tcl object whose internal representation
+        /// is to be created.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode SetFromAnyProc( /* Tcl_ObjType, REQUIRED */
             IntPtr interp, /* in */
             IntPtr objPtr  /* in, out */
@@ -487,6 +615,15 @@ namespace Eagle._Components.Private.Tcl
         // a string with proper Tcl list structure. It stores this string as the list
         // object's string representation.
         //
+        /// <summary>
+        /// This method is the native Tcl callback used to create a valid string
+        /// representation for a Tcl object from its internal representation.  It
+        /// is currently a stub.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native pointer to the Tcl object whose string representation is
+        /// to be created.
+        /// </param>
         private static void UpdateStringProc( /* Tcl_ObjType, REQUIRED */
             IntPtr objPtr /* in, out */
             )
@@ -508,6 +645,19 @@ namespace Eagle._Components.Private.Tcl
         // original element objects; the elements are shared between the two lists (and
         // their reference counts are incremented to reflect the new references).
         //
+        /// <summary>
+        /// This method is the native Tcl callback used to copy the internal
+        /// representation from one Tcl object to another.  It is currently a
+        /// stub.
+        /// </summary>
+        /// <param name="srcPtr">
+        /// The native pointer to the source Tcl object whose internal
+        /// representation is to be copied.
+        /// </param>
+        /// <param name="dupPtr">
+        /// The native pointer to the destination Tcl object that receives the
+        /// copied internal representation.
+        /// </param>
         private static void DupInternalRepProc( /* Tcl_ObjType, OPTIONAL */
             IntPtr srcPtr, /* in */
             IntPtr dupPtr  /* out */
@@ -531,6 +681,15 @@ namespace Eagle._Components.Private.Tcl
         // freeIntRepProc member can be set to NULL to indicate that the internal
         // representation does not require freeing.
         //
+        /// <summary>
+        /// This method is the native Tcl callback used to free the internal
+        /// representation of a Tcl object when it is freed.  It is currently a
+        /// stub.
+        /// </summary>
+        /// <param name="objPtr">
+        /// The native pointer to the Tcl object whose internal representation is
+        /// to be freed.
+        /// </param>
         private static void FreeInternalRepProc( /* Tcl_ObjType, OPTIONAL */
             IntPtr objPtr /* in, out */
             )

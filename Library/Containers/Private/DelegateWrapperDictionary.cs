@@ -26,10 +26,18 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Private
 {
+    /// <summary>
+    /// This class represents a dictionary that maps delegate names to the
+    /// delegate wrapper objects that manage them.  It is a thin specialization
+    /// of the generic wrapper dictionary.
+    /// </summary>
     [ObjectId("30c67aea-9696-4ead-907a-5f65de826476")]
     internal sealed class DelegateWrapperDictionary :
             WrapperDictionary<string, DelegateWrapper>
     {
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public DelegateWrapperDictionary()
             : base()
         {
@@ -40,6 +48,31 @@ namespace Eagle._Containers.Private
 
         #region Dead Code
 #if DEAD_CODE
+        /// <summary>
+        /// This method produces a list of the delegate names contained in this
+        /// dictionary, optionally restricted to those matching the specified
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern that each delegate name must match in order to be included
+        /// in the result.  This parameter may be null, in which case all names
+        /// are included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of matching delegate names.  If this
+        /// is null, a new list is created.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error that was
+        /// encountered.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private ReturnCode ToList(
             string pattern,
             bool noCase,

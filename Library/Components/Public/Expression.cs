@@ -31,10 +31,25 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Components.Public
 {
     #region Expression Token Class
+    /// <summary>
+    /// This class represents a single token produced while parsing an Eagle
+    /// expression.  It extends the general-purpose <see cref="ParseToken" />
+    /// with expression-specific information, namely the <see cref="Lexeme" />
+    /// that classifies the token (operator, literal, function name, etc.) and
+    /// an optional <see cref="IVariant" /> value associated with it.  It
+    /// implements <see cref="IExpressionToken" />.
+    /// </summary>
     [ObjectId("d37cf7c6-37db-41f9-b0b5-33cd5a9c43d8")]
     public class ExpressionToken : ParseToken, IExpressionToken
     {
         #region Private Constructors
+        /// <summary>
+        /// Constructs an expression token by copying the supplied token, using
+        /// an unknown lexeme and no variant value.
+        /// </summary>
+        /// <param name="token">
+        /// The token to copy.
+        /// </param>
         private ExpressionToken(
             IToken token
             )
@@ -45,6 +60,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an expression token by copying the supplied token and
+        /// setting its lexeme and variant value.
+        /// </summary>
+        /// <param name="token">
+        /// The token to copy.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme that classifies this token.
+        /// </param>
+        /// <param name="variant">
+        /// The variant value to associate with this token, if any.  This
+        /// parameter may be null.
+        /// </param>
         private ExpressionToken(
             IToken token,
             Lexeme lexeme,
@@ -58,6 +87,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an expression token associated with the supplied parse
+        /// state, using an unknown lexeme and no variant value.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parse state this token belongs to.
+        /// </param>
         private ExpressionToken(
             IParseState parseState
             )
@@ -68,6 +104,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an expression token associated with the supplied parse
+        /// state and sets its lexeme and variant value.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parse state this token belongs to.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme that classifies this token.
+        /// </param>
+        /// <param name="variant">
+        /// The variant value to associate with this token, if any.  This
+        /// parameter may be null.
+        /// </param>
         private ExpressionToken(
             IParseState parseState,
             Lexeme lexeme,
@@ -83,6 +133,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// This method creates (or reuses) an expression token from an existing
+        /// token.  If the supplied token is already an expression token it is
+        /// returned unchanged; if it is a parse token a new expression token is
+        /// created from it.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="token">
+        /// The token to convert into (or interpret as) an expression token.
+        /// </param>
+        /// <returns>
+        /// The resulting expression token, or null if the supplied token cannot
+        /// be converted.
+        /// </returns>
         public static IExpressionToken FromToken(
             Interpreter interpreter, /* NOT USED */
             IToken token
@@ -98,6 +164,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new expression token from the supplied parse
+        /// and expression states, using an unknown lexeme.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="parseState">
+        /// The parse state the new token belongs to.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state used to initialize the new token.
+        /// </param>
+        /// <returns>
+        /// The newly created expression token.
+        /// </returns>
         public static IExpressionToken FromState(
             Interpreter interpreter,
             IParseState parseState,
@@ -110,6 +192,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new expression token from the supplied parse
+        /// and expression states, using the specified lexeme.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="parseState">
+        /// The parse state the new token belongs to.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state used to initialize the new token.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme that classifies the new token.
+        /// </param>
+        /// <returns>
+        /// The newly created expression token.
+        /// </returns>
         public static IExpressionToken FromState(
             Interpreter interpreter,
             IParseState parseState,
@@ -123,6 +224,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new expression token from the supplied parse
+        /// state, variant value, and lexeme.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="parseState">
+        /// The parse state the new token belongs to.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state.  This parameter is not used.
+        /// </param>
+        /// <param name="variant">
+        /// The variant value to associate with the new token, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme that classifies the new token.
+        /// </param>
+        /// <returns>
+        /// The newly created expression token.
+        /// </returns>
         public static IExpressionToken FromState(
             Interpreter interpreter,    /* NOT USED */
             IParseState parseState,
@@ -138,6 +262,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Eagle._Interfaces.Public.IToken Overrides
+        /// <summary>
+        /// This method saves a snapshot of this token, using its own parse
+        /// state.
+        /// </summary>
+        /// <param name="token">
+        /// Upon success, receives the saved token snapshot.
+        /// </param>
         public override void Save(
             out IToken token
             )
@@ -147,6 +278,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves a snapshot of this token, associating the snapshot
+        /// with the supplied parse state and preserving this token's lexeme and
+        /// variant value.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parse state to associate with the saved token snapshot.
+        /// </param>
+        /// <param name="token">
+        /// Upon success, receives the saved token snapshot.
+        /// </param>
         public override void Save(
             IParseState parseState,
             out IToken token
@@ -167,6 +309,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores this token's state from a previously saved
+        /// token snapshot, including its lexeme and variant value.
+        /// </summary>
+        /// <param name="token">
+        /// The previously saved token snapshot to restore from.  Upon success,
+        /// this is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the token state was restored; otherwise, false.
+        /// </returns>
         public override bool Restore(
             ref IToken token
             )
@@ -198,6 +351,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of name/value pairs describing this
+        /// token, including its lexeme, optional variant value, and the
+        /// information from the base token.
+        /// </summary>
+        /// <param name="text">
+        /// The source text the token refers to, used to extract the token's
+        /// textual representation.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A list of name/value pairs describing this token.
+        /// </returns>
         public override StringPairList ToList(
             string text
             )
@@ -220,7 +385,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region IExpressionToken Members
+        /// <summary>
+        /// The lexeme that classifies this token.
+        /// </summary>
         private Lexeme lexeme;
+        /// <summary>
+        /// Gets or sets the lexeme that classifies this token.
+        /// </summary>
         public virtual Lexeme Lexeme
         {
             get { return lexeme; }
@@ -229,7 +400,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The variant value associated with this token, if any.
+        /// </summary>
         private IVariant variant;
+        /// <summary>
+        /// Gets or sets the variant value associated with this token, if any.
+        /// </summary>
         public virtual IVariant Variant
         {
             get { return variant; }
@@ -242,6 +419,15 @@ namespace Eagle._Components.Public
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     #region Expression State Class
+    /// <summary>
+    /// This class holds the mutable state used while parsing an Eagle
+    /// expression.  It tracks the current lexeme, the position information
+    /// (start, length, and the various indexes into the source text), and a
+    /// reference to the associated <see cref="IParseState" />.  Once parsing is
+    /// complete the state can be made immutable, and it supports saving and
+    /// restoring snapshots of itself.  It implements
+    /// <see cref="IExpressionState" />.
+    /// </summary>
     [ObjectId("a6d90ec7-f14c-4038-a8d4-5872c5de6fbb")]
     public class ExpressionState :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -250,6 +436,18 @@ namespace Eagle._Components.Public
         IExpressionState
     {
         #region Private Constructors
+        /// <summary>
+        /// Constructs an expression state associated with the supplied parse
+        /// state, optionally copying the position and lexeme information from
+        /// another expression state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parse state to associate with this expression state.
+        /// </param>
+        /// <param name="state">
+        /// The expression state to copy position and lexeme information from, if
+        /// any.  This parameter may be null.
+        /// </param>
         internal ExpressionState(
             IParseState parseState,
             IExpressionState state
@@ -274,7 +472,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region IExpressionState Members
+        /// <summary>
+        /// The parse state associated with this expression state.
+        /// </summary>
         private IParseState parseState;
+        /// <summary>
+        /// Gets or sets the parse state associated with this expression state.
+        /// </summary>
         public virtual IParseState ParseState
         {
             get { return parseState; }
@@ -283,7 +487,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When set, indicates the interpreter is not ready for expression
+        /// processing.
+        /// </summary>
         private bool notReady;
+        /// <summary>
+        /// Gets or sets a value indicating whether the interpreter is not ready
+        /// for expression processing.  When an associated parse state is
+        /// present, that parse state's value is used instead.
+        /// </summary>
         public virtual bool NotReady
         {
             get
@@ -313,7 +526,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The lexeme of the token most recently scanned.
+        /// </summary>
         private Lexeme lexeme;
+        /// <summary>
+        /// Gets or sets the lexeme of the token most recently scanned.
+        /// </summary>
         public virtual Lexeme Lexeme
         {
             get { return lexeme; }
@@ -322,7 +541,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The starting index, within the source text, of the token most
+        /// recently scanned.
+        /// </summary>
         private int start;
+        /// <summary>
+        /// Gets or sets the starting index, within the source text, of the
+        /// token most recently scanned.
+        /// </summary>
         public virtual int Start
         {
             get { return start; }
@@ -331,7 +558,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The length, in characters, of the token most recently scanned.
+        /// </summary>
         private int length;
+        /// <summary>
+        /// Gets or sets the length, in characters, of the token most recently
+        /// scanned.
+        /// </summary>
         public virtual int Length
         {
             get { return length; }
@@ -340,7 +574,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The index, within the source text, where the next token begins.
+        /// </summary>
         private int next;
+        /// <summary>
+        /// Gets or sets the index, within the source text, where the next token
+        /// begins.
+        /// </summary>
         public virtual int Next
         {
             get { return next; }
@@ -349,7 +590,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The index, within the source text, marking the end of the previously
+        /// scanned token.
+        /// </summary>
         private int previousEnd;
+        /// <summary>
+        /// Gets or sets the index, within the source text, marking the end of
+        /// the previously scanned token.
+        /// </summary>
         public virtual int PreviousEnd
         {
             get { return previousEnd; }
@@ -358,7 +607,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The original starting index, within the source text, of the
+        /// expression being parsed.
+        /// </summary>
         private int original;
+        /// <summary>
+        /// Gets or sets the original starting index, within the source text, of
+        /// the expression being parsed.
+        /// </summary>
         public virtual int Original
         {
             get { return original; }
@@ -367,7 +624,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The index, within the source text, just past the end of the
+        /// expression being parsed.
+        /// </summary>
         private int last;
+        /// <summary>
+        /// Gets or sets the index, within the source text, just past the end of
+        /// the expression being parsed.
+        /// </summary>
         public virtual int Last
         {
             get { return last; }
@@ -376,7 +641,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When set, indicates this expression state has been made immutable
+        /// and can no longer be modified.
+        /// </summary>
         private bool immutable;
+        /// <summary>
+        /// This method indicates whether this expression state has been made
+        /// immutable.
+        /// </summary>
+        /// <returns>
+        /// True if this expression state is immutable; otherwise, false.
+        /// </returns>
         public virtual bool IsImmutable()
         {
             return immutable;
@@ -384,6 +660,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes this expression state (and its associated parse
+        /// state, if any) immutable, preventing further modification.
+        /// </summary>
         public virtual void MakeImmutable()
         {
             IParseState parseState = this.ParseState;
@@ -396,6 +676,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves a snapshot of this expression state, using its own
+        /// parse state.
+        /// </summary>
+        /// <param name="exprState">
+        /// Upon success, receives the saved expression state snapshot.
+        /// </param>
         public virtual void Save(
             out IExpressionState exprState
             )
@@ -405,6 +692,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method saves a snapshot of this expression state, associating
+        /// the snapshot with the supplied parse state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parse state to associate with the saved snapshot.
+        /// </param>
+        /// <param name="exprState">
+        /// Upon success, receives the saved expression state snapshot.
+        /// </param>
         public virtual void Save(
             IParseState parseState,
             out IExpressionState exprState
@@ -428,6 +725,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores this expression state from a previously saved
+        /// snapshot.
+        /// </summary>
+        /// <param name="exprState">
+        /// The previously saved expression state snapshot to restore from.
+        /// Upon success, this is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the expression state was restored; otherwise, false.
+        /// </returns>
         public virtual bool Restore(
             ref IExpressionState exprState
             )
@@ -460,6 +768,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list of name/value pairs describing this
+        /// expression state, including its immutability, lexeme, position
+        /// information, the corresponding text fragment, and the associated
+        /// parse state.
+        /// </summary>
+        /// <param name="text">
+        /// The source text the expression state refers to, used to extract the
+        /// text fragment.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A list of name/value pairs describing this expression state.
+        /// </returns>
         public virtual StringPairList ToList(
             string text
             )
@@ -504,6 +825,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a string representation of this expression
+        /// state.
+        /// </summary>
+        /// <param name="text">
+        /// The source text the expression state refers to, used to extract the
+        /// text fragment.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// A string representation of this expression state.
+        /// </returns>
         public virtual string ToString(
             string text
             )
@@ -515,6 +847,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method produces a string representation of this expression
+        /// state, using the source text from its associated parse state if one
+        /// is present.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this expression state.
+        /// </returns>
         public override string ToString()
         {
             //
@@ -532,16 +872,58 @@ namespace Eagle._Components.Public
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     #region Expression Parser Class
+    /// <summary>
+    /// This class implements the recursive-descent parser for Eagle
+    /// expressions.  It transforms the text of an expression into a flat list
+    /// of <see cref="ExpressionToken" /> instances (held in a parse state) that
+    /// can later be evaluated.  The parser honors standard operator precedence
+    /// and associativity and is designed to be compatible with the Tcl 8.4
+    /// expression grammar.  All members are static.
+    /// </summary>
     [ObjectId("034801c3-eaaf-4f5d-bc57-6d9fc83e94ab")]
     public static class ExpressionParser
     {
         #region Private Constants
+        /// <summary>
+        /// The initial capacity used when creating the token list for a parsed
+        /// expression.
+        /// </summary>
         private static int TokenCapacity = 100;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method parses an Eagle expression contained within the supplied
+        /// text, populating the supplied parse state with the resulting tokens.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="text">
+        /// The source text containing the expression to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the source text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to parse.  If this value is less than zero,
+        /// the remainder of the text is used.
+        /// </param>
+        /// <param name="parseState">
+        /// The parse state to populate with the resulting tokens.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         public static ReturnCode ParseExpression(
             Interpreter interpreter,
             string text,
@@ -630,6 +1012,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied value is exactly the
+        /// name of a supported expression operator.
+        /// </summary>
+        /// <param name="value">
+        /// The value to check.
+        /// </param>
+        /// <returns>
+        /// True if the value is the name of a supported expression operator;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsOperatorNameOnly(
             string value
             )
@@ -690,6 +1083,25 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method checks whether the interpreter is ready to continue
+        /// expression processing (e.g. not over the recursion limit and not
+        /// canceled).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state whose parse state is used for the readiness
+        /// check.  This parameter may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok if the interpreter is ready; otherwise, an error
+        /// return code.
+        /// </returns>
         private static ReturnCode Ready(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -702,6 +1114,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans the supplied text, starting at the specified
+        /// index, to determine the length of a leading integer literal.  It
+        /// recognizes the hexadecimal, decimal, octal, and binary radix
+        /// prefixes, and (when supported) big-integer values.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, used to determine whether big integers are
+        /// permitted.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The source text to scan.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the source text, where scanning should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to scan.
+        /// </param>
+        /// <returns>
+        /// The number of characters comprising the integer literal, or zero if
+        /// the text does not begin with a valid integer literal.
+        /// </returns>
         private static int ParseInteger(
             Interpreter interpreter,
             string text,
@@ -847,6 +1282,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans the supplied text, starting at the specified
+        /// index, to determine the maximum length of characters that could
+        /// comprise a floating-point literal (including digits, radix and
+        /// exponent characters, signs, the radix point, and the characters used
+        /// to spell infinity and not-a-number).
+        /// </summary>
+        /// <param name="text">
+        /// The source text to scan.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the source text, where scanning should begin.
+        /// </param>
+        /// <param name="end">
+        /// The index, within the source text, just past the last character that
+        /// may be scanned.
+        /// </param>
+        /// <returns>
+        /// The number of leading characters that could form a floating-point
+        /// literal.
+        /// </returns>
         private static int ParseMaxDoubleLength(
             string text,
             int startIndex,
@@ -894,6 +1350,7 @@ namespace Eagle._Components.Public
                     case Characters.Period:
                     case Characters.PlusSign:
                     case Characters.MinusSign:
+                    case Characters.Infinity: // NOTE: Custom "InfinitySymbol".
                         {
                             index++;
                             break;
@@ -911,6 +1368,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a variable-assignment expression (the
+        /// <c>:=</c> operator), which has the lowest precedence above a primary
+        /// expression.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseVariableAssignment(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -981,6 +1459,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a conditional expression (the ternary
+        /// <c>?:</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseConditional(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1085,6 +1583,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a logical-or expression (the <c>||</c>
+        /// operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseLogicalOr(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1155,6 +1673,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a logical-exclusive-or expression (the
+        /// <c>^^</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseLogicalXor(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1225,6 +1763,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a logical-and expression (the <c>&amp;&amp;</c>
+        /// operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseLogicalAnd(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1295,6 +1853,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a logical-implication expression (the
+        /// <c>=&gt;</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseLogicalImp(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1365,6 +1943,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a logical-equivalence expression (the
+        /// <c>&lt;=&gt;</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseLogicalEqv(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1435,6 +2033,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a bitwise-or expression (the <c>|</c>
+        /// operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseBitwiseOr(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1505,6 +2123,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a bitwise-exclusive-or expression (the
+        /// <c>^</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseBitwiseXor(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1575,6 +2213,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a bitwise-and expression (the <c>&amp;</c>
+        /// operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseBitwiseAnd(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1645,6 +2303,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a bitwise-implication expression (the
+        /// <c>-&gt;</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseBitwiseImp(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1715,6 +2393,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a bitwise-equivalence expression (the
+        /// <c>&lt;-&gt;</c> operator).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseBitwiseEqv(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1785,6 +2483,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a list-membership expression (the <c>in</c>
+        /// and <c>ni</c> operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseMembership(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1866,6 +2584,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an equality expression (the <c>==</c>,
+        /// <c>!=</c>, <c>eq</c>, and <c>ne</c> operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseEquality(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -1953,6 +2691,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a relational expression (the <c>&lt;</c>,
+        /// <c>&gt;</c>, <c>&lt;=</c>, <c>&gt;=</c>, <c>lt</c>, <c>gt</c>,
+        /// <c>le</c>, and <c>ge</c> operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseRelational(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2052,6 +2811,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a shift or rotate expression (the <c>&lt;&lt;</c>,
+        /// <c>&gt;&gt;</c>, <c>&lt;&lt;&lt;</c>, and <c>&gt;&gt;&gt;</c>
+        /// operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseShiftRotate(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2139,6 +2919,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an additive expression (the binary <c>+</c>
+        /// and <c>-</c> operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseAdd(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2220,6 +3020,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a multiplicative expression (the <c>*</c>,
+        /// <c>/</c>, and <c>%</c> operators).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseMultiply(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2304,6 +3124,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an exponentiation expression (the <c>**</c>
+        /// operator).  This operator is right-associative.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseExponent(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2348,7 +3188,16 @@ namespace Eagle._Components.Public
             if (code != ReturnCode.Ok)
                 return code;
 
-            while (exprState.Lexeme == Lexeme.Exponent)
+            //
+            // NOTE: The exponentiation operator is RIGHT-associative -- i.e.
+            //       "a ** b ** c" means "a ** (b ** c)" -- matching standard
+            //       mathematics and Tcl (the "**" operator was introduced in
+            //       Tcl 8.5 as right-associative; it did not exist in 8.4).
+            //       Parse the right-hand operand by RECURSING into this method
+            //       (so a chain groups to the right) rather than looping over
+            //       the right operands (which would group to the left).
+            //
+            if (exprState.Lexeme == Lexeme.Exponent)
             {
                 int operatorIndex = exprState.Start;
 
@@ -2357,7 +3206,7 @@ namespace Eagle._Components.Public
                 if (code != ReturnCode.Ok)
                     return code;
 
-                code = ParseUnary(interpreter, exprState, noReady, ref error);
+                code = ParseExponent(interpreter, exprState, noReady, ref error);
 
                 if (code != ReturnCode.Ok)
                     return code;
@@ -2374,6 +3223,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a unary expression (the unary <c>+</c>,
+        /// <c>-</c>, <c>~</c>, and <c>!</c> operators); if no unary operator is
+        /// present it falls through to a variable-assignment expression.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParseUnary(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2461,6 +3331,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a primary expression -- the highest-precedence
+        /// grammar production -- comprising parenthesized sub-expressions,
+        /// numeric and string literals, variable references, bracketed command
+        /// substitutions, braced strings, and function calls.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode ParsePrimary(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -2917,6 +3809,28 @@ namespace Eagle._Components.Public
         //       actually 100% based on the list of supported operators and
         //       does not assume the length of any given operator token.
         //
+        /// <summary>
+        /// This method scans the source text for the next lexeme (operator,
+        /// literal, identifier, etc.), skipping any leading whitespace, and
+        /// updates the expression state accordingly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter may be null when
+        /// <paramref name="noReady" /> is true.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and current lexeme;
+        /// it is updated to reflect the lexeme that was scanned.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         private static ReturnCode GetLexeme(
             Interpreter interpreter,
             IExpressionState exprState,
@@ -3700,6 +4614,40 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method inserts the sub-expression and operator tokens for a
+        /// binary (or similar) operator into the token list at the appropriate
+        /// position, wrapping the already-parsed operands.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, used when reporting internal errors.
+        /// </param>
+        /// <param name="lexeme">
+        /// The lexeme that classifies the operator token.
+        /// </param>
+        /// <param name="operatorIndex">
+        /// The starting index, within the source text, of the operator.
+        /// </param>
+        /// <param name="operatorCharacters">
+        /// The length, in characters, of the operator.
+        /// </param>
+        /// <param name="text">
+        /// The source text being parsed.
+        /// </param>
+        /// <param name="startIndex">
+        /// The starting index, within the source text, of the entire
+        /// sub-expression.
+        /// </param>
+        /// <param name="characters">
+        /// The length, in characters, of the entire sub-expression.
+        /// </param>
+        /// <param name="firstIndex">
+        /// The index, within the token list, where the new tokens are inserted.
+        /// </param>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and providing the
+        /// parse state whose token list is modified.
+        /// </param>
         private static void InsertSubExpressionTokens(
             Interpreter interpreter,
             Lexeme lexeme,
@@ -3764,6 +4712,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats and records a descriptive syntax-error message
+        /// for the expression being parsed, including the original expression
+        /// text and the location near where the error occurred.
+        /// </summary>
+        /// <param name="exprState">
+        /// The expression state tracking the parse position and providing the
+        /// parse state used to report the error.
+        /// </param>
+        /// <param name="extraInfo">
+        /// Additional information describing the specific syntax error.
+        /// </param>
+        /// <param name="error">
+        /// Receives the formatted syntax-error message.
+        /// </param>
         private static void LogSyntaxError(
             IExpressionState exprState,
             string extraInfo,
@@ -3821,12 +4784,31 @@ namespace Eagle._Components.Public
     ///////////////////////////////////////////////////////////////////////////////////////////
 
     #region Expression Evaluator Class
+    /// <summary>
+    /// This class evaluates the token list produced by the
+    /// <see cref="ExpressionParser" />, recursively computing the value of each
+    /// sub-expression.  It handles literals, variable and command
+    /// substitutions, operators (including the short-circuiting logical
+    /// operators and the ternary conditional), and math function calls, and it
+    /// performs final-result fixups such as precision adjustment.  All members
+    /// are static.
+    /// </summary>
     [ObjectId("2a8a47c7-d933-4de1-ae6a-e46eaf5debfd")]
     internal static class ExpressionEvaluator
     {
         #region Private Methods
         #region Expression Flags Methods
 #if EXPRESSION_FLAGS
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// backslash substitution.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if backslash substitution is permitted; otherwise, false.
+        /// </returns>
         private static bool HasBackslashes(
             ExpressionFlags flags
             )
@@ -3836,6 +4818,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// variable substitution.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if variable substitution is permitted; otherwise, false.
+        /// </returns>
         private static bool HasVariables(
             ExpressionFlags flags
             )
@@ -3845,6 +4837,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// command substitution.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if command substitution is permitted; otherwise, false.
+        /// </returns>
         private static bool HasCommands(
             ExpressionFlags flags
             )
@@ -3854,6 +4856,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// function calls.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if function calls are permitted; otherwise, false.
+        /// </returns>
         private static bool HasFunctions(
             ExpressionFlags flags
             )
@@ -3863,6 +4875,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// operators.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if operators are permitted; otherwise, false.
+        /// </returns>
         private static bool HasOperators(
             ExpressionFlags flags
             )
@@ -3872,6 +4894,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags permit
+        /// substitutions, either requiring all substitution types or any of
+        /// them.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <param name="all">
+        /// When true, requires every substitution type to be present; when
+        /// false, requires at least one substitution type to be present.
+        /// </param>
+        /// <returns>
+        /// True if the required substitutions are permitted; otherwise, false.
+        /// </returns>
         private static bool HasSubstitutions(
             ExpressionFlags flags,
             bool all
@@ -3886,6 +4923,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags request
+        /// that a final boolean result be converted to an integer.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if a final boolean result should be converted to an integer;
+        /// otherwise, false.
+        /// </returns>
         public static bool HasBooleanToInteger(
             ExpressionFlags flags
             )
@@ -3895,6 +4943,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the supplied expression flags request
+        /// that a final string result be converted to an integer when possible.
+        /// </summary>
+        /// <param name="flags">
+        /// The expression flags to check.
+        /// </param>
+        /// <returns>
+        /// True if a final string result should be converted to an integer;
+        /// otherwise, false.
+        /// </returns>
         public static bool HasStringToInteger(
             ExpressionFlags flags
             )
@@ -3905,6 +4964,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a short-circuiting logical operator
+        /// can produce its result from the value of its first operand alone,
+        /// and if so computes that result.
+        /// </summary>
+        /// <param name="lexeme">
+        /// The lexeme of the logical operator being evaluated (logical and, or,
+        /// or implication).
+        /// </param>
+        /// <param name="inValue">
+        /// The boolean value of the operator's first operand.
+        /// </param>
+        /// <param name="outValue">
+        /// Upon success, when short-circuiting applies, receives the result of
+        /// the operator.
+        /// </param>
+        /// <returns>
+        /// True if the operator can be short-circuited (and
+        /// <paramref name="outValue" /> was set); otherwise, false.
+        /// </returns>
         private static bool CheckShortCircuit(
             Lexeme lexeme,
             bool inValue,
@@ -3951,6 +5030,68 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method evaluates a single sub-expression, identified by its
+        /// token index within the parse state, recursively evaluating its
+        /// operands and applying the appropriate operator or function.  It is
+        /// the core of expression evaluation and may be called re-entrantly.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="parseState">
+        /// The parse state containing the token list to evaluate.
+        /// </param>
+        /// <param name="tokenIndex">
+        /// The index, within the token list, of the sub-expression token to
+        /// evaluate.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags controlling evaluation.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags controlling variable, command, and backslash
+        /// substitution.
+        /// </param>
+        /// <param name="eventFlags">
+        /// The event flags controlling event processing during evaluation.
+        /// </param>
+        /// <param name="expressionFlags">
+        /// The expression flags controlling which constructs are permitted and
+        /// how the final result is fixed up.
+        /// </param>
+        /// <param name="executeResultLimit">
+        /// The maximum size permitted for a command-execution result.
+        /// </param>
+        /// <param name="nestedResultLimit">
+        /// The maximum size permitted for a nested-evaluation result.
+        /// </param>
+        /// <param name="noReady">
+        /// When true, the interpreter readiness check is skipped.
+        /// </param>
+        /// <param name="sameAppDomain">
+        /// When true, the evaluation is known to occur within the same
+        /// application domain.
+        /// </param>
+        /// <param name="argumentLocation">
+        /// When true, argument location tracking is enabled for the debugger.
+        /// </param>
+        /// <param name="usable">
+        /// Upon return, indicates whether the interpreter is still usable.
+        /// </param>
+        /// <param name="exception">
+        /// Upon return, indicates whether an exception occurred during
+        /// evaluation.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, receives the computed value of the sub-expression.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// ReturnCode.Ok on success; otherwise, an error return code.
+        /// </returns>
         public static ReturnCode EvaluateSubExpression(
             Interpreter interpreter,
             IParseState parseState,

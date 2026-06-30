@@ -74,9 +74,9 @@ namespace Sample
         /// <see cref="ReturnCode.Error" />  on failure.  Other return codes
         /// may be used to implement custom control structures.  If the policy
         /// wishes to approve of the command execution, the
-        /// <see cref="IPolicyContext.Approved" /> method should be called
+        /// <see cref="IPolicyContext.Approved()" /> method should be called
         /// prior to returning; otherwise, the
-        /// <see cref="IPolicyContext.Denied" /> method should be called.  If
+        /// <see cref="IPolicyContext.Denied()" /> method should be called.  If
         /// neither of these methods is called, the default command execution
         /// decision will be used instead.
         /// </returns>

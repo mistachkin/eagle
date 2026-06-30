@@ -32,6 +32,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class implements a variable backed by a network service, exposing
+    /// a remote key/value store as an Eagle array variable.  Array element
+    /// reads, writes, and unsets, along with existence, count, and enumeration
+    /// queries, are translated into web requests issued against a configured
+    /// base URI and handled via a variable trace callback.
+    /// </summary>
     [ObjectId("26cc91be-98bb-4e2c-932c-625724699d3e")]
     public sealed class NetworkVariable :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -41,17 +48,45 @@ namespace Eagle._Components.Public
     {
         #region Private Constants
         #region Network Request Parameter Names
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// the API key.
+        /// </summary>
         private static string DefaultApiKeyParameterName = "apiKey";
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// the requested method (operation).
+        /// </summary>
         private static string DefaultMethodParameterName = "method";
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// the matching pattern.
+        /// </summary>
         private static string DefaultPatternParameterName = "pattern";
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// whether pattern matching should be case-insensitive.
+        /// </summary>
         private static string DefaultNoCaseParameterName = "noCase";
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// the array element name.
+        /// </summary>
         private static string DefaultNameParameterName = "name";
+        /// <summary>
+        /// The default name of the network request parameter used to convey
+        /// the array element value.
+        /// </summary>
         private static string DefaultValueParameterName = "value";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Network Request Parameter Values
+        /// <summary>
+        /// The default value for the case-insensitive matching parameter when
+        /// one is not explicitly supplied.
+        /// </summary>
         private static bool DefaultNoCaseParameterValue = false;
         #endregion
 
@@ -61,10 +96,27 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default method name used to query whether an array element
+        /// exists.
+        /// </summary>
         private static string DefaultExistMethodName = "exist";
+        /// <summary>
+        /// The default method name used to query the number of array elements.
+        /// </summary>
         private static string DefaultCountMethodName = "count";
+        /// <summary>
+        /// The default method name used to query the array element names.
+        /// </summary>
         private static string DefaultNamesMethodName = "names";
+        /// <summary>
+        /// The default method name used to query the array element values.
+        /// </summary>
         private static string DefaultValuesMethodName = "values";
+        /// <summary>
+        /// The default method name used to query all array element names and
+        /// values.
+        /// </summary>
         private static string DefaultAllMethodName = "all";
 
         ///////////////////////////////////////////////////////////////////////
@@ -72,8 +124,17 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default method name used to get the value of an array element.
+        /// </summary>
         private static string DefaultGetMethodName = "get";
+        /// <summary>
+        /// The default method name used to set the value of an array element.
+        /// </summary>
         private static string DefaultSetMethodName = "set";
+        /// <summary>
+        /// The default method name used to unset an array element.
+        /// </summary>
         private static string DefaultUnsetMethodName = "unset";
 
         ///////////////////////////////////////////////////////////////////////
@@ -81,6 +142,9 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default method name used to purge an array element.
+        /// </summary>
         private static string DefaultPurgeMethodName = "purge";
         #endregion
 
@@ -90,6 +154,11 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The maximum length, in characters, of an array element name that may
+        /// be conveyed via the query string before the request must instead be
+        /// sent via upload.
+        /// </summary>
         private static int QueryStringLength = 256;
 
         ///////////////////////////////////////////////////////////////////////
@@ -97,7 +166,15 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether the configured callback should
+        /// be used to create the network client.
+        /// </summary>
         private static bool DefaultUseNewNetworkClientCallback = true;
+        /// <summary>
+        /// The default value indicating whether the network client should be
+        /// cached and reused across requests.
+        /// </summary>
         private static bool DefaultUseCachedWebClient = false;
 
         ///////////////////////////////////////////////////////////////////////
@@ -105,8 +182,20 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// When non-zero, the inputs of each web request are emitted via the
+        /// tracing subsystem.
+        /// </summary>
         private static bool TraceRequestInput = false;
+        /// <summary>
+        /// When non-zero, the elapsed time of each web request is emitted via
+        /// the tracing subsystem.
+        /// </summary>
         private static bool TraceRequestTime = false;
+        /// <summary>
+        /// When non-zero, the output of each web request is emitted via the
+        /// tracing subsystem.
+        /// </summary>
         private static bool TraceRequestOutput = false;
         #endregion
 
@@ -116,6 +205,10 @@ namespace Eagle._Components.Public
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The prefix used when synthesizing names for anonymous values
+        /// returned by an array values query.
+        /// </summary>
         private static string AnonymousValuePrefix = "NoName";
 
         ///////////////////////////////////////////////////////////////////////
@@ -123,7 +216,15 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The leading element value indicating that a network response
+        /// represents success.
+        /// </summary>
         private static string OkValue = "OK";
+        /// <summary>
+        /// The leading element value indicating that a network response
+        /// represents an error.
+        /// </summary>
         private static string ErrorValue = "ERROR";
         #endregion
         #endregion
@@ -131,17 +232,33 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The cached network client, if any, reused across requests when
+        /// caching is enabled.
+        /// </summary>
         private WebClient cachedWebClient;
+        /// <summary>
+        /// When non-zero, the network client is cached and reused across
+        /// requests.
+        /// </summary>
         private bool useCachedWebClient;
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// When non-zero, the configured callback is used to create the network
+        /// client.
+        /// </summary>
         private bool useNewNetworkClientCallback;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class with its default settings.
+        /// This constructor is used by the other constructor overload.
+        /// </summary>
         private NetworkVariable()
         {
             cachedWebClient = null;
@@ -151,6 +268,71 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class from the fully specified set of
+        /// network request settings.  This constructor delegates to the default
+        /// constructor.
+        /// </summary>
+        /// <param name="newNetworkClientCallback">
+        /// The callback used to create the network client, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="argument">
+        /// The opaque argument to pass to the network client callback, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the network client callback, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="baseUri">
+        /// The base URI against which network requests are issued.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry a failed network request, or
+        /// null to use the default.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding to use for network requests and responses, or
+        /// null to use the default.
+        /// </param>
+        /// <param name="apiKeyParameterName">
+        /// The name of the network request parameter used to convey the API
+        /// key, or null to use the default.
+        /// </param>
+        /// <param name="apiKeyParameterValue">
+        /// The value of the API key to convey with each network request.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="methodParameterName">
+        /// The name of the network request parameter used to convey the
+        /// requested method, or null to use the default.
+        /// </param>
+        /// <param name="patternParameterName">
+        /// The name of the network request parameter used to convey the
+        /// matching pattern, or null to use the default.
+        /// </param>
+        /// <param name="noCaseParameterName">
+        /// The name of the network request parameter used to convey whether
+        /// pattern matching should be case-insensitive, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="nameParameterName">
+        /// The name of the network request parameter used to convey the array
+        /// element name, or null to use the default.
+        /// </param>
+        /// <param name="valueParameterName">
+        /// The name of the network request parameter used to convey the array
+        /// element value, or null to use the default.
+        /// </param>
+        /// <param name="permissions">
+        /// The set of operations that are permitted on this variable.
+        /// </param>
         private NetworkVariable(
             NewNetworkClientCallback newNetworkClientCallback, /* in */
             string argument,                                   /* in */
@@ -191,6 +373,73 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new instance of this class from the fully
+        /// specified set of network request settings.
+        /// </summary>
+        /// <param name="newNetworkClientCallback">
+        /// The callback used to create the network client, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="argument">
+        /// The opaque argument to pass to the network client callback, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to pass to the network client callback, if any.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="baseUri">
+        /// The base URI against which network requests are issued.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry a failed network request, or
+        /// null to use the default.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="encoding">
+        /// The character encoding to use for network requests and responses, or
+        /// null to use the default.
+        /// </param>
+        /// <param name="apiKeyParameterName">
+        /// The name of the network request parameter used to convey the API
+        /// key, or null to use the default.
+        /// </param>
+        /// <param name="apiKeyParameterValue">
+        /// The value of the API key to convey with each network request.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="methodParameterName">
+        /// The name of the network request parameter used to convey the
+        /// requested method, or null to use the default.
+        /// </param>
+        /// <param name="patternParameterName">
+        /// The name of the network request parameter used to convey the
+        /// matching pattern, or null to use the default.
+        /// </param>
+        /// <param name="noCaseParameterName">
+        /// The name of the network request parameter used to convey whether
+        /// pattern matching should be case-insensitive, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="nameParameterName">
+        /// The name of the network request parameter used to convey the array
+        /// element name, or null to use the default.
+        /// </param>
+        /// <param name="valueParameterName">
+        /// The name of the network request parameter used to convey the array
+        /// element value, or null to use the default.
+        /// </param>
+        /// <param name="permissions">
+        /// The set of operations that are permitted on this variable.
+        /// </param>
+        /// <returns>
+        /// The newly created network variable.
+        /// </returns>
         public static NetworkVariable Create(
             NewNetworkClientCallback newNetworkClientCallback, /* in */
             string argument,                                   /* in */
@@ -224,7 +473,13 @@ namespace Eagle._Components.Public
 
         #region Public Members
         #region Public Properties
+        /// <summary>
+        /// The callback used to create the network client, if any.
+        /// </summary>
         private NewNetworkClientCallback newNetworkClientCallback;
+        /// <summary>
+        /// Gets the callback used to create the network client, if any.
+        /// </summary>
         public NewNetworkClientCallback NewNetworkClientCallback
         {
             get { CheckDisposed(); return newNetworkClientCallback; }
@@ -232,7 +487,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The opaque argument passed to the network client callback, if any.
+        /// </summary>
         private string argument;
+        /// <summary>
+        /// Gets the opaque argument passed to the network client callback, if
+        /// any.
+        /// </summary>
         public string Argument
         {
             get { CheckDisposed(); return argument; }
@@ -240,7 +502,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The client data passed to the network client callback, if any.
+        /// </summary>
         private IClientData clientData;
+        /// <summary>
+        /// Gets the client data passed to the network client callback, if any.
+        /// </summary>
         public IClientData ClientData
         {
             get { CheckDisposed(); return clientData; }
@@ -248,7 +516,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The base URI against which network requests are issued.
+        /// </summary>
         private Uri baseUri;
+        /// <summary>
+        /// Gets the base URI against which network requests are issued.
+        /// </summary>
         public Uri BaseUri
         {
             get { CheckDisposed(); return baseUri; }
@@ -256,7 +530,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </summary>
         private int? timeout;
+        /// <summary>
+        /// Gets the network request timeout, in milliseconds, or null to use
+        /// the default.
+        /// </summary>
         public int? Timeout
         {
             get { CheckDisposed(); return timeout; }
@@ -264,7 +546,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The maximum number of times to retry a failed network request, or
+        /// null to use the default.
+        /// </summary>
         private int? maximumRetries;
+        /// <summary>
+        /// Gets the maximum number of times to retry a failed network request,
+        /// or null to use the default.
+        /// </summary>
         public int? MaximumRetries
         {
             get { CheckDisposed(); return maximumRetries; }
@@ -272,7 +562,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character encoding used for network requests and responses, or
+        /// null to use the default.
+        /// </summary>
         private Encoding encoding;
+        /// <summary>
+        /// Gets the character encoding used for network requests and responses,
+        /// or null to use the default.
+        /// </summary>
         public Encoding Encoding
         {
             get { CheckDisposed(); return encoding; }
@@ -280,7 +578,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey the API
+        /// key, or null to use the default.
+        /// </summary>
         private string apiKeyParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey the
+        /// API key, or null to use the default.
+        /// </summary>
         public string ApiKeyParameterName
         {
             get { CheckDisposed(); return apiKeyParameterName; }
@@ -288,7 +594,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The value of the API key conveyed with each network request, if any.
+        /// </summary>
         private string apiKeyParameterValue;
+        /// <summary>
+        /// Gets the value of the API key conveyed with each network request, if
+        /// any.
+        /// </summary>
         public string ApiKeyParameterValue
         {
             get { CheckDisposed(); return apiKeyParameterValue; }
@@ -296,7 +609,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey the
+        /// requested method, or null to use the default.
+        /// </summary>
         private string methodParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey the
+        /// requested method, or null to use the default.
+        /// </summary>
         public string MethodParameterName
         {
             get { CheckDisposed(); return methodParameterName; }
@@ -304,7 +625,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey the
+        /// matching pattern, or null to use the default.
+        /// </summary>
         private string patternParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey the
+        /// matching pattern, or null to use the default.
+        /// </summary>
         public string PatternParameterName
         {
             get { CheckDisposed(); return patternParameterName; }
@@ -312,7 +641,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey whether
+        /// pattern matching should be case-insensitive, or null to use the
+        /// default.
+        /// </summary>
         private string noCaseParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey
+        /// whether pattern matching should be case-insensitive, or null to use
+        /// the default.
+        /// </summary>
         public string NoCaseParameterName
         {
             get { CheckDisposed(); return noCaseParameterName; }
@@ -320,7 +659,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey the array
+        /// element name, or null to use the default.
+        /// </summary>
         private string nameParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey the
+        /// array element name, or null to use the default.
+        /// </summary>
         public string NameParameterName
         {
             get { CheckDisposed(); return nameParameterName; }
@@ -328,7 +675,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the network request parameter used to convey the array
+        /// element value, or null to use the default.
+        /// </summary>
         private string valueParameterName;
+        /// <summary>
+        /// Gets the name of the network request parameter used to convey the
+        /// array element value, or null to use the default.
+        /// </summary>
         public string ValueParameterName
         {
             get { CheckDisposed(); return valueParameterName; }
@@ -336,7 +691,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The set of operations that are permitted on this variable.
+        /// </summary>
         private BreakpointType permissions;
+        /// <summary>
+        /// Gets the set of operations that are permitted on this variable.
+        /// </summary>
         public BreakpointType Permissions
         {
             get { CheckDisposed(); return permissions; }
@@ -346,6 +707,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Script Helper Methods
+        /// <summary>
+        /// This method adds this network-backed array variable to the specified
+        /// interpreter, installing the trace callback that handles its
+        /// operations.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to which the variable should be added.
+        /// </param>
+        /// <param name="name">
+        /// The name of the variable to add.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public ReturnCode AddVariable(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -369,6 +748,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Introspection Helper Methods
+        /// <summary>
+        /// This method builds a list of name/value pairs describing the
+        /// configuration of this network variable, suitable for introspection.
+        /// </summary>
+        /// <returns>
+        /// A list of name/value pairs describing this network variable.
+        /// </returns>
         public StringPairList ToList()
         {
             CheckDisposed();
@@ -424,6 +810,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISupportVariable Members
+        /// <summary>
+        /// This method determines whether the named array element exists,
+        /// querying the network service to do so.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the array element to check for existence.
+        /// </param>
+        /// <returns>
+        /// True if the array element exists; otherwise, false.
+        /// </returns>
         public bool DoesExist(
             Interpreter interpreter, /* in */
             string name              /* in */
@@ -437,6 +836,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the number of array
+        /// elements.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The number of array elements, or null if the count could not be
+        /// determined.
+        /// </returns>
         public long? GetCount(
             Interpreter interpreter, /* in */
             ref Result error         /* out */
@@ -458,6 +871,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the array element names
+        /// and/or values, returning them as a dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the array element names in the result.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the array element values in the result.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// A dictionary of the array element names and/or values, or null if the
+        /// query could not be completed.
+        /// </returns>
         public ObjectDictionary GetList(
             Interpreter interpreter, /* in */
             bool names,              /* in */
@@ -482,6 +915,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the array element names
+        /// and/or values that match the specified pattern, returning them as a
+        /// dictionary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match array element names, or null to match all
+        /// of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the array element names in the result.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the array element values in the result.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// A dictionary of the matching array element names and/or values, or
+        /// null if the query could not be completed.
+        /// </returns>
         public ObjectDictionary GetList(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -508,6 +969,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the array element names
+        /// matching the specified pattern and formats them as a string list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="mode">
+        /// The matching mode to use when filtering the array element names.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match array element names, or null to match all
+        /// of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="regExOptions">
+        /// The regular expression options to use when the matching mode is
+        /// regular-expression based.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// A string containing the matching array element names, or null if the
+        /// query could not be completed.
+        /// </returns>
         public string KeysToString(
             Interpreter interpreter,   /* in */
             MatchMode mode,            /* in */
@@ -540,6 +1029,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the array element names
+        /// and values matching the specified pattern and formats them as a
+        /// string list.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="pattern">
+        /// The pattern used to match array element names, or null to match all
+        /// of them.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// A string containing the matching array element names and values, or
+        /// null if the query could not be completed.
+        /// </returns>
         public string KeysAndValuesToString(
             Interpreter interpreter, /* in */
             string pattern,          /* in */
@@ -573,6 +1084,30 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Trace Callback Method
+        /// <summary>
+        /// This method is the variable trace callback that handles operations
+        /// on the network-backed array variable.  It translates supported get,
+        /// set, and unset operations into web requests and conveys the result
+        /// back through the trace information.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation that triggered this trace callback.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the operation.
+        /// </param>
+        /// <param name="traceInfo">
+        /// The trace information describing the operation; it is also used to
+        /// convey the outcome back to the caller.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, receives the value produced by the operation; upon
+        /// failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         [MethodFlags(
             MethodFlags.VariableTrace | MethodFlags.System |
             MethodFlags.NoAdd)]
@@ -754,6 +1289,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this network
+        /// variable, based on its configuration.
+        /// </summary>
+        /// <returns>
+        /// A string representation of this network variable.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -765,6 +1307,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Flags Helper Methods
+        /// <summary>
+        /// This method determines whether the configured permissions include
+        /// the specified operation flags.
+        /// </summary>
+        /// <param name="hasFlags">
+        /// The operation flags to test for.
+        /// </param>
+        /// <param name="all">
+        /// Non-zero to require that all of the specified flags be present; zero
+        /// to require that any of them be present.
+        /// </param>
+        /// <returns>
+        /// True if the configured permissions include the specified flags;
+        /// otherwise, false.
+        /// </returns>
         private bool HasFlags(
             BreakpointType hasFlags, /* in */
             bool all                 /* in */
@@ -777,6 +1334,21 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Network Request Helper Methods (Static)
+        /// <summary>
+        /// This method maps an operation, and its associated variable flags, to
+        /// the network method name that implements it.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation for which a method name is needed.
+        /// </param>
+        /// <param name="variableFlags">
+        /// The variable flags associated with the operation, used (for example)
+        /// to distinguish an unset from a purge.
+        /// </param>
+        /// <returns>
+        /// The method name implementing the specified operation, or null if the
+        /// operation is not supported.
+        /// </returns>
         private static string GetMethodName(
             BreakpointType breakpointType, /* in */
             VariableFlags variableFlags    /* in */
@@ -834,6 +1406,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a request for the specified operation
+        /// should be sent via upload (request body) rather than via the query
+        /// string.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation being requested.
+        /// </param>
+        /// <param name="name">
+        /// The array element name involved in the operation, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the request should be sent via upload; otherwise, false.
+        /// </returns>
         private static bool ShouldRequestViaUpload(
             BreakpointType breakpointType, /* in */
             string name                    /* in */
@@ -860,6 +1447,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified operation requires the
+        /// array element name parameter to be supplied.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation being requested.
+        /// </param>
+        /// <returns>
+        /// True if the operation requires the name parameter; otherwise, false.
+        /// </returns>
         private static bool NeedNameParameter(
             BreakpointType breakpointType /* in */
             )
@@ -882,6 +1479,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified operation requires the
+        /// array element value parameter to be supplied.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation being requested.
+        /// </param>
+        /// <returns>
+        /// True if the operation requires the value parameter; otherwise,
+        /// false.
+        /// </returns>
         private static bool NeedValueParameter(
             BreakpointType breakpointType /* in */
             )
@@ -901,6 +1509,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the culture information associated with the
+        /// specified interpreter, for use when parsing network responses.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose culture information is needed.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The culture information associated with the interpreter, or null if
+        /// the interpreter is null.
+        /// </returns>
         private static CultureInfo GetCultureInfo(
             Interpreter interpreter /* in */
             )
@@ -913,6 +1533,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method synthesizes a name for an anonymous value at the
+        /// specified position, incorporating the value's hash code.
+        /// </summary>
+        /// <param name="index">
+        /// The position of the value within the list of anonymous values.
+        /// </param>
+        /// <param name="value">
+        /// The value for which a name is being synthesized.
+        /// </param>
+        /// <returns>
+        /// The synthesized name for the anonymous value.
+        /// </returns>
         private static string FormatName(
             int index,   /* in */
             string value /* in */
@@ -925,6 +1558,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method populates a dictionary from a flat list returned by the
+        /// network service, interpreting the list according to the specified
+        /// operation.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation that produced the list, which determines how
+        /// the list is interpreted (names only, values only, or name/value
+        /// pairs).
+        /// </param>
+        /// <param name="list">
+        /// The flat list of names and/or values to populate the dictionary
+        /// from.  This parameter may be null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary to populate; it is created if it is null.
+        /// </param>
         private static void PopulateDictionary(
             BreakpointType breakpointType,  /* in */
             StringList list,                /* in */
@@ -991,6 +1641,17 @@ namespace Eagle._Components.Public
 
         #region Network Request Helper Methods (Instance)
         #region WebClient Cache Helper Methods (Instance)
+        /// <summary>
+        /// This method returns the cached network client, if caching is enabled
+        /// and a cached client is available.
+        /// </summary>
+        /// <param name="dispose">
+        /// Upon return, set to zero when the cached client is returned (since
+        /// the caller must not dispose it).
+        /// </param>
+        /// <returns>
+        /// The cached network client, or null if none is available.
+        /// </returns>
         private WebClient GetCachedWebClient(
             ref bool dispose /* out */
             )
@@ -1006,6 +1667,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method caches the specified network client for reuse, if
+        /// caching is enabled.
+        /// </summary>
+        /// <param name="webClient">
+        /// The network client to cache.  This parameter may be null.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, set to zero when the client has been cached (since
+        /// ownership is retained by this instance).
+        /// </param>
         private void SetCachedWebClient(
             WebClient webClient, /* in */
             ref bool dispose     /* out */
@@ -1022,6 +1694,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region WebClient Helper Methods (Instance)
+        /// <summary>
+        /// This method determines whether the configured callback should be
+        /// used to create the network client.
+        /// </summary>
+        /// <returns>
+        /// True if the callback should be used; otherwise, false.
+        /// </returns>
         private bool ShouldUseNewNetworkClientCallback()
         {
             return useNewNetworkClientCallback &&
@@ -1030,6 +1709,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a network client by invoking the configured
+        /// callback.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.  This parameter is not used by this method.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, indicates whether the caller is responsible for
+        /// disposing the returned client.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The newly created network client, or null on failure.
+        /// </returns>
         private WebClient CreateWebClientViaCallback(
             Interpreter interpreter, /* in */
             int? timeout,            /* in: NOT USED */
@@ -1072,6 +1772,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a network client using the facilities of the
+        /// specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to create the network client.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, indicates whether the caller is responsible for
+        /// disposing the returned client.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The newly created network client, or null on failure.
+        /// </returns>
         private WebClient CreateWebClientViaInterpreter(
             Interpreter interpreter, /* in */
             int? timeout,            /* in */
@@ -1089,6 +1810,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a network client, preferring the cached client
+        /// when available and otherwise creating one via the callback or the
+        /// interpreter, as configured.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="dispose">
+        /// Upon return, indicates whether the caller is responsible for
+        /// disposing the returned client.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// A network client, or null on failure.
+        /// </returns>
         private WebClient MaybeCreateWebClient(
             Interpreter interpreter, /* in */
             int? timeout,            /* in */
@@ -1116,6 +1859,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds the request URI, and any associated upload data,
+        /// for the specified operation and parameters.
+        /// </summary>
+        /// <param name="breakpointType">
+        /// The type of operation being requested.
+        /// </param>
+        /// <param name="variableFlags">
+        /// The variable flags associated with the operation.
+        /// </param>
+        /// <param name="pattern">
+        /// The matching pattern to include in the request, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="name">
+        /// The array element name to include in the request, if needed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The array element value to include in the request, if needed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="uri">
+        /// Upon success, receives the request URI.
+        /// </param>
+        /// <param name="data">
+        /// Upon success, receives the upload data for the request, or null when
+        /// the request is conveyed entirely via the URI.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// True on success; otherwise, false.
+        /// </returns>
         private bool TryBuildUri(
             BreakpointType breakpointType, /* in */
             VariableFlags variableFlags,   /* in */
@@ -1260,6 +2041,47 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs a web request for the specified operation,
+        /// using the supplied network client, and decodes the response.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="webClient">
+        /// The network client to use for the request.
+        /// </param>
+        /// <param name="breakpointType">
+        /// The type of operation being requested.
+        /// </param>
+        /// <param name="variableFlags">
+        /// The variable flags associated with the operation.
+        /// </param>
+        /// <param name="pattern">
+        /// The matching pattern to include in the request, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="name">
+        /// The array element name to include in the request, if needed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The array element value to include in the request, if needed.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The decoded response text, or null on failure.
+        /// </returns>
         private string PerformWebRequest(
             Interpreter interpreter,       /* in */
             WebClient webClient,           /* in */
@@ -1426,6 +2248,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the effective length of a web result, excluding
+        /// any single trailing newline sequence.
+        /// </summary>
+        /// <param name="text">
+        /// The web result text to measure.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the effective length of the text, excluding a
+        /// trailing newline sequence.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// True on success; otherwise, false.
+        /// </returns>
         private bool GetWebResultLength(
             string text,     /* in */
             ref int length,  /* out */
@@ -1481,6 +2320,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes a textual web result, validating its leading
+        /// status element and extracting the payload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="text">
+        /// The web result text to decode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem; for
+        /// an error response, this receives the error conveyed by the service.
+        /// </param>
+        /// <returns>
+        /// The decoded payload, or null on failure.
+        /// </returns>
         private string DecodeWebResult(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -1538,6 +2394,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decodes a binary web result, converting it to text using
+        /// the configured encoding (or Base64 when no encoding is configured)
+        /// before decoding the payload.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="bytes">
+        /// The web result bytes to decode.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// The decoded payload, or null on failure.
+        /// </returns>
         private string DecodeWebResult(
             Interpreter interpreter, /* in */
             byte[] bytes,            /* in */
@@ -1573,6 +2446,27 @@ namespace Eagle._Components.Public
         // TODO: This method is not allowed to "fail"?  This seems like a
         //       design flaw.
         //
+        /// <summary>
+        /// This method determines whether the named array element exists by
+        /// querying the network service.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="name">
+        /// The name of the array element to check for existence.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <returns>
+        /// True if the array element exists; otherwise, false.
+        /// </returns>
         private bool DoesExistViaNetwork( /* CANARY */
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -1653,6 +2547,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the number of array
+        /// elements.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="count">
+        /// Upon success, receives the number of array elements.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode GetCountViaNetwork(
             Interpreter interpreter, /* in */
             int? maximumRetries,     /* in */
@@ -1712,6 +2631,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method queries the network service for the array element names
+        /// and/or values matching the specified pattern and populates a
+        /// dictionary with the results.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter associated with the request.
+        /// </param>
+        /// <param name="pattern">
+        /// The matching pattern to include in the request, if any.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="names">
+        /// Non-zero to include the array element names in the result.
+        /// </param>
+        /// <param name="values">
+        /// Non-zero to include the array element values in the result.
+        /// </param>
+        /// <param name="maximumRetries">
+        /// The maximum number of times to retry the request, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="timeout">
+        /// The network request timeout, in milliseconds, or null to use the
+        /// default.
+        /// </param>
+        /// <param name="dictionary">
+        /// Upon success, receives the dictionary of array element names and/or
+        /// values; it is created if it is null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing the problem.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private ReturnCode GetListViaNetwork(
             Interpreter interpreter,         /* in */
             string pattern,                  /* in */
@@ -1792,7 +2751,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Stores a value indicating whether this network variable has been
+        /// disposed.
+        /// </summary>
         private bool disposed;
+        /// <summary>
+        /// This method throws an exception if this network variable has already
+        /// been disposed.  It is called at the start of most members to guard
+        /// against use after disposal.
+        /// </summary>
+        /// <exception cref="ObjectDisposedException">
+        /// Thrown when this network variable has been disposed and the engine is
+        /// configured to throw on use of a disposed object.
+        /// </exception>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -1806,6 +2778,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the resources held by this network variable.
+        /// It implements the standard dispose pattern.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from
+        /// <see cref="Dispose()" /> (i.e. deterministically); zero if it is
+        /// being called from the finalizer.  When non-zero, managed resources
+        /// are released.
+        /// </param>
         private /* protected virtual */ void Dispose(
             bool disposing /* in */
             )
@@ -1837,6 +2819,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method releases all resources held by this network variable and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -1847,6 +2833,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this network variable, releasing any resources that were
+        /// not released by an explicit call to <see cref="Dispose()" />.
+        /// </summary>
         ~NetworkVariable()
         {
             Dispose(false);

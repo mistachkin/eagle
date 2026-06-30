@@ -24,11 +24,27 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>regsub</c> command, which performs
+    /// regular expression based substitution on an input string and either
+    /// returns the resulting string or stores it in a variable while
+    /// returning the number of matches.  It supports literal, script-eval,
+    /// and command callback replacement modes along with the usual regular
+    /// expression option switches.  See <c>core_language.md</c> for the
+    /// command syntax and semantics.
+    /// </summary>
     [ObjectId("2d0df297-03b8-4375-bd55-e3d9abd31a94")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("string")]
     internal sealed class Regsub : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>regsub</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Regsub(
             ICommandData commandData
             )
@@ -38,11 +54,45 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>regsub</c> command.  It parses the
+        /// option switches, compiles the regular expression pattern, performs
+        /// the requested substitution over the input string (optionally
+        /// honoring a start index and a match limit), and either returns the
+        /// resulting string or, when a variable name is supplied, stores that
+        /// string in the named variable and returns the number of matches.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name, followed by optional switches and then the pattern,
+        /// input string, replacement specification, and an optional variable
+        /// name.  This parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains either the substituted string or, when
+        /// a variable name was supplied, the number of matches.  Upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" /> when the arguments or options are
+        /// invalid, the regular expression cannot be compiled, the
+        /// replacement script fails, the interpreter is null, or the argument
+        /// list is null, with details placed in <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;
@@ -222,6 +272,19 @@ namespace Eagle._Commands
                                             int matchCount = 0; // no matches yet.
 
                                             //
+                                            // BUGFIX: For the "-all" case, replacement must still honor the
+                                            //         start index (so any prefix before it is preserved and
+                                            //         not searched).  Use a per-call replacement limit that
+                                            //         is an upper bound on the number of (possibly empty)
+                                            //         matches in the input -- its length plus one -- which
+                                            //         is effectively (overkill for?) "all", i.e. as it mean
+                                            //         that one-more-than-every-single-character would match
+                                            //         (impossible), while still passing the start index to
+                                            //         the underlying Replace overload.
+                                            //
+                                            int allCount = input.Length + 1;
+
+                                            //
                                             // NOTE: Place the script to evaluate in the callback into a
                                             //       ClientData object for use by the callback itself.
                                             //
@@ -255,7 +318,8 @@ namespace Eagle._Commands
                                                     if (all)
                                                     {
                                                         result = regEx.Replace(
-                                                            input, RegExOps.RegsubEvaluateMatchCallback);
+                                                            input, RegExOps.RegsubEvaluateMatchCallback,
+                                                            allCount, startIndex);
                                                     }
                                                     else
                                                     {
@@ -276,7 +340,8 @@ namespace Eagle._Commands
                                                     if (all)
                                                     {
                                                         result = regEx.Replace(
-                                                            input, RegExOps.RegsubCommandMatchCallback);
+                                                            input, RegExOps.RegsubCommandMatchCallback,
+                                                            allCount, startIndex);
                                                     }
                                                     else
                                                     {
@@ -296,7 +361,8 @@ namespace Eagle._Commands
                                                     if (all)
                                                     {
                                                         result = regEx.Replace(
-                                                            input, RegExOps.RegsubNormalMatchCallback);
+                                                            input, RegExOps.RegsubNormalMatchCallback,
+                                                            allCount, startIndex);
                                                     }
                                                     else
                                                     {

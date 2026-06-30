@@ -19,10 +19,26 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Lambdas
 {
+    /// <summary>
+    /// This class implements a lambda term whose arguments are bound by
+    /// position.  When executed, each caller-supplied value is matched to a
+    /// formal argument by its ordinal position, default values are applied to
+    /// any omitted trailing arguments, an optional final variadic argument
+    /// collects any remaining values, and the lambda body is then evaluated.
+    /// It derives from <see cref="Core" />.  See <c>core_language.md</c> for
+    /// procedure and lambda semantics.
+    /// </summary>
     [ObjectId("ba0e86a4-4e29-4760-8ff6-4ad92eed6a91")]
     internal class PositionalArguments : Core
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of the positional-argument lambda term.
+        /// </summary>
+        /// <param name="lambdaData">
+        /// The data used to create and identify this lambda term, such as its
+        /// name, arguments, and body.  This parameter may be null.
+        /// </param>
         public PositionalArguments(
             ILambdaData lambdaData
             )
@@ -35,6 +51,33 @@ namespace Eagle._Lambdas
         ///////////////////////////////////////////////////////////////////////
 
         #region IExecute Members
+        /// <summary>
+        /// Executes this lambda term, binding the caller-supplied arguments to
+        /// the formal arguments by position, applying default values for any
+        /// omitted trailing arguments, and then evaluating the lambda body.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this lambda term is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, caller-specific data supplied for this invocation, if
+        /// any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation, consisting of the lambda
+        /// name followed by the positional argument values.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this may contain the result value produced by the
+        /// lambda body.  Upon failure, this must contain an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// with details placed in the <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

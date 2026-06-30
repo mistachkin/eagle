@@ -70,7 +70,7 @@
 #define LIBRARY_RESULT_LENGTH			(192)
 #define LIBRARY_LOCAL_FLAGS			(20)
 #define LIBRARY_VAR_BUFFER_LENGTH		(20)
-#define LIBRARY_TRACE_BUFFER_LENGTH		((SIZE_T)(4096-sizeof(DWORD)))
+#define LIBRARY_TRACE_BUFFER_LENGTH		((SIZE_T)(4096 - sizeof(DWORD)))
 
 /*****************************************************************************/
 
@@ -95,6 +95,12 @@
 
 #ifndef TRUE
 #  define TRUE					(1)
+#endif
+
+/*****************************************************************************/
+
+#ifndef SIZE_OF
+#  define SIZE_OF(x)				((SIZE_T) sizeof(x))
 #endif
 
 /*****************************************************************************/

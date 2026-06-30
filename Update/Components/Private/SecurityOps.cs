@@ -23,13 +23,25 @@ using _StringOps = Eagle._Components.Shared.StringOps;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides security-related helper methods used by the software
+    /// updater, including administrator detection, Authenticode and strong name
+    /// signature verification, and remote certificate validation.
+    /// </summary>
     [Guid("aa944fc9-6286-443b-bb3c-61fa70cc56a7")]
     internal static class SecurityOps
     {
         #region Private Security Data
+        /// <summary>
+        /// This class holds the default public key token expected for the Eagle
+        /// assembly.
+        /// </summary>
         [Guid("99639a18-01b9-4dc0-b3de-05aa9609709a")]
         private static class PublicKeyToken
         {
+            /// <summary>
+            /// The default public key token expected for the Eagle assembly.
+            /// </summary>
             internal static readonly byte[] Default = {
                 0x29, 0xc6, 0x29, 0x76, 0x30, 0xbe, 0x05, 0xeb
             };
@@ -39,6 +51,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Administrator Support Methods
+        /// <summary>
+        /// This method determines whether the current user is a member of the
+        /// built-in Administrators role, catching and suppressing any
+        /// exceptions.
+        /// </summary>
+        /// <returns>
+        /// True if the current user is an administrator; otherwise, false.
+        /// </returns>
         public static bool IsAdministrator()
         {
             try
@@ -67,6 +87,35 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Signature Checking Methods
+        /// <summary>
+        /// This method determines whether the specified assembly is
+        /// Authenticode signed by a certificate matching the specified subject.
+        /// In debug builds, this check is faked and always succeeds because
+        /// such builds are never officially released.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose Authenticode signature is to be checked.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="subject">
+        /// The certificate subject name to match, or null to match any
+        /// subject.
+        /// </param>
+        /// <param name="verify">
+        /// Non-zero to verify the certificate chain in addition to matching the
+        /// subject.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, this contains the certificate used to sign the
+        /// assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the assembly is Authenticode signed by a matching
+        /// certificate; otherwise, false.
+        /// </returns>
         public static bool IsAuthenticodeSigned(
             Assembly assembly,
             string subject,
@@ -95,6 +144,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified file is Authenticode
+        /// signed by a certificate matching the specified subject, catching any
+        /// exception that may occur.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file whose Authenticode signature is to be checked.
+        /// </param>
+        /// <param name="subject">
+        /// The certificate subject name to match, or null to match any
+        /// subject.
+        /// </param>
+        /// <param name="verify">
+        /// Non-zero to verify the certificate chain in addition to matching the
+        /// subject.
+        /// </param>
+        /// <param name="certificate2">
+        /// Upon success, this contains the certificate used to sign the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the file is Authenticode signed by a matching certificate;
+        /// otherwise, false.
+        /// </returns>
         public static bool IsAuthenticodeSigned(
             string fileName,
             string subject,
@@ -134,6 +209,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified public key token
+        /// matches the default public key token expected for the Eagle
+        /// assembly.
+        /// </summary>
+        /// <param name="publicKeyToken">
+        /// The public key token to check.  A null value is treated as matching.
+        /// </param>
+        /// <returns>
+        /// True if the public key token matches the default (or is null);
+        /// otherwise, false.
+        /// </returns>
         public static bool IsDefaultPublicKeyToken(
             byte[] publicKeyToken
             )
@@ -154,6 +241,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified assembly is strong name
+        /// signed, returning its public key token upon success.
+        /// </summary>
+        /// <param name="assembly">
+        /// The assembly whose strong name signature is to be checked.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="publicKeyToken">
+        /// Upon success, this contains the public key token of the assembly.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// True if the assembly is strong name signed; otherwise, false.
+        /// </returns>
         public static bool IsStrongNameSigned(
             Assembly assembly,
             ref byte[] publicKeyToken,
@@ -237,6 +341,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Software Update Trust Methods
+        /// <summary>
+        /// This method is the remote certificate validation callback used to
+        /// validate the server certificate for software update requests.  It
+        /// accepts the certificate if there are no policy errors or if its
+        /// public key matches one of the expected software update public keys.
+        /// </summary>
+        /// <param name="sender">
+        /// The source of the validation request.
+        /// </param>
+        /// <param name="certificate">
+        /// The remote certificate being validated.
+        /// </param>
+        /// <param name="chain">
+        /// The chain of certificate authorities associated with the remote
+        /// certificate.
+        /// </param>
+        /// <param name="sslPolicyErrors">
+        /// The policy errors, if any, detected during the default validation.
+        /// </param>
+        /// <returns>
+        /// True if the remote certificate is considered valid; otherwise,
+        /// false.
+        /// </returns>
         public static bool RemoteCertificateValidationCallback(
             object sender,
             X509Certificate certificate,
@@ -276,6 +403,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the public key of the specified
+        /// certificate matches the specified expected public key.
+        /// </summary>
+        /// <param name="certificate">
+        /// The certificate whose public key is to be compared.  This parameter
+        /// may be null.
+        /// </param>
+        /// <param name="publicKey">
+        /// The expected public key to compare against.  This parameter may be
+        /// null.
+        /// </param>
+        /// <returns>
+        /// True if the certificate public key matches the expected public key;
+        /// otherwise, false.
+        /// </returns>
         private static bool MatchCertificatePublicKey(
             X509Certificate certificate,
             byte[] publicKey
@@ -305,6 +448,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the subject (or simple name) of the
+        /// specified certificate matches, or begins with, the specified
+        /// subject.
+        /// </summary>
+        /// <param name="certificate2">
+        /// The certificate whose subject is to be compared.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="subject">
+        /// The subject name to match, or null to match any subject.
+        /// </param>
+        /// <returns>
+        /// True if the certificate subject matches the specified subject (or
+        /// the specified subject is null); otherwise, false.
+        /// </returns>
         private static bool MatchCertificateSubject(
             X509Certificate2 certificate2,
             string subject

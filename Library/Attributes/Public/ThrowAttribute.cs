@@ -25,10 +25,21 @@ namespace Eagle._Attributes
     //       outward from methods that are officially allowed to throw
     //       exceptions (i.e. ones officially tagged with this attribute).
     //
+    /// <summary>
+    /// This class implements an attribute used to declare whether the member
+    /// it marks is officially allowed to throw exceptions.  It is applied to
+    /// methods and other members on public callback interfaces to indicate
+    /// that the Interpreter and Engine components will not guarantee
+    /// suppression of exceptions originating from them.
+    /// </summary>
     [AttributeUsage(ThrowAttribute.Targets, Inherited = false)]
     [ObjectId("1a4164d2-d5e6-4121-babb-5d2bff960493")]
     public sealed class ThrowAttribute : Attribute
     {
+        /// <summary>
+        /// The set of attribute targets to which this attribute may be
+        /// applied.
+        /// </summary>
         public const AttributeTargets Targets =
             AttributeTargets.Constructor | AttributeTargets.Method |
             AttributeTargets.Property | AttributeTargets.Field |
@@ -36,6 +47,15 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this attribute using the specified flag
+        /// indicating whether the marked member is allowed to throw
+        /// exceptions.
+        /// </summary>
+        /// <param name="throw">
+        /// Non-zero if the marked member is officially allowed to throw
+        /// exceptions.
+        /// </param>
         public ThrowAttribute(bool @throw)
         {
             this.@throw = @throw;
@@ -43,6 +63,16 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this attribute using the specified flag,
+        /// in its string form, indicating whether the marked member is allowed
+        /// to throw exceptions.
+        /// </summary>
+        /// <param name="value">
+        /// The string representation of the flag indicating whether the marked
+        /// member is allowed to throw exceptions.  An exception is thrown if
+        /// this value cannot be parsed as a boolean.
+        /// </param>
         public ThrowAttribute(string value)
         {
             @throw = bool.Parse(value); /* throw */
@@ -50,7 +80,15 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the marked member is officially allowed to throw
+        /// exceptions.
+        /// </summary>
         private bool @throw;
+        /// <summary>
+        /// Gets a value indicating whether the marked member is officially
+        /// allowed to throw exceptions.
+        /// </summary>
         public bool Throw
         {
             get { return @throw; }

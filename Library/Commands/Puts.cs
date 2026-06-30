@@ -26,11 +26,24 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>puts</c> command, which writes a
+    /// string to a channel (by default the standard output channel),
+    /// optionally appending a trailing newline.  See <c>core_language.md</c>
+    /// for the command syntax and semantics.
+    /// </summary>
     [ObjectId("646d87e5-b37f-46e4-a8d7-1b8e70234d93")]
     [CommandFlags(CommandFlags.Safe | CommandFlags.Standard)]
     [ObjectGroup("channel")]
     internal sealed class Puts : Core
     {
+        /// <summary>
+        /// Constructs an instance of the <c>puts</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Puts(
             ICommandData commandData
             )
@@ -40,11 +53,44 @@ namespace Eagle._Commands
         }
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>puts</c> command.  It parses any
+        /// options (for example <c>-nonewline</c> and <c>-encoding</c>),
+        /// resolves the target channel (defaulting to standard output),
+        /// converts the supplied string using the channel encoding, and
+        /// writes it to the channel, appending a newline unless suppressed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; the remaining elements are any options, the optional
+        /// channel identifier, and the string to be written.  This parameter
+        /// should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains an empty string.  Upon failure, this
+        /// contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the string is written
+        /// successfully; otherwise, <see cref="ReturnCode.Error" /> when the
+        /// wrong number of arguments is supplied, an option or channel is
+        /// invalid, the interpreter is null, the argument list is null, or an
+        /// exception occurs during writing, with details placed in
+        /// <paramref name="result" />.
+        /// </returns>
         public override ReturnCode Execute(
-            Interpreter interpreter,
-            IClientData clientData,
-            ArgumentList arguments,
-            ref Result result
+            Interpreter interpreter, /* in */
+            IClientData clientData,  /* in */
+            ArgumentList arguments,  /* in */
+            ref Result result        /* out */
             )
         {
             ReturnCode code = ReturnCode.Ok;

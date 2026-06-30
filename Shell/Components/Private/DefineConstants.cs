@@ -21,6 +21,10 @@ using Eagle._Containers.Public;
 
 namespace Eagle._Shell
 {
+    /// <summary>
+    /// This class exposes the list of compile-time options (i.e. preprocessor
+    /// defines) that were active when this assembly was built.
+    /// </summary>
 #if STATIC
     [ObjectId("d09f93fb-3de0-484c-bffa-50a5f26fb00c")]
 #else
@@ -28,6 +32,10 @@ namespace Eagle._Shell
 #endif
     internal static class DefineConstants
     {
+        /// <summary>
+        /// The list of names of the compile-time options that were active when
+        /// this assembly was built.
+        /// </summary>
 #if STATIC
         public static readonly StringList OptionList = new StringList(new string[] {
 #else

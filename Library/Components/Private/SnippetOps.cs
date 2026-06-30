@@ -25,9 +25,34 @@ using SnippetList = System.Collections.Generic.IEnumerable<
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides the internal helper methods used to create and load
+    /// script snippets from files, including ordinary script and data files as
+    /// well as their associated signature (certificate) files.  Each loaded
+    /// snippet is represented by an <see cref="ISnippet" /> instance.
+    /// </summary>
     [ObjectId("75ef81e9-5096-4210-80e0-b04e18e4a19a")]
     internal static class SnippetOps
     {
+        /// <summary>
+        /// This method determines whether the text of a snippet file should be
+        /// read using the <see cref="Engine" /> class (which applies line
+        /// translations and other script-specific processing) instead of being
+        /// read as raw text.
+        /// </summary>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippet is read and processed.
+        /// </param>
+        /// <param name="isScript">
+        /// Non-zero if the file appears to be a script file.
+        /// </param>
+        /// <param name="isSignature">
+        /// Non-zero if the file appears to be a signature (certificate) file.
+        /// </param>
+        /// <returns>
+        /// True if the <see cref="Engine" /> class should be used to read the
+        /// file text; otherwise, false.
+        /// </returns>
         private static bool ShouldReadViaEngine(
             SnippetFlags snippetFlags, /* in */
             bool isScript,             /* in */
@@ -70,6 +95,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new <see cref="ISnippet" /> instance from the
+        /// specified file path and data.
+        /// </summary>
+        /// <param name="path">
+        /// The file path associated with the snippet.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="bytes">
+        /// The raw bytes of the snippet.  This parameter may be null.
+        /// </param>
+        /// <param name="text">
+        /// The text of the snippet.  This parameter may be null.
+        /// </param>
+        /// <param name="xml">
+        /// The XML (or signature) data of the snippet.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippet is read and processed.
+        /// </param>
+        /// <returns>
+        /// The newly created <see cref="ISnippet" /> instance.
+        /// </returns>
         private static ISnippet Create(
             string path,              /* in: OPTIONAL */
             byte[] bytes,             /* in: OPTIONAL */
@@ -85,6 +134,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the raw bytes and text of the specified file,
+        /// optionally using the <see cref="Engine" /> class to read the text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when reading the file via the
+        /// <see cref="Engine" /> class.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to read.
+        /// </param>
+        /// <param name="viaEngine">
+        /// Non-zero if the text should be read using the <see cref="Engine" />
+        /// class; otherwise, the text is read directly.
+        /// </param>
+        /// <param name="bytes">
+        /// Upon success, receives the raw bytes read from the file.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text read from the file.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadFileData(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -143,6 +220,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads a single script or data file and creates an
+        /// <see cref="ISnippet" /> instance to represent it, validating that the
+        /// file exists and conforms to any script or signature requirements
+        /// specified via the snippet flags.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when loading the file.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file to load.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippet is read and processed.
+        /// </param>
+        /// <param name="snippet">
+        /// Upon success, receives the newly created <see cref="ISnippet" />
+        /// instance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadOneFile(
             Interpreter interpreter,   /* in */
             string fileName,           /* in */
@@ -251,6 +354,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads a single signature (certificate) file along with
+        /// its associated script file and creates an <see cref="ISnippet" />
+        /// instance to represent them.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when loading the file.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the signature (certificate) file to load.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippet is read and processed.
+        /// </param>
+        /// <param name="snippet">
+        /// Upon success, receives the newly created <see cref="ISnippet" />
+        /// instance.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         private static ReturnCode LoadOneCertificateFile(
             Interpreter interpreter,   /* in */
             string fileName,           /* in */
@@ -352,6 +480,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method obtains the text of the specified snippet, deriving it
+        /// from the snippet bytes, XML, or text depending on the snippet flags.
+        /// </summary>
+        /// <param name="snippet">
+        /// The snippet whose text is to be obtained.
+        /// </param>
+        /// <param name="text">
+        /// Upon success, receives the text of the snippet.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives information about the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise,
+        /// <see cref="ReturnCode.Error" />.
+        /// </returns>
         public static ReturnCode GetText(
             ISnippet snippet, /* in */
             ref string text,  /* out */
@@ -427,6 +572,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads all signature (certificate) files found within the
+        /// specified path and creates an <see cref="ISnippet" /> instance for
+        /// each one that loads successfully.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when loading the files.
+        /// </param>
+        /// <param name="path">
+        /// The directory path to search for signature (certificate) files.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippets are read and processed.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the files are located, including whether
+        /// the search is recursive.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, an optional existing list of errors; upon failure of any
+        /// individual file, receives information about the errors encountered.
+        /// </param>
+        /// <returns>
+        /// The collection of loaded snippets, or null if the path could not be
+        /// searched or contained no certificates.
+        /// </returns>
         public static SnippetList LoadAllCertificateFiles(
             Interpreter interpreter,   /* in */
             string path,               /* in */
@@ -525,6 +696,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads all files matching the specified pattern within the
+        /// specified path and creates an <see cref="ISnippet" /> instance for
+        /// each one that loads successfully.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context to use when loading the files.
+        /// </param>
+        /// <param name="path">
+        /// The directory path to search for files.
+        /// </param>
+        /// <param name="pattern">
+        /// The search pattern used to match file names within the path.
+        /// </param>
+        /// <param name="snippetFlags">
+        /// The flags that control how the snippets are read and processed.
+        /// </param>
+        /// <param name="lookupFlags">
+        /// The flags that control how the files are located, including whether
+        /// the search is recursive.
+        /// </param>
+        /// <param name="errors">
+        /// Upon entry, an optional existing list of errors; upon failure of any
+        /// individual file, receives information about the errors encountered.
+        /// </param>
+        /// <returns>
+        /// The collection of loaded snippets, or null if the path could not be
+        /// searched or contained no matching files.
+        /// </returns>
         public static SnippetList LoadAllFiles(
             Interpreter interpreter,   /* in */
             string path,               /* in */

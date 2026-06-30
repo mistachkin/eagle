@@ -24,6 +24,17 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Cmdlets
 {
+    /// <summary>
+    /// This class is the abstract base for the PowerShell cmdlets provided by
+    /// Eagle.  It encapsulates the creation, configuration, lifetime, and
+    /// disposal of an embedded Eagle interpreter and exposes the common cmdlet
+    /// parameters (e.g. the script text, arguments, and the various creation,
+    /// initialization, and evaluation flags) used to control how a script is
+    /// evaluated.  Concrete cmdlets derive from this class and use its helper
+    /// methods (and the <see cref="System.Management.Automation.Cmdlet" />
+    /// processing overrides) to evaluate scripts, expressions, or files and to
+    /// route their output and errors back into the PowerShell pipeline.
+    /// </summary>
     [ObjectId("c01dc0d1-1ec8-4ec1-ad82-ad500ed86f33")]
     public abstract class Script : Cmdlet, IMaybeDisposed, IDisposable
     {
@@ -31,6 +42,10 @@ namespace Eagle._Cmdlets
         //
         // NOTE: By default, no console.
         //
+        /// <summary>
+        /// The default value indicating whether a console-based host should be
+        /// assumed to be available for diagnostic and other output.
+        /// </summary>
         private static readonly bool DefaultConsole = false;
 
         //
@@ -45,6 +60,13 @@ namespace Eagle._Cmdlets
         //          exist in the auto-path.
         //       5. We want to provide a "safe" subset of commands.
         //
+        /// <summary>
+        /// The default interpreter creation flags.  These request that the
+        /// script library be initialized, that accessing disposed objects and
+        /// failed interpreter creation throw an exception, that only existing
+        /// directories be retained in the auto-path, and that a "safe" subset
+        /// of commands be provided.
+        /// </summary>
         private static readonly CreateFlags DefaultCreateFlags =
             CreateFlags.SafeEmbeddedUse;
 
@@ -55,6 +77,11 @@ namespace Eagle._Cmdlets
         //       2. We do not want to change the console icon.
         //       3. We do not want to intercept the Ctrl-C keypress.
         //
+        /// <summary>
+        /// The default host creation flags.  These request that the console
+        /// title and icon not be changed and that the Ctrl-C keypress not be
+        /// intercepted.
+        /// </summary>
         private static readonly HostCreateFlags DefaultHostCreateFlags =
             HostCreateFlags.SafeEmbeddedUse;
         #endregion
@@ -67,6 +94,11 @@ namespace Eagle._Cmdlets
         //       object handle to the interpreter that will refer to the cmdlet
         //       instance associated with that interpreter.
         //
+        /// <summary>
+        /// The object flags used when adding the opaque object handle that
+        /// refers to the cmdlet instance associated with the interpreter.  The
+        /// handle is locked and is not disposed when removed.
+        /// </summary>
         public static readonly ObjectFlags CmdletObjectFlags =
             ObjectFlags.Locked | ObjectFlags.NoDispose;
 
@@ -76,6 +108,11 @@ namespace Eagle._Cmdlets
         //       it determines which options will be supported by each such
         //       alias.
         //
+        /// <summary>
+        /// The default <c>[object]</c> command option type used when creating
+        /// command aliases to the <c>[object]</c> command; it determines which
+        /// options are supported by each such alias.
+        /// </summary>
         public static readonly ObjectOptionType CmdletObjectOptionType =
             ObjectOptionType.Default;
 
@@ -84,35 +121,154 @@ namespace Eagle._Cmdlets
         //       cmdlet instance associated with the interpreter being used by
         //       that same cmdlet instance.
         //
+        /// <summary>
+        /// The opaque object handle name that refers to the cmdlet instance
+        /// associated with the interpreter being used by that same cmdlet
+        /// instance.
+        /// </summary>
         public static readonly string CmdletObjectName = "__cmdlet";
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The delegate used to write detailed interpreter creation flags
+        /// information (i.e. just prior to the interpreter being created).
+        /// </summary>
         private WriteCallback flagsCallback;
+
+        /// <summary>
+        /// The delegate used to write detailed cmdlet state and lifecycle
+        /// information.
+        /// </summary>
         private WriteCallback stateCallback;
+
+        /// <summary>
+        /// The delegate used to write detailed script parameter information.
+        /// </summary>
         private WriteCallback parameterCallback;
+
+        /// <summary>
+        /// The trace listener used by this cmdlet to capture trace and debug
+        /// output, or null when no trace listener is currently installed.
+        /// </summary>
         private TraceListener listener;
+
+        /// <summary>
+        /// The script to evaluate prior to interpreter initialization, or null
+        /// when no pre-initialization script is needed.
+        /// </summary>
         private string preInitialize;
+
+        /// <summary>
+        /// The interpreter creation flags to be used when creating the
+        /// interpreter.
+        /// </summary>
         private CreateFlags createFlags;
+
+        /// <summary>
+        /// The host creation flags to be used when creating the interpreter
+        /// host.
+        /// </summary>
         private HostCreateFlags hostCreateFlags;
+
+        /// <summary>
+        /// The interpreter initialization flags to be used when initializing
+        /// the interpreter.
+        /// </summary>
         private InitializeFlags initializeFlags;
+
+        /// <summary>
+        /// The script flags to be used when locating and evaluating library
+        /// scripts.
+        /// </summary>
         private ScriptFlags scriptFlags;
+
+        /// <summary>
+        /// The behavioral flags to be used for the interpreter.
+        /// </summary>
         private InterpreterFlags interpreterFlags;
+
+        /// <summary>
+        /// The engine flags to be used when evaluating expressions, scripts,
+        /// and files.
+        /// </summary>
         private EngineFlags engineFlags;
+
+        /// <summary>
+        /// The substitution flags to be used when evaluating expressions,
+        /// scripts, and files.
+        /// </summary>
         private SubstitutionFlags substitutionFlags;
+
+        /// <summary>
+        /// The event flags to be used when evaluating expressions, scripts,
+        /// and files.
+        /// </summary>
         private EventFlags eventFlags;
+
+        /// <summary>
+        /// The expression flags to be used when evaluating expressions.
+        /// </summary>
         private ExpressionFlags expressionFlags;
+
+        /// <summary>
+        /// When non-zero, a console-based host is assumed to be available for
+        /// diagnostic and other output.
+        /// </summary>
         private bool console;
+
+        /// <summary>
+        /// When non-zero, processing is forced to continue.
+        /// </summary>
         private bool force;
+
+        /// <summary>
+        /// When non-zero, "exceptional" (non-Ok) success return codes are
+        /// allowed.
+        /// </summary>
         private bool exceptions;
+
+        /// <summary>
+        /// When non-zero, the custom command execution policies are added to
+        /// the interpreter.
+        /// </summary>
         private bool policies;
+
+        /// <summary>
+        /// When non-zero, command execution is denied even for commands
+        /// approved by the built-in security policies.
+        /// </summary>
         private bool deny;
+
+        /// <summary>
+        /// When non-zero, the <c>[cmdlet]</c> meta-command is made available
+        /// for use by evaluated expressions, scripts, etc.
+        /// </summary>
         private bool metaCommand;
+
+        /// <summary>
+        /// The script text, expression, or file name to be evaluated.
+        /// </summary>
         private string text;
+
+        /// <summary>
+        /// The arguments to be made available to the evaluated script, or null
+        /// when there are no arguments.
+        /// </summary>
         private IEnumerable<string> args;
+
+        /// <summary>
+        /// The interpreter created and used by this cmdlet, or null when no
+        /// interpreter currently exists.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// The command token for the <c>[cmdlet]</c> meta-command, or zero
+        /// when the meta-command has not been added.
+        /// </summary>
         private long token; /* NOTE: For [cmdlet] meta-command. */
         #endregion
 
@@ -124,12 +280,26 @@ namespace Eagle._Cmdlets
         //       output should be sent to WriteWarning, WriteCommandDetail,
         //       WriteVerbose, or WriteDebug.
         //
+        /// <summary>
+        /// This delegate represents a method used to write a line of textual
+        /// output to one of the cmdlet output streams (e.g. warning, command
+        /// detail, verbose, or debug).
+        /// </summary>
+        /// <param name="text">
+        /// The line of text to be written.
+        /// </param>
         protected internal delegate void WriteCallback(string text);
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Constructors
+        /// <summary>
+        /// Constructs an instance of this class, establishing the default
+        /// output delegates, trace listeners, creation, initialization,
+        /// script, interpreter, engine, substitution, event, and expression
+        /// flags, and the default cmdlet behavior settings.
+        /// </summary>
         protected Script()
         {
             //
@@ -233,6 +403,9 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this cmdlet has been disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -245,6 +418,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this cmdlet is currently in the
+        /// process of being disposed.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -259,7 +436,17 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// When non-zero, this cmdlet has been disposed and is no longer
+        /// usable.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this cmdlet has been disposed
+        /// and the associated interpreter is configured to throw on access to
+        /// disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -270,6 +457,15 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the resources used by this cmdlet,
+        /// including the interpreter and trace listeners.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the
+        /// <see cref="Dispose()" /> method; zero if it is being called from
+        /// the finalizer.  When non-zero, managed resources are also disposed.
+        /// </param>
         protected virtual void Dispose(bool disposing)
         {
             if (!disposed)
@@ -303,6 +499,10 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method disposes of the resources used by this cmdlet and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -313,6 +513,10 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes an instance of this class, releasing any resources that
+        /// were not explicitly disposed.
+        /// </summary>
         ~Script()
         {
             Dispose(false);
@@ -322,6 +526,10 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Cmdlet Parameters
+        /// <summary>
+        /// Gets or sets the script text, expression, or file name to be
+        /// evaluated by this cmdlet.
+        /// </summary>
         [Parameter(
             Position = 0,
             Mandatory = true,
@@ -344,6 +552,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the arguments, as a string list, to be made available
+        /// to the evaluated script.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Args
@@ -382,6 +594,11 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the script to be evaluated prior to interpreter
+        /// initialization, or null when no pre-initialization script is
+        /// needed.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.PreInitialize
@@ -394,6 +611,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter creation flags to be used when
+        /// creating the interpreter.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.CreateFlags
@@ -406,6 +627,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the host creation flags to be used when creating the
+        /// interpreter host.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.HostCreateFlags
@@ -418,6 +643,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the interpreter initialization flags to be used when
+        /// initializing the interpreter.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.InitializeFlags
@@ -430,6 +659,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the script flags to be used when locating and
+        /// evaluating library scripts.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.ScriptFlags
@@ -442,6 +675,9 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the behavioral flags to be used for the interpreter.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.InterpreterFlags
@@ -454,6 +690,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the engine flags to be used when evaluating
+        /// expressions, scripts, and files.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.EngineFlags
@@ -466,6 +706,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the substitution flags to be used when evaluating
+        /// expressions, scripts, and files.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.SubstitutionFlags
@@ -478,6 +722,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the event flags to be used when evaluating
+        /// expressions, scripts, and files.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.EventFlags
@@ -490,6 +738,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets the expression flags to be used when evaluating
+        /// expressions.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.ExpressionFlags
@@ -502,6 +754,11 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether a console-based host is
+        /// assumed to be available for diagnostic and other output.  Setting
+        /// this property installs or removes the appropriate trace listeners.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Console
@@ -534,6 +791,12 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the interpreter is created
+        /// without the "safe" restrictions.  Setting this property adjusts the
+        /// creation flags and is only permitted before the interpreter has
+        /// been created.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Unsafe
@@ -574,6 +837,12 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the interpreter is created
+        /// in "standard" mode (hiding non-standard commands).  Setting this
+        /// property adjusts the creation flags and is only permitted before
+        /// the interpreter has been created.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Standard
@@ -614,6 +883,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether processing is forced to
+        /// continue.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Force
@@ -626,6 +899,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether "exceptional" (non-Ok)
+        /// success return codes are allowed.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Exceptions
@@ -638,6 +915,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the custom command
+        /// execution policies are added to the interpreter.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Policies
@@ -650,6 +931,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether command execution is denied
+        /// even for commands approved by the built-in security policies.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.Deny
@@ -662,6 +947,11 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets or sets a value indicating whether the <c>[cmdlet]</c>
+        /// meta-command is made available for use by evaluated expressions,
+        /// scripts, etc.
+        /// </summary>
         [Parameter(
             ValueFromPipelineByPropertyName = true,
             HelpMessage = _Constants.HelpMessage.MetaCommand
@@ -676,6 +966,10 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Protected Properties
+        /// <summary>
+        /// Gets the delegate used to write detailed interpreter creation flags
+        /// information.
+        /// </summary>
         protected internal WriteCallback FlagsCallback
         {
             get { return flagsCallback; }
@@ -683,6 +977,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the delegate used to write detailed cmdlet state and lifecycle
+        /// information.
+        /// </summary>
         protected internal WriteCallback StateCallback
         {
             get { return stateCallback; }
@@ -690,6 +988,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the delegate used to write detailed script parameter
+        /// information.
+        /// </summary>
         protected internal WriteCallback ParameterCallback
         {
             get { return parameterCallback; }
@@ -697,6 +999,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the trace listener used by this cmdlet, or null when no trace
+        /// listener is currently installed.
+        /// </summary>
         protected internal TraceListener Listener
         {
             get { return listener; }
@@ -704,6 +1010,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the interpreter created and used by this cmdlet, or null when
+        /// no interpreter currently exists.
+        /// </summary>
         protected internal Interpreter Interpreter
         {
             get { return interpreter; }
@@ -711,6 +1021,10 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a list containing the command token for the <c>[cmdlet]</c>
+        /// meta-command associated with this cmdlet.
+        /// </summary>
         protected internal LongList Tokens
         {
             get { return new LongList(new long[] { token }); }
@@ -720,6 +1034,19 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Helper Methods
+        /// <summary>
+        /// This method attempts to determine whether a console-based host is
+        /// available for diagnostic and other output, using an environment
+        /// variable as a hint.
+        /// </summary>
+        /// <param name="default">
+        /// The default value to assume when the environment does not indicate
+        /// otherwise.
+        /// </param>
+        /// <returns>
+        /// Non-zero if a console-based host should be assumed to be available;
+        /// otherwise, zero.
+        /// </returns>
         private static bool NeedConsole(
             bool @default
             )
@@ -764,6 +1091,25 @@ namespace Eagle._Cmdlets
 
         #region Protected Helper Methods
         #region Trace Listener Helper Methods
+        /// <summary>
+        /// This method installs or removes the trace listener used by this
+        /// cmdlet, discarding any resulting error message.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to install the trace listener; zero to remove it.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if a console-based host is available, which determines the
+        /// type of trace listener used.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an already-installed (or already-removed) trace
+        /// listener as an error; zero to treat it as success.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode SetupTraceListeners(
             bool setup,
             bool console,
@@ -777,6 +1123,28 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method installs or removes the trace listener used by this
+        /// cmdlet.
+        /// </summary>
+        /// <param name="setup">
+        /// Non-zero to install the trace listener; zero to remove it.
+        /// </param>
+        /// <param name="console">
+        /// Non-zero if a console-based host is available, which determines the
+        /// type of trace listener used.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to treat an already-installed (or already-removed) trace
+        /// listener as an error; zero to treat it as success.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode SetupTraceListeners(
             bool setup,
             bool console,
@@ -858,6 +1226,11 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Interpreter Helper Methods
+        /// <summary>
+        /// This method disposes of the interpreter used by this cmdlet,
+        /// reporting either successful disposal or any resulting error to the
+        /// appropriate cmdlet output stream.
+        /// </summary>
         protected void DisposeInterpreter()
         {
             ReturnCode code;
@@ -883,6 +1256,17 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of and clears the interpreter used by this
+        /// cmdlet, if one currently exists.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode DisposeInterpreter(
             ref Result error
             )
@@ -913,6 +1297,14 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Meta-Command Helper Methods
+        /// <summary>
+        /// This method creates the client data associated with the
+        /// <c>[cmdlet]</c> meta-command, which carries a reference back to this
+        /// cmdlet instance.
+        /// </summary>
+        /// <returns>
+        /// The newly created client data.
+        /// </returns>
         protected virtual IClientData GetMetaCommandClientData()
         {
             return new ClientData(this);
@@ -920,6 +1312,16 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates the <c>[cmdlet]</c> meta-command, marking it as
+        /// hidden when the specified interpreter is "safe".
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that the meta-command will be added to.
+        /// </param>
+        /// <returns>
+        /// The newly created meta-command.
+        /// </returns>
         protected virtual ICommand GetMetaCommand(
             Interpreter interpreter
             )
@@ -938,6 +1340,21 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds the <c>[cmdlet]</c> meta-command to the specified
+        /// interpreter, recording its command token.  If the meta-command has
+        /// already been added, this method does nothing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that the meta-command will be added to.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode AddMetaCommand(
             Interpreter interpreter,
             ref Result error
@@ -971,6 +1388,21 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the <c>[cmdlet]</c> meta-command from the
+        /// specified interpreter, using its recorded command token.  If the
+        /// meta-command has not been added, this method does nothing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that the meta-command will be removed from.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected internal virtual ReturnCode RemoveMetaCommand(
             Interpreter interpreter,
             ref Result error
@@ -1001,6 +1433,21 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write Error Helper Methods (no-throw)
+        /// <summary>
+        /// This method writes an error record to the cmdlet error stream
+        /// without allowing any exception to propagate, discarding any
+        /// resulting error message.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="result">
+        /// The result (i.e. error message) associated with the error.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteErrorRecordNoThrow(
             ReturnCode code,
             Result result
@@ -1013,6 +1460,24 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes an error record to the cmdlet error stream
+        /// without allowing any exception to propagate, falling back to trace
+        /// output if writing the error record fails.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="result">
+        /// The result (i.e. error message) associated with the error.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteErrorRecordNoThrow(
             ReturnCode code,
             Result result,
@@ -1047,6 +1512,17 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write Verbose Helper Methods (no-throw)
+        /// <summary>
+        /// This method writes a line of verbose output without allowing any
+        /// exception to propagate, discarding any resulting error message.
+        /// </summary>
+        /// <param name="text">
+        /// The line of verbose text to be written.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteVerboseNoThrow(
             string text
             )
@@ -1058,6 +1534,21 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line of verbose output without allowing any
+        /// exception to propagate, falling back to trace output if writing the
+        /// verbose output fails.
+        /// </summary>
+        /// <param name="text">
+        /// The line of verbose text to be written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteVerboseNoThrow(
             string text,
             ref Result error
@@ -1090,6 +1581,29 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write Create Flags Helper Methods (BeginProcessing)
+        /// <summary>
+        /// This method writes the specified interpreter creation flags to the
+        /// output using the default flags callback.
+        /// </summary>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to be written.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to be written.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The interpreter initialization flags to be written.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to be written.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter behavioral flags to be written.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteFlags(
             CreateFlags createFlags,
             HostCreateFlags hostCreateFlags,
@@ -1105,6 +1619,33 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified interpreter creation flags to the
+        /// output using the specified callback, discarding any resulting error
+        /// message.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write each line of output.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to be written.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to be written.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The interpreter initialization flags to be written.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to be written.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter behavioral flags to be written.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteFlags(
             WriteCallback callback,
             CreateFlags createFlags,
@@ -1124,6 +1665,35 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the specified interpreter creation flags to the
+        /// output using the specified callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write each line of output.
+        /// </param>
+        /// <param name="createFlags">
+        /// The interpreter creation flags to be written.
+        /// </param>
+        /// <param name="hostCreateFlags">
+        /// The host creation flags to be written.
+        /// </param>
+        /// <param name="initializeFlags">
+        /// The interpreter initialization flags to be written.
+        /// </param>
+        /// <param name="scriptFlags">
+        /// The script flags to be written.
+        /// </param>
+        /// <param name="interpreterFlags">
+        /// The interpreter behavioral flags to be written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteFlags(
             WriteCallback callback,
             CreateFlags createFlags,
@@ -1178,6 +1748,17 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write State Helper Methods (BeginProcessing / EndProcessing)
+        /// <summary>
+        /// This method writes a line of cmdlet state and lifecycle information
+        /// to the output using the default state callback.
+        /// </summary>
+        /// <param name="text">
+        /// The line of state text to be written.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteState(
             string text
             )
@@ -1187,6 +1768,21 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line of cmdlet state and lifecycle information
+        /// to the output using the specified callback, discarding any
+        /// resulting error message.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write the line of output.
+        /// </param>
+        /// <param name="text">
+        /// The line of state text to be written.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteState(
             WriteCallback callback,
             string text
@@ -1199,6 +1795,23 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a line of cmdlet state and lifecycle information
+        /// to the output using the specified callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write the line of output.
+        /// </param>
+        /// <param name="text">
+        /// The line of state text to be written.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteState(
             WriteCallback callback,
             string text,
@@ -1226,6 +1839,14 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write Parameters Helper Methods (ProcessRecord)
+        /// <summary>
+        /// This method writes the current script parameter and flag settings
+        /// to the output using the default parameter callback.
+        /// </summary>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteParameters()
         {
             return WriteParameters(parameterCallback);
@@ -1233,6 +1854,18 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the current script parameter and flag settings
+        /// to the output using the specified callback, discarding any resulting
+        /// error message.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write each line of output.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected ReturnCode WriteParameters(
             WriteCallback callback
             )
@@ -1244,6 +1877,20 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes the current script parameter and flag settings
+        /// to the output using the specified callback.
+        /// </summary>
+        /// <param name="callback">
+        /// The callback used to write each line of output.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteParameters(
             WriteCallback callback,
             ref Result error
@@ -1307,6 +1954,17 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Write Helper Methods (ProcessRecord)
+        /// <summary>
+        /// This method writes a successful result to the cmdlet pipeline.  If
+        /// the result is an opaque object handle, the underlying object is
+        /// written; otherwise, the result is written as a string.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the result.
+        /// </param>
+        /// <param name="result">
+        /// The result to be written to the pipeline.
+        /// </param>
         protected virtual void WriteObjectRecord(
             ReturnCode code,
             Result result
@@ -1338,6 +1996,16 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes an error record, wrapping the specified return
+        /// code and result in a script exception, to the cmdlet error stream.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the error.
+        /// </param>
+        /// <param name="result">
+        /// The result (i.e. error message) associated with the error.
+        /// </param>
         protected internal virtual void WriteErrorRecord(
             ReturnCode code,
             Result result
@@ -1352,6 +2020,16 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a verbose message describing the script being
+        /// processed, incorporating the specified type and noun.
+        /// </summary>
+        /// <param name="type">
+        /// The type associated with the message (e.g. the cmdlet type).
+        /// </param>
+        /// <param name="noun">
+        /// The noun describing the operation being performed.
+        /// </param>
         protected virtual void WriteVerboseRecord(
             Type type,
             string noun
@@ -1362,6 +2040,21 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method writes a verbose message indicating that pipeline
+        /// processing is being stopped, incorporating the specified return code
+        /// and result.
+        /// </summary>
+        /// <param name="code">
+        /// The return code associated with the stopping operation.
+        /// </param>
+        /// <param name="result">
+        /// The result associated with the stopping operation.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode WriteVerbosePipelineStopping(
             ReturnCode code,
             Result result
@@ -1379,6 +2072,18 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Precondition Checking Methods (ProcessRecord)
+        /// <summary>
+        /// This method determines whether the prerequisites for record
+        /// processing are satisfied (i.e. a valid, non-disposed interpreter
+        /// and a non-null script).
+        /// </summary>
+        /// <param name="errorRecord">
+        /// Upon failure, this contains an error record describing the
+        /// unsatisfied precondition.
+        /// </param>
+        /// <returns>
+        /// True if record processing can proceed; otherwise, false.
+        /// </returns>
         protected virtual bool CanProcessRecord(
             ref ErrorRecord errorRecord
             )
@@ -1429,6 +2134,17 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Postcondition Checking Methods (ProcessRecord)
+        /// <summary>
+        /// This method determines whether the specified return code represents
+        /// success, honoring the configured handling of "exceptional" success
+        /// return codes.
+        /// </summary>
+        /// <param name="code">
+        /// The return code to be evaluated.
+        /// </param>
+        /// <returns>
+        /// True if the return code represents success; otherwise, false.
+        /// </returns>
         protected virtual bool IsSuccess(
             ReturnCode code
             )
@@ -1440,6 +2156,18 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region Engine Helper Methods (ProcessRecord)
+        /// <summary>
+        /// This method evaluates the configured script text as an expression
+        /// using the interpreter and configured flags.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the value of the expression; upon
+        /// failure, this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode EvaluateExpression(
             ref Result result
             )
@@ -1450,6 +2178,18 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the configured script text as a script using
+        /// the interpreter and configured flags.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the result of the script; upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode EvaluateScript(
             ref Result result
             )
@@ -1460,6 +2200,18 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method evaluates the script contained in the file named by the
+        /// configured script text using the interpreter and configured flags.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the result of the script; upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode EvaluateFile(
             ref Result result
             )
@@ -1470,6 +2222,18 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the configured script text
+        /// using the interpreter and configured flags.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the substituted text; upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode SubstituteString(
             ref Result result
             )
@@ -1480,6 +2244,19 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method performs substitution on the contents of the file named
+        /// by the configured script text using the interpreter and configured
+        /// flags.
+        /// </summary>
+        /// <param name="result">
+        /// Upon success, this contains the substituted text; upon failure,
+        /// this contains an appropriate error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success;
+        /// <see cref="ReturnCode.Error" /> on failure.
+        /// </returns>
         protected virtual ReturnCode SubstituteFile(
             ref Result result
             )
@@ -1493,6 +2270,19 @@ namespace Eagle._Cmdlets
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Management.Automation.Cmdlet Overrides
+        /// <summary>
+        /// This method returns the resource string identified by the specified
+        /// base name and resource identifier.
+        /// </summary>
+        /// <param name="baseName">
+        /// The base name of the resource table containing the string.
+        /// </param>
+        /// <param name="resourceId">
+        /// The identifier of the resource string to retrieve.
+        /// </param>
+        /// <returns>
+        /// The requested resource string.
+        /// </returns>
         public override string GetResourceString(
             string baseName,
             string resourceId
@@ -1528,6 +2318,13 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called once before pipeline processing begins.  It
+        /// determines the effective creation flags, creates and configures the
+        /// interpreter (optionally installing custom policies, a
+        /// pre-initialization script, and the <c>[cmdlet]</c> meta-command),
+        /// and throws a terminating error if any step fails.
+        /// </summary>
         protected override void BeginProcessing()
         {
             CheckDisposed(); /* EXEMPT */
@@ -1711,6 +2508,12 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called once after all pipeline processing is
+        /// complete.  It disposes of the interpreter, resets the cmdlet policy
+        /// confirmation data, and throws a terminating error if the
+        /// interpreter could not be disposed properly.
+        /// </summary>
         protected override void EndProcessing()
         {
             CheckDisposed(); /* EXEMPT */
@@ -1781,6 +2584,12 @@ namespace Eagle._Cmdlets
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is called when pipeline processing is being stopped
+        /// (e.g. by user interruption).  It cancels any in-progress evaluation,
+        /// disposes of the interpreter, resets the cmdlet policy confirmation
+        /// data, and throws a terminating error if any step fails.
+        /// </summary>
         protected override void StopProcessing()
         {
             CheckDisposed(); /* EXEMPT */

@@ -20,10 +20,22 @@ using Eagle._Interfaces.Public;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class encapsulates the contextual data needed to manage a script
+    /// timeout, including the associated interpreter, engine context, timeout
+    /// and cancellation flags, and the timeout interval itself.
+    /// </summary>
     [ObjectId("225e0b36-594a-4181-9289-768fb936b471")]
     internal sealed class ScriptTimeoutClientData : ClientData, IGetInterpreter
     {
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class that wraps the specified opaque
+        /// client data value.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque client data value to be wrapped by this object instance.
+        /// </param>
         private ScriptTimeoutClientData(
             object data
             )
@@ -36,6 +48,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class that wraps the specified opaque
+        /// client data value and captures the supplied script timeout context.
+        /// </summary>
+        /// <param name="data">
+        /// The opaque client data value to be wrapped by this object instance.
+        /// </param>
+        /// <param name="interpreter">
+        /// The interpreter associated with the script timeout.
+        /// </param>
+        /// <param name="engineContext">
+        /// The engine context associated with the script timeout.
+        /// </param>
+        /// <param name="timeoutFlags">
+        /// The flags that control how the script timeout is handled.
+        /// </param>
+        /// <param name="cancelFlags">
+        /// The flags used when canceling script evaluation due to the timeout,
+        /// or null to use the default cancellation behavior.
+        /// </param>
+        /// <param name="timeout">
+        /// The timeout interval, in milliseconds.
+        /// </param>
         public ScriptTimeoutClientData(
             object data,
             Interpreter interpreter,
@@ -61,7 +96,14 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter Members
+        /// <summary>
+        /// The interpreter associated with the script timeout.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// Gets the interpreter associated with the script timeout.
+        /// </summary>
         public Interpreter Interpreter
         {
             get { return interpreter; }
@@ -72,7 +114,14 @@ namespace Eagle._Components.Private
 
         #region Public Properties
 #if THREADING
+        /// <summary>
+        /// The engine context associated with the script timeout.
+        /// </summary>
         private IEngineContext engineContext;
+
+        /// <summary>
+        /// Gets or sets the engine context associated with the script timeout.
+        /// </summary>
         public IEngineContext EngineContext
         {
             get { return engineContext; }
@@ -82,7 +131,15 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags that control how the script timeout is handled.
+        /// </summary>
         private TimeoutFlags timeoutFlags;
+
+        /// <summary>
+        /// Gets or sets the flags that control how the script timeout is
+        /// handled.
+        /// </summary>
         public TimeoutFlags TimeoutFlags
         {
             get { return timeoutFlags; }
@@ -91,7 +148,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags used when canceling script evaluation due to the timeout,
+        /// or null to use the default cancellation behavior.
+        /// </summary>
         private CancelFlags? cancelFlags;
+
+        /// <summary>
+        /// Gets or sets the flags used when canceling script evaluation due to
+        /// the timeout, or null to use the default cancellation behavior.
+        /// </summary>
         public CancelFlags? CancelFlags
         {
             get { return cancelFlags; }
@@ -100,7 +166,14 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The timeout interval, in milliseconds.
+        /// </summary>
         private int timeout;
+
+        /// <summary>
+        /// Gets or sets the timeout interval, in milliseconds.
+        /// </summary>
         public int Timeout
         {
             get { return timeout; }

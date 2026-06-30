@@ -36,6 +36,10 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents a dictionary that maps versions
+    /// (<see cref="Version" />) to strings.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -43,6 +47,9 @@ namespace Eagle._Containers.Public
     public sealed class VersionStringDictionary : SomeDictionary
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty dictionary of versions and strings.
+        /// </summary>
         public VersionStringDictionary()
             : base()
         {
@@ -54,6 +61,17 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs a dictionary of versions and strings from previously
+        /// serialized data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data for the dictionary.
+        /// </param>
+        /// <param name="context">
+        /// The streaming context describing the source and destination of the
+        /// serialized data.
+        /// </param>
         private VersionStringDictionary(
             SerializationInfo info,
             StreamingContext context
@@ -68,6 +86,21 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method returns a string representation of the keys and values
+        /// of this dictionary, with the elements separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the keys and values included in
+        /// the result.  This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys and values of this dictionary.
+        /// </returns>
         public string KeysAndValuesToString(
             string pattern,
             bool noCase
@@ -84,6 +117,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a string representation of the keys of this
+        /// dictionary, with the versions separated by spaces.
+        /// </summary>
+        /// <param name="pattern">
+        /// The optional pattern used to filter the keys included in the result.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be performed in a
+        /// case-insensitive manner.
+        /// </param>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public string ToString(
             string pattern,
             bool noCase
@@ -100,6 +148,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of the keys of this
+        /// dictionary, with the versions separated by spaces.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the keys of this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

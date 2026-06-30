@@ -17,6 +17,12 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This class implements a custom attribute used to mark an assembly with
+    /// a named URI (e.g. its home page, update location, or other related
+    /// resource).  This attribute may be applied more than once to associate
+    /// several URIs with the same assembly.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Assembly,
         AllowMultiple = true, Inherited = false)]
 #if EAGLE
@@ -26,6 +32,13 @@ namespace Eagle._Attributes
 #endif
     public sealed class AssemblyUriAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class with no name, recording the
+        /// specified URI.
+        /// </summary>
+        /// <param name="uri">
+        /// The URI to associate with the assembly.
+        /// </param>
         public AssemblyUriAttribute(
             Uri uri
             )
@@ -36,6 +49,17 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, recording the specified name
+        /// and URI.
+        /// </summary>
+        /// <param name="name">
+        /// The name used to identify the URI being associated with the
+        /// assembly.  This parameter may be null.
+        /// </param>
+        /// <param name="uri">
+        /// The URI to associate with the assembly.
+        /// </param>
         public AssemblyUriAttribute(
             string name,
             Uri uri
@@ -47,6 +71,13 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with no name, recording a URI
+        /// parsed from the specified string.
+        /// </summary>
+        /// <param name="value">
+        /// The string to parse into the URI to associate with the assembly.
+        /// </param>
         public AssemblyUriAttribute(
             string value
             )
@@ -57,6 +88,17 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, recording the specified name
+        /// and a URI parsed from the specified string.
+        /// </summary>
+        /// <param name="name">
+        /// The name used to identify the URI being associated with the
+        /// assembly.  This parameter may be null.
+        /// </param>
+        /// <param name="value">
+        /// The string to parse into the URI to associate with the assembly.
+        /// </param>
         public AssemblyUriAttribute(
             string name,
             string value
@@ -68,7 +110,14 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name used to identify the associated URI, if any.
+        /// </summary>
         private string name;
+
+        /// <summary>
+        /// Gets the name used to identify the associated URI, if any.
+        /// </summary>
         public string Name
         {
             get { return name; }
@@ -76,7 +125,14 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The URI associated with the assembly.
+        /// </summary>
         private Uri uri;
+
+        /// <summary>
+        /// Gets the URI associated with the assembly.
+        /// </summary>
         public Uri Uri
         {
             get { return uri; }

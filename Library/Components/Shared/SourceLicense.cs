@@ -17,6 +17,11 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Components.Shared
 {
+    /// <summary>
+    /// This class holds the license summary, full license text, and a hash of
+    /// that text that govern the use and redistribution of source code releases
+    /// of the Eagle software.
+    /// </summary>
 #if EAGLE
     [ObjectId("5ba25914-28f6-4218-a05c-d9041da0b14d")]
 #else
@@ -34,12 +39,19 @@ namespace Eagle._Components.Shared
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constants
+        /// <summary>
+        /// The short summary of the source license, directing the reader to the
+        /// full license terms.
+        /// </summary>
         public const string Summary =
 @"See the file ""license.terms"" for information on usage and redistribution of
 this file, and for a DISCLAIMER OF ALL WARRANTIES.";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The complete text of the source license agreement.
+        /// </summary>
         public const string Text =
 @"This software is copyrighted by Joe Mistachkin and other parties.  The
 following terms apply to all files associated with the software unless
@@ -82,6 +94,10 @@ terms specified in this license.";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The hash of the source license text, used to verify that the license
+        /// has not been modified.
+        /// </summary>
         public static readonly byte[] Hash = {
             246, 184,  71, 237, 139,  17, 164,  39,  40, 213, 192,  18, 184,
              45, 225, 226, 191, 205,  54,  46,  90,   9, 100, 243, 169, 147,

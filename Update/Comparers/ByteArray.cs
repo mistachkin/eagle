@@ -15,10 +15,27 @@ using Eagle._Components.Private;
 
 namespace Eagle._Comparers
 {
+    /// <summary>
+    /// This class provides an equality comparer for arrays of bytes, comparing
+    /// two byte arrays for equality based on their contents.
+    /// </summary>
     [Guid("0b8549d0-a0ce-4bb7-9517-b10ad13148ef")]
     internal sealed class ByteArray : IEqualityComparer<byte[]>
     {
         #region IEqualityComparer<byte[]> Members
+        /// <summary>
+        /// This method determines whether two byte arrays are equal based on
+        /// their contents.
+        /// </summary>
+        /// <param name="x">
+        /// The first byte array to be compared.
+        /// </param>
+        /// <param name="y">
+        /// The second byte array to be compared.
+        /// </param>
+        /// <returns>
+        /// True if the two byte arrays are equal; otherwise, false.
+        /// </returns>
         public bool Equals(
             byte[] x,
             byte[] y
@@ -29,6 +46,16 @@ namespace Eagle._Comparers
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method calculates a hash code for the specified byte array
+        /// based on its contents.
+        /// </summary>
+        /// <param name="obj">
+        /// The byte array for which the hash code is to be calculated.
+        /// </param>
+        /// <returns>
+        /// The calculated hash code for the specified byte array.
+        /// </returns>
         public int GetHashCode(
             byte[] obj
             )

@@ -41,6 +41,13 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Private
 {
+    /// <summary>
+    /// This class provides a collection of static helper methods used by the
+    /// Eagle networking subsystem for working with TCP clients and listeners,
+    /// resolving host names and port numbers, querying socket and listener
+    /// state via reflection, and parsing, matching, and collapsing CIDR
+    /// (Classless Inter-Domain Routing) patterns for both IPv4 and IPv6.
+    /// </summary>
     [ObjectId("71b14766-48a0-45d5-9254-640fde03509d")]
     internal static class SocketOps
     {
@@ -48,13 +55,32 @@ namespace Eagle._Components.Private
         //
         // HACK: These are no longer read-only.
         //
+        /// <summary>
+        /// The minimum socket poll timeout, in microseconds; when non-null, it
+        /// places a lower bound on the timeout computed from the configured
+        /// sleep time.
+        /// </summary>
         private static int? MinimumSocketPollTimeout = 500; /* microseconds */
+        /// <summary>
+        /// The maximum socket poll timeout, in microseconds; when non-null, it
+        /// places an upper bound on the timeout computed from the configured
+        /// sleep time.
+        /// </summary>
         private static int? MaximumSocketPollTimeout = null; /* microseconds */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of bits in a single byte.
+        /// </summary>
         private const int ByteBits = 8;
+        /// <summary>
+        /// The number of parts (bytes) that make up an IPv4 address.
+        /// </summary>
         private const int IPv4Parts = 4;
+        /// <summary>
+        /// The total number of bits in an IPv4 address.
+        /// </summary>
         private const byte IPv4Bits = 32;
 
         ///////////////////////////////////////////////////////////////////////
@@ -62,6 +88,10 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default IPv4 CIDR prefix length, in parts (bytes), used when an
+        /// explicit prefix length is not supplied.
+        /// </summary>
         private static byte IPv4PrefixLength = 1; /* 1 part(s) (byte(s)), 1 byte, 8 bits */
 
         ///////////////////////////////////////////////////////////////////////
@@ -70,21 +100,47 @@ namespace Eagle._Components.Private
         //
         // HACK: This is purposely not read-only.
         //
+        /// <summary>
+        /// The default IPv6 CIDR prefix length, in parts (words), used when an
+        /// explicit prefix length is not supplied.
+        /// </summary>
         private static byte IPv6PrefixLength = 1; /* 1 part(s) (word(s)), 2 bytes, 16 bits */
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of parts (16-bit words) that make up an IPv6 address.
+        /// </summary>
         private const int IPv6Parts = 8;
+        /// <summary>
+        /// The total number of bits in an IPv6 address.
+        /// </summary>
         private const byte IPv6Bits = 128;
+        /// <summary>
+        /// The numeric format specifier used when formatting an IPv6 word as a
+        /// hexadecimal string.
+        /// </summary>
         private const string IPv6Format = "x";
+        /// <summary>
+        /// The textual token that represents one or more contiguous groups of
+        /// all-zero IPv6 words within an IPv6 address.
+        /// </summary>
         private const string IPv6Zeros = "::";
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of bytes occupied by two unsigned long integers, equal to
+        /// the number of bytes in an IPv6 address.
+        /// </summary>
         private const int SizeOfTwoULong = 2 * sizeof(ulong);
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// A bit mask, all of whose IPv6-width bits are set, used to constrain
+        /// IPv6 address arithmetic to the valid address range.
+        /// </summary>
         private static readonly BigInteger IPv6Mask =
             (BigInteger.One << IPv6Bits) - BigInteger.One;
 #endif
@@ -93,12 +149,29 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Data
+        /// <summary>
+        /// The object used to synchronize access to the cached reflection
+        /// members and other shared mutable state of this class.
+        /// </summary>
         private static readonly object syncRoot = new object();
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The cached reflection metadata for the non-public Socket property of
+        /// the NetworkStream class.
+        /// </summary>
         private static PropertyInfo networkStreamSocket;
+        /// <summary>
+        /// The cached reflection metadata for the non-public Active property of
+        /// the TcpListener class.
+        /// </summary>
         private static PropertyInfo tcpListenerActive;
+        /// <summary>
+        /// The cached reflection metadata for the non-public property of the
+        /// Socket class that indicates whether the socket has been cleaned up
+        /// (disposed).
+        /// </summary>
         private static PropertyInfo socketCleanedUp;
 
         ///////////////////////////////////////////////////////////////////////
@@ -108,6 +181,10 @@ namespace Eagle._Components.Private
         //       this class will fail, preventing any network access using
         //       the WebClient class.
         //
+        /// <summary>
+        /// The current offline nesting level; when greater than zero, network
+        /// access via this class is disallowed.
+        /// </summary>
         private static int offlineLevels = 0;
         #endregion
 
@@ -117,6 +194,18 @@ namespace Eagle._Components.Private
         //
         // NOTE: Used by the _Hosts.Default.BuildEngineInfoList method.
         //
+        /// <summary>
+        /// This method appends a section of diagnostic information about the
+        /// internal state of this class to the specified list.
+        /// </summary>
+        /// <param name="list">
+        /// The list to which the diagnostic information is appended.  If this
+        /// value is null, no action is taken.
+        /// </param>
+        /// <param name="detailFlags">
+        /// The flags used to control how much detail is included in the
+        /// diagnostic information.
+        /// </param>
         public static void AddInfo(
             StringPairList list,    /* in, out */
             DetailFlags detailFlags /* in */
@@ -168,6 +257,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Diagnostic Methods
+        /// <summary>
+        /// This method determines whether the specified IP address is a valid
+        /// IPv4 address.
+        /// </summary>
+        /// <param name="address">
+        /// The IP address to check.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the address
+        /// is not a valid IPv4 address, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the address is a valid IPv4 address; otherwise, false.
+        /// </returns>
         private static bool IsIPv4(
             IPAddress address, /* in */
             IpFlags ipFlags,   /* in */
@@ -205,6 +311,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified address bytes form a
+        /// valid IPv4 address.
+        /// </summary>
+        /// <param name="address">
+        /// The raw address bytes to check.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the bytes do
+        /// not form a valid IPv4 address, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the bytes form a valid IPv4 address; otherwise, false.
+        /// </returns>
         private static bool IsIPv4(
             byte[] address,  /* in */
             IpFlags ipFlags, /* in */
@@ -255,6 +378,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the default CIDR prefix length, in parts, that is
+        /// associated with the specified address family.
+        /// </summary>
+        /// <param name="addressFamily">
+        /// The address family for which to obtain the default prefix length.
+        /// </param>
+        /// <returns>
+        /// The default prefix length for the address family, or zero if the
+        /// address family is not supported.
+        /// </returns>
         private static byte GetPrefixLength(
             AddressFamily addressFamily /* in */
             )
@@ -273,6 +407,23 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method determines whether the specified IP address is a valid
+        /// IPv6 address.
+        /// </summary>
+        /// <param name="address">
+        /// The IP address to check.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the address
+        /// is not a valid IPv6 address, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the address is a valid IPv6 address; otherwise, false.
+        /// </returns>
         private static bool IsIPv6(
             IPAddress address, /* in */
             IpFlags ipFlags,   /* in */
@@ -322,6 +473,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified address bytes form a
+        /// valid IPv6 address.
+        /// </summary>
+        /// <param name="address">
+        /// The raw address bytes to check.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the bytes do
+        /// not form a valid IPv6 address, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the bytes form a valid IPv6 address; otherwise, false.
+        /// </returns>
         private static bool IsIPv6(
             byte[] address,  /* in */
             IpFlags ipFlags, /* in */
@@ -372,6 +540,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes the surrounding square brackets from a bracketed
+        /// IPv6 address string, when present.
+        /// </summary>
+        /// <param name="value">
+        /// On input, the value that may be wrapped in square brackets; on
+        /// output, the value with any surrounding brackets removed.
+        /// </param>
+        /// <returns>
+        /// True if the value is empty after processing fails, or is a valid
+        /// unbracketed or properly bracketed value; false if the value is a
+        /// malformed bracketed value.
+        /// </returns>
         private static bool MaybeStripBrackets(
             ref string value /* in, out */
             )
@@ -396,6 +577,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses an IPv4 address string and decomposes it into the
+        /// two 16-bit words that represent it within an IPv6 address.
+        /// </summary>
+        /// <param name="value">
+        /// The IPv4 address string to parse.
+        /// </param>
+        /// <param name="leftWord">
+        /// Upon success, receives the high-order 16-bit word of the address.
+        /// </param>
+        /// <param name="rightWord">
+        /// Upon success, receives the low-order 16-bit word of the address.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully parsed as an IPv4 address;
+        /// otherwise, false.
+        /// </returns>
         private static bool WordsFromIPv4(
             string value,        /* in */
             out ushort leftWord, /* out */
@@ -432,6 +630,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method expands an IPv6 address string that contains a compressed
+        /// run of zero words (the "::" token) into its full set of address
+        /// parts.
+        /// </summary>
+        /// <param name="value">
+        /// The IPv6 address string to expand.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate the individual parts of the address.
+        /// </param>
+        /// <param name="maximumLength">
+        /// The maximum number of parts that the expanded address may contain.
+        /// </param>
+        /// <param name="parts">
+        /// Upon success, receives the array of expanded address parts.
+        /// </param>
+        /// <param name="length">
+        /// Upon success, receives the number of significant parts produced
+        /// while expanding the address.
+        /// </param>
+        /// <returns>
+        /// True if the value was successfully expanded; otherwise, false.
+        /// </returns>
         private static bool MaybeExpandIPv6(
             string value,       /* in */
             string separator,   /* in */
@@ -517,6 +739,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified pattern is a valid CIDR
+        /// pattern and, if so, extracts its network prefix and prefix length.
+        /// </summary>
+        /// <param name="pattern">
+        /// The CIDR pattern to validate, in address/prefix-length form.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="prefix">
+        /// Upon success, receives the IP address that forms the network prefix
+        /// portion of the pattern.
+        /// </param>
+        /// <param name="prefixLength">
+        /// Upon success, receives the prefix length, in bits, of the pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the pattern is
+        /// not valid, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the pattern is a valid CIDR pattern; otherwise, false.
+        /// </returns>
         private static bool IsValidCIDR(
             string pattern,        /* in */
             IpFlags ipFlags,       /* in */
@@ -646,6 +892,34 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the network prefix portion of an address,
+        /// truncating it to the specified prefix length and optionally appending
+        /// a wildcard component.
+        /// </summary>
+        /// <param name="value">
+        /// The IPv4 or IPv6 address string from which to extract the prefix.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The prefix length, in parts, to retain; when null, the default
+        /// prefix length for the detected address family is used.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="wildcard">
+        /// Non-zero to force a trailing wildcard component to be appended, zero
+        /// to suppress it; when null, a wildcard is appended only when the
+        /// prefix length is shorter than the full address.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the prefix
+        /// could not be extracted, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// The extracted address prefix string, or null if the prefix could not
+        /// be extracted.
+        /// </returns>
         private static string ExtractAddressPrefix(
             string value,       /* in */
             byte? prefixLength, /* in */
@@ -935,6 +1209,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified IPv4 address falls
+        /// within the IPv4 network described by the given prefix and prefix
+        /// length.
+        /// </summary>
+        /// <param name="address">
+        /// The IPv4 address to test.
+        /// </param>
+        /// <param name="prefix">
+        /// The IPv4 address that forms the network prefix.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The prefix length, in bits, of the network.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the match
+        /// could not be performed, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the address falls within the network, false if it does not,
+        /// or null if the match could not be performed.
+        /// </returns>
         private static bool? Match_IPv4_CIDR(
             IPAddress address, /* in */
             IPAddress prefix,  /* in */
@@ -1018,6 +1317,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method converts an array of address bytes, in network byte
+        /// order, into a non-negative big integer.
+        /// </summary>
+        /// <param name="addressBytes">
+        /// The address bytes to convert.
+        /// </param>
+        /// <returns>
+        /// The non-negative big integer that represents the address bytes, or
+        /// the default big integer value if the bytes are null.
+        /// </returns>
         private static BigInteger FromAddressBytes(
             byte[] addressBytes /* in */
             )
@@ -1040,6 +1350,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified IPv6 address falls
+        /// within the IPv6 network described by the given prefix and prefix
+        /// length.
+        /// </summary>
+        /// <param name="address">
+        /// The IPv6 address to test.
+        /// </param>
+        /// <param name="prefix">
+        /// The IPv6 address that forms the network prefix.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The prefix length, in bits, of the network.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the match
+        /// could not be performed, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the address falls within the network, false if it does not,
+        /// or null if the match could not be performed.
+        /// </returns>
         private static bool? Match_IPv6_CIDR(
             IPAddress address, /* in */
             IPAddress prefix,  /* in */
@@ -1116,6 +1451,19 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Diagnostic Methods
+        /// <summary>
+        /// This method determines whether the specified pattern is a valid CIDR
+        /// pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The CIDR pattern to validate, in address/prefix-length form.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <returns>
+        /// True if the pattern is a valid CIDR pattern; otherwise, false.
+        /// </returns>
         public static bool IsValidCIDR(
             string pattern, /* in */
             IpFlags ipFlags /* in */
@@ -1132,6 +1480,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host name or address
+        /// matches the given CIDR pattern.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to test against the pattern.
+        /// </param>
+        /// <param name="pattern">
+        /// The CIDR pattern to match against, in address/prefix-length form.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the match
+        /// could not be performed, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the host name or address matches the pattern, false if it
+        /// does not, or null if the match could not be performed.
+        /// </returns>
         public static bool? MatchViaCIDR(
             string hostNameOrAddress, /* in */
             string pattern,           /* in */
@@ -1186,6 +1555,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host name or address
+        /// matches any of the given CIDR patterns.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to test against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of CIDR patterns to match against.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the match
+        /// could not be performed, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the host name or address matches one of the patterns, false
+        /// if it matches none of them, or null if the match could not be
+        /// performed.
+        /// </returns>
         public static bool? MatchViaCIDR(
             string hostNameOrAddress,     /* in */
             IEnumerable<string> patterns, /* in */
@@ -1202,6 +1593,33 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified host name or address
+        /// matches any of the given CIDR patterns, reporting the index of the
+        /// matching pattern.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to test against the patterns.
+        /// </param>
+        /// <param name="patterns">
+        /// The collection of CIDR patterns to match against.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="index">
+        /// Upon a successful match, receives the zero-based index of the
+        /// matching pattern; otherwise, receives null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the match
+        /// could not be performed, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// True if the host name or address matches one of the patterns, false
+        /// if it matches none of them, or null if the match could not be
+        /// performed.
+        /// </returns>
         public static bool? MatchViaCIDR(
             string hostNameOrAddress,     /* in */
             IEnumerable<string> patterns, /* in */
@@ -1283,6 +1701,45 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads CIDR patterns from the specified file, groups them
+        /// by their extracted address prefix, and adds them to the supplied
+        /// dictionary.
+        /// </summary>
+        /// <param name="fileName">
+        /// The name of the file containing the CIDR patterns to load, one per
+        /// line, with blank lines and lines starting with a number sign treated
+        /// as comments.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The prefix length, in parts, used when extracting each address
+        /// prefix; when null, the default prefix length is used.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="wildcard">
+        /// Non-zero to force a trailing wildcard component to be appended to
+        /// each extracted prefix, zero to suppress it, or null to use the
+        /// default behavior.
+        /// </param>
+        /// <param name="dictionary">
+        /// On input, the dictionary to populate, which is created if null; on
+        /// output, the dictionary mapping each extracted prefix to the list of
+        /// original patterns that produced it.
+        /// </param>
+        /// <param name="count">
+        /// On input, a running count of loaded patterns; on output, the count
+        /// is increased by the number of patterns added by this call.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the patterns
+        /// could not be loaded.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode LoadForCIDR(
             string fileName,               /* in */
             byte? prefixLength,            /* in */
@@ -1456,6 +1913,30 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method stores the entries of the specified CIDR dictionary into
+        /// the array variable with the given name in the specified interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter that contains the target array variable.
+        /// </param>
+        /// <param name="varName">
+        /// The name of the array variable to update.
+        /// </param>
+        /// <param name="dictionary">
+        /// The CIDR dictionary whose entries are stored as array elements.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control behavior.  This parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the variable
+        /// could not be updated.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode UpdateVariableWithCIDR(
             Interpreter interpreter,   /* in */
             string varName,            /* in */
@@ -1533,6 +2014,31 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sends an ICMP echo request to the specified host and
+        /// reports the resulting status and round-trip time.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to ping.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait for a reply.
+        /// </param>
+        /// <param name="status">
+        /// Upon success, receives the status of the ping attempt.
+        /// </param>
+        /// <param name="roundtripTime">
+        /// Upon success, receives the round-trip time, in milliseconds, of the
+        /// ping attempt.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the ping
+        /// failed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Ping(
             string hostNameOrAddress, /* in */
             int timeout,              /* in */
@@ -1565,6 +2071,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Network Client Methods
+        /// <summary>
+        /// This method creates a new TCP client bound to a local endpoint that
+        /// is resolved from the specified host name or address and port name or
+        /// number.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address used to resolve the local endpoint.
+        /// </param>
+        /// <param name="portNameOrNumber">
+        /// The port name or number used to resolve the local endpoint.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the port number.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="keepAlive">
+        /// Non-zero to enable the keep-alive socket option, zero to disable it,
+        /// or null to leave it unchanged.  This parameter is optional.
+        /// </param>
+        /// <param name="addressFamily">
+        /// On input, the preferred address family used to resolve the address,
+        /// which may be null; on output, the address family of the resolved
+        /// address.  This parameter is optional.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the client
+        /// could not be created.
+        /// </param>
+        /// <returns>
+        /// The newly created TCP client, or null if it could not be created.
+        /// </returns>
         public static TcpClient NewTcpClient(
             string hostNameOrAddress,         /* in */
             string portNameOrNumber,          /* in */
@@ -1622,6 +2159,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method connects the specified TCP client to the remote endpoint
+        /// resolved from the given host name or address and port name or number.
+        /// </summary>
+        /// <param name="client">
+        /// The TCP client to connect.
+        /// </param>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address used to resolve the remote endpoint.
+        /// </param>
+        /// <param name="portNameOrNumber">
+        /// The port name or number used to resolve the remote endpoint.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the port number.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="addressFamily">
+        /// The preferred address family used to resolve the address.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the connection
+        /// could not be established.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Connect(
             TcpClient client,             /* in */
             string hostNameOrAddress,     /* in */
@@ -1679,6 +2245,17 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Network Object Introspection Methods
+        /// <summary>
+        /// This method obtains the underlying socket associated with the
+        /// specified network stream, using reflection to access the non-public
+        /// property when necessary.
+        /// </summary>
+        /// <param name="stream">
+        /// The network stream whose underlying socket is to be obtained.
+        /// </param>
+        /// <returns>
+        /// The underlying socket, or null if it could not be obtained.
+        /// </returns>
         public static Socket GetSocket(
             NetworkStream stream /* in */
             )
@@ -1742,6 +2319,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified TCP listener is active,
+        /// using reflection to access the non-public property.
+        /// </summary>
+        /// <param name="listener">
+        /// The TCP listener to query.
+        /// </param>
+        /// <param name="default">
+        /// The value to return if the active state cannot be determined.
+        /// </param>
+        /// <returns>
+        /// True if the listener is active, false if it is not, or the value of
+        /// <paramref name="default" /> if the state could not be determined.
+        /// </returns>
         public static bool IsListenerActive(
             TcpListener listener, /* in */
             bool @default         /* in */
@@ -1793,6 +2384,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified socket has been cleaned
+        /// up (disposed), using reflection to access the non-public property.
+        /// </summary>
+        /// <param name="socket">
+        /// The socket to query.
+        /// </param>
+        /// <param name="default">
+        /// The value to return if the cleaned-up state cannot be determined.
+        /// </param>
+        /// <returns>
+        /// True if the socket has been cleaned up, false if it has not, or the
+        /// value of <paramref name="default" /> if the state could not be
+        /// determined.
+        /// </returns>
         public static bool IsCleanedUp(
             Socket socket, /* in */
             bool @default  /* in */
@@ -1850,6 +2456,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Network Server Methods
+        /// <summary>
+        /// This method obtains the remote IP endpoint associated with the
+        /// specified connected TCP client.
+        /// </summary>
+        /// <param name="client">
+        /// The connected TCP client whose remote endpoint is to be obtained.
+        /// </param>
+        /// <param name="endPoint">
+        /// Upon success, receives the remote IP endpoint of the client.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the remote
+        /// endpoint could not be obtained.
+        /// </param>
         private static void GetRemoteEndPoint(
             TcpClient client,        /* in */
             out IPEndPoint endPoint, /* out */
@@ -1892,6 +2512,31 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Network Server Methods
+        /// <summary>
+        /// This method builds the list of arguments that form the server script
+        /// to evaluate for a newly accepted client connection.
+        /// </summary>
+        /// <param name="client">
+        /// The newly accepted client whose remote endpoint is included in the
+        /// script arguments.
+        /// </param>
+        /// <param name="channelId">
+        /// The identifier of the channel created for the client.
+        /// </param>
+        /// <param name="text">
+        /// The original script fragment supplied by the caller.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of script arguments.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the script
+        /// could not be built.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         private static ReturnCode GetServerScript(
             TcpClient client,    /* in */
             string channelId,    /* in */
@@ -1920,6 +2565,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a new TCP listener bound to the endpoint resolved
+        /// from the specified host name or address and port name or number.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address on which to listen; when null, the
+        /// listener binds to any address.
+        /// </param>
+        /// <param name="portNameOrNumber">
+        /// The port name or number on which to listen.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the port number.  This parameter is
+        /// optional and may be null.
+        /// </param>
+        /// <param name="addressFamily">
+        /// The preferred address family used to resolve the address.  This
+        /// parameter is optional and may be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the listener
+        /// could not be created.
+        /// </param>
+        /// <returns>
+        /// The newly created TCP listener, or null if it could not be created.
+        /// </returns>
         private static TcpListener NewTcpListener(
             string hostNameOrAddress,     /* in */
             string portNameOrNumber,      /* in */
@@ -1974,6 +2645,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to set the exclusive address use option on the
+        /// specified TCP listener, ignoring failures on platforms that do not
+        /// support the feature.
+        /// </summary>
+        /// <param name="listener">
+        /// The TCP listener whose exclusive address use option is to be set.
+        /// </param>
+        /// <param name="exclusive">
+        /// Non-zero to require exclusive use of the address; otherwise, zero.
+        /// </param>
         private static void MaybeExclusiveAddressUse(
             TcpListener listener, /* in */
             bool exclusive        /* in */
@@ -2003,6 +2685,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the socket poll timeout, in microseconds, based
+        /// on the sleep time configured for the specified interpreter, clamped to
+        /// the configured minimum and maximum bounds.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter whose configured socket sleep time is used; when
+        /// null, the default sleep time is used.  This parameter is optional.
+        /// </param>
+        /// <returns>
+        /// The poll timeout, in microseconds.
+        /// </returns>
         private static int GetPollTimeout(
             Interpreter interpreter /* in: OPTIONAL */
             )
@@ -2026,6 +2720,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reports any error recorded on the specified socket client
+        /// data as a background error in the given interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to handle the background error.  This parameter
+        /// is optional and may be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The socket client data that carries the return code and result to be
+        /// checked for an error.
+        /// </param>
         private static void MaybeHandleServerError(
             Interpreter interpreter,    /* in: OPTIONAL */
             SocketClientData clientData /* in */
@@ -2058,6 +2764,18 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Server Thread Support Methods
+        /// <summary>
+        /// This method is the entry point for the background thread that runs a
+        /// TCP server: it creates and starts a listener, accepts incoming client
+        /// connections, and queues the configured script for each one until the
+        /// listener is stopped.  This method conforms to the
+        /// System.Threading.ParameterizedThreadStart delegate signature.
+        /// </summary>
+        /// <param name="obj">
+        /// The socket client data that configures the server, carrying the
+        /// interpreter, address, port, and other settings, and receiving the
+        /// resulting return code and result.
+        /// </param>
         public static void ServerThreadStart(
             object obj /* in, out */
             ) /* System.Threading.ParameterizedThreadStart */
@@ -2366,6 +3084,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a listener channel for the specified TCP listener to
+        /// the given interpreter and records the outcome on the supplied socket
+        /// client data.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to which the listener channel is added.
+        /// </param>
+        /// <param name="clientData">
+        /// The socket client data that receives the resulting return code and
+        /// result.  If this value is null, no action is taken.
+        /// </param>
+        /// <param name="listener">
+        /// The TCP listener for which the channel is created.
+        /// </param>
+        /// <param name="channelId">
+        /// Upon success, receives the identifier of the newly added channel.
+        /// </param>
+        /// <param name="channelAdded">
+        /// Upon return, indicates whether the channel was actually added to the
+        /// interpreter.
+        /// </param>
         private static void AddServerAndSetChannel(
             Interpreter interpreter,     /* in */
             SocketClientData clientData, /* in */
@@ -2423,6 +3163,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method adds a channel for a newly accepted client to the
+        /// specified interpreter and queues the configured server script to be
+        /// evaluated for that client.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to which the client channel is added and in which the
+        /// script is queued.
+        /// </param>
+        /// <param name="clientData">
+        /// The socket client data that supplies the channel configuration and
+        /// receives the resulting return code and result.  If this value is
+        /// null, no action is taken.
+        /// </param>
+        /// <param name="client">
+        /// The newly accepted client connection to set up.
+        /// </param>
         private static void AddClientAndQueueScript(
             Interpreter interpreter,     /* in */
             SocketClientData clientData, /* in */
@@ -2541,6 +3298,27 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Network Address Methods
+        /// <summary>
+        /// This method verifies that this class is not currently in the offline
+        /// state before allowing an address resolution to proceed.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or address being resolved, included in any error
+        /// message.
+        /// </param>
+        /// <param name="addressFamily1">
+        /// The first candidate address family, included in any error message.
+        /// </param>
+        /// <param name="addressFamily2">
+        /// The second candidate address family, included in any error message.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message indicating that resolution is
+        /// not allowed while offline.
+        /// </param>
+        /// <returns>
+        /// True if resolution is allowed; false if this class is offline.
+        /// </returns>
         private static bool MakeSureNotOffline(
             string hostNameOrAddress,      /* in */
             AddressFamily? addressFamily1, /* in */
@@ -2566,6 +3344,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified address family is
+        /// permitted by the given flags.
+        /// </summary>
+        /// <param name="addressFamily">
+        /// The address family to check.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags that indicate which address families are permitted.
+        /// </param>
+        /// <returns>
+        /// True if the address family is permitted; otherwise, false.
+        /// </returns>
         private static bool IsAllowedAddressFamily(
             AddressFamily addressFamily, /* in */
             IpFlags ipFlags              /* in */
@@ -2588,6 +3379,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified address family matches
+        /// one of the candidate address families.
+        /// </summary>
+        /// <param name="addressFamily0">
+        /// The address family to test.
+        /// </param>
+        /// <param name="addressFamily1">
+        /// The first candidate address family.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <param name="addressFamily2">
+        /// The second candidate address family.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// True if both candidates are null, or if the address family matches a
+        /// non-null candidate; otherwise, false.
+        /// </returns>
         private static bool DoesMatchAddressFamily(
             AddressFamily addressFamily0,  /* in */
             AddressFamily? addressFamily1, /* in: OPTIONAL */
@@ -2614,6 +3424,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the maximum CIDR prefix length, in bits, that is
+        /// valid for the specified address family.
+        /// </summary>
+        /// <param name="addressFamily">
+        /// The address family for which to obtain the maximum prefix length.
+        /// </param>
+        /// <returns>
+        /// The maximum prefix length for the address family, or zero if the
+        /// address family is not supported.
+        /// </returns>
         private static byte GetMaximumPrefixLength(
             AddressFamily addressFamily /* in */
             )
@@ -2631,6 +3452,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified host name or address to an IP
+        /// address, allowing both IPv4 and IPv6 candidate address families.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to resolve.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The CIDR prefix length, in bits, that the resolved address must be
+        /// able to accommodate; when null, no prefix length constraint is
+        /// applied.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the address
+        /// could not be resolved, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// The resolved IP address, or null if it could not be resolved.
+        /// </returns>
         private static IPAddress GetIpAddress(
             string hostNameOrAddress, /* in */
             byte? prefixLength,       /* in */
@@ -2654,6 +3497,37 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified host name or address to an IP
+        /// address that matches one of the candidate address families and
+        /// satisfies the given flags and prefix length constraint.
+        /// </summary>
+        /// <param name="hostNameOrAddress">
+        /// The host name or IP address to resolve.
+        /// </param>
+        /// <param name="addressFamily1">
+        /// The first acceptable address family.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <param name="addressFamily2">
+        /// The second acceptable address family.  This parameter is optional and
+        /// may be null.
+        /// </param>
+        /// <param name="prefixLength">
+        /// The CIDR prefix length, in bits, that the resolved address must be
+        /// able to accommodate; when null, no prefix length constraint is
+        /// applied.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the address
+        /// could not be resolved, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// The resolved IP address, or null if it could not be resolved.
+        /// </returns>
         private static IPAddress GetIpAddress(
             string hostNameOrAddress,      /* in */
             AddressFamily? addressFamily1, /* in: OPTIONAL */
@@ -2797,6 +3671,28 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method resolves the specified port name or number to a numeric
+        /// port, parsing it as an integer and, when native support is available,
+        /// falling back to a service name lookup.
+        /// </summary>
+        /// <param name="portNameOrNumber">
+        /// The port number or service name to resolve.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture used when parsing the port number.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the port could
+        /// not be resolved, when error keeping is enabled.
+        /// </param>
+        /// <returns>
+        /// The resolved port number, or an invalid port value if it could not be
+        /// resolved.
+        /// </returns>
         private static int GetPortNumber(
             string portNameOrNumber, /* in */
             CultureInfo cultureInfo, /* in */
@@ -2877,11 +3773,25 @@ namespace Eagle._Components.Private
 
         #region CIDR Range IPv4 Methods
         #region CIDR Range IPv4 Structure
+        /// <summary>
+        /// This structure represents a contiguous range of IPv4 addresses
+        /// derived from a CIDR pattern, used when collapsing and merging
+        /// multiple IPv4 CIDR ranges.
+        /// </summary>
         [ObjectId("314a76e0-da3b-4015-b9cb-43564db30cb0")]
         private struct CIDR_Range_IPv4
         {
+            /// <summary>
+            /// The prefix length, in bits, of the originating CIDR pattern.
+            /// </summary>
             internal byte PrefixLength;
+            /// <summary>
+            /// The first IPv4 address in the range, as an unsigned integer.
+            /// </summary>
             internal uint Start;
+            /// <summary>
+            /// The last IPv4 address in the range, as an unsigned integer.
+            /// </summary>
             internal uint End;
         }
         #endregion
@@ -2889,11 +3799,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<CIDR_Range_IPv4> Helper Class
+        /// <summary>
+        /// This class compares two IPv4 address ranges, ordering them by their
+        /// start address and then by their end address, so that a list of ranges
+        /// can be sorted prior to merging.
+        /// </summary>
         [ObjectId("4fa3431c-d634-4e05-a2b6-1f39b6670075")]
         private sealed class CIDR_Range_IPv4_Comparer :
                 IComparer<CIDR_Range_IPv4>
         {
             #region IComparer<CIDR_Range_IPv4> Overrides
+            /// <summary>
+            /// This method compares two IPv4 address ranges.
+            /// </summary>
+            /// <param name="x">
+            /// The first IPv4 address range to compare.
+            /// </param>
+            /// <param name="y">
+            /// The second IPv4 address range to compare.
+            /// </param>
+            /// <returns>
+            /// A negative number if <paramref name="x" /> precedes
+            /// <paramref name="y" />, zero if they are equal, or a positive
+            /// number if <paramref name="x" /> follows <paramref name="y" />.
+            /// </returns>
             public int Compare(
                 CIDR_Range_IPv4 x, /* in */
                 CIDR_Range_IPv4 y  /* in */
@@ -2912,6 +3841,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the IPv4 network mask that corresponds to the
+        /// specified prefix length.
+        /// </summary>
+        /// <param name="prefixLength">
+        /// The prefix length, in bits, for which to compute the mask.
+        /// </param>
+        /// <returns>
+        /// The network mask, as an unsigned integer.
+        /// </returns>
         private static uint GetMask_IPv4(
             byte prefixLength /* in */
             )
@@ -2924,6 +3863,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of consecutive zero bits at the
+        /// least-significant end of the specified unsigned integer.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose trailing zero bits are to be counted.
+        /// </param>
+        /// <returns>
+        /// The number of trailing zero bits, or the total number of bits in the
+        /// value if it is zero.
+        /// </returns>
         private static int CountTrailingZeros(
             uint value /* in */
             )
@@ -2944,6 +3894,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the floor of the base-2 logarithm of the
+        /// specified unsigned long value.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose floored base-2 logarithm is to be computed.
+        /// </param>
+        /// <returns>
+        /// The zero-based position of the most-significant set bit, or negative
+        /// one if the value is zero.
+        /// </returns>
         private static int FloorLog2(
             ulong value /* in */
             )
@@ -2961,6 +3922,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified unsigned integer into a four-byte
+        /// IPv4 address byte array in network byte order.
+        /// </summary>
+        /// <param name="value">
+        /// The IPv4 address value to convert.
+        /// </param>
+        /// <returns>
+        /// The four-byte address array, in network byte order.
+        /// </returns>
         private static byte[] ToAddressBytes(
             uint value /* in */
             )
@@ -2977,6 +3948,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified IPv4 CIDR pattern into the
+        /// contiguous range of addresses that it represents.
+        /// </summary>
+        /// <param name="pattern">
+        /// The IPv4 CIDR pattern to convert, in address/prefix-length form.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="range">
+        /// Upon success, receives the IPv4 address range represented by the
+        /// pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the range
+        /// could not be computed.
+        /// </param>
+        /// <returns>
+        /// True if the range was successfully computed; otherwise, false.
+        /// </returns>
         private static bool RangeFromCIDR(
             string pattern,            /* in */
             IpFlags ipFlags,           /* in */
@@ -3026,6 +4018,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decomposes the specified IPv4 address range into the
+        /// minimal set of CIDR patterns that cover it, appending each pattern to
+        /// the supplied output list.
+        /// </summary>
+        /// <param name="range">
+        /// The IPv4 address range to decompose into CIDR patterns.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control behavior.
+        /// </param>
+        /// <param name="output">
+        /// The list to which the resulting CIDR patterns are appended.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the range
+        /// could not be decomposed.
+        /// </param>
         private static void RangeToCIDR(
             CIDR_Range_IPv4 range, /* in */
             IpFlags ipFlags,       /* in */
@@ -3072,6 +4082,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges a list of IPv4 address ranges, combining ranges
+        /// that overlap or are adjacent into a smaller set of non-overlapping
+        /// ranges.
+        /// </summary>
+        /// <param name="ranges">
+        /// The list of IPv4 address ranges to merge.
+        /// </param>
+        /// <returns>
+        /// A new list containing the merged, non-overlapping IPv4 address
+        /// ranges.
+        /// </returns>
         private static List<CIDR_Range_IPv4> MergeRanges(
             List<CIDR_Range_IPv4> ranges /* in */
             )
@@ -3112,6 +4134,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collapses a collection of IPv4 CIDR patterns into the
+        /// minimal equivalent set of CIDR patterns by converting them to ranges,
+        /// merging overlapping or adjacent ranges, and converting the merged
+        /// ranges back to patterns.
+        /// </summary>
+        /// <param name="patterns">
+        /// The collection of IPv4 CIDR patterns to collapse.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation, sorting, and error handling
+        /// behavior.
+        /// </param>
+        /// <param name="merged">
+        /// On input, an optional existing list to which the collapsed patterns
+        /// are appended; on output, the list of collapsed patterns, created if
+        /// it was null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the patterns
+        /// could not be collapsed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Collapse_IPv4_CIDR(
             IEnumerable<string> patterns, /* in */
             IpFlags ipFlags,              /* in */
@@ -3179,11 +4227,25 @@ namespace Eagle._Components.Private
         #region CIDR Range IPv6 Methods
 #if NET_40
         #region CIDR Range IPv6 Structure
+        /// <summary>
+        /// This structure represents a contiguous range of IPv6 addresses
+        /// derived from a CIDR pattern, used when collapsing and merging
+        /// multiple IPv6 CIDR ranges.
+        /// </summary>
         [ObjectId("4dcb044a-fccd-42aa-a8d9-abc530d90afe")]
         private struct CIDR_Range_IPv6
         {
+            /// <summary>
+            /// The prefix length, in bits, of the originating CIDR pattern.
+            /// </summary>
             internal byte PrefixLength;
+            /// <summary>
+            /// The first IPv6 address in the range, as a big integer.
+            /// </summary>
             internal BigInteger Start;
+            /// <summary>
+            /// The last IPv6 address in the range, as a big integer.
+            /// </summary>
             internal BigInteger End;
         }
         #endregion
@@ -3191,11 +4253,30 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region IComparer<CIDR_Range_IPv6> Helper Class
+        /// <summary>
+        /// This class compares two IPv6 address ranges, ordering them by their
+        /// start address and then by their end address, so that a list of ranges
+        /// can be sorted prior to merging.
+        /// </summary>
         [ObjectId("bc503872-d909-4107-821e-28bb53b96d6b")]
         private sealed class CIDR_Range_IPv6_Comparer :
                 IComparer<CIDR_Range_IPv6>
         {
             #region IComparer<CIDR_Range_IPv6> Overrides
+            /// <summary>
+            /// This method compares two IPv6 address ranges.
+            /// </summary>
+            /// <param name="x">
+            /// The first IPv6 address range to compare.
+            /// </param>
+            /// <param name="y">
+            /// The second IPv6 address range to compare.
+            /// </param>
+            /// <returns>
+            /// A negative number if <paramref name="x" /> precedes
+            /// <paramref name="y" />, zero if they are equal, or a positive
+            /// number if <paramref name="x" /> follows <paramref name="y" />.
+            /// </returns>
             public int Compare(
                 CIDR_Range_IPv6 x, /* in */
                 CIDR_Range_IPv6 y  /* in */
@@ -3214,6 +4295,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the IPv6 network mask that corresponds to the
+        /// specified prefix length.
+        /// </summary>
+        /// <param name="prefixLength">
+        /// The prefix length, in bits, for which to compute the mask.
+        /// </param>
+        /// <returns>
+        /// The network mask, as a big integer.
+        /// </returns>
         private static BigInteger GetMask_IPv6(
             byte prefixLength /* in */
             )
@@ -3230,6 +4321,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method counts the number of consecutive zero bits at the
+        /// least-significant end of the specified big integer.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose trailing zero bits are to be counted.
+        /// </param>
+        /// <returns>
+        /// The number of trailing zero bits, or the total number of bits in an
+        /// IPv6 address if the value is zero.
+        /// </returns>
         private static int CountTrailingZeros(
             BigInteger value /* in */
             )
@@ -3250,6 +4352,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the floor of the base-2 logarithm of the
+        /// specified big integer value.
+        /// </summary>
+        /// <param name="value">
+        /// The value whose floored base-2 logarithm is to be computed.
+        /// </param>
+        /// <returns>
+        /// The zero-based position of the most-significant set bit, or negative
+        /// one if the value is zero or negative.
+        /// </returns>
         private static int FloorLog2(
             BigInteger value /* in */
             )
@@ -3267,6 +4380,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified big integer into a sixteen-byte
+        /// IPv6 address byte array in network byte order.
+        /// </summary>
+        /// <param name="value">
+        /// The IPv6 address value to convert.
+        /// </param>
+        /// <returns>
+        /// The sixteen-byte address array, in network byte order.
+        /// </returns>
         private static byte[] ToAddressBytes(
             BigInteger value /* in */
             )
@@ -3289,6 +4412,27 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts the specified IPv6 CIDR pattern into the
+        /// contiguous range of addresses that it represents.
+        /// </summary>
+        /// <param name="pattern">
+        /// The IPv6 CIDR pattern to convert, in address/prefix-length form.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation and error handling behavior.
+        /// </param>
+        /// <param name="range">
+        /// Upon success, receives the IPv6 address range represented by the
+        /// pattern.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the range
+        /// could not be computed.
+        /// </param>
+        /// <returns>
+        /// True if the range was successfully computed; otherwise, false.
+        /// </returns>
         private static bool RangeFromCIDR(
             string pattern,            /* in */
             IpFlags ipFlags,           /* in */
@@ -3334,6 +4478,24 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method decomposes the specified IPv6 address range into the
+        /// minimal set of CIDR patterns that cover it, appending each pattern to
+        /// the supplied output list.
+        /// </summary>
+        /// <param name="range">
+        /// The IPv6 address range to decompose into CIDR patterns.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control behavior.
+        /// </param>
+        /// <param name="output">
+        /// The list to which the resulting CIDR patterns are appended.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the range
+        /// could not be decomposed.
+        /// </param>
         private static void RangeToCIDR(
             CIDR_Range_IPv6 range, /* in */
             IpFlags ipFlags,       /* in */
@@ -3380,6 +4542,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method merges a list of IPv6 address ranges, combining ranges
+        /// that overlap or are adjacent into a smaller set of non-overlapping
+        /// ranges.
+        /// </summary>
+        /// <param name="ranges">
+        /// The list of IPv6 address ranges to merge.
+        /// </param>
+        /// <returns>
+        /// A new list containing the merged, non-overlapping IPv6 address
+        /// ranges.
+        /// </returns>
         private static List<CIDR_Range_IPv6> MergeRanges(
             List<CIDR_Range_IPv6> ranges /* in */
             )
@@ -3420,6 +4594,32 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collapses a collection of IPv6 CIDR patterns into the
+        /// minimal equivalent set of CIDR patterns by converting them to ranges,
+        /// merging overlapping or adjacent ranges, and converting the merged
+        /// ranges back to patterns.
+        /// </summary>
+        /// <param name="patterns">
+        /// The collection of IPv6 CIDR patterns to collapse.
+        /// </param>
+        /// <param name="ipFlags">
+        /// The flags used to control validation, sorting, and error handling
+        /// behavior.
+        /// </param>
+        /// <param name="merged">
+        /// On input, an optional existing list to which the collapsed patterns
+        /// are appended; on output, the list of collapsed patterns, created if
+        /// it was null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message describing why the patterns
+        /// could not be collapsed.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an appropriate
+        /// error code.
+        /// </returns>
         public static ReturnCode Collapse_IPv6_CIDR(
             IEnumerable<string> patterns, /* in */
             IpFlags ipFlags,              /* in */

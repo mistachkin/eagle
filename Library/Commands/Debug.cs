@@ -36,14 +36,34 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Commands
 {
+    /// <summary>
+    /// This class implements the Eagle <c>debug</c> command, which provides
+    /// programmatic access to the interpreter debugging and diagnostic
+    /// facilities, including the debugger, breakpoints, watches, callbacks,
+    /// memory and garbage-collection statistics, the interactive loop, and
+    /// numerous other low-level engine controls, dispatched through its
+    /// ensemble of sub-commands.  See <c>core_language.md</c> for the command
+    /// syntax and semantics.
+    /// </summary>
     [ObjectId("8d2559ac-e4e4-41c4-8183-52c90008d25f")]
     [CommandFlags(CommandFlags.Unsafe | CommandFlags.Critical |
         CommandFlags.NonStandard | CommandFlags.Diagnostic)]
     [ObjectGroup("debug")]
     internal sealed class Debug : Core
     {
+        /// <summary>
+        /// The default debug priority used when writing diagnostic messages
+        /// and none is explicitly supplied.  This field may be null.
+        /// </summary>
         private static DebugPriority? DefaultDebugPriority = null;
 
+        /// <summary>
+        /// Constructs an instance of the <c>debug</c> command.
+        /// </summary>
+        /// <param name="commandData">
+        /// The data used to create and identify this command, such as its
+        /// name and flags.  This parameter may be null.
+        /// </param>
         public Debug(
             ICommandData commandData
             )
@@ -53,6 +73,10 @@ namespace Eagle._Commands
         }
 
         #region IEnsemble Members
+        /// <summary>
+        /// The set of sub-command names supported by the <c>debug</c> command
+        /// ensemble.
+        /// </summary>
         private readonly EnsembleDictionary subCommands = new EnsembleDictionary(new string[] {
             "break", "breakpoints", "bundle", "cacheconfiguration", "callback",
             "cleanup", "collect", "complaint", "emergency", "enable", "eval",
@@ -70,6 +94,10 @@ namespace Eagle._Commands
             "variable", "vout", "watch", "write"
         });
 
+        /// <summary>
+        /// Gets the dictionary of sub-command names supported by the
+        /// <c>debug</c> command ensemble.
+        /// </summary>
         public override EnsembleDictionary SubCommands
         {
             get { return subCommands; }
@@ -77,6 +105,37 @@ namespace Eagle._Commands
         #endregion
 
         #region IExecute Members
+        /// <summary>
+        /// This method executes the <c>debug</c> command.  It dispatches to one
+        /// of the ensemble sub-commands (for example <c>break</c>,
+        /// <c>breakpoints</c>, <c>eval</c>, <c>watch</c>, <c>memory</c>,
+        /// <c>trace</c>, or <c>write</c>) in order to programmatically interact
+        /// with the interpreter debugging and diagnostic facilities.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context this command is executing in.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The extra, command-specific data supplied when this command was
+        /// created, if any.  This parameter may be null.
+        /// </param>
+        /// <param name="arguments">
+        /// The list of arguments for this invocation.  Element zero is the
+        /// command name; element one is the sub-command name; the remaining
+        /// elements are the arguments for the selected sub-command.  This
+        /// parameter should not be null.
+        /// </param>
+        /// <param name="result">
+        /// Upon success, this contains the result produced by the selected
+        /// sub-command.  Upon failure, this contains an appropriate error
+        /// message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, a non-Ok value
+        /// (e.g. <see cref="ReturnCode.Error" />) with details placed in the
+        /// <paramref name="result" /> parameter.
+        /// </returns>
         public override ReturnCode Execute(
             Interpreter interpreter,
             IClientData clientData,

@@ -49,6 +49,14 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Containers.Public
 {
+    /// <summary>
+    /// This class represents an ordered dictionary of named arguments, keyed by
+    /// argument name.  Each entry associates a name with a pair containing the
+    /// zero-based ordinal position at which the argument was added and the
+    /// <see cref="Argument" /> value itself.  It provides helpers for computing
+    /// the minimum and maximum permitted argument counts and for detecting the
+    /// presence of a variadic (final, catch-all) argument.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -57,12 +65,19 @@ namespace Eagle._Containers.Public
             SomeDictionary, IDictionary<string, IntArgumentPair>
     {
         #region Private Data
+        /// <summary>
+        /// The next ordinal position to assign to an added argument; this also
+        /// reflects the total number of arguments that have been added.
+        /// </summary>
         private int maximumId;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an empty instance of this class.
+        /// </summary>
         public ArgumentDictionary()
             : base()
         {
@@ -71,6 +86,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class that is a copy of the specified
+        /// dictionary.
+        /// </summary>
+        /// <param name="dictionary">
+        /// The dictionary whose entries are copied into the new instance.  This
+        /// parameter may be null.
+        /// </param>
         public ArgumentDictionary(
             ArgumentDictionary dictionary
             )
@@ -81,6 +104,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class containing an entry, with a null
+        /// argument value, for each of the specified argument names.
+        /// </summary>
+        /// <param name="names">
+        /// The argument names to add.  This parameter may be null; any null name
+        /// within the collection is skipped.
+        /// </param>
         public ArgumentDictionary(
             IEnumerable<string> names /* in */
             )
@@ -100,6 +131,14 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class containing an entry, with a null
+        /// argument value, for the name of each of the specified arguments.
+        /// </summary>
+        /// <param name="arguments">
+        /// The arguments whose names are added.  This parameter may be null; any
+        /// null argument within the collection is skipped.
+        /// </param>
         public ArgumentDictionary(
             IEnumerable<Argument> arguments /* in */
             )
@@ -122,6 +161,15 @@ namespace Eagle._Containers.Public
 
         #region Protected Constructors
 #if SERIALIZATION
+        /// <summary>
+        /// Constructs an instance of this class from previously serialized data.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized stream.
+        /// </param>
         private ArgumentDictionary(
             SerializationInfo info,  /* in */
             StreamingContext context /* in */
@@ -136,6 +184,14 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method gets the next ordinal position that will be assigned to
+        /// an added argument, which also reflects the total number of arguments
+        /// that have been added.
+        /// </summary>
+        /// <returns>
+        /// The next ordinal position that will be assigned to an added argument.
+        /// </returns>
         internal int GetMaximumId()
         {
             return maximumId;
@@ -143,6 +199,13 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the name used to identify the variadic (final,
+        /// catch-all) argument.
+        /// </summary>
+        /// <returns>
+        /// The name used to identify the variadic argument.
+        /// </returns>
         internal string GetVariadicName()
         {
             return TclVars.Core.Arguments;
@@ -150,6 +213,24 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the minimum and maximum number of values that
+        /// constitute a valid set of arguments for this dictionary, taking into
+        /// account any default values and any variadic argument.
+        /// </summary>
+        /// <param name="withNames">
+        /// Non-zero if each argument is expected to be accompanied by its name,
+        /// in which case the computed counts are doubled.
+        /// </param>
+        /// <param name="minimumCount">
+        /// Upon success, receives the minimum number of values required, or the
+        /// invalid count sentinel when there is no lower bound.
+        /// </param>
+        /// <param name="maximumCount">
+        /// Upon success, receives the maximum number of values permitted, or the
+        /// invalid count sentinel when there is no upper bound (e.g. due to a
+        /// variadic argument).
+        /// </param>
         private void GetCounts(
             bool withNames,       /* in */
             out int minimumCount, /* out */
@@ -213,6 +294,16 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Methods
+        /// <summary>
+        /// This method adds an argument with the specified name and value,
+        /// assigning it the next available ordinal position.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the argument to add.
+        /// </param>
+        /// <param name="value">
+        /// The argument value to add.  This parameter may be null.
+        /// </param>
         public void Add(
             string key,    /* in */
             Argument value /* in */
@@ -224,6 +315,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified name is the name used to
+        /// identify the variadic argument.
+        /// </summary>
+        /// <param name="key">
+        /// The name to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the specified name is the variadic argument name; otherwise,
+        /// false.
+        /// </returns>
         public bool IsVariadicName(
             string key /* in: OPTIONAL */
             )
@@ -241,6 +343,23 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether this dictionary contains a variadic
+        /// argument, optionally restricted to a specific argument name.  The
+        /// variadic argument, if present, must be the most recently added one.
+        /// </summary>
+        /// <param name="key">
+        /// When non-null, the name that the variadic argument must match in
+        /// order for this method to succeed.  This parameter may be null to
+        /// check for any variadic argument.
+        /// </param>
+        /// <param name="setFlags">
+        /// Non-zero to set flags during the check.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// True if this dictionary contains a matching variadic argument;
+        /// otherwise, false.
+        /// </returns>
         public bool IsVariadic(
             string key,   /* in: OPTIONAL */
             bool setFlags /* in: NOT USED */
@@ -271,6 +390,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified number of values falls
+        /// within the minimum and maximum counts permitted by this dictionary.
+        /// </summary>
+        /// <param name="haveCount">
+        /// The number of values to validate against the permitted counts.
+        /// </param>
+        /// <param name="withNames">
+        /// Non-zero if each value is expected to be accompanied by its name,
+        /// which affects the permitted counts.
+        /// </param>
+        /// <returns>
+        /// True if the specified count is within the permitted range; otherwise,
+        /// false.
+        /// </returns>
         public bool IsGoodCount(
             int haveCount, /* in */
             bool withNames /* in */
@@ -301,6 +435,14 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICollection<StringIntArgumentPair> Overrides
+        /// <summary>
+        /// This method is not supported and always throws an exception; entries
+        /// must be added via the strongly typed <see cref="Add(string, Argument)" />
+        /// method so that an ordinal position can be assigned.
+        /// </summary>
+        /// <param name="item">
+        /// The item that would be added.
+        /// </param>
         void ICollection<StringIntArgumentPair>.Add(
             StringIntArgumentPair item /* in */
             )
@@ -312,6 +454,18 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDictionary<string, IntArgumentPair> Overrides
+        /// <summary>
+        /// Gets the ordinal position and argument value pair associated with the
+        /// specified name; Setting this property is not supported and always
+        /// throws an exception.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the argument whose pair is retrieved.
+        /// </param>
+        /// <returns>
+        /// The ordinal position and argument value pair associated with the
+        /// specified name.
+        /// </returns>
         IntArgumentPair IDictionary<string, IntArgumentPair>.this[string key]
         {
             get { return base[key]; }
@@ -320,6 +474,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws an exception; entries
+        /// must be added via the strongly typed <see cref="Add(string, Argument)" />
+        /// method so that an ordinal position can be assigned.
+        /// </summary>
+        /// <param name="key">
+        /// The name that would be added.
+        /// </param>
+        /// <param name="value">
+        /// The ordinal position and argument value pair that would be added.
+        /// </param>
         void IDictionary<string, IntArgumentPair>.Add(
             string key,           /* in */
             IntArgumentPair value /* in */
@@ -332,6 +497,18 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Explicit IDictionary<string, IntArgumentPair> Overrides
+        /// <summary>
+        /// Gets the ordinal position and argument value pair associated with the
+        /// specified name; Setting this property is not supported and always
+        /// throws an exception.
+        /// </summary>
+        /// <param name="key">
+        /// The name of the argument whose pair is retrieved.
+        /// </param>
+        /// <returns>
+        /// The ordinal position and argument value pair associated with the
+        /// specified name.
+        /// </returns>
         public new IntArgumentPair this[string key]
         {
             get { return base[key]; }
@@ -340,6 +517,17 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method is not supported and always throws an exception; entries
+        /// must be added via the strongly typed <see cref="Add(string, Argument)" />
+        /// method so that an ordinal position can be assigned.
+        /// </summary>
+        /// <param name="key">
+        /// The name that would be added.
+        /// </param>
+        /// <param name="value">
+        /// The ordinal position and argument value pair that would be added.
+        /// </param>
         public new void Add(
             string key,           /* in */
             IntArgumentPair value /* in */
@@ -353,6 +541,16 @@ namespace Eagle._Containers.Public
 
         #region System.Runtime.Serialization.ISerializable Members
 #if SERIALIZATION
+        /// <summary>
+        /// This method populates the specified serialization information with
+        /// the data needed to serialize this dictionary.
+        /// </summary>
+        /// <param name="info">
+        /// The object that holds the serialized data.
+        /// </param>
+        /// <param name="context">
+        /// The source and destination of the serialized stream.
+        /// </param>
         [SecurityPermission(
             SecurityAction.LinkDemand,
             Flags = SecurityPermissionFlag.SerializationFormatter)]
@@ -371,6 +569,22 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ToString Methods
+        /// <summary>
+        /// This method builds a string representation of the argument values in
+        /// this dictionary, separating successive values with the specified
+        /// separator.
+        /// </summary>
+        /// <param name="toStringFlags">
+        /// The flags used to control how each argument value is converted to its
+        /// string representation.
+        /// </param>
+        /// <param name="separator">
+        /// The string used to separate successive argument values.  This
+        /// parameter may be null, in which case no separator is inserted.
+        /// </param>
+        /// <returns>
+        /// The string representation of the argument values in this dictionary.
+        /// </returns>
         public string ToRawString(
             ToStringFlags toStringFlags, /* in */
             string separator             /* in */
@@ -401,6 +615,21 @@ namespace Eagle._Containers.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a string representation of the argument names in
+        /// this dictionary, optionally filtered by a match pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The pattern used to filter the argument names.  This parameter may be
+        /// null to include all names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform case-insensitive pattern matching.
+        /// </param>
+        /// <returns>
+        /// The string representation of the (optionally filtered) argument names
+        /// in this dictionary.
+        /// </returns>
         public string ToString(
             string pattern, /* in */
             bool noCase     /* in */
@@ -417,6 +646,13 @@ namespace Eagle._Containers.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method builds a string representation of the argument names in
+        /// this dictionary.
+        /// </summary>
+        /// <returns>
+        /// The string representation of the argument names in this dictionary.
+        /// </returns>
         public override string ToString()
         {
             return ToString(null, false);

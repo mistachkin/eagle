@@ -29,13 +29,29 @@ namespace Eagle._Components.Private
         //
         // NOTE: OIDs used for timestamp and nested signature attribute lookup.
         //
+        /// <summary>
+        /// The object identifier (OID) for the PKCS#7 / CMS signedData content
+        /// type.
+        /// </summary>
         private const string OID_CMS_SIGNED_DATA = "1.2.840.113549.1.7.2";
 
+        /// <summary>
+        /// The object identifier (OID) for the RFC 3161 id-aa-
+        /// signatureTimeStampToken unsigned attribute.
+        /// </summary>
         private const string OID_RFC3161_TSTOKEN =
             "1.2.840.113549.1.9.16.2.14";
 
+        /// <summary>
+        /// The object identifier (OID) for the Microsoft RFC 3161 timestamp
+        /// attribute.
+        /// </summary>
         private const string OID_MS_TSTOKEN = "1.3.6.1.4.1.311.3.3.1";
 
+        /// <summary>
+        /// The object identifier (OID) for the Microsoft SpcNestedSignature
+        /// unsigned attribute.
+        /// </summary>
         private const string OID_MS_NESTED_SIG = "1.3.6.1.4.1.311.2.4.1";
 
         ///////////////////////////////////////////////////////////////////////
@@ -43,6 +59,11 @@ namespace Eagle._Components.Private
         //
         // NOTE: Encoded OID for id-ct-TSTInfo (1.2.840.113549.1.9.16.1.4).
         //
+        /// <summary>
+        /// The DER-encoded object identifier (OID) for id-ct-TSTInfo
+        /// (1.2.840.113549.1.9.16.1.4), used when scanning attribute values
+        /// for an embedded RFC 3161 TSTInfo structure.
+        /// </summary>
         private static readonly byte[] OID_TSTINFO_ENC = new byte[] {
             0x06, 0x0B, 0x2A, 0x86, 0x48, 0x86, 0xF7,
             0x0D, 0x01, 0x09, 0x10, 0x01, 0x04
@@ -52,17 +73,37 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Classes
+        /// <summary>
+        /// This class holds the tunable policy settings that control how a PE
+        /// file signature is verified, including signer-chain validation,
+        /// revocation checking, custom root trust, digest-algorithm policy,
+        /// timestamp policy, and Authority Information Access (AIA) download
+        /// behavior.
+        /// </summary>
         [ObjectId("b9c0859a-615c-4e09-bd23-bd64919e297f")]
         public sealed class VerificationOptions
         {
             //
             // NOTE: Chain and revocation settings.
             //
+            /// <summary>
+            /// When true, the signer certificate chain is built and validated;
+            /// when false, the signer chain is treated as valid without being
+            /// checked.
+            /// </summary>
             public bool ValidateSignerChain = true;
 
+            /// <summary>
+            /// The revocation-checking mode applied when building certificate
+            /// chains.
+            /// </summary>
             public X509RevocationMode RevocationMode =
                 X509RevocationMode.NoCheck;
 
+            /// <summary>
+            /// The maximum time allowed for online revocation URL retrieval
+            /// while building certificate chains.
+            /// </summary>
             public TimeSpan RevocationUrlRetrievalTimeout =
                 TimeSpan.FromSeconds(15);
 
@@ -71,31 +112,56 @@ namespace Eagle._Components.Private
             //
             // NOTE: Custom roots (directory with *.cer/*.crt/*.pem files).
             //
+            /// <summary>
+            /// When true, certificate chains are validated against the custom
+            /// root certificates loaded from <see cref="CustomRootDirectory" />
+            /// instead of (or in addition to) the operating system trust store.
+            /// </summary>
             public bool UseCustomRootTrust = false;
+            /// <summary>
+            /// The path to a directory containing custom root certificate files
+            /// (*.cer/*.crt/*.der/*.pem); a null or empty value disables custom
+            /// root loading.
+            /// </summary>
             public string CustomRootDirectory = null;
 
             //
             // NOTE: If the runtime lacks CustomRootTrust
             //       (e.g., .NET Core 2.x), allow a compatibility fallback.
             //
-            public bool
-                TrustIfOnlyUntrustedRootAndMatchesCustomRoot
-                    = true;
+            /// <summary>
+            /// When true, on runtimes that cannot apply custom root trust
+            /// directly, a chain that fails only with an untrusted-root status
+            /// is accepted if its root matches one of the supplied custom roots.
+            /// </summary>
+            public bool TrustIfOnlyUntrustedRootAndMatchesCustomRoot = true;
 
             ///////////////////////////////////////////////////////////////////
 
             //
             // NOTE: Extra intermediates (optional).
             //
-            public string
-                AdditionalIntermediatesDirectory = null;
+            /// <summary>
+            /// The path to a directory containing additional intermediate
+            /// certificate files used to help build certificate chains; a null
+            /// or empty value disables loading of extra intermediates.
+            /// </summary>
+            public string AdditionalIntermediatesDirectory = null;
 
             ///////////////////////////////////////////////////////////////////
 
             //
             // NOTE: Digest algorithm policy.
             //
+            /// <summary>
+            /// When true, the MD5 digest algorithm is permitted; otherwise, a
+            /// signature using MD5 is rejected by policy.
+            /// </summary>
             public bool AllowMd5 = false;
+            /// <summary>
+            /// When true, the SHA-1 digest algorithm is permitted; otherwise, a
+            /// signature using SHA-1 is rejected by policy.
+            /// </summary>
             public bool AllowSha1 = true;
 
             ///////////////////////////////////////////////////////////////////
@@ -103,50 +169,149 @@ namespace Eagle._Components.Private
             //
             // NOTE: Timestamp policy.
             //
+            /// <summary>
+            /// When true, a valid timestamp is required for the overall result
+            /// to be considered fully valid.
+            /// </summary>
             public bool RequireTimestamp = false;
+            /// <summary>
+            /// When true, the timestamping authority (TSA) certificate chain is
+            /// built and validated; when false, the TSA chain is treated as
+            /// valid without being checked.
+            /// </summary>
             public bool ValidateTimestampChain = true;
+            /// <summary>
+            /// When true, an RFC 3161 timestamp token is preferred over a legacy
+            /// PKCS#9 countersignature when both are present.
+            /// </summary>
             public bool PreferRfc3161OverCountersign = true;
+            /// <summary>
+            /// When true, a best-effort byte-scan fallback is allowed to recover
+            /// TSTInfo time and binding when the timestamp token cannot be
+            /// decoded as a CMS message.
+            /// </summary>
             public bool AllowTstInfoScanFallback = true;
-            public bool HashAnyRemainingBytes = false;
 
             ///////////////////////////////////////////////////////////////////
 
             //
             // NOTE: Require TSA EKU.  Standards say yes; set false to relax.
             //
+            /// <summary>
+            /// When true, the timestamping authority (TSA) certificate is
+            /// required to carry the timeStamping extended key usage (EKU); set
+            /// to false to relax this standards requirement.
+            /// </summary>
             public bool RequireTsaEku = true;
 
             ///////////////////////////////////////////////////////////////////
 
             //
-            // NOTE: AIA auto-download settings for
-            //       intermediate certificate discovery.
+            // NOTE: AIA auto-download settings for intermediate certificate
+            //       discovery.
             //
-            public bool AutoDownloadIntermediates = true;
+            // BUGFIX: Default to DISABLED.  Following caIssuers (AIA) URLs read
+            //         from the not-yet-trusted certificate under verification
+            //         makes the verifying host issue attacker-directed outbound
+            //         requests (an SSRF / callback-on-verify vector).  It is a
+            //         convenience for chain building, not a correctness
+            //         requirement, so it must be opted into explicitly.  (HTTPS
+            //         is still required unless AllowAiaInsecureHttp, and the
+            //         download is size/time/depth bounded with a loop guard.)
+            //
+            /// <summary>
+            /// When true, missing intermediate certificates may be downloaded
+            /// automatically by following Authority Information Access (AIA)
+            /// caIssuers URLs; disabled by default to avoid an SSRF / callback-
+            /// on-verify vector.
+            /// </summary>
+            public bool AutoDownloadIntermediates = false;
+            /// <summary>
+            /// When true, insecure (plain HTTP) AIA URLs are allowed for
+            /// intermediate certificate download; otherwise, only HTTPS URLs are
+            /// used.
+            /// </summary>
             public bool AllowAiaInsecureHttp = false;
 
+            /// <summary>
+            /// The maximum time allowed for each AIA certificate download
+            /// request.
+            /// </summary>
             public TimeSpan AiaHttpTimeout = TimeSpan.FromSeconds(10);
 
+            /// <summary>
+            /// The maximum number of AIA download-and-retry iterations performed
+            /// while chasing missing intermediate certificates.
+            /// </summary>
             public int AiaMaxDepth = 3;
+            /// <summary>
+            /// The maximum size, in bytes, of an AIA download response, used to
+            /// bound memory consumption.
+            /// </summary>
             public int AiaMaxResponseSize = 1024 * 1024;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class describes the timestamp discovered for a signature,
+        /// including whether one is present, its kind (RFC 3161 or legacy
+        /// countersignature), its cryptographic and binding validity, the
+        /// timestamping authority (TSA) identity, and the timestamp value.
+        /// </summary>
         [ObjectId("47831b1d-b6cf-4643-8bcf-b8700a1b0cad")]
         public sealed class TimestampInfo
         {
+            /// <summary>
+            /// When true, a timestamp was found for the signature.
+            /// </summary>
             public bool Present;
+            /// <summary>
+            /// When true, the timestamp is an RFC 3161 timestamp token;
+            /// otherwise, it is a legacy PKCS#9 countersignature.
+            /// </summary>
             public bool IsRfc3161;
+            /// <summary>
+            /// When true, the timestamp token signature is cryptographically
+            /// valid.
+            /// </summary>
             public bool CryptographicallyValid;
+            /// <summary>
+            /// When true, the timestamp is bound to the signer's signature (its
+            /// message digest matches the hash of the signer signature).
+            /// </summary>
             public bool BoundToSignerSignature;
+            /// <summary>
+            /// When true, the timestamping authority (TSA) certificate chain was
+            /// validated successfully (or chain validation was not required).
+            /// </summary>
             public bool ChainValid;
+            /// <summary>
+            /// The subject name of the timestamping authority (TSA)
+            /// certificate, if available.
+            /// </summary>
             public string TsaSubject;
+            /// <summary>
+            /// The thumbprint of the timestamping authority (TSA) certificate,
+            /// if available.
+            /// </summary>
             public string TsaThumbprint;
+            /// <summary>
+            /// The timestamp value in Coordinated Universal Time (UTC), or null
+            /// if no time was recovered.
+            /// </summary>
             public DateTimeOffset? TimeUtc;
 
+            /// <summary>
+            /// The status strings produced when building the timestamping
+            /// authority (TSA) certificate chain.
+            /// </summary>
             public string[] ChainStatus = Array.Empty<string>();
 
+            /// <summary>
+            /// Gets the timestamp value converted to local time, or null if no
+            /// time was recovered.
+            /// </summary>
             public DateTimeOffset? TimeLocal
             {
                 get
@@ -159,24 +324,71 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This class holds the outcome of verifying a PE file signature,
+        /// including whether the file is signed, whether the CMS signature and
+        /// file digest are valid, the signer identity and chain status, the
+        /// signing time, and the discovered timestamp information.
+        /// </summary>
         [ObjectId("a8a46ae4-2929-4a1b-bc38-c7ca78a91019")]
         public sealed class VerificationResult
         {
+            /// <summary>
+            /// When true, the file contains an Authenticode signature.
+            /// </summary>
             public bool IsSigned;
+            /// <summary>
+            /// When true, the CMS signature over the signed content is
+            /// cryptographically valid.
+            /// </summary>
             public bool CmsSignatureValid;
+            /// <summary>
+            /// When true, the Authenticode hash computed over the file matches
+            /// the digest carried in the signature.
+            /// </summary>
             public bool FileHashMatchesSignature;
+            /// <summary>
+            /// When true, the signer certificate chain was validated
+            /// successfully (or chain validation was not required).
+            /// </summary>
             public bool SignerChainValid;
 
+            /// <summary>
+            /// The status strings produced when building the signer certificate
+            /// chain.
+            /// </summary>
             public string[] SignerChainStatus = Array.Empty<string>();
 
+            /// <summary>
+            /// The object identifier (OID) of the digest algorithm used by the
+            /// signature.
+            /// </summary>
             public string DigestAlgorithmOid;
+            /// <summary>
+            /// The subject name of the signer certificate, if available.
+            /// </summary>
             public string SignerSubject;
+            /// <summary>
+            /// The thumbprint of the signer certificate, if available.
+            /// </summary>
             public string SignerThumbprint;
 
+            /// <summary>
+            /// The signing time taken from the signer's signed attributes in
+            /// Coordinated Universal Time (UTC), if present.
+            /// </summary>
             public DateTimeOffset? SigningTimeUtc;
 
+            /// <summary>
+            /// The timestamp information discovered for the signature.
+            /// </summary>
             public TimestampInfo Timestamp = new TimestampInfo();
 
+            /// <summary>
+            /// Gets a value indicating whether every required aspect of the
+            /// signature is valid, honoring the timestamp policy carried in
+            /// <see cref="OptionsReference" />.
+            /// </summary>
             public bool AllValid
             {
                 get
@@ -239,11 +451,24 @@ namespace Eagle._Components.Private
             //
             // NOTE: For AllValid computation with RequireTimestamp.
             //
+            /// <summary>
+            /// A reference to the verification options used to produce this
+            /// result, consulted by <see cref="AllValid" /> to apply the
+            /// timestamp policy.
+            /// </summary>
             internal VerificationOptions
                 OptionsReference;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method returns a human-readable summary of the verification
+            /// result, including the signature, digest, signer-chain, and
+            /// timestamp status.
+            /// </summary>
+            /// <returns>
+            /// A string describing this verification result.
+            /// </returns>
             public override string ToString()
             {
                 string ts = ((Timestamp != null) &&
@@ -268,6 +493,24 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Static Methods
+        /// <summary>
+        /// This method verifies the Authenticode signature of a portable
+        /// executable (PE) file, checking the CMS signature, the file digest,
+        /// the signer certificate chain, and any embedded timestamp according
+        /// to the supplied options.
+        /// </summary>
+        /// <param name="filePath">
+        /// The path to the PE file to verify.  This parameter may not be null
+        /// and must refer to an existing file.
+        /// </param>
+        /// <param name="options">
+        /// The verification options to apply.  If this parameter is null, a
+        /// default set of options is used.
+        /// </param>
+        /// <returns>
+        /// A <see cref="VerificationResult" /> describing the outcome of the
+        /// verification.
+        /// </returns>
         public static VerificationResult
             VerifyPeFileSignature(
             string filePath,                 /* in */
@@ -460,11 +703,32 @@ namespace Eagle._Components.Private
                             cms, options);
 
                     //
-                    // NOTE: Prefer the timestamp time
-                    //       (if present) when building the signer chain.
+                    // BUGFIX: Use the timestamp time as the signer-chain
+                    //         verification time ONLY when the timestamp is
+                    //         itself trustworthy -- cryptographically valid,
+                    //         bound to this signer's signature, and (when the
+                    //         TSA chain is being validated) chain-valid.  A
+                    //         partial/unverified timestamp (e.g. a scan-fallback
+                    //         candidate, or one that failed binding) must NOT be
+                    //         allowed to set the validity-period reference time:
+                    //         otherwise an attacker could embed a forged
+                    //         timestamp with an arbitrary time to make an
+                    //         expired (or not-yet-valid) signing certificate
+                    //         pass the NotTimeValid check.  When the timestamp
+                    //         is not fully trustworthy, leave the verification
+                    //         time null so the chain is validated against the
+                    //         current time.  (Note: ChainValid already accounts
+                    //         for ValidateTimestampChain being disabled.)
                     //
-                    DateTimeOffset? chainTime = result.Timestamp != null ?
-                        result.Timestamp.TimeUtc : null;
+                    DateTimeOffset? chainTime = null;
+
+                    if ((result.Timestamp != null) &&
+                        result.Timestamp.CryptographicallyValid &&
+                        result.Timestamp.BoundToSignerSignature &&
+                        result.Timestamp.ChainValid)
+                    {
+                        chainTime = result.Timestamp.TimeUtc;
+                    }
 
                     string[] statuses;
 
@@ -479,6 +743,34 @@ namespace Eagle._Components.Private
                     result.SignerSubject = signerCert.Subject;
 
                     result.SignerThumbprint = signerCert.Thumbprint;
+
+                    //
+                    // BUGFIX: dispose the intermediate / custom-root certificates
+                    //         we loaded from disk above (these are populated only
+                    //         when the AdditionalIntermediatesDirectory /
+                    //         CustomRootDirectory options are set).  They were used
+                    //         solely to build the signer chain, which is now
+                    //         complete.  The CMS-provided certificates also present
+                    //         in "extra" are owned by the SignedCms and are
+                    //         deliberately NOT disposed here, nor is signerCert.
+                    //
+                    for (int i = 0;
+                            (extraFromDir != null) &&
+                            (i < extraFromDir.Length);
+                            i++)
+                    {
+                        try { extraFromDir[i].Dispose(); }
+                        catch { /* best effort */ }
+                    }
+
+                    for (int i = 0;
+                            (customRoots != null) &&
+                            (i < customRoots.Length);
+                            i++)
+                    {
+                        try { customRoots[i].Dispose(); }
+                        catch { /* best effort */ }
+                    }
                 }
                 else
                 {
@@ -496,6 +788,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method unwraps a Microsoft RFC 3161 attribute value, locating
+        /// the inner ContentInfo SEQUENCE and returning its raw DER slice.
+        /// </summary>
+        /// <param name="attrValue">
+        /// The raw DER bytes of the attribute value to unwrap.
+        /// </param>
+        /// <param name="contentInfoDer">
+        /// Upon success, receives the raw DER bytes of the inner ContentInfo;
+        /// upon failure, is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the ContentInfo was located and extracted; otherwise, false.
+        /// </returns>
         private static bool TryUnwrapMicrosoftRfc3161(
             byte[] attrValue,
             out byte[] contentInfoDer
@@ -567,6 +873,28 @@ namespace Eagle._Components.Private
         //       HASH(parent signature); and (optionally)
         //       TSA chain trust (usually TSA cert has EKU timeStamping).
         //
+        /// <summary>
+        /// This method verifies a legacy PKCS#9 countersignature timestamp on
+        /// the given signer, checking the countersignature cryptographically,
+        /// confirming its binding to the parent signature, and (optionally)
+        /// validating the timestamping authority (TSA) certificate chain.
+        /// </summary>
+        /// <param name="signer">
+        /// The signer whose countersignature timestamp is being verified.
+        /// </param>
+        /// <param name="rootCms">
+        /// The CMS message that contains the signer and its certificates.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling timestamp-chain validation.
+        /// </param>
+        /// <param name="info">
+        /// The timestamp information instance populated by this method.
+        /// </param>
+        /// <returns>
+        /// True if a countersignature timestamp was found and processed;
+        /// otherwise, false.
+        /// </returns>
         private static bool
             TryVerifyCounterSignatureTimestamp(
             SignerInfo signer,
@@ -749,6 +1077,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a human-readable dump of the signature
+        /// attributes found in a PE file, including signers, signed and
+        /// unsigned attributes, countersigners, and (optionally) nested
+        /// signatures.
+        /// </summary>
+        /// <param name="filePath">
+        /// The path to the PE file whose signature attributes are dumped.  This
+        /// parameter may not be null and must refer to an existing file.
+        /// </param>
+        /// <param name="includeNested">
+        /// When true, nested SpcNestedSignature contents are recursively
+        /// dumped.
+        /// </param>
+        /// <returns>
+        /// A string containing the formatted signature attribute dump.
+        /// </returns>
         public static string DumpSignatureAttributes(
             string filePath,
             bool includeNested
@@ -812,6 +1157,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively dumps the signers, attributes, and
+        /// countersigners of a CMS message into the supplied builder.
+        /// </summary>
+        /// <param name="cms">
+        /// The CMS message to dump.
+        /// </param>
+        /// <param name="sb">
+        /// The builder that receives the formatted output.
+        /// </param>
+        /// <param name="indent">
+        /// The current indentation level, in spaces.
+        /// </param>
+        /// <param name="includeNested">
+        /// When true, nested SpcNestedSignature contents are recursively
+        /// dumped.
+        /// </param>
         private static void DumpCmsRecursive(
             SignedCms cms,
             StringBuilder sb,
@@ -879,6 +1241,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dumps the certificate, digest algorithm, and signing
+        /// time of a single signer into the supplied builder.
+        /// </summary>
+        /// <param name="si">
+        /// The signer to dump.
+        /// </param>
+        /// <param name="cms">
+        /// The CMS message that contains the signer.
+        /// </param>
+        /// <param name="sb">
+        /// The builder that receives the formatted output.
+        /// </param>
+        /// <param name="indent">
+        /// The current indentation level, in spaces.
+        /// </param>
         private static void DumpSignerInfo(
             SignerInfo si,
             SignedCms cms,
@@ -934,6 +1312,35 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method dumps a collection of cryptographic attributes into the
+        /// supplied builder, decoding well-known attributes (such as signing
+        /// time, message digest, countersignature, RFC 3161 timestamp, and
+        /// nested signature) where possible.
+        /// </summary>
+        /// <param name="label">
+        /// A label describing the attribute collection (for example,
+        /// "SignedAttributes" or "UnsignedAttributes").
+        /// </param>
+        /// <param name="attrs">
+        /// The attribute collection to dump.
+        /// </param>
+        /// <param name="parentSigner">
+        /// The signer that owns the attribute collection.
+        /// </param>
+        /// <param name="parentCms">
+        /// The CMS message that contains the parent signer.
+        /// </param>
+        /// <param name="sb">
+        /// The builder that receives the formatted output.
+        /// </param>
+        /// <param name="indent">
+        /// The current indentation level, in spaces.
+        /// </param>
+        /// <param name="includeNested">
+        /// When true, nested SpcNestedSignature contents are recursively
+        /// dumped.
+        /// </param>
         private static void DumpAttributeCollection(
             string label, CryptographicAttributeObjectCollection
                 attrs,
@@ -1179,6 +1586,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method appends the requested number of space characters to the
+        /// supplied builder for indentation.
+        /// </summary>
+        /// <param name="sb">
+        /// The builder to append spaces to.
+        /// </param>
+        /// <param name="n">
+        /// The number of space characters to append.
+        /// </param>
+        /// <returns>
+        /// The same builder passed via <paramref name="sb" />, to allow call
+        /// chaining.
+        /// </returns>
         private static StringBuilder Indent(
             StringBuilder sb,
             int n
@@ -1192,6 +1613,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats a byte array as a lowercase hexadecimal string,
+        /// truncating to a maximum length and appending an ellipsis when the
+        /// input is longer.
+        /// </summary>
+        /// <param name="b">
+        /// The byte array to format.  If this parameter is null, the literal
+        /// <c>(null)</c> is returned.
+        /// </param>
+        /// <param name="max">
+        /// The maximum number of bytes to render.
+        /// </param>
+        /// <returns>
+        /// The hexadecimal representation of the input bytes.
+        /// </returns>
         private static string Hex(
             byte[] b,
             int max
@@ -1229,6 +1665,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a friendly display name for a well-known object
+        /// identifier (OID), or an empty string when the OID is not recognized.
+        /// </summary>
+        /// <param name="oid">
+        /// The object identifier (OID) to translate.
+        /// </param>
+        /// <returns>
+        /// A friendly name for the OID, or an empty string if it is unknown.
+        /// </returns>
         private static string OidFriendly(
             string oid
             )
@@ -1263,6 +1709,17 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method extracts the contents of a DER OCTET STRING from the
+        /// beginning of the supplied buffer.
+        /// </summary>
+        /// <param name="raw">
+        /// The raw DER bytes that begin with an OCTET STRING.
+        /// </param>
+        /// <returns>
+        /// The OCTET STRING contents, or null if the buffer does not begin with
+        /// a well-formed OCTET STRING.
+        /// </returns>
         private static byte[] ExtractOctetString(
             byte[] raw
             )
@@ -1297,6 +1754,23 @@ namespace Eagle._Components.Private
         //       extract the inner TSTInfo DER (OCTET
         //       STRING).  This works even when SignedCms.Decode fails.
         //
+        /// <summary>
+        /// This method scans an attribute value for an embedded TSTInfo
+        /// structure by locating the id-ct-TSTInfo OID and the enclosing
+        /// explicit OCTET STRING, returning the inner TSTInfo DER.  It works
+        /// even when full CMS decoding of the attribute fails.
+        /// </summary>
+        /// <param name="raw">
+        /// The raw attribute value bytes to scan.
+        /// </param>
+        /// <param name="tstInfoDer">
+        /// Upon success, receives the extracted TSTInfo DER bytes; upon
+        /// failure, is set to null.
+        /// </param>
+        /// <returns>
+        /// True if a TSTInfo structure was located and extracted; otherwise,
+        /// false.
+        /// </returns>
         private static bool TryExtractTstInfoByScan(
             byte[] raw,
             out byte[] tstInfoDer
@@ -1446,6 +1920,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to decode a CMS message from an attribute
+        /// value, trying a direct decode first and then several unwrapping
+        /// strategies (OCTET STRING unwrap, SEQUENCE slice, and raw SignedData
+        /// wrapping) as fallbacks.
+        /// </summary>
+        /// <param name="raw">
+        /// The raw attribute value bytes to decode.
+        /// </param>
+        /// <param name="cms">
+        /// Upon success, receives the decoded CMS message; upon failure, is set
+        /// to null.
+        /// </param>
+        /// <returns>
+        /// True if a CMS message was decoded; otherwise, false.
+        /// </returns>
         private static bool
             TryDecodeCmsFromAttributeValue(
             byte[] raw,
@@ -1563,6 +2053,22 @@ namespace Eagle._Components.Private
         //       SignedData.encapContentInfo.eContentType =
         //       id-ct-TSTInfo and eContent = [0] EXPLICIT OCTET STRING.
         //
+        /// <summary>
+        /// This method extracts the inner TSTInfo OCTET STRING from a Microsoft
+        /// RFC 3161 attribute value by walking the ContentInfo and SignedData
+        /// structure down to the encapsulated content.
+        /// </summary>
+        /// <param name="raw">
+        /// The raw Microsoft RFC 3161 attribute value bytes.
+        /// </param>
+        /// <param name="tstInfoDer">
+        /// Upon success, receives the extracted TSTInfo DER bytes; upon
+        /// failure, is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the TSTInfo structure was located and extracted; otherwise,
+        /// false.
+        /// </returns>
         private static bool
             TryExtractTstInfoFromMsRfc3161(
             byte[] raw,
@@ -1745,6 +2251,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to decode a CMS message directly from the
+        /// supplied DER bytes.
+        /// </summary>
+        /// <param name="der">
+        /// The DER-encoded ContentInfo bytes to decode.
+        /// </param>
+        /// <param name="cms">
+        /// Upon success, receives the decoded CMS message; upon failure, is set
+        /// to null.
+        /// </param>
+        /// <returns>
+        /// True if the CMS message was decoded; otherwise, false.
+        /// </returns>
         private static bool TryDecodeCms(
             byte[] der,
             out SignedCms cms
@@ -1774,6 +2294,21 @@ namespace Eagle._Components.Private
         // NOTE: Build: SEQUENCE { OID signedData (06 09 2A864886F70D010702),
         //       [0] EXPLICIT <signedData> }
         //
+        /// <summary>
+        /// This method wraps raw SignedData DER in a ContentInfo SEQUENCE
+        /// carrying the signedData object identifier (OID), so it can be decoded
+        /// as a CMS message.
+        /// </summary>
+        /// <param name="signedData">
+        /// The raw SignedData DER bytes to wrap.
+        /// </param>
+        /// <param name="contentInfo">
+        /// Upon success, receives the constructed ContentInfo DER bytes; upon
+        /// failure, is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the ContentInfo was constructed; otherwise, false.
+        /// </returns>
         private static bool
             TryWrapSignedDataAsContentInfo(
             byte[] signedData,
@@ -1845,6 +2380,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method encodes a length value using the DER definite-length
+        /// form, producing either the short form or the appropriate long form.
+        /// </summary>
+        /// <param name="len">
+        /// The length value to encode.
+        /// </param>
+        /// <returns>
+        /// The DER-encoded length bytes.
+        /// </returns>
         private static byte[] EncodeDerLength(
             int len
             )
@@ -1882,6 +2427,21 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches all signers (and nested signatures) of a CMS
+        /// message for the best available timestamp, preferring a fully valid
+        /// timestamp over a partial one.
+        /// </summary>
+        /// <param name="cms">
+        /// The CMS message to search.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling timestamp processing.
+        /// </param>
+        /// <returns>
+        /// The best <see cref="TimestampInfo" /> found, which will report not
+        /// present if no timestamp was discovered.
+        /// </returns>
         private static TimestampInfo
             FindBestTimestampAcrossSigners(
             SignedCms cms,
@@ -1900,6 +2460,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a timestamp is fully valid: present,
+        /// carrying a time, bound to the signer signature, cryptographically
+        /// valid, and (when required) chain-valid.
+        /// </summary>
+        /// <param name="t">
+        /// The timestamp information to evaluate.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling timestamp-chain validation.
+        /// </param>
+        /// <returns>
+        /// True if the timestamp is fully valid; otherwise, false.
+        /// </returns>
         private static bool IsFullyValidTs(
             TimestampInfo t,
             VerificationOptions options
@@ -1930,6 +2504,20 @@ namespace Eagle._Components.Private
         //
         // NOTE: Prefer fully-valid > has time+binding > just present.
         //
+        /// <summary>
+        /// This method selects the better of two timestamp candidates,
+        /// preferring a fully valid timestamp, then one with binding and time,
+        /// and finally one that at least carries a time.
+        /// </summary>
+        /// <param name="current">
+        /// The current best timestamp candidate.
+        /// </param>
+        /// <param name="candidate">
+        /// The new timestamp candidate to compare against the current best.
+        /// </param>
+        /// <returns>
+        /// Whichever of the two candidates is considered better.
+        /// </returns>
         private static TimestampInfo PickBetter(
             TimestampInfo current,
             TimestampInfo candidate
@@ -1974,6 +2562,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method recursively searches a CMS message and its nested
+        /// signatures for the best available timestamp, returning immediately
+        /// when a fully valid timestamp is found and otherwise tracking the best
+        /// partial candidate.
+        /// </summary>
+        /// <param name="cms">
+        /// The CMS message to search.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling timestamp processing.
+        /// </param>
+        /// <param name="depth">
+        /// The current recursion depth, used to bound nested-signature
+        /// traversal.
+        /// </param>
+        /// <param name="visited">
+        /// The set of already-visited nested signer thumbprints, used to avoid
+        /// cycles.
+        /// </param>
+        /// <returns>
+        /// The best <see cref="TimestampInfo" /> found at this level or below.
+        /// </returns>
         private static TimestampInfo
             FindBestTimestampRecursive(
             SignedCms cms,
@@ -2122,6 +2733,29 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method searches a signer's unsigned attributes for an RFC 3161
+        /// timestamp token, verifying it cryptographically, parsing its TSTInfo,
+        /// confirming its binding to the signer signature, and (optionally)
+        /// validating the timestamping authority (TSA) chain, with a byte-scan
+        /// fallback when full decoding fails.
+        /// </summary>
+        /// <param name="signer">
+        /// The signer whose unsigned attributes are searched.
+        /// </param>
+        /// <param name="rootCms">
+        /// The CMS message that contains the signer and its certificates.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling timestamp processing.
+        /// </param>
+        /// <param name="info">
+        /// Upon return, receives the timestamp information populated for the
+        /// signer.
+        /// </param>
+        /// <returns>
+        /// True if an RFC 3161 timestamp token was found; otherwise, false.
+        /// </returns>
         private static bool TryFindRfc3161OnSigner(
             SignerInfo signer,
             SignedCms rootCms,
@@ -2372,6 +3006,41 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Chain Build With Custom Trust & Revocation
+        /// <summary>
+        /// This method builds and validates a certificate chain for the given
+        /// leaf certificate, applying revocation, verification-time, extended
+        /// key usage (EKU), extra-store, and custom-root-trust policy, with a
+        /// compatibility fallback for runtimes that cannot apply custom root
+        /// trust directly.
+        /// </summary>
+        /// <param name="leaf">
+        /// The leaf certificate to build the chain for.
+        /// </param>
+        /// <param name="extra">
+        /// Additional certificates to add to the chain's extra store.
+        /// </param>
+        /// <param name="verificationTime">
+        /// The time at which to evaluate certificate validity, or null to use
+        /// the current time.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling chain-building policy.
+        /// </param>
+        /// <param name="customRoots">
+        /// The custom root certificates to trust when custom root trust is
+        /// enabled.
+        /// </param>
+        /// <param name="requireTimeStampingEku">
+        /// When true, the timeStamping extended key usage (EKU) is required;
+        /// otherwise, the code-signing EKU is required.
+        /// </param>
+        /// <param name="statusStrings">
+        /// Upon return, receives the chain status strings produced by the build.
+        /// </param>
+        /// <returns>
+        /// True if the chain was built and validated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool BuildChainWithOptions(
             X509Certificate2 leaf,
             X509Certificate2Collection extra,
@@ -2382,182 +3051,222 @@ namespace Eagle._Components.Private
             out string[] statusStrings
             )
         {
-            X509Chain chain = new X509Chain();
-
-            //
-            // NOTE: Policy settings.
-            //
-            chain.ChainPolicy.RevocationMode = options.RevocationMode;
-
-            chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EntireChain;
-
-            chain.ChainPolicy.UrlRetrievalTimeout =
-                options.RevocationUrlRetrievalTimeout;
-
-            chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
-
-            if (verificationTime.HasValue)
+            using (X509Chain chain = new X509Chain())
             {
-                chain.ChainPolicy.VerificationTime = verificationTime.Value
-                        .UtcDateTime;
-            }
+                //
+                // NOTE: Policy settings.
+                //
+                chain.ChainPolicy.RevocationMode = options.RevocationMode;
 
-            //
-            // NOTE: EKU constraints -- for code signing or TSA depending on
-            //       use-case.
-            //
-            if (requireTimeStampingEku)
-            {
-                chain.ChainPolicy.ApplicationPolicy.Add(new Oid(
-                        "1.3.6.1.5.5.7.3.8"));
-            }
-            else
-            {
-                chain.ChainPolicy.ApplicationPolicy.Add(new Oid(
-                        "1.3.6.1.5.5.7.3.3"));
-            }
+                chain.ChainPolicy.RevocationFlag = X509RevocationFlag.EntireChain;
 
-            if ((extra != null) && (extra.Count > 0))
-            {
-                chain.ChainPolicy.ExtraStore.AddRange(extra);
-            }
+                chain.ChainPolicy.UrlRetrievalTimeout =
+                    options.RevocationUrlRetrievalTimeout;
 
-            //
-            // NOTE: Try to enable Custom Root Trust
-            //       on capable runtimes (.NET 5+).
-            //
-            bool customApplied = false;
+                chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
 
-            if ((options.UseCustomRootTrust) && (customRoots != null) &&
-                (customRoots.Length > 0))
-            {
-                try
+                if (verificationTime.HasValue)
                 {
-                    //
-                    // NOTE: Reflection to avoid compile-time dependency
-                    //       (still compiles on netstandard2.0).
-                    //
-                    X509ChainPolicy policy = chain.ChainPolicy;
+                    chain.ChainPolicy.VerificationTime = verificationTime.Value
+                            .UtcDateTime;
+                }
 
-                    System.Reflection.PropertyInfo
-                        trustModeProp = policy.GetType().GetProperty(
-                            "TrustMode");
+                //
+                // NOTE: EKU constraints -- for code signing or TSA depending on
+                //       use-case.
+                //
+                if (requireTimeStampingEku)
+                {
+                    chain.ChainPolicy.ApplicationPolicy.Add(new Oid(
+                            "1.3.6.1.5.5.7.3.8"));
+                }
+                else
+                {
+                    chain.ChainPolicy.ApplicationPolicy.Add(new Oid(
+                            "1.3.6.1.5.5.7.3.3"));
+                }
 
-                    System.Reflection.PropertyInfo
-                        customTrustStoreProp = policy.GetType().GetProperty(
-                            "CustomTrustStore");
+                if ((extra != null) && (extra.Count > 0))
+                {
+                    chain.ChainPolicy.ExtraStore.AddRange(extra);
+                }
 
-                    if ((trustModeProp != null) &&
-                        (customTrustStoreProp != null))
+                //
+                // NOTE: Try to enable Custom Root Trust
+                //       on capable runtimes (.NET 5+).
+                //
+                bool customApplied = false;
+
+                if ((options.UseCustomRootTrust) && (customRoots != null) &&
+                    (customRoots.Length > 0))
+                {
+                    try
                     {
-                        Type x509ChainTrustModeType =
-                            trustModeProp.PropertyType;
+                        //
+                        // NOTE: Reflection to avoid compile-time dependency
+                        //       (still compiles on netstandard2.0).
+                        //
+                        X509ChainPolicy policy = chain.ChainPolicy;
 
-                        object customRootTrustEnum = Enum.Parse(
-                                x509ChainTrustModeType, "CustomRootTrust");
+                        System.Reflection.PropertyInfo
+                            trustModeProp = policy.GetType().GetProperty(
+                                "TrustMode");
 
-                        trustModeProp.SetValue(policy,
-                            customRootTrustEnum, null);
+                        System.Reflection.PropertyInfo
+                            customTrustStoreProp = policy.GetType().GetProperty(
+                                "CustomTrustStore");
 
-                        X509Certificate2Collection
-                            customStore = (X509Certificate2Collection)
-                            customTrustStoreProp.GetValue(policy, null);
-
-                        for (int i = 0;
-                                i < customRoots.Length;
-                                i++)
+                        if ((trustModeProp != null) &&
+                            (customTrustStoreProp != null))
                         {
-                            customStore.Add(customRoots[i]);
-                        }
+                            Type x509ChainTrustModeType =
+                                trustModeProp.PropertyType;
 
-                        customApplied = true;
+                            object customRootTrustEnum = Enum.Parse(
+                                    x509ChainTrustModeType, "CustomRootTrust");
+
+                            trustModeProp.SetValue(policy,
+                                customRootTrustEnum, null);
+
+                            X509Certificate2Collection
+                                customStore = (X509Certificate2Collection)
+                                customTrustStoreProp.GetValue(policy, null);
+
+                            for (int i = 0;
+                                    i < customRoots.Length;
+                                    i++)
+                            {
+                                customStore.Add(customRoots[i]);
+                            }
+
+                            customApplied = true;
+                        }
+                    }
+                    catch (Exception e)
+                    {
+                        TraceOps.DebugTrace(e, typeof(WinTrustDotNet).Name,
+                            TracePriority.SecurityError);
+
+                        customApplied = false;
                     }
                 }
-                catch (Exception e)
-                {
-                    TraceOps.DebugTrace(e, typeof(WinTrustDotNet).Name,
-                        TracePriority.SecurityError);
 
-                    customApplied = false;
-                }
-            }
+                //
+                // NOTE: Build the chain.
+                //
+                bool ok = chain.Build(leaf);
 
-            //
-            // NOTE: Build the chain.
-            //
-            bool ok = chain.Build(leaf);
-
-            //
-            // NOTE: Convert statuses.
-            //
-            List<string> st = new List<string>();
-
-            for (int i = 0;
-                    i < chain.ChainStatus.Length;
-                    i++)
-            {
-                X509ChainStatus s = chain.ChainStatus[i];
-
-                string line = s.Status.ToString();
-
-                if (!string.IsNullOrEmpty(s.StatusInformation))
-                {
-                    line += ": " + s.StatusInformation.Trim();
-                }
-
-                st.Add(line);
-            }
-
-            statusStrings = st.ToArray();
-
-            //
-            // NOTE: Compatibility fallback for older
-            //       runtimes if only UntrustedRoot
-            //       and top matches our custom root.
-            //
-            if ((!ok) &&
-                (options.UseCustomRootTrust) &&
-                (!customApplied) &&
-                (options
-                    .TrustIfOnlyUntrustedRootAndMatchesCustomRoot))
-            {
-                bool onlyUntrustedRoot = true;
+                //
+                // NOTE: Convert statuses.
+                //
+                List<string> st = new List<string>();
 
                 for (int i = 0;
                         i < chain.ChainStatus.Length;
                         i++)
                 {
-                    X509ChainStatusFlags s = chain.ChainStatus[i].Status;
+                    X509ChainStatus s = chain.ChainStatus[i];
 
-                    if ((s != X509ChainStatusFlags.UntrustedRoot) &&
-                        (s != X509ChainStatusFlags.NoError))
+                    string line = s.Status.ToString();
+
+                    if (!string.IsNullOrEmpty(s.StatusInformation))
                     {
-                        onlyUntrustedRoot = false;
-                        break;
+                        line += ": " + s.StatusInformation.Trim();
                     }
+
+                    st.Add(line);
                 }
 
-                if ((onlyUntrustedRoot) && (chain.ChainElements.Count > 0))
+                statusStrings = st.ToArray();
+
+                //
+                // NOTE: Compatibility fallback for older
+                //       runtimes if only UntrustedRoot
+                //       and top matches our custom root.
+                //
+                if ((!ok) &&
+                    (options.UseCustomRootTrust) &&
+                    (!customApplied) &&
+                    (options
+                        .TrustIfOnlyUntrustedRootAndMatchesCustomRoot))
                 {
-                    X509Certificate2 root = chain.ChainElements[
-                            chain.ChainElements.Count - 1].Certificate;
+                    bool onlyUntrustedRoot = true;
 
-                    if (IsInCollectionByThumbprint(customRoots, root))
+                    for (int i = 0;
+                            i < chain.ChainStatus.Length;
+                            i++)
                     {
-                        //
-                        // NOTE: Treat as trusted via provided roots.
-                        //
-                        ok = true;
+                        X509ChainStatusFlags s = chain.ChainStatus[i].Status;
+
+                        if ((s != X509ChainStatusFlags.UntrustedRoot) &&
+                            (s != X509ChainStatusFlags.NoError))
+                        {
+                            onlyUntrustedRoot = false;
+                            break;
+                        }
+                    }
+
+                    if ((onlyUntrustedRoot) && (chain.ChainElements.Count > 0))
+                    {
+                        X509Certificate2 root = chain.ChainElements[
+                                chain.ChainElements.Count - 1].Certificate;
+
+                        if (IsInCollectionByThumbprint(customRoots, root))
+                        {
+                            //
+                            // NOTE: Treat as trusted via provided roots.
+                            //
+                            ok = true;
+                        }
                     }
                 }
-            }
 
-            return ok;
+                return ok;
+            }
         }
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a certificate chain for the given leaf, and when
+        /// the initial build fails and AIA auto-download is enabled, repeatedly
+        /// downloads missing intermediate certificates by following Authority
+        /// Information Access (AIA) caIssuers URLs and retries up to the
+        /// configured depth.
+        /// </summary>
+        /// <param name="leaf">
+        /// The leaf certificate to build the chain for.
+        /// </param>
+        /// <param name="extra">
+        /// Additional certificates to add to the chain's extra store; newly
+        /// downloaded intermediates are added to this collection during the
+        /// build.
+        /// </param>
+        /// <param name="verificationTime">
+        /// The time at which to evaluate certificate validity, or null to use
+        /// the current time.
+        /// </param>
+        /// <param name="options">
+        /// The verification options controlling chain-building and AIA download
+        /// policy.
+        /// </param>
+        /// <param name="customRoots">
+        /// The custom root certificates to trust when custom root trust is
+        /// enabled.
+        /// </param>
+        /// <param name="requireTimeStampingEku">
+        /// When true, the timeStamping extended key usage (EKU) is required;
+        /// otherwise, the code-signing EKU is required.
+        /// </param>
+        /// <param name="statusStrings">
+        /// Upon return, receives the chain status strings produced by the final
+        /// build attempt.
+        /// </param>
+        /// <returns>
+        /// True if the chain was built and validated successfully; otherwise,
+        /// false.
+        /// </returns>
         private static bool BuildChainWithAutoAia(
             X509Certificate2 leaf,
             X509Certificate2Collection extra,
@@ -2600,135 +3309,206 @@ namespace Eagle._Components.Private
                 visitedThumbprints.Add(extra[i].Thumbprint);
             }
 
-            int depth = 0;
+            List<X509Certificate2> downloaded =
+                new List<X509Certificate2>();
 
-            while (depth < options.AiaMaxDepth)
+            try
             {
-                depth++;
+                int depth = 0;
 
-                //
-                // NOTE: Find certs currently in the
-                //       partial chain that have AIA
-                //       "caIssuers" URIs we have not
-                //       tried yet.  Rebuild to get the latest ChainElements
-                //       for inspection.
-                //
-                string[] ignore;
-
-                BuildChainWithOptions(leaf, extra, verificationTime,
-                    options, customRoots, requireTimeStampingEku, out ignore);
-
-                //
-                // NOTE: Gather candidates from leaf + all extras (simple and
-                //       robust).
-                //
-                List<string> urls = new List<string>();
-
-                GatherAiaUrls(leaf, urls, visitedUrls);
-
-                for (int i = 0;
-                        i < extra.Count; i++)
+                while (depth < options.AiaMaxDepth)
                 {
-                    GatherAiaUrls(extra[i], urls, visitedUrls);
-                }
+                    depth++;
 
-                //
-                // NOTE: Nothing left to try.
-                //
-                if (urls.Count == 0)
-                    break;
+                    //
+                    // NOTE: Find certs currently in the
+                    //       partial chain that have AIA
+                    //       "caIssuers" URIs we have not
+                    //       tried yet.  Rebuild to get the latest ChainElements
+                    //       for inspection.
+                    //
+                    string[] ignore;
 
-                //
-                // NOTE: Try to download any new certs and add to extra.
-                //
-                int added = 0;
+                    BuildChainWithOptions(leaf, extra, verificationTime,
+                        options, customRoots, requireTimeStampingEku, out ignore);
 
-                for (int u = 0;
-                        u < urls.Count; u++)
-                {
-                    string uri = urls[u];
+                    //
+                    // NOTE: Gather candidates from leaf + all extras (simple and
+                    //       robust).
+                    //
+                    List<string> urls = new List<string>();
 
-                    X509Certificate2[] fromUrl = DownloadCertificatesFromAia(
-                            uri, options);
+                    GatherAiaUrls(leaf, urls, visitedUrls);
 
-                    if (fromUrl == null)
-                        continue;
-
-                    for (int c = 0;
-                            c < fromUrl.Length; c++)
+                    for (int i = 0;
+                            i < extra.Count; i++)
                     {
-                        X509Certificate2 cert = fromUrl[c];
+                        GatherAiaUrls(extra[i], urls, visitedUrls);
+                    }
 
-                        if (cert == null)
+                    //
+                    // NOTE: Nothing left to try.
+                    //
+                    if (urls.Count == 0)
+                        break;
+
+                    //
+                    // NOTE: Try to download any new certs and add to extra.
+                    //
+                    int added = 0;
+
+                    for (int u = 0;
+                            u < urls.Count; u++)
+                    {
+                        string uri = urls[u];
+
+                        X509Certificate2[] fromUrl = DownloadCertificatesFromAia(
+                                uri, options);
+
+                        if (fromUrl == null)
                             continue;
 
-                        if (visitedThumbprints.Contains(cert.Thumbprint))
+                        for (int c = 0;
+                                c < fromUrl.Length; c++)
                         {
-                            continue;
-                        }
+                            X509Certificate2 cert = fromUrl[c];
 
-                        //
-                        // NOTE: Avoid adding the leaf itself again.
-                        //
-                        if (!StringEquals(cert.Thumbprint, leaf.Thumbprint))
-                        {
-                            extra.Add(cert);
+                            if (cert == null)
+                                continue;
 
-                            visitedThumbprints.Add(cert.Thumbprint);
+                            downloaded.Add(cert);
 
-                            added++;
+                            if (visitedThumbprints.Contains(cert.Thumbprint))
+                            {
+                                continue;
+                            }
+
+                            //
+                            // NOTE: Avoid adding the leaf itself again.
+                            //
+                            if (!StringEquals(cert.Thumbprint, leaf.Thumbprint))
+                            {
+                                extra.Add(cert);
+
+                                visitedThumbprints.Add(cert.Thumbprint);
+
+                                added++;
+                            }
                         }
                     }
+
+                    //
+                    // NOTE: No progress.
+                    //
+                    if (added == 0)
+                        break;
+
+                    //
+                    // NOTE: Retry build with the newly added intermediates.
+                    //
+                    ok = BuildChainWithOptions(leaf, extra, verificationTime,
+                        options, customRoots, requireTimeStampingEku,
+                        out statusStrings);
+
+                    if (ok) return true;
                 }
 
                 //
-                // NOTE: No progress.
+                // NOTE: Final attempt result is already
+                //       in statusStrings from the last build.
                 //
-                if (added == 0)
-                    break;
-
-                //
-                // NOTE: Retry build with the newly added intermediates.
-                //
-                ok = BuildChainWithOptions(leaf, extra, verificationTime,
-                    options, customRoots, requireTimeStampingEku,
-                    out statusStrings);
-
-                if (ok) return true;
+                return false;
             }
-
-            //
-            // NOTE: Final attempt result is already
-            //       in statusStrings from the last build.
-            //
-            return false;
+            finally
+            {
+                //
+                // BUGFIX: dispose the intermediate certificates downloaded
+                //         via AIA above.  They were added to the caller-
+                //         owned "extra" collection and used across the chain
+                //         builds, but the caller does not use that collection
+                //         after this method returns.
+                //
+                for (int i = 0; i < downloaded.Count; i++)
+                {
+                    try { downloaded[i].Dispose(); }
+                    catch { /* best effort */ }
+                }
+            }
         }
 
         ///////////////////////////////////////////////////////////////////////
 
         #region PE Parsing and Authenticode Hashing
+        /// <summary>
+        /// This class captures the parsed layout of a portable executable (PE)
+        /// file, recording the offsets and sizes needed to compute the
+        /// Authenticode hash and to locate the attribute certificate table.
+        /// </summary>
         [ObjectId("f776625a-56e5-4784-a404-7355ce61dc83")]
         private sealed class PeLayout
         {
+            /// <summary>
+            /// The file offset of the start of the PE optional header.
+            /// </summary>
             public long OptionalHeaderOffset;
+            /// <summary>
+            /// When true, the image uses the PE32+ (64-bit) optional header
+            /// format; otherwise, it uses the PE32 (32-bit) format.
+            /// </summary>
             public bool Pe32Plus;
+            /// <summary>
+            /// The file offset of the optional header CheckSum field.
+            /// </summary>
             public long ChecksumFieldOffset;
+            /// <summary>
+            /// The file offset of the security (certificate table) data
+            /// directory entry.
+            /// </summary>
             public long SecurityDirEntryOffset;
+            /// <summary>
+            /// The size, in bytes, of all PE headers.
+            /// </summary>
             public uint SizeOfHeaders;
+            /// <summary>
+            /// The number of sections in the image.
+            /// </summary>
             public ushort NumberOfSections;
+            /// <summary>
+            /// The size, in bytes, of the optional header.
+            /// </summary>
             public ushort SizeOfOptionalHeader;
 
             //
             // NOTE: File offset to first IMAGE_SECTION_HEADER.
             //
+            /// <summary>
+            /// The file offset of the first section header in the section table.
+            /// </summary>
             public long SectionTableOffset;
 
+            /// <summary>
+            /// The file offset of the attribute certificate table.
+            /// </summary>
             public long CertTableOffset;
+            /// <summary>
+            /// The size, in bytes, of the attribute certificate table.
+            /// </summary>
             public long CertTableSize;
         }
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads and validates the layout of a portable executable
+        /// (PE) file from the supplied stream, returning the offsets and sizes
+        /// needed for Authenticode hashing and signature location.
+        /// </summary>
+        /// <param name="fs">
+        /// The file stream positioned over the PE file to parse.
+        /// </param>
+        /// <returns>
+        /// A <see cref="PeLayout" /> describing the parsed PE file.
+        /// </returns>
         private static PeLayout ReadPeLayout(
             FileStream fs
             )
@@ -2876,6 +3656,25 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method iterates the WIN_CERTIFICATE entries in the attribute
+        /// certificate table and returns the body of the first PKCS#7 signed
+        /// data entry, validating entry lengths to guard against malformed
+        /// tables.
+        /// </summary>
+        /// <param name="fs">
+        /// The file stream positioned over the PE file.
+        /// </param>
+        /// <param name="certTableOffset">
+        /// The file offset of the attribute certificate table.
+        /// </param>
+        /// <param name="certTableSize">
+        /// The size, in bytes, of the attribute certificate table.
+        /// </param>
+        /// <returns>
+        /// The PKCS#7 blob from the first signed-data entry, or null if none
+        /// was found.
+        /// </returns>
         private static byte[]
             ReadFirstPkcs7FromWinCertificateTable(
             FileStream fs,
@@ -2931,8 +3730,18 @@ namespace Eagle._Components.Private
                     //
                     long padded = ((dwLength + 7U) & ~7U);
 
-                    long nextPos = (fs.Position -
-                            (dwLength - 8)) + padded;
+                    //
+                    // BUGFIX: Advance to the next entry at (entryStart +
+                    //         padded).  At this point fs.Position is
+                    //         (entryStart + dwLength) -- the full entry was
+                    //         consumed (8-byte header + (dwLength - 8) body) --
+                    //         so the entry start is (fs.Position - dwLength).
+                    //         The previous expression subtracted only the body
+                    //         length, overshooting the next entry by 8 bytes
+                    //         and misaligning iteration over multi-entry
+                    //         certificate tables.
+                    //
+                    long nextPos = (fs.Position - dwLength) + padded;
 
                     fs.Position = Math.Min(nextPos, limit);
                 }
@@ -2943,15 +3752,50 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This structure describes the raw-data span of a single PE section,
+        /// recording its file pointer and size for use during Authenticode
+        /// hashing.
+        /// </summary>
         [ObjectId("8ff97be4-d03f-4a00-a15b-24cfc10c8c55")]
         private struct SectionSpan
         {
+            /// <summary>
+            /// The file offset of the section's raw data
+            /// (PointerToRawData).
+            /// </summary>
             public uint PtrToRaw;  // PointerToRawData
+            /// <summary>
+            /// The size, in bytes, of the section's raw data
+            /// (SizeOfRawData).
+            /// </summary>
             public uint SizeRaw;   // SizeOfRawData
         }
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method computes the Authenticode hash of a PE file, hashing the
+        /// headers (excluding the checksum and certificate-table directory
+        /// entry), the sections in file order, and the overlay region up to the
+        /// attribute certificate table, while rejecting malformed or
+        /// non-trailing certificate tables.
+        /// </summary>
+        /// <param name="fs">
+        /// The file stream positioned over the PE file.
+        /// </param>
+        /// <param name="hash">
+        /// The hash algorithm used to accumulate the Authenticode digest.
+        /// </param>
+        /// <param name="pe">
+        /// The parsed PE layout describing the regions to hash.
+        /// </param>
+        /// <param name="options">
+        /// The verification options in effect for this computation.
+        /// </param>
+        /// <returns>
+        /// The computed Authenticode hash bytes.
+        /// </returns>
         private static byte[] ComputeAuthenticodeHash(
             FileStream fs,
             HashAlgorithm hash,
@@ -3043,41 +3887,44 @@ namespace Eagle._Components.Private
             }
 
             //
-            // NOTE: Hash any remaining bytes before the certificate table
-            //       (overlay/padding).
+            // BUGFIX: Step 3: hash the "extra data" (overlay) region between
+            //         the end of the last section and the attribute certificate
+            //         table.  The Authenticode algorithm hashes the ENTIRE file
+            //         except three regions: the checksum field, the certificate-
+            //         table data-directory entry, and the attribute certificate
+            //         table itself.  Everything else past the last section (the
+            //         overlay) IS hashed.
             //
-#if true
-            if (options.HashAnyRemainingBytes)
+            //         Previously this region was skipped unless the (off by
+            //         default) HashAnyRemainingBytes option was set.  That let
+            //         an attacker inject arbitrary bytes into the overlay of a
+            //         signed image and bump the (unhashed) certificate-table
+            //         directory entry past them, producing a file this routine
+            //         accepted but Windows WinVerifyTrust rejected -- i.e. a
+            //         signature-verification bypass.  (COMPAT: Windows
+            //         Authenticode)
+            //
+            //         For this to be sound the certificate table must be the
+            //         FINAL structure in the file (so there are no unhashed
+            //         trailing bytes after it) and must begin at or after the
+            //         already-hashed region; any other layout is malformed and
+            //         is rejected (fail-closed) by throwing.
+            //
+            long certTableOffset = pe.CertTableOffset;
+            long certTableSize = pe.CertTableSize;
+
+            if ((certTableSize < 0) ||
+                (certTableOffset < cursor) ||
+                (certTableOffset > fileLen) ||
+                ((certTableOffset + certTableSize) != fileLen))
             {
-                long certSize = pe.CertTableSize;
-
-                if (certSize < 0)
-                    certSize = 0;
-
-                long remaining2 = fileLen - (certSize + cursor);
-
-                if (remaining2 > 0)
-                {
-                    long overlayStart = cursor;
-
-                    long overlayEnd = overlayStart + remaining2;
-
-                    if ((overlayStart < fileLen) && (overlayEnd <= fileLen))
-                    {
-                        HashRange(fs, hash, overlayStart, overlayEnd);
-                    }
-                }
+                throw new InvalidOperationException(
+                    "malformed or non-trailing certificate table");
             }
-#endif
 
-            //
-            // NOTE: Step 3: DO NOT hash any bytes
-            //       past the last section.  (Overlay
-            //       is excluded.)  Per Microsoft Learn "Process for Generating
-            //       the Authenticode PE Image Hash":
-            //       "Information past the end of the
-            //       last section ... is not hashed."
-            //
+            if (certTableOffset > cursor)
+                HashRange(fs, hash, cursor, certTableOffset);
+
             hash.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
 
             return hash.Hash;
@@ -3085,6 +3932,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the section table of a PE file and returns the
+        /// raw-data spans of all sections that contain raw data.
+        /// </summary>
+        /// <param name="fs">
+        /// The file stream positioned over the PE file.
+        /// </param>
+        /// <param name="pe">
+        /// The parsed PE layout describing the section table location and count.
+        /// </param>
+        /// <returns>
+        /// An array of <see cref="SectionSpan" /> values for the sections with
+        /// raw data.
+        /// </returns>
         private static SectionSpan[] ReadSections(
             FileStream fs,
             PeLayout pe
@@ -3146,6 +4007,13 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sorts the supplied section spans in place by their raw
+        /// data pointer using an insertion sort.
+        /// </summary>
+        /// <param name="secs">
+        /// The array of section spans to sort.
+        /// </param>
         private static void SortSectionsByPtr(
             SectionSpan[] secs
             )
@@ -3170,6 +4038,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method feeds a half-open byte range of the file into the hash
+        /// algorithm, reading in buffered chunks.
+        /// </summary>
+        /// <param name="fs">
+        /// The file stream to read from.
+        /// </param>
+        /// <param name="hash">
+        /// The hash algorithm to update with the range bytes.
+        /// </param>
+        /// <param name="start">
+        /// The inclusive start file offset of the range.
+        /// </param>
+        /// <param name="end">
+        /// The exclusive end file offset of the range.
+        /// </param>
         private static void HashRange(
             FileStream fs,
             HashAlgorithm hash,
@@ -3206,6 +4090,25 @@ namespace Eagle._Components.Private
         // NOTE: Parse SpcIndirectDataContent into
         //       DigestInfo (AlgorithmIdentifier OID + digest OCTET STRING).
         //
+        /// <summary>
+        /// This method parses an SpcIndirectDataContent structure to recover
+        /// the digest algorithm object identifier (OID) and the expected digest
+        /// value from its embedded DigestInfo.
+        /// </summary>
+        /// <param name="eContent">
+        /// The encapsulated content bytes of the signed data.
+        /// </param>
+        /// <param name="digestOid">
+        /// Upon success, receives the digest algorithm OID; upon failure, is set
+        /// to null.
+        /// </param>
+        /// <param name="digest">
+        /// Upon success, receives the expected digest bytes; upon failure, is
+        /// set to null.
+        /// </param>
+        /// <returns>
+        /// True if both the digest OID and digest were parsed; otherwise, false.
+        /// </returns>
         private static bool
             TryParseSpcIndirectDataDigest(
             byte[] eContent,
@@ -3273,6 +4176,29 @@ namespace Eagle._Components.Private
         // NOTE: Parse RFC3161 TSTInfo: messageImprint.hashAlgorithm OID,
         //       messageImprint.hashedMessage, genTime (GeneralizedTime).
         //
+        /// <summary>
+        /// This method parses an RFC 3161 TSTInfo structure to recover the
+        /// message imprint hash algorithm object identifier (OID), the hashed
+        /// message, and the generation time.
+        /// </summary>
+        /// <param name="tstInfoDer">
+        /// The DER-encoded TSTInfo bytes to parse.
+        /// </param>
+        /// <param name="hashAlgOid">
+        /// Upon success, receives the message imprint hash algorithm OID; upon
+        /// failure, is set to null.
+        /// </param>
+        /// <param name="hashedMessage">
+        /// Upon success, receives the hashed message bytes; upon failure, is set
+        /// to null.
+        /// </param>
+        /// <param name="genTime">
+        /// Upon success, receives the timestamp generation time; upon failure,
+        /// is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the TSTInfo structure was parsed; otherwise, false.
+        /// </returns>
         private static bool TryParseRfc3161TstInfo(
             byte[] tstInfoDer,
             out string hashAlgOid,
@@ -3354,6 +4280,20 @@ namespace Eagle._Components.Private
         // NOTE: Unified way to obtain the raw
         //       signature bytes for a SignerInfo.
         //
+        /// <summary>
+        /// This method obtains the raw signature bytes for a signer, preferring
+        /// the runtime API when available and falling back to parsing the CMS
+        /// DER to locate the matching SignerInfo signature.
+        /// </summary>
+        /// <param name="signer">
+        /// The signer whose signature bytes are requested.
+        /// </param>
+        /// <param name="containerCms">
+        /// The CMS message that contains the signer.
+        /// </param>
+        /// <returns>
+        /// The raw signature bytes, or null if they could not be obtained.
+        /// </returns>
         private static byte[]
             GetSignerSignatureBytes(
             SignerInfo signer,
@@ -3428,6 +4368,23 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method re-encodes a CMS message to DER and extracts the
+        /// signature bytes of the target signer from it.
+        /// </summary>
+        /// <param name="cms">
+        /// The CMS message to encode and search.
+        /// </param>
+        /// <param name="target">
+        /// The signer whose signature bytes are requested.
+        /// </param>
+        /// <param name="signature">
+        /// Upon success, receives the signer signature bytes; upon failure, is
+        /// set to null.
+        /// </param>
+        /// <returns>
+        /// True if the signer signature was extracted; otherwise, false.
+        /// </returns>
         private static bool
             TryGetSignerSignatureFromCms(
             SignedCms cms,
@@ -3461,6 +4418,25 @@ namespace Eagle._Components.Private
         //       by Issuer+SerialNumber if available,
         //       otherwise by SubjectKeyIdentifier (SKI).
         //
+        /// <summary>
+        /// This method walks the DER encoding of a CMS message to find the
+        /// SignerInfo matching the target signer (by issuer and serial number,
+        /// or by subject key identifier) and returns its signature OCTET STRING.
+        /// </summary>
+        /// <param name="der">
+        /// The DER-encoded CMS ContentInfo bytes to search.
+        /// </param>
+        /// <param name="target">
+        /// The signer to match within the signerInfos set.
+        /// </param>
+        /// <param name="signature">
+        /// Upon success, receives the matched signer's signature bytes; upon
+        /// failure, is set to null.
+        /// </param>
+        /// <returns>
+        /// True if the matching signer signature was extracted; otherwise,
+        /// false.
+        /// </returns>
         private static bool
             TryExtractSignerSignatureFromCmsDer(
             byte[] der,
@@ -3921,6 +4897,16 @@ namespace Eagle._Components.Private
         //
         // NOTE: Helpers for matching.
         //
+        /// <summary>
+        /// This method returns the serial number of a certificate in big-endian
+        /// byte order.
+        /// </summary>
+        /// <param name="cert">
+        /// The certificate whose serial number is returned.
+        /// </param>
+        /// <returns>
+        /// The big-endian serial number bytes, or null on failure.
+        /// </returns>
         private static byte[] GetCertSerialBigEndian(
             X509Certificate2 cert
             )
@@ -3949,6 +4935,18 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes leading zero bytes from a byte array, leaving at
+        /// least one byte, so that two integer encodings can be compared after
+        /// normalization.
+        /// </summary>
+        /// <param name="v">
+        /// The byte array to trim.
+        /// </param>
+        /// <returns>
+        /// The trimmed byte array, or the original array when there is nothing
+        /// to trim.
+        /// </returns>
         private static byte[] TrimLeftZeros(
             byte[] v
             )
@@ -3974,6 +4972,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns the subject key identifier (SKI) extension value
+        /// of a certificate, if present.
+        /// </summary>
+        /// <param name="cert">
+        /// The certificate whose subject key identifier is returned.
+        /// </param>
+        /// <returns>
+        /// The subject key identifier bytes, or null if the extension is absent.
+        /// </returns>
         private static byte[]
             GetCertSubjectKeyIdentifier(
             X509Certificate2 cert
@@ -4011,6 +5019,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method reads the signingTime signed attribute of a signer and
+        /// returns it in Coordinated Universal Time (UTC).
+        /// </summary>
+        /// <param name="si">
+        /// The signer whose signing time is read.
+        /// </param>
+        /// <returns>
+        /// The signing time in UTC, or null if it is not present.
+        /// </returns>
         private static DateTimeOffset? TryGetSigningTimeUtc(
             SignerInfo si
             )
@@ -4060,6 +5078,21 @@ namespace Eagle._Components.Private
         //       single-valued attribute (RawData
         //       encodes the value, i.e., includes '04 len ...').
         //
+        /// <summary>
+        /// This method finds the attribute with the given object identifier
+        /// (OID) in a collection and returns the contents of its single
+        /// OCTET STRING value.
+        /// </summary>
+        /// <param name="attrs">
+        /// The attribute collection to search.
+        /// </param>
+        /// <param name="oid">
+        /// The object identifier (OID) of the attribute to find.
+        /// </param>
+        /// <returns>
+        /// The OCTET STRING contents of the matching attribute, or null if it is
+        /// not found or not well-formed.
+        /// </returns>
         private static byte[]
             GetSingleAttributeOctetValue(CryptographicAttributeObjectCollection
                 attrs,
@@ -4113,6 +5146,20 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Utilities
+        /// <summary>
+        /// This method compares two byte arrays for equality using a
+        /// constant-time comparison to avoid timing side channels.
+        /// </summary>
+        /// <param name="a">
+        /// The first byte array to compare.
+        /// </param>
+        /// <param name="b">
+        /// The second byte array to compare.
+        /// </param>
+        /// <returns>
+        /// True if the arrays are equal in length and contents; otherwise,
+        /// false.
+        /// </returns>
         private static bool BytesEqual(
             byte[] a,
             byte[] b
@@ -4149,6 +5196,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method compares two strings for equality using an ordinal
+        /// (case-sensitive) comparison.
+        /// </summary>
+        /// <param name="a">
+        /// The first string to compare.
+        /// </param>
+        /// <param name="b">
+        /// The second string to compare.
+        /// </param>
+        /// <returns>
+        /// True if the strings are ordinally equal; otherwise, false.
+        /// </returns>
         private static bool StringEquals(
             string a,
             string b
@@ -4159,6 +5219,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether two certificates have the same
+        /// thumbprint.
+        /// </summary>
+        /// <param name="a">
+        /// The first certificate to compare.
+        /// </param>
+        /// <param name="b">
+        /// The second certificate to compare.
+        /// </param>
+        /// <returns>
+        /// True if both certificates are non-null and share the same
+        /// thumbprint; otherwise, false.
+        /// </returns>
         private static bool CertEqualThumbprint(
             X509Certificate2 a,
             X509Certificate2 b
@@ -4172,6 +5246,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a certificate appears in a collection
+        /// by comparing thumbprints.
+        /// </summary>
+        /// <param name="set">
+        /// The collection of certificates to search.
+        /// </param>
+        /// <param name="cert">
+        /// The certificate to look for.
+        /// </param>
+        /// <returns>
+        /// True if a certificate with the same thumbprint is present; otherwise,
+        /// false.
+        /// </returns>
         private static bool
             IsInCollectionByThumbprint(
             X509Certificate2[] set,
@@ -4194,6 +5282,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a digest algorithm is permitted by
+        /// policy, rejecting MD5 and SHA-1 unless explicitly allowed by the
+        /// options.
+        /// </summary>
+        /// <param name="oid">
+        /// The object identifier (OID) of the digest algorithm to check.
+        /// </param>
+        /// <param name="options">
+        /// The verification options carrying the digest-algorithm policy.
+        /// </param>
+        /// <returns>
+        /// True if the digest algorithm is allowed; otherwise, false.
+        /// </returns>
         private static bool IsDigestAlgorithmAllowed(
             string oid,
             VerificationOptions options
@@ -4225,6 +5327,16 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a hash algorithm instance corresponding to a
+        /// digest algorithm object identifier (OID).
+        /// </summary>
+        /// <param name="oid">
+        /// The object identifier (OID) of the digest algorithm.
+        /// </param>
+        /// <returns>
+        /// A new hash algorithm instance, or null if the OID is unrecognized.
+        /// </returns>
         private static HashAlgorithm CreateHashFromOid(
             string oid
             )
@@ -4251,6 +5363,19 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method loads all certificate files (*.cer/*.crt/*.der/*.pem)
+        /// from a directory, expanding PEM files that contain multiple
+        /// certificates.
+        /// </summary>
+        /// <param name="dir">
+        /// The directory to load certificate files from.  If this parameter is
+        /// null, empty, or refers to a missing directory, null is returned.
+        /// </param>
+        /// <returns>
+        /// An array of the loaded certificates, or null if the directory is not
+        /// usable.
+        /// </returns>
         private static X509Certificate2[]
             LoadCertificatesFromDirectory(
             string dir
@@ -4323,6 +5448,17 @@ namespace Eagle._Components.Private
         //
         // NOTE: Minimal PEM parser for "-----BEGIN CERTIFICATE-----".
         //
+        /// <summary>
+        /// This method extracts the DER bytes of the first certificate from a
+        /// PEM-encoded buffer.
+        /// </summary>
+        /// <param name="pemBytes">
+        /// The PEM-encoded certificate bytes.
+        /// </param>
+        /// <returns>
+        /// The DER bytes of the first certificate, or null if no valid
+        /// certificate block was found.
+        /// </returns>
         private static byte[] PemToDer(
             byte[] pemBytes
             )
@@ -4368,6 +5504,17 @@ namespace Eagle._Components.Private
         //       "-----BEGIN CERTIFICATE-----" blocks
         //       (e.g., a full certificate chain).
         //
+        /// <summary>
+        /// This method extracts the DER bytes of every certificate from a
+        /// PEM-encoded buffer that may contain multiple certificate blocks.
+        /// </summary>
+        /// <param name="pemBytes">
+        /// The PEM-encoded certificate bytes.
+        /// </param>
+        /// <returns>
+        /// An array of DER certificate byte arrays, or null if no valid
+        /// certificate blocks were found.
+        /// </returns>
         private static byte[][] PemToDerMultiple(
             byte[] pemBytes
             )
@@ -4420,6 +5567,20 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method collects the Authority Information Access (AIA)
+        /// caIssuers URLs from a certificate, skipping any URL already visited.
+        /// </summary>
+        /// <param name="cert">
+        /// The certificate whose AIA extension is examined.
+        /// </param>
+        /// <param name="outUrls">
+        /// The list that receives the newly discovered caIssuers URLs.
+        /// </param>
+        /// <param name="visitedUrls">
+        /// The set of already-seen URLs, updated with any URLs added to
+        /// <paramref name="outUrls" />.
+        /// </param>
         private static void GatherAiaUrls(
             X509Certificate2 cert,
             List<string> outUrls,
@@ -4501,6 +5662,22 @@ namespace Eagle._Components.Private
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method downloads certificates from an Authority Information
+        /// Access (AIA) URL, enforcing the scheme, timeout, and response-size
+        /// policy, and attempts to decode the response as a PKCS#7 certificate
+        /// bag, a single DER certificate, or a PEM certificate.
+        /// </summary>
+        /// <param name="uri">
+        /// The AIA URL to download certificates from.
+        /// </param>
+        /// <param name="options">
+        /// The verification options carrying the AIA download policy.
+        /// </param>
+        /// <returns>
+        /// An array of the downloaded certificates, or null on policy rejection,
+        /// network failure, or decode failure.
+        /// </returns>
         private static X509Certificate2[]
             DownloadCertificatesFromAia(
             string uri,
@@ -4645,15 +5822,36 @@ namespace Eagle._Components.Private
         ///////////////////////////////////////////////////////////////////////
 
         #region Minimal DER Reader
+        /// <summary>
+        /// This class implements a minimal forward-only reader for a subset of
+        /// DER (Distinguished Encoding Rules) used to parse the ASN.1 structures
+        /// involved in Authenticode signatures and timestamps.
+        /// </summary>
         [ObjectId("4339cc70-a38e-46fb-ae69-26590049be84")]
         private sealed class DerReader
         {
+            /// <summary>
+            /// The backing buffer being read.
+            /// </summary>
             private readonly byte[] _data;
+            /// <summary>
+            /// The current read position within the buffer.
+            /// </summary>
             private int _pos;
+            /// <summary>
+            /// The exclusive end position of the readable region.
+            /// </summary>
             private readonly int _end;
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Constructs a reader over an entire byte buffer.
+            /// </summary>
+            /// <param name="data">
+            /// The buffer to read from.  This parameter may be null, in which
+            /// case the reader has no readable data.
+            /// </param>
             public DerReader(
                 byte[] data
                 ) : this(data, 0, data != null ? data.Length : 0)
@@ -4663,6 +5861,18 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Constructs a reader over a sub-range of a byte buffer.
+            /// </summary>
+            /// <param name="data">
+            /// The buffer to read from.
+            /// </param>
+            /// <param name="offset">
+            /// The start offset of the readable region within the buffer.
+            /// </param>
+            /// <param name="length">
+            /// The length, in bytes, of the readable region.
+            /// </param>
             private DerReader(
                 byte[] data,
                 int offset,
@@ -4676,6 +5886,9 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// Gets a value indicating whether there is more data to read.
+            /// </summary>
             public bool HasData
             {
                 get { return _pos < _end; }
@@ -4683,6 +5896,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads a GeneralName URI ([6] IA5String, tag 0x86) at
+            /// the current position if present; otherwise, it skips the current
+            /// value to keep parsing aligned.
+            /// </summary>
+            /// <returns>
+            /// The URI string if the current element is a URI; otherwise, null.
+            /// </returns>
             public string ReadUriIfPresent()
             {
                 //
@@ -4718,6 +5939,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method returns the tag byte at the current position without
+            /// advancing the reader.
+            /// </summary>
+            /// <returns>
+            /// The tag byte at the current position.
+            /// </returns>
             public byte PeekTag()
             {
                 if (_pos >= _end)
@@ -4734,6 +5962,22 @@ namespace Eagle._Components.Private
             // NOTE: Correctly returns the SEQUENCE
             //       start (tag) and total encoded length (header + content).
             //
+            /// <summary>
+            /// This method reads a SEQUENCE and reports its start offset (at the
+            /// tag) and total encoded length (header plus content), advancing
+            /// past it.
+            /// </summary>
+            /// <param name="sequenceStart">
+            /// Upon success, receives the offset of the SEQUENCE tag; upon
+            /// failure, is set to zero.
+            /// </param>
+            /// <param name="totalEncodedLength">
+            /// Upon success, receives the total encoded length of the SEQUENCE;
+            /// upon failure, is set to zero.
+            /// </param>
+            /// <returns>
+            /// True if a SEQUENCE was read; otherwise, false.
+            /// </returns>
             public bool TryReadRawSequenceFull(
                 out int sequenceStart,
                 out int totalEncodedLength
@@ -4787,6 +6031,22 @@ namespace Eagle._Components.Private
             //       its raw slice offsets (without
             //       advancing outer reader except consuming the sequence).
             //
+            /// <summary>
+            /// This method reads a SEQUENCE and reports the offset of its
+            /// content and its total encoded length (header plus content),
+            /// advancing past it.
+            /// </summary>
+            /// <param name="contentStart">
+            /// Upon success, receives the offset of the SEQUENCE content; upon
+            /// failure, is set to zero.
+            /// </param>
+            /// <param name="totalLength">
+            /// Upon success, receives the total encoded length of the SEQUENCE;
+            /// upon failure, is set to zero.
+            /// </param>
+            /// <returns>
+            /// True if a SEQUENCE was read; otherwise, false.
+            /// </returns>
             public bool TryReadRawSequence(
                 out int contentStart,
                 out int totalLength
@@ -4830,6 +6090,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads a SEQUENCE and returns a new reader scoped to
+            /// its content, advancing this reader past the SEQUENCE.
+            /// </summary>
+            /// <returns>
+            /// A reader over the content of the SEQUENCE.
+            /// </returns>
             public DerReader ReadSequence()
             {
                 byte tag;
@@ -4853,6 +6120,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method skips the current value (of any tag), advancing the
+            /// reader past it.
+            /// </summary>
             public void SkipValue()
             {
                 byte tag;
@@ -4865,6 +6136,10 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method advances the reader to the end of its readable
+            /// region, discarding any remaining data.
+            /// </summary>
             public void SkipToEnd()
             {
                 _pos = _end;
@@ -4872,6 +6147,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method skips the current value, requiring that it carry the
+            /// expected tag and throwing if it does not.
+            /// </summary>
+            /// <param name="expectedTag">
+            /// The tag byte that the current value is required to have.
+            /// </param>
             public void SkipValueExpectedTag(
                 byte expectedTag
                 )
@@ -4891,6 +6173,13 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads an OBJECT IDENTIFIER and returns its
+            /// dotted-decimal string form.
+            /// </summary>
+            /// <returns>
+            /// The dotted-decimal representation of the OID.
+            /// </returns>
             public string ReadOid()
             {
                 byte tag;
@@ -4948,6 +6237,12 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads an OCTET STRING and returns its contents.
+            /// </summary>
+            /// <returns>
+            /// The bytes contained in the OCTET STRING.
+            /// </returns>
             public byte[] ReadOctetString()
             {
                 byte tag;
@@ -4975,6 +6270,14 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads a GeneralizedTime value (which must be in UTC,
+            /// ending with 'Z'), tolerating optional fractional seconds, and
+            /// returns it as a date and time offset.
+            /// </summary>
+            /// <returns>
+            /// The parsed GeneralizedTime as a UTC date and time offset.
+            /// </returns>
             public DateTimeOffset
                 ReadGeneralizedTime()
             {
@@ -5046,6 +6349,21 @@ namespace Eagle._Components.Private
 
             ///////////////////////////////////////////////////////////////////
 
+            /// <summary>
+            /// This method reads the tag and definite-length fields at the
+            /// current position, advancing past them and validating that the
+            /// length does not exceed the readable region.
+            /// </summary>
+            /// <param name="tag">
+            /// Upon return, receives the tag byte.
+            /// </param>
+            /// <param name="len">
+            /// Upon return, receives the content length.
+            /// </param>
+            /// <param name="headerLen">
+            /// Upon return, receives the number of bytes consumed by the tag and
+            /// length fields.
+            /// </param>
             private void ReadTagLen(
                 out byte tag,
                 out int len,
@@ -5095,10 +6413,23 @@ namespace Eagle._Components.Private
                         len = (len << 8) | _data[_pos++];
                     }
 
+                    //
+                    // BUGFIX: A 4-byte length with the high bit set yields a
+                    //         negative int; reject any negative length so the
+                    //         bounds check below cannot be bypassed by integer
+                    //         wraparound (lengths beyond the int range are not
+                    //         supported here).
+                    //
+                    if (len < 0)
+                    {
+                        throw
+                            new InvalidDataException("Invalid length");
+                    }
+
                     headerLen = 2 + n;
                 }
 
-                if (_pos + len > _end)
+                if ((long)_pos + (long)len > _end)
                 {
                     throw new InvalidDataException("Length exceeds container");
                 }
@@ -5109,6 +6440,29 @@ namespace Eagle._Components.Private
             //
             // NOTE: Helper used by GetSingleAttributeOctetValue.
             //
+            /// <summary>
+            /// This method reads a DER definite-length field from a buffer at a
+            /// given offset, validating that the resulting content fits within
+            /// the buffer.
+            /// </summary>
+            /// <param name="data">
+            /// The buffer containing the length field.
+            /// </param>
+            /// <param name="offset">
+            /// The offset of the length field within the buffer.
+            /// </param>
+            /// <param name="len">
+            /// Upon success, receives the decoded content length; upon failure,
+            /// is set to zero.
+            /// </param>
+            /// <param name="contentOffset">
+            /// Upon success, receives the offset of the content following the
+            /// length field; upon failure, is set to zero.
+            /// </param>
+            /// <returns>
+            /// True if a valid length was read and the content fits within the
+            /// buffer; otherwise, false.
+            /// </returns>
             public static bool ReadLength(
                 byte[] data,
                 int offset,
@@ -5150,7 +6504,15 @@ namespace Eagle._Components.Private
                 len = val;
                 contentOffset = offset + 1 + n;
 
-                return (contentOffset + len <= data.Length);
+                //
+                // BUGFIX: Reject a negative length (4-byte length with the high
+                //         bit set) and use widened arithmetic for the bounds
+                //         check so it cannot be bypassed by integer overflow.
+                //
+                if (len < 0)
+                    return false;
+
+                return ((long)contentOffset + (long)len <= data.Length);
             }
         }
         #endregion

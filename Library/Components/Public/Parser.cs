@@ -29,6 +29,11 @@ using Index = Eagle._Constants.Index;
 namespace Eagle._Components.Public
 {
     #region Parse Token Class
+    /// <summary>
+    /// This class represents a single token produced by the Eagle script
+    /// parser, such as a word, a variable reference, a command substitution,
+    /// or a backslash sequence.
+    /// </summary>
     [ObjectId("36d66e11-af5d-45ab-8c0a-fc77b4e08153")]
     public class ParseToken :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -37,7 +42,13 @@ namespace Eagle._Components.Public
         IToken
     {
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this token, reserved for application usage.
+        /// </summary>
         private IClientData clientData; // RESERVED for application usage.
+        /// <summary>
+        /// Gets or sets the client data associated with this token.
+        /// </summary>
         public virtual IClientData ClientData
         {
             get { return clientData; }
@@ -48,7 +59,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region IScriptLocation Members
+        /// <summary>
+        /// The name of the file, if any, that this token was parsed from.
+        /// </summary>
         private string fileName;
+        /// <summary>
+        /// Gets or sets the name of the file, if any, that this token was parsed from.
+        /// </summary>
         public virtual string FileName
         {
             get { return fileName; }
@@ -57,7 +74,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The line number where this token starts.
+        /// </summary>
         private int startLine;
+        /// <summary>
+        /// Gets or sets the line number where this token starts.
+        /// </summary>
         public virtual int StartLine
         {
             get { return startLine; }
@@ -66,7 +89,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The line number where this token ends.
+        /// </summary>
         private int endLine;
+        /// <summary>
+        /// Gets or sets the line number where this token ends.
+        /// </summary>
         public virtual int EndLine
         {
             get { return endLine; }
@@ -75,7 +104,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if this token was parsed via the <c>source</c> command.
+        /// </summary>
         private bool viaSource;
+        /// <summary>
+        /// Gets or sets a value indicating whether this token was parsed via the
+        /// <c>source</c> command.
+        /// </summary>
         public virtual bool ViaSource
         {
             get { return viaSource; }
@@ -84,6 +120,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs representing the
+        /// properties of this token, using its own text.
+        /// </summary>
+        /// <returns>
+        /// The list of name/value pairs representing this token.
+        /// </returns>
         public virtual StringPairList ToList()
         {
             return ToList(GetText(), false);
@@ -91,6 +134,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs representing the
+        /// properties of this token, using its own text.
+        /// </summary>
+        /// <param name="scrub">
+        /// Non-zero to scrub the file name of any sensitive path information.
+        /// </param>
+        /// <returns>
+        /// The list of name/value pairs representing this token.
+        /// </returns>
         public virtual StringPairList ToList(bool scrub)
         {
             return ToList(GetText(), scrub);
@@ -100,7 +153,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region IToken Members
+        /// <summary>
+        /// The parser state that this token belongs to.
+        /// </summary>
         private IParseState parseState;    // Parser state that this token belongs to.
+        /// <summary>
+        /// Gets or sets the parser state that this token belongs to.
+        /// </summary>
         public virtual IParseState ParseState
         {
             get { return parseState; }
@@ -109,7 +168,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The type of this token, such as a word or a variable.
+        /// </summary>
         private TokenType type; // Type of token, such as 'Command'.
+        /// <summary>
+        /// Gets or sets the type of this token, such as a word or a variable.
+        /// </summary>
         public virtual TokenType Type
         {
             get { return type; }
@@ -118,7 +183,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The syntax highlighting type associated with this token.
+        /// </summary>
         private TokenSyntaxType syntaxType;
+        /// <summary>
+        /// Gets or sets the syntax highlighting type associated with this token.
+        /// </summary>
         public virtual TokenSyntaxType SyntaxType
         {
             get { return syntaxType; }
@@ -127,7 +198,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The flags associated with this token.
+        /// </summary>
         private TokenFlags flags;
+        /// <summary>
+        /// Gets or sets the flags associated with this token.
+        /// </summary>
         public virtual TokenFlags Flags
         {
             get { return flags; }
@@ -136,7 +213,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The starting character offset of this token within the script text.
+        /// </summary>
         private int start;      // Starting offset.
+        /// <summary>
+        /// Gets or sets the starting character offset of this token within the
+        /// script text.
+        /// </summary>
         public virtual int Start
         {
             get { return start; }
@@ -145,7 +229,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The length, in characters, of this token within the script text.
+        /// </summary>
         private int length;     // Length in characters.
+        /// <summary>
+        /// Gets or sets the length, in characters, of this token within the
+        /// script text.
+        /// </summary>
         public virtual int Length
         {
             get { return length; }
@@ -158,7 +249,14 @@ namespace Eagle._Components.Public
         // components of components, etc).  The component
         // tokens immediately follow this one.
 
+        /// <summary>
+        /// The number of component tokens that make up this token, if any.
+        /// </summary>
         private int components; // if this token is composed of other tokens, this
+        /// <summary>
+        /// Gets or sets the number of component tokens that make up this token,
+        /// if any.
+        /// </summary>
         public virtual int Components
         {
             get { return components; }
@@ -167,6 +265,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the sub-string of the associated script text that corresponds to
+        /// this token.
+        /// </summary>
         public virtual string Text
         {
             get
@@ -187,7 +289,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if this token has been made read-only (immutable).
+        /// </summary>
         private bool immutable;
+        /// <summary>
+        /// This method determines whether this token has been made read-only
+        /// (immutable).
+        /// </summary>
+        /// <returns>
+        /// True if this token is immutable; otherwise, false.
+        /// </returns>
         public virtual bool IsImmutable()
         {
             return immutable;
@@ -195,6 +307,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes this token read-only (immutable), preventing further
+        /// changes to its properties.
+        /// </summary>
         public virtual void MakeImmutable()
         {
             immutable = true;
@@ -202,6 +318,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of this token, saving its current state.
+        /// </summary>
+        /// <param name="token">
+        /// Upon success, receives the newly created copy of this token.
+        /// </param>
         public virtual void Save(
             out IToken token
             )
@@ -211,6 +333,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of this token, associated with the specified
+        /// parser state, saving its current state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parser state to associate with the newly created token.
+        /// </param>
+        /// <param name="token">
+        /// Upon success, receives the newly created copy of this token.
+        /// </param>
         public virtual void Save(
             IParseState parseState,
             out IToken token
@@ -232,6 +364,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the state of this token from a previously saved
+        /// token.
+        /// </summary>
+        /// <param name="token">
+        /// The previously saved token to restore from.  Upon success, this is
+        /// reset to null.
+        /// </param>
+        /// <returns>
+        /// True if the state was restored; otherwise, false.
+        /// </returns>
         public virtual bool Restore(
             ref IToken token
             )
@@ -263,6 +406,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs representing the
+        /// properties of this token, using the specified script text.
+        /// </summary>
+        /// <param name="text">
+        /// The script text used to extract the textual value of this token.
+        /// </param>
+        /// <returns>
+        /// The list of name/value pairs representing this token.
+        /// </returns>
         public virtual StringPairList ToList(
             string text
             )
@@ -272,6 +425,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs representing the
+        /// properties of this token, using the specified script text.
+        /// </summary>
+        /// <param name="text">
+        /// The script text used to extract the textual value of this token.
+        /// </param>
+        /// <param name="scrub">
+        /// Non-zero to scrub the file name of any sensitive path information.
+        /// </param>
+        /// <returns>
+        /// The list of name/value pairs representing this token.
+        /// </returns>
         public virtual StringPairList ToList(
             string text,
             bool scrub
@@ -335,6 +501,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method formats the properties of this token into a string, using
+        /// the specified script text.
+        /// </summary>
+        /// <param name="text">
+        /// The script text used to extract the textual value of this token.
+        /// </param>
+        /// <returns>
+        /// The string representation of this token.
+        /// </returns>
         public virtual string ToString(
             string text
             )
@@ -346,6 +522,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method gets the script text associated with the parser state that
+        /// this token belongs to.
+        /// </summary>
+        /// <returns>
+        /// The associated script text, or null if it is not available.
+        /// </returns>
         private string GetText()
         {
             //
@@ -364,6 +547,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Members
+        /// <summary>
+        /// This method creates a new token associated with the specified parser
+        /// state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to associate with the new token.
+        /// </param>
+        /// <returns>
+        /// The newly created token.
+        /// </returns>
         public static IToken FromState(
             Interpreter interpreter, /* NOT USED */
             IParseState parseState
@@ -376,6 +572,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Protected Constructors
+        /// <summary>
+        /// Constructs an instance of this class, copying the properties from an
+        /// existing token.
+        /// </summary>
+        /// <param name="token">
+        /// The existing token whose properties should be copied, if any.
+        /// </param>
         protected ParseToken(
             IToken token
             )
@@ -399,6 +602,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, associated with the specified
+        /// parser state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parser state to associate with this token, if any.
+        /// </param>
         protected ParseToken(
             IParseState parseState
             )
@@ -421,6 +631,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this token.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this token.
+        /// </returns>
         public override string ToString()
         {
             return ToString(GetText());
@@ -432,6 +648,10 @@ namespace Eagle._Components.Public
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     #region Parse State Class
+    /// <summary>
+    /// This class represents the state maintained by the Eagle script parser
+    /// while it parses script text into tokens.
+    /// </summary>
     [ObjectId("28ff2466-3e33-4c83-a8fb-f37fcf192ec6")]
     public class ParseState :
 #if ISOLATED_INTERPRETERS || ISOLATED_PLUGINS
@@ -440,6 +660,16 @@ namespace Eagle._Components.Public
         IParseState
     {
         #region Private Constructors
+        /// <summary>
+        /// Constructs an instance of this class using the specified engine and
+        /// substitution flags.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
         internal ParseState(
             EngineFlags engineFlags,
             SubstitutionFlags substitutionFlags
@@ -451,6 +681,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified engine and
+        /// substitution flags, file name, and current line number.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file being parsed, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
         internal ParseState(
             EngineFlags engineFlags,
             SubstitutionFlags substitutionFlags,
@@ -464,6 +710,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class using the specified engine and
+        /// substitution flags, file name, current line number, and token flags.
+        /// </summary>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file being parsed, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
+        /// <param name="tokenFlags">
+        /// The default flags to apply to newly created tokens.
+        /// </param>
         private ParseState(
             EngineFlags engineFlags,
             SubstitutionFlags substitutionFlags,
@@ -481,6 +746,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class, copying the state from an existing
+        /// parser state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The existing parser state to copy, if any.
+        /// </param>
         private ParseState(
             IParseState parseState
             )
@@ -510,6 +782,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Static "Factory" Methods
+        /// <summary>
+        /// This method creates a new, empty parser state.
+        /// </summary>
+        /// <returns>
+        /// The newly created parser state.
+        /// </returns>
         public static IParseState Create()
         {
             return new ParseState(
@@ -520,7 +798,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region IParseState Members
+        /// <summary>
+        /// Non-zero if the parser was not ready to continue.
+        /// </summary>
         private bool notReady;
+        /// <summary>
+        /// Gets or sets a value indicating whether the parser was not ready to
+        /// continue.
+        /// </summary>
         public virtual bool NotReady
         {
             get { return notReady; }
@@ -529,7 +814,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The engine flags in effect while parsing.
+        /// </summary>
         private EngineFlags engineFlags;
+        /// <summary>
+        /// Gets or sets the engine flags in effect while parsing.
+        /// </summary>
         public virtual EngineFlags EngineFlags
         {
             get { return engineFlags; }
@@ -538,7 +829,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The substitution flags in effect while parsing.
+        /// </summary>
         private SubstitutionFlags substitutionFlags;
+        /// <summary>
+        /// Gets or sets the substitution flags in effect while parsing.
+        /// </summary>
         public virtual SubstitutionFlags SubstitutionFlags
         {
             get { return substitutionFlags; }
@@ -547,7 +844,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The name of the file being parsed, if any.
+        /// </summary>
         private string fileName;
+        /// <summary>
+        /// Gets or sets the name of the file being parsed, if any.
+        /// </summary>
         public virtual string FileName
         {
             get { return fileName; }
@@ -556,7 +859,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The current line number within the script text.
+        /// </summary>
         private int currentLine;
+        /// <summary>
+        /// Gets or sets the current line number within the script text.
+        /// </summary>
         public virtual int CurrentLine
         {
             get { return currentLine; }
@@ -565,7 +874,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character index where the current line begins.
+        /// </summary>
         private int lineStart;
+        /// <summary>
+        /// Gets or sets the character index where the current line begins.
+        /// </summary>
         public virtual int LineStart
         {
             get { return lineStart; }
@@ -574,7 +889,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character index where the current comment begins.
+        /// </summary>
         private int commentStart;
+        /// <summary>
+        /// Gets or sets the character index where the current comment begins.
+        /// </summary>
         public virtual int CommentStart
         {
             get { return commentStart; }
@@ -583,7 +904,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The length, in characters, of the current comment.
+        /// </summary>
         private int commentLength;
+        /// <summary>
+        /// Gets or sets the length, in characters, of the current comment.
+        /// </summary>
         public virtual int CommentLength
         {
             get { return commentLength; }
@@ -592,7 +919,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character index where the current command begins.
+        /// </summary>
         private int commandStart;
+        /// <summary>
+        /// Gets or sets the character index where the current command begins.
+        /// </summary>
         public virtual int CommandStart
         {
             get { return commandStart; }
@@ -601,7 +934,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The length, in characters, of the current command.
+        /// </summary>
         private int commandLength;
+        /// <summary>
+        /// Gets or sets the length, in characters, of the current command.
+        /// </summary>
         public virtual int CommandLength
         {
             get { return commandLength; }
@@ -610,7 +949,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The number of words in the current command.
+        /// </summary>
         private int commandWords;
+        /// <summary>
+        /// Gets or sets the number of words in the current command.
+        /// </summary>
         public virtual int CommandWords
         {
             get { return commandWords; }
@@ -619,7 +964,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The default flags applied to newly created tokens.
+        /// </summary>
         private TokenFlags tokenFlags;
+        /// <summary>
+        /// Gets or sets the default flags applied to newly created tokens.
+        /// </summary>
         public virtual TokenFlags TokenFlags
         {
             get { return tokenFlags; }
@@ -628,7 +979,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The list of tokens produced by parsing.
+        /// </summary>
         private TokenList tokens;
+        /// <summary>
+        /// Gets or sets the list of tokens produced by parsing.
+        /// </summary>
         public virtual TokenList Tokens
         {
             get { return tokens; }
@@ -637,7 +994,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The parse error, if any, that occurred.
+        /// </summary>
         private ParseError error;
+        /// <summary>
+        /// Gets or sets the parse error, if any, that occurred.
+        /// </summary>
         public virtual ParseError ParseError
         {
             get { return error; }
@@ -646,7 +1009,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The script text being parsed.
+        /// </summary>
         private string text;
+        /// <summary>
+        /// Gets or sets the script text being parsed.
+        /// </summary>
         public virtual string Text
         {
             get { return text; }
@@ -655,7 +1024,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The total number of characters available for parsing.
+        /// </summary>
         private int characters;
+        /// <summary>
+        /// Gets or sets the total number of characters available for parsing.
+        /// </summary>
         public virtual int Characters
         {
             get { return characters; }
@@ -664,7 +1039,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The character index of the terminator of the most recently parsed
+        /// construct.
+        /// </summary>
         private int terminator;
+        /// <summary>
+        /// Gets or sets the character index of the terminator of the most recently
+        /// parsed construct.
+        /// </summary>
         public virtual int Terminator
         {
             get { return terminator; }
@@ -673,7 +1056,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if the most recently parsed construct was incomplete.
+        /// </summary>
         private bool incomplete;
+        /// <summary>
+        /// Gets or sets a value indicating whether the most recently parsed
+        /// construct was incomplete.
+        /// </summary>
         public virtual bool Incomplete
         {
             get { return incomplete; }
@@ -682,7 +1072,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Non-zero if this parser state has been made read-only (immutable).
+        /// </summary>
         private bool immutable;
+        /// <summary>
+        /// This method determines whether this parser state has been made
+        /// read-only (immutable).
+        /// </summary>
+        /// <returns>
+        /// True if this parser state is immutable; otherwise, false.
+        /// </returns>
         public virtual bool IsImmutable()
         {
             return immutable;
@@ -690,6 +1090,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method makes this parser state, and all of its tokens, read-only
+        /// (immutable).
+        /// </summary>
         public virtual void MakeImmutable()
         {
             TokenList tokens = this.Tokens;
@@ -710,6 +1114,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method creates a copy of this parser state, saving its current
+        /// state.
+        /// </summary>
+        /// <param name="full">
+        /// Non-zero to also create copies of the contained tokens.
+        /// </param>
+        /// <param name="parseState">
+        /// Upon success, receives the newly created copy of this parser state.
+        /// </param>
         public virtual void Save(
             bool full,
             out IParseState parseState
@@ -750,6 +1164,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method restores the state of this parser state from a previously
+        /// saved parser state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The previously saved parser state to restore from.  Upon success,
+        /// this is reset to null.
+        /// </param>
+        /// <returns>
+        /// True if the state was restored; otherwise, false.
+        /// </returns>
         public virtual bool Restore(
             ref IParseState parseState
             )
@@ -791,6 +1216,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method builds a list of name/value pairs representing the
+        /// properties of this parser state and its tokens.
+        /// </summary>
+        /// <returns>
+        /// The list of name/value pairs representing this parser state.
+        /// </returns>
         public virtual StringPairList ToList()
         {
             StringPairList list = new StringPairList();
@@ -839,6 +1271,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns a string representation of this parser state.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this parser state.
+        /// </returns>
         public override string ToString()
         {
             return ToList().ToString();
@@ -848,6 +1286,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method creates a copy of the list of tokens, associating the
+        /// copies with the specified parser state.
+        /// </summary>
+        /// <param name="parseState">
+        /// The parser state to associate with the copied tokens.
+        /// </param>
+        /// <param name="newTokens">
+        /// Upon success, receives the newly created list of tokens.
+        /// </param>
         private void CopyTokens(
             IParseState parseState,
             out TokenList newTokens
@@ -881,28 +1329,78 @@ namespace Eagle._Components.Public
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     #region Parser Class
+    /// <summary>
+    /// This class provides the core static methods used to parse Eagle script
+    /// text into tokens, to parse integers in various radixes, to quote and
+    /// split list elements, and to perform glob-style string matching.
+    /// </summary>
     [ObjectId("bead8508-f064-457d-8e30-39744966fd0d")]
     public static class Parser
     {
         #region Private Constants
+        /// <summary>
+        /// The initial capacity used when creating a list of tokens.
+        /// </summary>
         private static int TokenCapacity = 100;
 
+        /// <summary>
+        /// Represents the absence of a line number.
+        /// </summary>
         public static readonly int NoLine = -2;
+        /// <summary>
+        /// Represents any line number.
+        /// </summary>
         public static readonly int AnyLine = -1;
+        /// <summary>
+        /// The line number where parsing starts (the first line).
+        /// </summary>
         public static readonly int StartLine = 1;
+        /// <summary>
+        /// Represents an unknown line number.
+        /// </summary>
         public static readonly int UnknownLine = 0;
 
+        /// <summary>
+        /// The radix (base) used for binary integers.
+        /// </summary>
         internal const int BinaryRadix = 2;
+        /// <summary>
+        /// The radix (base) used for octal integers.
+        /// </summary>
         internal const int OctalRadix = 8;
+        /// <summary>
+        /// The radix (base) used for decimal integers.
+        /// </summary>
         internal const int DecimalRadix = 10;
+        /// <summary>
+        /// The radix (base) used for hexadecimal integers.
+        /// </summary>
         internal const int HexadecimalRadix = 16;
 
+        /// <summary>
+        /// The radix value that indicates the radix should be detected
+        /// automatically.
+        /// </summary>
         private const int AutomaticRadix = 0;
+        /// <summary>
+        /// The minimum radix (base) supported when parsing integers.
+        /// </summary>
         private const int MinimumRadix = BinaryRadix;
+        /// <summary>
+        /// The maximum radix (base) supported when parsing integers.
+        /// </summary>
         private const int MaximumRadix = 36;
 
+        /// <summary>
+        /// The maximum number of characters to scan when building an error
+        /// message about list element syntax.
+        /// </summary>
         private const int ErrorScanLimit = 20;
 
+        /// <summary>
+        /// The absolute value of the minimum 32-bit signed integer, expressed as
+        /// an unsigned integer.
+        /// </summary>
         private const uint IntMinValue = unchecked((uint)(-int.MinValue));
         #endregion
 
@@ -910,6 +1408,23 @@ namespace Eagle._Components.Public
 
         #region Parser Helper Methods
         #region Readiness Checking Methods
+        /// <summary>
+        /// This method checks whether the interpreter and parser are ready to
+        /// continue parsing.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to check, if any.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to check, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> if the parser is ready to continue;
+        /// otherwise, <see cref="ReturnCode.Error" />.
+        /// </returns>
         internal static ReturnCode Ready(
             Interpreter interpreter,
             IParseState parseState,
@@ -942,6 +1457,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Substitution Flags Methods
+        /// <summary>
+        /// This method determines whether backslash substitution is enabled by
+        /// the specified flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The substitution flags to check.
+        /// </param>
+        /// <returns>
+        /// True if backslash substitution is enabled; otherwise, false.
+        /// </returns>
         private static bool HasBackslashes(
             SubstitutionFlags flags
             )
@@ -951,6 +1476,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether variable substitution is enabled by
+        /// the specified flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The substitution flags to check.
+        /// </param>
+        /// <returns>
+        /// True if variable substitution is enabled; otherwise, false.
+        /// </returns>
         private static bool HasVariables(
             SubstitutionFlags flags
             )
@@ -960,6 +1495,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether command substitution is enabled by
+        /// the specified flags.
+        /// </summary>
+        /// <param name="flags">
+        /// The substitution flags to check.
+        /// </param>
+        /// <returns>
+        /// True if command substitution is enabled; otherwise, false.
+        /// </returns>
         private static bool HasCommands(
             SubstitutionFlags flags
             )
@@ -971,6 +1516,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Character Checking Methods
+        /// <summary>
+        /// This method determines whether the specified character is a horizontal
+        /// tab or a space.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a horizontal tab or a space; otherwise, false.
+        /// </returns>
         private static bool IsTabOrSpace(
             char character
             )
@@ -981,6 +1536,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid within
+        /// an identifier (a letter, a digit, or an underscore).
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid within an identifier; otherwise, false.
+        /// </returns>
         internal static bool IsIdentifier(
             char character
             )
@@ -991,6 +1556,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is a line
+        /// terminator.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a line terminator; otherwise, false.
+        /// </returns>
         internal static bool IsLineTerminator(
             char character
             )
@@ -1000,6 +1575,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is considered
+        /// whitespace by the parser.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is whitespace; otherwise, false.
+        /// </returns>
         internal static bool IsWhiteSpace(
             char character
             )
@@ -1039,6 +1624,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character can be the first
+        /// non-whitespace character of a boolean valued string.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character can begin a boolean value; otherwise, false.
+        /// </returns>
         internal static bool IsBoolean(
             char character
             )
@@ -1076,6 +1671,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character is valid within
+        /// an integer value.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <param name="sign">
+        /// Non-zero to also treat a leading plus or minus sign as valid.
+        /// </param>
+        /// <returns>
+        /// True if the character is valid within an integer; otherwise, false.
+        /// </returns>
         internal static bool IsInteger(
             char character,
             bool sign
@@ -1118,6 +1726,20 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Character Type Methods
+        /// <summary>
+        /// This method determines the character type classification of the
+        /// specified character.
+        /// </summary>
+        /// <param name="character">
+        /// The character to classify.
+        /// </param>
+        /// <param name="nextLine">
+        /// Upon return, non-zero if the character causes the current source line
+        /// to advance.
+        /// </param>
+        /// <returns>
+        /// The character type classification of the character.
+        /// </returns>
         private static CharacterType GetCharacterType(
             char character,
             ref bool nextLine
@@ -1209,6 +1831,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified character exactly matches
+        /// the specified character type.
+        /// </summary>
+        /// <param name="character">
+        /// The character to classify.
+        /// </param>
+        /// <param name="characterType1">
+        /// The character type to compare against.
+        /// </param>
+        /// <param name="characterType2">
+        /// Upon return, receives the character type classification of the
+        /// character.
+        /// </param>
+        /// <param name="nextLine">
+        /// Upon return, non-zero if the character causes the current source line
+        /// to advance.
+        /// </param>
+        /// <returns>
+        /// True if the character type matches exactly; otherwise, false.
+        /// </returns>
         private static bool IsCharacterType(
             char character,
             CharacterType characterType1,
@@ -1222,6 +1865,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the type of the specified character
+        /// matches any of the types in the specified mask.
+        /// </summary>
+        /// <param name="character">
+        /// The character to classify.
+        /// </param>
+        /// <param name="mask">
+        /// The mask of character types to check against.
+        /// </param>
+        /// <param name="characterType">
+        /// Upon return, receives the character type classification of the
+        /// character.
+        /// </param>
+        /// <param name="nextLine">
+        /// Upon return, non-zero if the character causes the current source line
+        /// to advance.
+        /// </param>
+        /// <returns>
+        /// True if the character type matches the mask; otherwise, false.
+        /// </returns>
         private static bool HasCharacterTypes(
             char character,
             CharacterType mask,
@@ -1237,6 +1901,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region String Checking Methods
+        /// <summary>
+        /// This method counts the number of lines in the specified string.
+        /// </summary>
+        /// <param name="text">
+        /// The string to examine.
+        /// </param>
+        /// <returns>
+        /// The number of lines in the string.
+        /// </returns>
         public static int CountLines(
             string text
             )
@@ -1277,6 +1950,19 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Syntax Highlighting Methods
+        /// <summary>
+        /// This method determines the syntax highlighting type for the specified
+        /// token.
+        /// </summary>
+        /// <param name="tokenIndex">
+        /// The index of the token within its command.
+        /// </param>
+        /// <param name="token">
+        /// The token to classify, if any.
+        /// </param>
+        /// <returns>
+        /// The syntax highlighting type for the token.
+        /// </returns>
         private static TokenSyntaxType GetTokenSyntaxType(
             int tokenIndex,
             IToken token
@@ -1348,6 +2034,60 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses the specified script text into a series of command
+        /// tokens.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context for parsing, if any.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script text originated from, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
+        /// <param name="text">
+        /// The script text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to parse, or a negative value to parse to
+        /// the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero if the script text is nested within a command substitution.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="syntax">
+        /// Non-zero to compute syntax highlighting information for each token.
+        /// </param>
+        /// <param name="strict">
+        /// Non-zero to return any parse error; otherwise, success is always
+        /// returned.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to use, which is created when null.
+        /// </param>
+        /// <param name="tokens">
+        /// The list of tokens to populate, which is created when null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ParseScript(
             Interpreter interpreter,             /* in */
             string fileName,                     /* in */
@@ -1430,6 +2170,43 @@ namespace Eagle._Components.Public
         #region Core Parser Methods
         #region Integer Parser Methods
         #region Generic Integer Parser
+        /// <summary>
+        /// This method parses an integer value from the specified text using the
+        /// specified radix.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to parse, or a negative value to parse to
+        /// the end of the text.
+        /// </param>
+        /// <param name="radix">
+        /// The radix (base) to use, or zero to detect it automatically.
+        /// </param>
+        /// <param name="whiteSpace">
+        /// Non-zero to skip leading whitespace.
+        /// </param>
+        /// <param name="greedy">
+        /// Non-zero to continue consuming valid digits even after an overflow
+        /// occurs.
+        /// </param>
+        /// <param name="unsigned">
+        /// Non-zero to parse the value as unsigned.
+        /// </param>
+        /// <param name="legacyOctal">
+        /// Non-zero to treat a leading zero as an octal radix prefix.
+        /// </param>
+        /// <param name="endIndex">
+        /// Upon return, receives the index just after the last character
+        /// consumed.
+        /// </param>
+        /// <returns>
+        /// The parsed integer value.
+        /// </returns>
         internal static int ParseInteger(
             string text,
             int startIndex,
@@ -1881,6 +2658,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Base2 (Binary) Integer Parser
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// binary digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a valid binary digit; otherwise, false.
+        /// </returns>
         private static bool IsBinaryDigit(
             char character
             )
@@ -1890,6 +2677,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a binary (base-2) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseBinary(
             string text,
             int startIndex,
@@ -1925,6 +2730,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method parses a binary (base-2) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseBinary(
             string text,
             int startIndex,
@@ -1962,6 +2785,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Base8 (Octal) Integer Parser
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// octal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a valid octal digit; otherwise, false.
+        /// </returns>
         private static bool IsOctalDigit(
             char character
             )
@@ -1971,6 +2804,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a octal (base-8) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseOctal(
             string text,
             int startIndex,
@@ -2006,6 +2857,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method parses a octal (base-8) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseOctal(
             string text,
             int startIndex,
@@ -2043,6 +2912,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Base10 (Decimal) Integer Parser
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// decimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a valid decimal digit; otherwise, false.
+        /// </returns>
         private static bool IsDecimalDigit(
             char character
             )
@@ -2052,6 +2931,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a decimal (base-10) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseDecimal(
             string text,
             int startIndex,
@@ -2087,6 +2984,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method parses a decimal (base-10) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseDecimal(
             string text,
             int startIndex,
@@ -2124,6 +3039,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Base16 (Hexadecimal) Integer Parser
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// hexadecimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a valid hexadecimal digit; otherwise, false.
+        /// </returns>
         internal static bool IsHexadecimalDigit(
             char character
             )
@@ -2135,6 +3060,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a hexadecimal (base-16) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseHexadecimal(
             string text,
             int startIndex,
@@ -2175,6 +3118,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method parses a hexadecimal (base-16) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseHexadecimal(
             string text,
             int startIndex,
@@ -2217,6 +3178,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Base26 (Hexavigesimal) Integer Parser
+        /// <summary>
+        /// This method determines whether the specified character is a valid
+        /// hexavigesimal digit.
+        /// </summary>
+        /// <param name="character">
+        /// The character to check.
+        /// </param>
+        /// <returns>
+        /// True if the character is a valid hexavigesimal digit; otherwise, false.
+        /// </returns>
         private static bool IsHexavigesimalDigit(
             char character
             )
@@ -2227,6 +3198,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a hexavigesimal (base-26) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseHexavigesimal(
             string text,
             int startIndex,
@@ -2265,6 +3254,24 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if NET_40
+        /// <summary>
+        /// This method parses a hexavigesimal (base-26) integer value from the specified text.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The maximum number of characters to parse.
+        /// </param>
+        /// <param name="number">
+        /// Upon success, receives the parsed value.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseHexavigesimal(
             string text,
             int startIndex,
@@ -2306,6 +3313,25 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Backslash Parser
+        /// <summary>
+        /// This method parses a backslash substitution sequence from the
+        /// specified text, producing the resulting character(s).
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the backslash sequence begins.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="character1">
+        /// Upon success, receives the first resulting character, if any.
+        /// </param>
+        /// <param name="character2">
+        /// Upon success, receives the second resulting character, if any.
+        /// </param>
         internal static void ParseBackslash(
             string text,
             int startIndex,
@@ -2325,6 +3351,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a backslash substitution sequence from the
+        /// specified text, reporting how many characters it consumed.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the backslash sequence begins.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="read">
+        /// Upon return, receives the number of characters consumed.
+        /// </param>
         private static void ParseBackslash(
             string text,
             int startIndex,
@@ -2344,6 +3386,29 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a backslash substitution sequence from the
+        /// specified text, producing the resulting character(s) and reporting
+        /// how many characters it consumed.
+        /// </summary>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the backslash sequence begins.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="read">
+        /// Upon return, receives the number of characters consumed.
+        /// </param>
+        /// <param name="character1">
+        /// Upon success, receives the first resulting character, if any.
+        /// </param>
+        /// <param name="character2">
+        /// Upon success, receives the second resulting character, if any.
+        /// </param>
         internal static void ParseBackslash( /* For use by ParserOps only. */
             string text,
             int startIndex,
@@ -2363,6 +3428,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a backslash substitution sequence from the
+        /// specified text, producing the resulting character(s) and reporting
+        /// how many characters it consumed.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the backslash sequence begins.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="read">
+        /// Upon return, receives the number of characters consumed.
+        /// </param>
+        /// <param name="character1">
+        /// Upon success, receives the first resulting character, if any.
+        /// </param>
+        /// <param name="character2">
+        /// Upon success, receives the second resulting character, if any.
+        /// </param>
+        /// <param name="error">
+        /// The error message.  This parameter is not used.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         private static ReturnCode ParseBackslash(
             Interpreter interpreter, /* NOT USED */
             string text,          /* in */
@@ -2634,6 +3731,32 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region White-Space Parser
+        /// <summary>
+        /// This method parses (skips over) whitespace within the script text of
+        /// the specified parser state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state whose script text is being parsed.
+        /// </param>
+        /// <param name="characterType">
+        /// Upon return, receives the character type that terminated the
+        /// whitespace.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         internal static int ParseWhiteSpace(
             Interpreter interpreter,
             int startIndex,
@@ -2742,6 +3865,28 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Comment Parser
+        /// <summary>
+        /// This method parses (skips over) any comments within the script text of
+        /// the specified parser state.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state whose script text is being parsed.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// The number of characters consumed.
+        /// </returns>
         private static int ParseComment(
             Interpreter interpreter,
             int startIndex,
@@ -2854,6 +3999,41 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Brace Parser
+        /// <summary>
+        /// This method parses a brace-quoted word from the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the opening brace is located.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse, or a negative value
+        /// to parse to the end of the text.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to populate.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append to the existing tokens; otherwise, the parser
+        /// state is reset first.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="terminator">
+        /// Upon success, receives the index just after the closing brace.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal static ReturnCode ParseBraces(
             Interpreter interpreter,
             string text,
@@ -3087,6 +4267,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Variable Name Parser
+        /// <summary>
+        /// This method determines whether the specified text is a simple scalar
+        /// variable name.
+        /// </summary>
+        /// <param name="text">
+        /// The variable name to check.
+        /// </param>
+        /// <param name="notSimpleError">
+        /// The error to use when the name is not simple (i.e., qualified).
+        /// </param>
+        /// <param name="notScalarError">
+        /// The error to use when the name is not scalar (i.e., an array
+        /// element).
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives the appropriate error.
+        /// </param>
+        /// <returns>
+        /// True if the variable name is a simple scalar; otherwise, false.
+        /// </returns>
         public static bool IsSimpleScalarVariableName(
             string text,
             Result notSimpleError,
@@ -3132,6 +4332,25 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits a variable name into its variable name and array
+        /// index components.
+        /// </summary>
+        /// <param name="name">
+        /// The variable name to split.
+        /// </param>
+        /// <param name="varName">
+        /// Upon success, receives the variable name component.
+        /// </param>
+        /// <param name="varIndex">
+        /// Upon success, receives the array index component, if any.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SplitVariableName(
             string name,
             ref string varName,
@@ -3189,6 +4408,46 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a variable reference from the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the variable reference begins.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse, or a negative value
+        /// to parse to the end of the text.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to populate.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append to the existing tokens; otherwise, the parser
+        /// state is reset first.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="nameOnly">
+        /// Non-zero to parse the variable name only, without producing a
+        /// variable token.
+        /// </param>
+        /// <param name="noDollarSign">
+        /// Non-zero if the variable reference does not begin with a dollar
+        /// sign.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal static ReturnCode ParseVariableName(
             Interpreter interpreter,
             string text,
@@ -3462,6 +4721,35 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Token Parser
+        /// <summary>
+        /// This method parses a series of tokens from the script text of the
+        /// specified parser state, stopping at any character matching the
+        /// specified mask.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse.
+        /// </param>
+        /// <param name="mask">
+        /// The mask of character types that should terminate parsing.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to populate.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal static ReturnCode ParseTokens(
             Interpreter interpreter,
             int startIndex,
@@ -3785,6 +5073,43 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Quoted String Parser
+        /// <summary>
+        /// This method parses a double-quoted word from the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where the opening quotation mark is
+        /// located.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters available to parse, or a negative value
+        /// to parse to the end of the text.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to populate.
+        /// </param>
+        /// <param name="append">
+        /// Non-zero to append to the existing tokens; otherwise, the parser
+        /// state is reset first.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="terminator">
+        /// Upon success, receives the index just after the closing quotation
+        /// mark.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal static ReturnCode ParseQuotedString(
             Interpreter interpreter,
             string text,
@@ -3887,6 +5212,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region Command Parser
+        /// <summary>
+        /// This method determines whether the specified script text is a complete
+        /// script (i.e., contains no incomplete commands).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="text">
+        /// The script text to check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the script is complete; otherwise, false.
+        /// </returns>
         internal static bool IsComplete(
             Interpreter interpreter, /* in */
             string text,             /* in */
@@ -3902,6 +5243,38 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified script text is a complete
+        /// script (i.e., contains no incomplete commands).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script text originated from, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
+        /// <param name="text">
+        /// The script text to check.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where checking should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to check, or a negative value to check to
+        /// the end of the text.
+        /// </param>
+        /// <param name="notReady">
+        /// Upon return, non-zero if the parser was not ready.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the script is complete; otherwise, false.
+        /// </returns>
         public static bool IsComplete(
             Interpreter interpreter, /* in */
             string fileName,         /* in */
@@ -3936,6 +5309,44 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified script text is a complete
+        /// script (i.e., contains no incomplete commands).
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script text originated from, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
+        /// <param name="text">
+        /// The script text to check.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where checking should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to check, or a negative value to check to
+        /// the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
+        /// <param name="notReady">
+        /// Upon return, non-zero if the parser was not ready.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// True if the script is complete; otherwise, false.
+        /// </returns>
         public static bool IsComplete(
             Interpreter interpreter,             /* in */
             string fileName,                     /* in */
@@ -3976,6 +5387,41 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method initializes the specified parser state for parsing the
+        /// specified script text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="fileName">
+        /// The name of the file the script text originated from, if any.
+        /// </param>
+        /// <param name="currentLine">
+        /// The current line number within the script text.
+        /// </param>
+        /// <param name="text">
+        /// The script text to be parsed.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the script text, where parsing will begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to parse, or a negative value to parse to
+        /// the end of the text.
+        /// </param>
+        /// <param name="engineFlags">
+        /// The engine flags to use while parsing.
+        /// </param>
+        /// <param name="substitutionFlags">
+        /// The substitution flags to use while parsing.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to initialize, which is created when null.
+        /// </param>
+        /// <returns>
+        /// True upon successful initialization.
+        /// </returns>
         internal static bool Initialize(
             Interpreter interpreter,
             string fileName,
@@ -4026,6 +5472,37 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method parses a single command from the specified text.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="text">
+        /// The text to parse.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the text, where parsing should begin.
+        /// </param>
+        /// <param name="characters">
+        /// The number of characters to parse, or a negative value to parse to
+        /// the end of the text.
+        /// </param>
+        /// <param name="nested">
+        /// Non-zero if the command is nested within a command substitution.
+        /// </param>
+        /// <param name="parseState">
+        /// The parser state to populate.
+        /// </param>
+        /// <param name="noReady">
+        /// Non-zero to skip the parser readiness check.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode ParseCommand(
             Interpreter interpreter,
             string text,
@@ -4268,6 +5745,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region List Parser Methods
+        /// <summary>
+        /// This method quotes the specified string so that it may be used as a
+        /// single list element.
+        /// </summary>
+        /// <param name="text">
+        /// The string to quote.
+        /// </param>
+        /// <returns>
+        /// The quoted string.
+        /// </returns>
         public static string Quote(
             string text
             )
@@ -4277,6 +5764,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method quotes the specified string so that it may be used as a
+        /// single list element.
+        /// </summary>
+        /// <param name="text">
+        /// The string to quote.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the string is quoted.
+        /// </param>
+        /// <returns>
+        /// The quoted string.
+        /// </returns>
         public static string Quote(
             string text,
             ListElementFlags flags
@@ -4304,6 +5804,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string requires quoting
+        /// in order to be used as a single list element.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// True if the string requires quoting; otherwise, false.
+        /// </returns>
         public static bool NeedsQuoting(
             string text
             )
@@ -4313,6 +5823,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified string requires quoting
+        /// in order to be used as a single list element.
+        /// </summary>
+        /// <param name="text">
+        /// The string to check.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the string is quoted.
+        /// </param>
+        /// <returns>
+        /// True if the string requires quoting; otherwise, false.
+        /// </returns>
         public static bool NeedsQuoting(
             string text,
             ListElementFlags flags
@@ -4327,6 +5850,28 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method scans a string to determine how it must be quoted for use
+        /// as a single list element.
+        /// </summary>
+        /// <param name="text">
+        /// The string to scan.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the string, where scanning should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to scan, or a negative value to scan to
+        /// the end of the string.
+        /// </param>
+        /// <param name="flags">
+        /// Upon return, receives the flags describing how the element must be
+        /// quoted.
+        /// </param>
+        /// <returns>
+        /// The maximum number of characters required to represent the quoted
+        /// element.
+        /// </returns>
         internal static int ScanElement(
             /* Interpreter interpreter, */ /* NOT USED */
             string text,
@@ -4439,6 +5984,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a string into a list element, appending the
+        /// result to the specified string builder.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the string, where conversion should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to convert, or a negative value to convert
+        /// to the end of the string.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the element is quoted.
+        /// </param>
+        /// <param name="element">
+        /// The string builder to append the converted element to, which is
+        /// created when null.
+        /// </param>
+        /// <returns>
+        /// The number of characters appended.
+        /// </returns>
         internal static int ConvertElement(
             /* Interpreter interpreter, */ /* NOT USED */
             string text,
@@ -4571,6 +6140,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method converts a string into a list element using backslash
+        /// escaping, appending the result to the specified string builder.
+        /// </summary>
+        /// <param name="text">
+        /// The string to convert.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the string, where conversion should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to convert, or a negative value to convert
+        /// to the end of the string.
+        /// </param>
+        /// <param name="flags">
+        /// The flags that control how the element is escaped.
+        /// </param>
+        /// <param name="element">
+        /// The string builder to append the converted element to, which is
+        /// created when null.
+        /// </param>
+        /// <returns>
+        /// The number of characters appended.
+        /// </returns>
         internal static int BackslashElement(
             /* Interpreter interpreter, */ /* NOT USED */
             string text,
@@ -4703,6 +6296,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method finds the next element within the specified list text.
+        /// </summary>
+        /// <param name="text">
+        /// The list text to search.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the list text, where searching should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters available to search.
+        /// </param>
+        /// <param name="elementIndex">
+        /// Upon success, receives the index where the element begins.
+        /// </param>
+        /// <param name="nextIndex">
+        /// Upon success, receives the index where the next element begins.
+        /// </param>
+        /// <param name="elementLength">
+        /// Upon success, receives the length of the element.
+        /// </param>
+        /// <param name="braces">
+        /// Upon success, non-zero if the element was enclosed in braces.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         internal static ReturnCode FindElement(
             /* Interpreter interpreter, */ /* NOT USED */
             string text,
@@ -4881,6 +6504,16 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
 #if (NATIVE && NATIVE_UTILITY) || CACHE_ARGUMENTLIST_TOSTRING || CACHE_STRINGLIST_TOSTRING
+        /// <summary>
+        /// This method determines whether the specified string is a valid list
+        /// element separator.
+        /// </summary>
+        /// <param name="separator">
+        /// The string to check.
+        /// </param>
+        /// <returns>
+        /// True if the string is a valid list separator; otherwise, false.
+        /// </returns>
         internal static bool IsListSeparator(
             string separator
             )
@@ -4897,6 +6530,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method splits the specified list text into its individual
+        /// elements.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context, if any.
+        /// </param>
+        /// <param name="text">
+        /// The list text to split.
+        /// </param>
+        /// <param name="startIndex">
+        /// The index, within the list text, where splitting should begin.
+        /// </param>
+        /// <param name="length">
+        /// The number of characters to split, or a negative value to split to
+        /// the end of the text.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero to produce a read-only list.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, receives the list of elements.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, receives an error message.
+        /// </param>
+        /// <returns>
+        /// <see cref="ReturnCode.Ok" /> on success; otherwise, an error code.
+        /// </returns>
         public static ReturnCode SplitList(
             Interpreter interpreter, /* OPTIONAL */
             string text,
@@ -4916,6 +6578,31 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////////////////////////
 
         #region String Match (i.e. the "glob" / "like") Algorithm
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified glob-style pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="text">
+        /// The text to match.
+        /// </param>
+        /// <param name="textStartIndex">
+        /// The index, within the text, where matching should begin.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob-style pattern to match against.
+        /// </param>
+        /// <param name="patternStartIndex">
+        /// The index, within the pattern, where matching should begin.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the pattern; otherwise, false.
+        /// </returns>
         public static bool StringMatch(
             Interpreter interpreter, /* NOT USED */
             string text,
@@ -4934,6 +6621,35 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified text matches the
+        /// specified glob-style pattern.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter context.  This parameter is not used.
+        /// </param>
+        /// <param name="text">
+        /// The text to match.
+        /// </param>
+        /// <param name="textStartIndex">
+        /// The index, within the text, where matching should begin.
+        /// </param>
+        /// <param name="pattern">
+        /// The glob-style pattern to match against.
+        /// </param>
+        /// <param name="patternStartIndex">
+        /// The index, within the pattern, where matching should begin.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero to perform a case-insensitive match.
+        /// </param>
+        /// <param name="fail">
+        /// Upon return, non-zero if matching failed due to an error, such as
+        /// running out of stack space.
+        /// </param>
+        /// <returns>
+        /// True if the text matches the pattern; otherwise, false.
+        /// </returns>
         private static bool StringMatch(
             Interpreter interpreter, /* NOT USED */
             string text,

@@ -30,6 +30,16 @@ using Index = Eagle._Constants.Index;
 
 namespace Eagle._Components.Public
 {
+    /// <summary>
+    /// This class provides a general-purpose, thread-safe container for client
+    /// data.  In addition to the single value provided by its base class
+    /// <see cref="ClientData" />, it stores an arbitrary collection of named
+    /// values and exposes strongly-typed accessors for retrieving them as
+    /// common value and reference types.  It also supports an associated
+    /// interpreter and culture, attaching to (and detaching from) another
+    /// container so that the two share locking state, cloning, and the standard
+    /// disposal pattern.
+    /// </summary>
     [ObjectId("04cac3f9-049c-42b6-9446-084d2296c7da")]
     public class AnyClientData :
             ClientData, IHaveClientData, IHaveCultureInfo, IHaveInterpreter,
@@ -40,6 +50,10 @@ namespace Eagle._Components.Public
         // NOTE: The number of milliseconds to sleep before retrying for
         //       the instance lock (i.e. syncRoot).
         //
+        /// <summary>
+        /// The number of milliseconds to sleep before retrying to acquire the
+        /// instance lock.
+        /// </summary>
         private static int SleepMilliseconds = 50;
 
         ///////////////////////////////////////////////////////////////////////
@@ -48,6 +62,11 @@ namespace Eagle._Components.Public
         // HACK: This is the maximum number of milliseconds that we keep
         //       retrying for the instance lock (i.e. syncRoot).
         //
+        /// <summary>
+        /// The maximum number of milliseconds to keep retrying to acquire the
+        /// instance lock before giving up.  A negative value means there is no
+        /// limit.
+        /// </summary>
         private static double MaximumSyncRootTimeout = 4000;
 
         ///////////////////////////////////////////////////////////////////////
@@ -55,18 +74,55 @@ namespace Eagle._Components.Public
         //
         // HACK: These are purposely not read-only.
         //
+        /// <summary>
+        /// The default value indicating whether an existing named value may be
+        /// overwritten when setting a value.
+        /// </summary>
         private static bool DefaultOverwrite = true;
+
+        /// <summary>
+        /// The default value indicating whether a named value may be created
+        /// when it does not already exist while setting a value.
+        /// </summary>
         private static bool DefaultCreate = true;
+
+        /// <summary>
+        /// The default value indicating whether a stored value may be coerced
+        /// to its string form when a typed accessor is used.
+        /// </summary>
         private static bool DefaultToString = true;
+
+        /// <summary>
+        /// The default value indicating whether named values with a null value
+        /// are included when producing a list representation.
+        /// </summary>
         private static bool DefaultEmpty = false;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Data
+        /// <summary>
+        /// The original synchronization root, saved while this instance is
+        /// attached to another instance so it can be restored upon detaching.
+        /// </summary>
         private object savedSyncRoot;
+
+        /// <summary>
+        /// The object used to synchronize access to this instance.
+        /// </summary>
         private object syncRoot = new object();
+
+        /// <summary>
+        /// The instance to which this instance is attached, if any.  When set,
+        /// operations are delegated to it.
+        /// </summary>
         private IAnyClientData attached;
+
+        /// <summary>
+        /// The backing dictionary that stores the named values held by this
+        /// instance.
+        /// </summary>
         private AnyDictionary dictionary;
         #endregion
 
@@ -76,6 +132,30 @@ namespace Eagle._Components.Public
         //
         // WARNING: For use by the Clone method only.
         //
+        /// <summary>
+        /// Constructs an instance from the supplied component state.  This
+        /// constructor is for use by the <c>Clone</c> method only.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to associate with this instance.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="clientData">
+        /// The client data to associate with this instance.
+        /// </param>
+        /// <param name="cultureInfo">
+        /// The culture to associate with this instance.  This parameter may be
+        /// null.
+        /// </param>
+        /// <param name="dictionary">
+        /// The dictionary of named values to use for this instance.
+        /// </param>
+        /// <param name="data">
+        /// The single client data value to wrap.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if this instance should be read-only.
+        /// </param>
         private AnyClientData(
             Interpreter interpreter,  /* in: OPTIONAL */
             IClientData clientData,   /* in */
@@ -113,6 +193,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance with no wrapped value.
+        /// </summary>
         public AnyClientData()
             : base()
         {
@@ -121,6 +204,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance wrapping the specified value.
+        /// </summary>
+        /// <param name="data">
+        /// The single client data value to wrap.  This parameter may be null.
+        /// </param>
         public AnyClientData(
             object data /* in */
             )
@@ -131,6 +220,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance wrapping the specified value, optionally
+        /// making it read-only.
+        /// </summary>
+        /// <param name="data">
+        /// The single client data value to wrap.  This parameter may be null.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if this instance should be read-only.
+        /// </param>
         public AnyClientData(
             object data,  /* in */
             bool readOnly /* in */
@@ -142,6 +241,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance wrapping the value obtained from the specified
+        /// client data, optionally making it read-only.
+        /// </summary>
+        /// <param name="clientData">
+        /// The client data whose value is wrapped.  This parameter may be null,
+        /// in which case a null value is wrapped.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if this instance should be read-only.
+        /// </param>
         public AnyClientData(
             IClientData clientData, /* in */
             bool readOnly           /* in */
@@ -153,6 +263,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance wrapping the value obtained from the specified
+        /// instance and seeding its named values from that instance, optionally
+        /// making it read-only.
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance whose value and named values are copied.  This parameter
+        /// may be null, in which case a null value is wrapped and no named values
+        /// are copied.
+        /// </param>
+        /// <param name="readOnly">
+        /// Non-zero if this instance should be read-only.
+        /// </param>
         public AnyClientData(
             IAnyClientData anyClientData, /* in */
             bool readOnly                 /* in */
@@ -166,6 +289,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Methods
+        /// <summary>
+        /// This method creates a new, empty dictionary for holding named
+        /// values.
+        /// </summary>
+        /// <returns>
+        /// The newly created dictionary.
+        /// </returns>
         private static AnyDictionary NewDictionary()
         {
             return new AnyDictionary();
@@ -173,6 +303,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces the string representation of the specified
+        /// object.
+        /// </summary>
+        /// <param name="object">
+        /// The object to convert to a string.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// The string representation of the object.
+        /// </returns>
         private static string GetStringFromObject(
             object @object /* in */
             )
@@ -182,6 +322,16 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the specified instance is valid for
+        /// use (i.e. non-null and not disposed).
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance to check.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the instance is non-null and not disposed; otherwise, false.
+        /// </returns>
         private static bool IsValid(
             IAnyClientData anyClientData /* in */
             )
@@ -198,6 +348,17 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Static Locking Helper Methods
+        /// <summary>
+        /// This method attempts to acquire the specified lock without waiting.
+        /// </summary>
+        /// <param name="syncRoot">
+        /// The object to lock.  This parameter may be null, in which case no
+        /// attempt is made.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         private static void PrivateTryLock(
             object syncRoot, /* in */
             ref bool locked  /* out */
@@ -211,6 +372,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the specified lock, waiting up to the
+        /// specified timeout.
+        /// </summary>
+        /// <param name="syncRoot">
+        /// The object to lock.  This parameter may be null, in which case no
+        /// attempt is made.
+        /// </param>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait for the lock.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         private static void PrivateTryLock(
             object syncRoot, /* in */
             int timeout,     /* in */
@@ -225,6 +401,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the specified lock, waiting up to the
+        /// configured wait-lock timeout.
+        /// </summary>
+        /// <param name="syncRoot">
+        /// The object to lock.  This parameter may be null, in which case no
+        /// attempt is made.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         private static void PrivateTryLockWithWait(
             object syncRoot, /* in */
             ref bool locked  /* out */
@@ -240,6 +428,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the specified lock if it is currently held.
+        /// </summary>
+        /// <param name="syncRoot">
+        /// The object to unlock.  This parameter may be null, in which case
+        /// nothing is done.
+        /// </param>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is held.  Upon return, this parameter
+        /// will be false if the lock was released.
+        /// </param>
         private static void PrivateExitLock(
             object syncRoot, /* in */
             ref bool locked  /* in, out */
@@ -257,6 +456,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the number of milliseconds to sleep before retrying
+        /// to acquire the instance lock.
+        /// </summary>
+        /// <returns>
+        /// The configured sleep time, in milliseconds.
+        /// </returns>
         private static int GetSleepMilliseconds()
         {
             return Interlocked.CompareExchange(
@@ -265,6 +471,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically sets the number of milliseconds to sleep
+        /// before retrying to acquire the instance lock, provided the current
+        /// value matches the expected one.
+        /// </summary>
+        /// <param name="oldSleepMilliseconds">
+        /// The expected current sleep time, in milliseconds.
+        /// </param>
+        /// <param name="newSleepMilliseconds">
+        /// The new sleep time to set, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the value was changed; otherwise, false.
+        /// </returns>
         private static bool SetSleepMilliseconds(
             int oldSleepMilliseconds, /* in */
             int newSleepMilliseconds  /* in */
@@ -277,6 +497,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the maximum number of milliseconds to keep retrying
+        /// to acquire the instance lock before giving up.
+        /// </summary>
+        /// <returns>
+        /// The configured maximum timeout, in milliseconds.
+        /// </returns>
         private static double GetMaximumTimeout()
         {
             return Interlocked.CompareExchange(
@@ -285,6 +512,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically sets the maximum number of milliseconds to
+        /// keep retrying to acquire the instance lock, provided the current
+        /// value matches the expected one.
+        /// </summary>
+        /// <param name="oldMaximumTimeout">
+        /// The expected current maximum timeout, in milliseconds.
+        /// </param>
+        /// <param name="newMaximumTimeout">
+        /// The new maximum timeout to set, in milliseconds.
+        /// </param>
+        /// <returns>
+        /// True if the value was changed; otherwise, false.
+        /// </returns>
         private static bool SetMaximumTimeout(
             double oldMaximumTimeout, /* in */
             double newMaximumTimeout  /* in */
@@ -297,6 +538,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether the maximum lock-retry timeout has
+        /// elapsed since the specified start time.
+        /// </summary>
+        /// <param name="start">
+        /// The time, in UTC, at which the lock-retry attempts began.
+        /// </param>
+        /// <returns>
+        /// True if the timeout has elapsed; otherwise, false.  When there is no
+        /// timeout limit, this method always returns false.
+        /// </returns>
         private static bool HasTimeoutElapsed(
             DateTime start /* in */
             )
@@ -321,6 +573,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sleeps for the configured interval, if any, and always
+        /// yields the current thread so that it does not simply fast-spin while
+        /// retrying to acquire the instance lock.
+        /// </summary>
         private static void MaybeSleepAndOrYield()
         {
             int milliseconds = GetSleepMilliseconds();
@@ -340,6 +597,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Private Methods
+        /// <summary>
+        /// This method gets the synchronization root currently in use by this
+        /// instance.
+        /// </summary>
+        /// <returns>
+        /// The current synchronization root.
+        /// </returns>
         private object GetSyncRoot()
         {
             return Interlocked.CompareExchange(
@@ -348,6 +612,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically sets the synchronization root used by this
+        /// instance, provided the current value matches the expected one.
+        /// </summary>
+        /// <param name="oldSyncRoot">
+        /// The expected current synchronization root.
+        /// </param>
+        /// <param name="newSyncRoot">
+        /// The new synchronization root to set.
+        /// </param>
+        /// <returns>
+        /// True if the synchronization root was changed; otherwise, false.
+        /// </returns>
         private bool MaybeSetSyncRoot(
             object oldSyncRoot, /* in */
             object newSyncRoot  /* in */
@@ -360,6 +637,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method acquires the instance lock, retrying as necessary while
+        /// the synchronization root remains stable and the maximum retry timeout
+        /// has not elapsed.
+        /// </summary>
+        /// <param name="oldSyncRoot">
+        /// Upon success, this parameter will receive the synchronization root
+        /// that was locked.
+        /// </param>
+        /// <param name="locked">
+        /// Upon success, this parameter will be non-zero, indicating the lock
+        /// was acquired.
+        /// </param>
+        /// <returns>
+        /// True if the lock was acquired before the timeout elapsed; otherwise,
+        /// false.
+        /// </returns>
         private bool MaybeEnterSyncRoot(
             ref object oldSyncRoot, /* out */
             ref bool locked         /* out */
@@ -415,6 +709,21 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the instance lock previously acquired via
+        /// <c>MaybeEnterSyncRoot</c>.
+        /// </summary>
+        /// <param name="syncRoot">
+        /// On input, the synchronization root that was locked.  Upon success,
+        /// this parameter will be set to null.
+        /// </param>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is held.  Upon return, this parameter
+        /// will be false if the lock was released.
+        /// </param>
+        /// <returns>
+        /// True if the lock was released; otherwise, false.
+        /// </returns>
         private bool MaybeExitSyncRoot(
             ref object syncRoot, /* in, out */
             ref bool locked      /* out */
@@ -431,6 +740,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method throws an exception indicating that the instance lock
+        /// could not be acquired within the maximum retry timeout.
+        /// </summary>
         private void ThrowLockError()
         {
             double maximumTimeout = GetMaximumTimeout();
@@ -443,6 +756,12 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the culture currently associated with this instance.
+        /// </summary>
+        /// <returns>
+        /// The associated culture, or null if there is none.
+        /// </returns>
         private CultureInfo GetCultureInfo()
         {
             return Interlocked.CompareExchange(
@@ -451,6 +770,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method atomically sets the culture associated with this
+        /// instance, provided the current value matches the expected one.
+        /// </summary>
+        /// <param name="oldCultureInfo">
+        /// The expected current culture.
+        /// </param>
+        /// <param name="newCultureInfo">
+        /// The new culture to set.
+        /// </param>
+        /// <returns>
+        /// True if the culture was changed; otherwise, false.
+        /// </returns>
         private bool MaybeSetCultureInfo(
             CultureInfo oldCultureInfo,
             CultureInfo newCultureInfo
@@ -463,6 +795,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets the dictionary of named values held by this
+        /// instance, under the protection of the instance lock.
+        /// </summary>
+        /// <returns>
+        /// The dictionary of named values, or null if there is none.
+        /// </returns>
         private AnyDictionary GetDictionary()
         {
             bool locked = false;
@@ -483,6 +822,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears the single wrapped value held by the base class,
+        /// if any.
+        /// </summary>
+        /// <returns>
+        /// The number of values that were cleared (zero or one).
+        /// </returns>
         private int MaybeResetData()
         {
             bool locked = false;
@@ -511,6 +857,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method clears and discards the dictionary of named values held
+        /// by this instance, if any.
+        /// </summary>
+        /// <returns>
+        /// The number of named values that were present before the dictionary
+        /// was cleared.
+        /// </returns>
         private int MaybeClearAndResetDictionary()
         {
             bool locked = false;
@@ -541,6 +895,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a copy of the dictionary of named values held by
+        /// this instance, or null if there is none.
+        /// </summary>
+        /// <returns>
+        /// A new dictionary containing a copy of the named values, or null if
+        /// this instance has no dictionary.
+        /// </returns>
         private AnyDictionary CopyOrNullDictionary()
         {
             bool locked = false;
@@ -562,6 +924,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method returns a copy of the dictionary of named values held by
+        /// this instance, or a new, empty dictionary if there is none.
+        /// </summary>
+        /// <returns>
+        /// A new dictionary containing a copy of the named values, or a new,
+        /// empty dictionary if this instance has no dictionary.
+        /// </returns>
         private AnyDictionary CopyOrNewDictionary()
         {
             bool locked = false;
@@ -583,6 +953,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method ensures the dictionary of named values exists, creating
+        /// it if necessary.  When an instance is supplied, its named values are
+        /// used to seed the new dictionary.
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance whose named values are used to seed the dictionary.
+        /// This parameter may be null.
+        /// </param>
         private void MaybeInitialize(
             IAnyClientData anyClientData /* in: OPTIONAL */
             )
@@ -615,7 +994,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetClientData / ISetClientData Members
+        /// <summary>
+        /// The client data associated with this instance.
+        /// </summary>
         private IClientData clientData;
+
+        /// <summary>
+        /// Gets or sets the client data associated with this instance.
+        /// </summary>
         public IClientData ClientData
         {
             get
@@ -663,7 +1049,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IHaveCultureInfo Members
+        /// <summary>
+        /// The culture associated with this instance.
+        /// </summary>
         private CultureInfo cultureInfo;
+
+        /// <summary>
+        /// Gets or sets the culture associated with this instance.
+        /// </summary>
         public CultureInfo CultureInfo
         {
             get
@@ -693,7 +1086,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IGetInterpreter / ISetInterpreter Members
+        /// <summary>
+        /// The interpreter associated with this instance.
+        /// </summary>
         private Interpreter interpreter;
+
+        /// <summary>
+        /// Gets or sets the interpreter associated with this instance.
+        /// </summary>
         public Interpreter Interpreter
         {
             get
@@ -741,6 +1141,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISynchronizeBase Members
+        /// <summary>
+        /// Gets the object used to synchronize access to this instance.
+        /// </summary>
         public object SyncRoot
         {
             get { CheckDisposed(); return GetSyncRoot(); }
@@ -750,6 +1153,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ISynchronize Members
+        /// <summary>
+        /// This method attempts to acquire the instance lock without waiting.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         public virtual void TryLock(
             ref bool locked /* out */
             )
@@ -761,6 +1171,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the instance lock, waiting up to the
+        /// configured wait-lock timeout.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         public void TryLockWithWait(
             ref bool locked
             )
@@ -772,6 +1190,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the instance lock without waiting and
+        /// without checking whether this instance has been disposed.
+        /// </summary>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         public void TryLockNoThrow(
             ref bool locked
             )
@@ -783,6 +1209,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attempts to acquire the instance lock, waiting up to the
+        /// specified timeout.
+        /// </summary>
+        /// <param name="timeout">
+        /// The maximum number of milliseconds to wait for the lock.
+        /// </param>
+        /// <param name="locked">
+        /// Upon return, this parameter will be non-zero if the lock was
+        /// acquired.
+        /// </param>
         public virtual void TryLock(
             int timeout,    /* in */
             ref bool locked /* out */
@@ -795,6 +1232,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method releases the instance lock if it is currently held.
+        /// </summary>
+        /// <param name="locked">
+        /// On input, non-zero if the lock is held.  Upon return, this parameter
+        /// will be false if the lock was released.
+        /// </param>
         public virtual void ExitLock(
             ref bool locked /* in, out */
             )
@@ -808,6 +1252,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyDataBase Members
+        /// <summary>
+        /// This method removes all named values held by this instance.
+        /// </summary>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the named values were reset; otherwise, false.
+        /// </returns>
         public virtual bool TryResetAny(
             ref Result error /* out */
             )
@@ -848,6 +1301,23 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a named value is present.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to check for.
+        /// </param>
+        /// <param name="hasAny">
+        /// Upon success, this parameter will be non-zero if the named value is
+        /// present.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the presence of the named value was determined; otherwise,
+        /// false.
+        /// </returns>
         public virtual bool TryHasAny(
             string name,     /* in */
             ref bool hasAny, /* out */
@@ -895,6 +1365,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method lists the names of the values held by this instance,
+        /// optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to filter the names.  This parameter may be
+        /// null to match all names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <param name="list">
+        /// Upon success, this parameter will receive the list of matching names.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the names were listed; otherwise, false.
+        /// </returns>
         public virtual bool TryListAny(
             string pattern,         /* in */
             bool noCase,            /* in */
@@ -947,6 +1437,22 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an object.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the value.  Upon failure,
+        /// it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetAny(
             string name,      /* in */
             out object value, /* out */
@@ -1001,6 +1507,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets a named value, honoring the supplied overwrite and
+        /// create options.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to set.  This parameter may be null.
+        /// </param>
+        /// <param name="overwrite">
+        /// Non-zero if an existing value with the same name may be overwritten.
+        /// </param>
+        /// <param name="create">
+        /// Non-zero if the value may be created when it does not already exist.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the value should be coerced to its string form.  This
+        /// parameter is not used.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was set; otherwise, false.
+        /// </returns>
         public virtual bool TrySetAny(
             string name,     /* in */
             object value,    /* in */
@@ -1070,6 +1602,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a named value.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to remove.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was removed; otherwise, false.
+        /// </returns>
         public virtual bool TryUnsetAny(
             string name,     /* in */
             ref Result error /* out */
@@ -1125,6 +1669,12 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyData Members
+        /// <summary>
+        /// This method removes all named values held by this instance.
+        /// </summary>
+        /// <returns>
+        /// True if the named values were reset; otherwise, false.
+        /// </returns>
         public bool TryResetAny()
         {
             CheckDisposed();
@@ -1137,6 +1687,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method determines whether a named value is present.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to check for.
+        /// </param>
+        /// <returns>
+        /// True if the named value is present; otherwise, false.
+        /// </returns>
         public bool HasAny(
             string name /* in */
             )
@@ -1154,6 +1713,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an object.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the value.  Upon failure,
+        /// it will be null.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public bool TryGetAny(
             string name,     /* in */
             out object value /* out */
@@ -1168,6 +1740,19 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method sets a named value using the default overwrite, create,
+        /// and string-coercion options.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to set.
+        /// </param>
+        /// <param name="value">
+        /// The value to set.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if the value was set; otherwise, false.
+        /// </returns>
         public bool TrySetAny(
             string name, /* in */
             object value /* in */
@@ -1185,6 +1770,15 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method removes a named value.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to remove.
+        /// </param>
+        /// <returns>
+        /// True if the value was removed; otherwise, false.
+        /// </returns>
         public bool TryUnsetAny(
             string name /* in */
             )
@@ -1201,6 +1795,26 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyValueTypeData Members
+        /// <summary>
+        /// This method gets a named value as a boolean.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a boolean.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the boolean value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetBoolean(
             string name,     /* in */
             bool toString,   /* in */
@@ -1253,6 +1867,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a nullable boolean.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a nullable boolean.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the nullable boolean value.
+        /// Upon failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetNullableBoolean(
             string name,     /* in */
             bool toString,   /* in */
@@ -1305,6 +1939,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a signed byte.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a signed byte.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the signed byte value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetSignedByte(
             string name,     /* in */
             bool toString,   /* in */
@@ -1357,6 +2011,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a byte.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a byte.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the byte value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetByte(
             string name,     /* in */
             bool toString,   /* in */
@@ -1409,6 +2083,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a narrow (16-bit) integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a narrow integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the narrow integer value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetNarrowInteger(
             string name,     /* in */
             bool toString,   /* in */
@@ -1461,6 +2155,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an unsigned narrow (16-bit)
+        /// integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an unsigned narrow integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the unsigned narrow integer
+        /// value.  Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetUnsignedNarrowInteger(
             string name,      /* in */
             bool toString,    /* in */
@@ -1514,6 +2229,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a character.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a character.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the character value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetCharacter(
             string name,     /* in */
             bool toString,   /* in */
@@ -1566,6 +2301,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a 32-bit integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the integer value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetInteger(
             string name,     /* in */
             bool toString,   /* in */
@@ -1618,6 +2373,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an unsigned 32-bit integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an unsigned integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the unsigned integer value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetUnsignedInteger(
             string name,     /* in */
             bool toString,   /* in */
@@ -1670,6 +2445,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a wide (64-bit) integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a wide integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the wide integer value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetWideInteger(
             string name,     /* in */
             bool toString,   /* in */
@@ -1722,6 +2517,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an unsigned wide (64-bit) integer.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an unsigned wide integer.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the unsigned wide integer
+        /// value.  Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetUnsignedWideInteger(
             string name,     /* in */
             bool toString,   /* in */
@@ -1775,6 +2590,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a decimal.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a decimal.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the decimal value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetDecimal(
             string name,       /* in */
             bool toString,     /* in */
@@ -1827,6 +2662,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a single-precision floating-point
+        /// number.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a single-precision floating-point number.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the single-precision value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetSingle(
             string name,     /* in */
             bool toString,   /* in */
@@ -1879,6 +2735,27 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a double-precision floating-point
+        /// number.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a double-precision floating-point number.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the double-precision value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetDouble(
             string name,      /* in */
             bool toString,    /* in */
@@ -1931,6 +2808,36 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a date and time.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="format">
+        /// The format used to parse the value from its string form.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="kind">
+        /// The kind of date and time to assume when parsing the value.
+        /// </param>
+        /// <param name="styles">
+        /// The styles used to control parsing of the value.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a date and time.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the date and time value.
+        /// Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetDateTime(
             string name,           /* in */
             string format,         /* in */
@@ -1987,6 +2894,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a time span.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a time span.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the time span value.  Upon
+        /// failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetTimeSpan(
             string name,        /* in */
             bool toString,      /* in */
@@ -2039,6 +2966,34 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an enumerated value of the
+        /// specified type.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when parsing flags-style enumerated values.
+        /// This parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="enumType">
+        /// The enumerated type that the value should be returned as.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already of the requested enumerated type.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the enumerated value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetEnum(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -2118,6 +3073,22 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyTypeData Members
+        /// <summary>
+        /// This method gets a named value as client data.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the client data value.
+        /// Upon failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetClientData(
             string name,           /* in */
             out IClientData value, /* out */
@@ -2151,6 +3122,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a string.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced to its string form when
+        /// it is not already a string.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the string value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetString(
             string name,      /* in */
             bool toString,    /* in */
@@ -2191,6 +3182,32 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a string list, parsing it as a list
+        /// when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when parsing the value as a list.  This
+        /// parameter may be null.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced to its string form, and
+        /// then parsed as a list, when it is not already a string list or a
+        /// string.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the string list value.
+        /// Upon failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetStringList(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -2252,6 +3269,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a globally unique identifier.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a globally unique identifier.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the globally unique
+        /// identifier value.  Upon failure, it will be the default value.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetGuid(
             string name,     /* in */
             bool toString,   /* in */
@@ -2304,6 +3341,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a uniform resource identifier.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="uriKind">
+        /// The kind of uniform resource identifier to require when parsing the
+        /// value.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a uniform resource identifier.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the uniform resource
+        /// identifier value.  Upon failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetUri(
             string name,     /* in */
             UriKind uriKind, /* in */
@@ -2357,6 +3418,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a version.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a version.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the version value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetVersion(
             string name,       /* in */
             bool toString,     /* in */
@@ -2409,6 +3490,30 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an interpreter.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter to use when resolving the value.  This parameter may
+        /// be null.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an interpreter.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the interpreter value.
+        /// Upon failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetInterpreter(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -2461,6 +3566,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a plugin, resolving it by assembly
+        /// name within the specified interpreter when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the plugin.  This parameter is
+        /// required when the value must be resolved from its string form.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a plugin.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the plugin value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetPlugin(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -2531,6 +3661,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a rule set, creating it from its
+        /// string form when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the rule set.  This parameter is
+        /// required when the value must be created from its string form.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a rule set.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the rule set value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetRuleSet(
             Interpreter interpreter,
             string name,
@@ -2586,6 +3741,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an opaque object handle, resolving
+        /// it within the specified interpreter when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the object.  This parameter is
+        /// required when the value must be resolved from its string form.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an object handle.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the object value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetObject(
             Interpreter interpreter, /* in */
             string name,             /* in */
@@ -2646,6 +3826,31 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as an encoding, resolving it within
+        /// the specified interpreter, or globally, when necessary.
+        /// </summary>
+        /// <param name="interpreter">
+        /// The interpreter used to resolve the encoding.  This parameter may be
+        /// null, in which case the encoding is resolved globally.
+        /// </param>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already an encoding.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the encoding value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetEncoding(
             Interpreter interpreter, /* in: OPTIONAL */
             string name,             /* in */
@@ -2712,6 +3917,26 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method gets a named value as a byte array.
+        /// </summary>
+        /// <param name="name">
+        /// The name of the value to get.
+        /// </param>
+        /// <param name="toString">
+        /// Non-zero if the stored value may be coerced from its string form when
+        /// it is not already a byte array.
+        /// </param>
+        /// <param name="value">
+        /// Upon success, this parameter will receive the byte array value.  Upon
+        /// failure, it will be null.
+        /// </param>
+        /// <param name="error">
+        /// Upon failure, this parameter will receive an error message.
+        /// </param>
+        /// <returns>
+        /// True if the value was retrieved; otherwise, false.
+        /// </returns>
         public virtual bool TryGetByteArray(
             string name,      /* in */
             bool toString,    /* in */
@@ -2766,6 +3991,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IAnyClientData Members
+        /// <summary>
+        /// Gets the instance to which this instance is currently attached, or
+        /// null if it is not attached to another instance.
+        /// </summary>
         public IAnyClientData Attached
         {
             get
@@ -2791,6 +4020,11 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets the root instance reached by following the chain of attached
+        /// instances, or this instance if it is not attached to another
+        /// instance.
+        /// </summary>
         public IAnyClientData Root
         {
             get
@@ -2825,6 +4059,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method attaches this instance to the specified instance so that
+        /// the two share the same synchronization root and operations are
+        /// delegated to the attached instance.
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance to attach to.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if this instance was attached; otherwise, false.
+        /// </returns>
         public bool AttachTo(
             IAnyClientData anyClientData /* in */
             )
@@ -2892,6 +4137,17 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method detaches this instance from the specified instance,
+        /// restoring its original synchronization root.
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance to detach from, which must be the instance currently
+        /// attached.  This parameter may be null.
+        /// </param>
+        /// <returns>
+        /// True if this instance was detached; otherwise, false.
+        /// </returns>
         public bool DetachFrom(
             IAnyClientData anyClientData /* in */
             )
@@ -2959,6 +4215,18 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method replaces the wrapped value and named values of this
+        /// instance with those of the specified instance.  When a null instance
+        /// is supplied, the wrapped value and named values are cleared.
+        /// </summary>
+        /// <param name="anyClientData">
+        /// The instance whose value and named values are copied.  This parameter
+        /// may be null.
+        /// </param>
+        /// <returns>
+        /// The number of values that were replaced or cleared.
+        /// </returns>
         public int ReplaceData(
             IAnyClientData anyClientData /* in */
             )
@@ -3024,6 +4292,13 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list representation of the named values held
+        /// by this instance.
+        /// </summary>
+        /// <returns>
+        /// A list of name and value pairs.
+        /// </returns>
         public IStringList ToList()
         {
             CheckDisposed();
@@ -3033,6 +4308,20 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list representation of the named values held
+        /// by this instance, optionally filtered by a pattern.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to filter the names.  This parameter may be
+        /// null to match all names.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// A list of name and value pairs.
+        /// </returns>
         public IStringList ToList(
             string pattern,
             bool noCase
@@ -3045,6 +4334,24 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method produces a list representation of the named values held
+        /// by this instance, optionally filtered by a pattern and optionally
+        /// including values that are null.
+        /// </summary>
+        /// <param name="pattern">
+        /// The glob pattern used to filter the names.  This parameter may be
+        /// null to match all names.
+        /// </param>
+        /// <param name="empty">
+        /// Non-zero if named values whose value is null should be included.
+        /// </param>
+        /// <param name="noCase">
+        /// Non-zero if pattern matching should be case-insensitive.
+        /// </param>
+        /// <returns>
+        /// A list of name and value pairs.
+        /// </returns>
         public virtual IStringList ToList(
             string pattern,
             bool empty,
@@ -3099,6 +4406,13 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region System.Object Overrides
+        /// <summary>
+        /// This method returns the string representation of this instance, based
+        /// on the list of its named values.
+        /// </summary>
+        /// <returns>
+        /// The string representation of this instance.
+        /// </returns>
         public override string ToString()
         {
             CheckDisposed();
@@ -3110,6 +4424,14 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region ICloneable Members
+        /// <summary>
+        /// This method creates a new instance that is a copy of this instance,
+        /// including its interpreter, client data, culture, named values, and
+        /// wrapped value.
+        /// </summary>
+        /// <returns>
+        /// The newly created copy of this instance.
+        /// </returns>
         public virtual object Clone()
         {
             CheckDisposed();
@@ -3138,6 +4460,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IMaybeDisposed Members
+        /// <summary>
+        /// Gets a value indicating whether this instance has been disposed.
+        /// </summary>
         public bool Disposed
         {
             get
@@ -3150,6 +4475,10 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Gets a value indicating whether this instance is in the process of
+        /// being disposed.  This member is not supported by this class.
+        /// </summary>
         public bool Disposing
         {
             get
@@ -3164,7 +4493,15 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable "Pattern" Members
+        /// <summary>
+        /// Non-zero if this instance has been disposed.
+        /// </summary>
         private bool disposed;
+
+        /// <summary>
+        /// This method throws an exception if this instance has been disposed
+        /// and the interpreter is configured to throw on disposed objects.
+        /// </summary>
         private void CheckDisposed() /* throw */
         {
 #if THROW_ON_DISPOSED
@@ -3179,6 +4516,14 @@ namespace Eagle._Components.Public
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method disposes of the resources used by this instance.
+        /// </summary>
+        /// <param name="disposing">
+        /// Non-zero if this method is being called from the public
+        /// <c>Dispose</c> method (rather than from the finalizer), in which case
+        /// managed resources may also be released.
+        /// </param>
         protected virtual void Dispose(
             bool disposing /* in */
             )
@@ -3245,6 +4590,10 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region IDisposable Members
+        /// <summary>
+        /// This method disposes of the resources used by this instance and
+        /// suppresses finalization.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
@@ -3255,6 +4604,9 @@ namespace Eagle._Components.Public
         ///////////////////////////////////////////////////////////////////////
 
         #region Destructor
+        /// <summary>
+        /// Finalizes this instance, releasing any unmanaged resources.
+        /// </summary>
         ~AnyClientData()
         {
             Dispose(false);

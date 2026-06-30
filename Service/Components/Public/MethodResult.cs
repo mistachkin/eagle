@@ -18,6 +18,11 @@ using Eagle._Components.Public;
 
 namespace Eagle._Services
 {
+    /// <summary>
+    /// This class represents the result of a service method invocation, bundling
+    /// together the return code, the result string, and the error line (if any)
+    /// produced by the operation.
+    /// </summary>
 #if SERIALIZATION
     [Serializable()]
 #endif
@@ -25,6 +30,10 @@ namespace Eagle._Services
     public sealed class MethodResult
     {
         #region Public Constructors
+        /// <summary>
+        /// Constructs an instance of this class representing a successful result
+        /// (i.e. with a return code of <see cref="ReturnCode.Ok" />).
+        /// </summary>
         public MethodResult()
             : this(ReturnCode.Ok)
         {
@@ -33,6 +42,13 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified return code
+        /// and no result string.
+        /// </summary>
+        /// <param name="returnCode">
+        /// The return code produced by the method invocation.
+        /// </param>
         public MethodResult(
             ReturnCode returnCode
             )
@@ -43,6 +59,16 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified return code
+        /// and result string.
+        /// </summary>
+        /// <param name="returnCode">
+        /// The return code produced by the method invocation.
+        /// </param>
+        /// <param name="result">
+        /// The result or error string produced by the method invocation.
+        /// </param>
         public MethodResult(
             ReturnCode returnCode,
             string result
@@ -54,6 +80,20 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Constructs an instance of this class with the specified return code,
+        /// result string, and error line number.
+        /// </summary>
+        /// <param name="returnCode">
+        /// The return code produced by the method invocation.
+        /// </param>
+        /// <param name="result">
+        /// The result or error string produced by the method invocation.
+        /// </param>
+        /// <param name="errorLine">
+        /// The line number where an error occurred, or zero if there was no
+        /// error.
+        /// </param>
         public MethodResult(
             ReturnCode returnCode,
             string result,
@@ -69,7 +109,13 @@ namespace Eagle._Services
         ///////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// Stores the return code produced by the method invocation.
+        /// </summary>
         private ReturnCode returnCode;
+        /// <summary>
+        /// Gets or sets the return code produced by the method invocation.
+        /// </summary>
         public ReturnCode ReturnCode
         {
             get { return returnCode; }
@@ -78,7 +124,14 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the result or error string produced by the method invocation.
+        /// </summary>
         private string result;
+        /// <summary>
+        /// Gets or sets the result or error string produced by the method
+        /// invocation.
+        /// </summary>
         public string Result
         {
             get { return result; }
@@ -87,7 +140,15 @@ namespace Eagle._Services
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// Stores the line number where an error occurred, or zero if there was
+        /// no error.
+        /// </summary>
         private int errorLine;
+        /// <summary>
+        /// Gets or sets the line number where an error occurred, or zero if there
+        /// was no error.
+        /// </summary>
         public int ErrorLine
         {
             get { return errorLine; }

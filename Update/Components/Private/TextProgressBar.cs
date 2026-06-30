@@ -16,16 +16,27 @@ using System.Windows.Forms;
 
 namespace Eagle._Controls.Private
 {
+    /// <summary>
+    /// This class implements a progress bar control that is able to draw a
+    /// textual caption centered over the progress bar.
+    /// </summary>
     [Guid("ad5bffd9-b0a6-4a21-8313-a9ed8bd80cd0")]
     internal sealed class TextProgressBar : ProgressBar
     {
         #region Private Constants
+        /// <summary>
+        /// The Windows message identifier for a paint request.
+        /// </summary>
         private const int WM_PAINT = 0x000F;
         #endregion
 
         ///////////////////////////////////////////////////////////////////////////
 
         #region System.Windows.Forms.Control Overrides
+        /// <summary>
+        /// Gets or sets the text associated with this control.  Setting this
+        /// property forces an immediate repaint so the new text is displayed.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Always)]
         [Browsable(true)]
         public override string Text
@@ -43,6 +54,13 @@ namespace Eagle._Controls.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method paints the background of the control.  It is overridden
+        /// to do nothing in order to help prevent flicker.
+        /// </summary>
+        /// <param name="pevent">
+        /// The data for the paint event.
+        /// </param>
         protected override void OnPaintBackground(
             PaintEventArgs pevent
             )
@@ -54,6 +72,14 @@ namespace Eagle._Controls.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// This method processes Windows messages for this control.  When a
+        /// paint message is handled, it draws the configured text centered
+        /// over the progress bar.
+        /// </summary>
+        /// <param name="message">
+        /// The Windows message to be processed.
+        /// </param>
         protected override void WndProc(
             ref Message message
             )
@@ -129,7 +155,15 @@ namespace Eagle._Controls.Private
         ///////////////////////////////////////////////////////////////////////////
 
         #region Public Properties
+        /// <summary>
+        /// The backing field for the <see cref="TextColor" /> property.
+        /// </summary>
         private Color textColor;
+
+        /// <summary>
+        /// Gets or sets the text color of this component, which is used to
+        /// display the progress bar text.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Always)]
         [Browsable(true)]
         [Category("Appearance")]
@@ -143,7 +177,15 @@ namespace Eagle._Controls.Private
 
         ///////////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The backing field for the <see cref="ShowTextForZero" /> property.
+        /// </summary>
         private bool showTextForZero;
+
+        /// <summary>
+        /// Gets or sets a value indicating whether the text will be displayed
+        /// when the value of this control is zero.
+        /// </summary>
         [EditorBrowsable(EditorBrowsableState.Always)]
         [Browsable(true)]
         [Category("Appearance")]

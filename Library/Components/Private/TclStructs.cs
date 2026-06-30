@@ -17,6 +17,12 @@ using Eagle._Components.Private.Tcl.Delegates;
 namespace Eagle._Components.Private.Tcl
 {
     #region Tcl Object Type
+    /// <summary>
+    /// This class represents the native Tcl_ObjType structure, which describes
+    /// an object type known to the Tcl library.  It holds the type name along
+    /// with the set of function pointers used to manage the internal
+    /// representation of objects of that type.
+    /// </summary>
     [StructLayout(LayoutKind.Sequential)]
     [ObjectId("acd575c7-a753-4bdf-bedb-73307ee1f6af")]
 #if TCL_WRAPPER
@@ -30,6 +36,10 @@ namespace Eagle._Components.Private.Tcl
         // The name member describes the name of the type, e.g. int. Extension writers
         // can look up an object type using its name with the Tcl_GetObjType procedure.
         //
+        /// <summary>
+        /// The name of the type, e.g. int.  Extension writers can look up an
+        /// object type using its name with the Tcl_GetObjType procedure.
+        /// </summary>
         public IntPtr name;
 
         ///////////////////////////////////////////////////////////////////////////////////////////
@@ -49,6 +59,13 @@ namespace Eagle._Components.Private.Tcl
         // freeIntRepProc member can be set to NULL to indicate that the internal
         // representation does not require freeing.
         //
+        /// <summary>
+        /// The address of a function that is called when an object is freed, in
+        /// order to deallocate the storage for the object's internal
+        /// representation and perform any other type-specific processing; it
+        /// may be null to indicate that the internal representation does not
+        /// require freeing.
+        /// </summary>
         [MarshalAs(UnmanagedType.FunctionPtr)]
         public Tcl_FreeInternalRepProc freeIntRepProc;
         #endregion
@@ -69,6 +86,11 @@ namespace Eagle._Components.Private.Tcl
         // original element objects; the elements are shared between the two lists (and
         // their reference counts are incremented to reflect the new references).
         //
+        /// <summary>
+        /// The address of a function called to copy an internal representation
+        /// from one object to another.  What copying the internal
+        /// representation means is determined by the object type.
+        /// </summary>
         [MarshalAs(UnmanagedType.FunctionPtr)]
         public Tcl_DupInternalRepProc dupIntRepProc;
         #endregion
@@ -93,6 +115,12 @@ namespace Eagle._Components.Private.Tcl
         // a string with proper Tcl list structure. It stores this string as the list
         // object's string representation.
         //
+        /// <summary>
+        /// The address of a function called to create a valid string
+        /// representation from an object's internal representation.  It must
+        /// always set the object's bytes member non-null, terminated by a null
+        /// byte, before returning.
+        /// </summary>
         [MarshalAs(UnmanagedType.FunctionPtr)]
         public Tcl_UpdateStringProc updateStringProc;
         #endregion
@@ -120,6 +148,12 @@ namespace Eagle._Components.Private.Tcl
         // Do not release objPtr's old internal representation unless you replace it with
         // a new one or reset the typePtr member to NULL.
         //
+        /// <summary>
+        /// The address of a function called to create a valid internal
+        /// representation from an object's string representation.  On success
+        /// it stores the new internal representation and points the object's
+        /// typePtr member at this type; on failure it reports an error.
+        /// </summary>
         [MarshalAs(UnmanagedType.FunctionPtr)]
         public Tcl_SetFromAnyProc setFromAnyProc;
         #endregion
@@ -130,12 +164,28 @@ namespace Eagle._Components.Private.Tcl
 
     #region Tcl Object /* NON-PORTABLE */
 #if HAVE_SIZEOF
+    /// <summary>
+    /// This class represents the native Tcl_Obj structure, the in-memory form
+    /// of a Tcl value.  It carries a reference count, an optional string
+    /// representation, and a type-specific internal representation laid out as
+    /// an explicit union.  This layout is non-portable and is only available
+    /// when the size of native types can be computed.
+    /// </summary>
     [StructLayout(LayoutKind.Explicit)]
     [ObjectId("6cbb5288-adbd-4f3e-8360-0235a336e3c3")]
     internal sealed class Tcl_Obj
     {
+        /// <summary>
+        /// The reference count of the object; when it reaches zero the object
+        /// will be freed.
+        /// </summary>
         [FieldOffset(0)]
         public int refCount;            /* When 0 the object will be freed. */
+        /// <summary>
+        /// Points to the first byte of the object's string representation, or
+        /// null when the string representation is invalid and must be
+        /// regenerated from the internal representation.
+        /// </summary>
         [FieldOffset(sizeof(int))]
         public IntPtr bytes;            /* This points to the first byte of the
                                          * object's string representation. The array
@@ -148,25 +198,55 @@ namespace Eagle._Components.Private.Tcl
                                          * Clients should use Tcl_GetStringFromObj
                                          * or Tcl_GetString to get a pointer to the
                                          * byte array as a readonly value. */
+        /// <summary>
+        /// The number of bytes at the location referenced by the bytes member,
+        /// not including the terminating null.
+        /// </summary>
         [FieldOffset(sizeof(int) + Build.SizeOfIntPtr)]
         public int length;              /* The number of bytes at *bytes, not
                                          * including the terminating null. */
+        /// <summary>
+        /// Denotes the object's type; corresponds to the type of the object's
+        /// internal representation, or null when the object has no internal
+        /// representation (has no type).
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + Build.SizeOfIntPtr)]
         public IntPtr typePtr;          /* Denotes the object's type. Always
                                          * corresponds to the type of the object's
                                          * internal rep. NULL indicates the object
                                          * has no internal rep (has no type). */
         /* union {                       * The internal representation: */
+        /// <summary>
+        /// The internal representation as a long integer value (at least
+        /// 32 bits wide).
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2))]
         public int longValue;           /* - an long integer value (>= 32-bits)*/
+        /// <summary>
+        /// The internal representation as a double-precision floating point
+        /// value.
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2))]
         public double doubleValue;      /* - a double-precision floating value */
+        /// <summary>
+        /// The internal representation as another, type-specific value.
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2))]
         public IntPtr otherValuePtr;    /* - another, type-specific value */
+        /// <summary>
+        /// The internal representation as a long long value (at least 64 bits
+        /// wide).
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2))]
         public long wideValue;          /* - a long long value (>= 64-bits) */
+        /// <summary>
+        /// The first of two pointers comprising the internal representation.
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2))]
         IntPtr ptr1;                    /* - internal rep as two pointers */
+        /// <summary>
+        /// The second of two pointers comprising the internal representation.
+        /// </summary>
         [FieldOffset((sizeof(int) * 2) + (Build.SizeOfIntPtr * 2) + sizeof(long))]
         IntPtr ptr2;
         /* } internalRep;               /* End of internal representation. */

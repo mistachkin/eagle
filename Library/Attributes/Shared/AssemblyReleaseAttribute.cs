@@ -17,6 +17,10 @@ using System.Runtime.InteropServices;
 
 namespace Eagle._Attributes
 {
+    /// <summary>
+    /// This class implements a custom attribute used to mark an assembly with
+    /// the release identifier string it was built for.
+    /// </summary>
     [AttributeUsage(AttributeTargets.Assembly, Inherited = false)]
 #if EAGLE
     [ObjectId("1dbec2ac-950c-4201-9c4a-d0a7d173be1f")]
@@ -25,6 +29,13 @@ namespace Eagle._Attributes
 #endif
     public sealed class AssemblyReleaseAttribute : Attribute
     {
+        /// <summary>
+        /// Constructs an instance of this class, recording the specified
+        /// release identifier value.
+        /// </summary>
+        /// <param name="value">
+        /// The release identifier string to associate with the assembly.
+        /// </param>
         public AssemblyReleaseAttribute(
             string value
             )
@@ -34,7 +45,14 @@ namespace Eagle._Attributes
 
         ///////////////////////////////////////////////////////////////////////
 
+        /// <summary>
+        /// The release identifier string associated with the assembly.
+        /// </summary>
         private string release;
+
+        /// <summary>
+        /// Gets the release identifier string associated with the assembly.
+        /// </summary>
         public string Release
         {
             get { return release; }
